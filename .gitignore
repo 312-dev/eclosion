@@ -1,0 +1,27 @@
+.mm
+__pycache__
+monarchmoney
+
+# Logs
+*.log
+logs/
+
+# Sensitive files
+.env
+.env.*
+.venv
+*.pem
+*.key
+secrets.json
+credentials.json
+
+# State files
+state/tracker_state.json
+state/credentials.json
+
+# Frontend
+frontend/node_modules
+frontend/dist
+
+# Static build output (copied from frontend/dist in Docker)
+static/

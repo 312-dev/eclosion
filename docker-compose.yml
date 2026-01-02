@@ -1,0 +1,49 @@
+# Eclosion for Monarch - Docker Compose for Self-Hosting
+# Your budgeting, evolved. A toolkit for Monarch Money.
+#
+# Quick Start:
+#   docker compose up -d
+#
+# Then open http://localhost:5001 in your browser.
+#
+# Data is persisted in a Docker volume. To back up:
+#   docker compose cp eclosion:/app/state ./backup
+#
+# To update to the latest version:
+#   docker compose pull
+#   docker compose up -d
+
+services:
+  eclosion:
+    build: .
+    # Or use a pre-built image (uncomment when published):
+    # image: ghcr.io/graysonadams/eclosion:latest
+    container_name: eclosion
+    restart: unless-stopped
+    ports:
+      - "5001:5001"
+    volumes:
+      - eclosion_data:/app/state
+    environment:
+      # REQUIRED: Set a secret access code to protect your instance
+      # Generate one with: openssl rand -hex 16
+      # Access your instance at: http://localhost:5001?secret=YOUR_SECRET
+      INSTANCE_SECRET: "${INSTANCE_SECRET}"
+
+      # Timezone (optional)
+      TZ: "America/New_York"
+
+      # Optional: Pre-configure credentials (use web UI instead for security)
+      # MONARCH_MONEY_EMAIL: ""
+      # MONARCH_MONEY_PASSWORD: ""
+      # MFA_SECRET_KEY: ""
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  eclosion_data:
+    name: eclosion_data
