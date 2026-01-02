@@ -1,0 +1,281 @@
+/**
+ * Recurring Tab
+ *
+ * Main tab for managing recurring expenses.
+ * Shows setup wizard if not configured, otherwise shows RollupZone, RecurringList, and ReadyToAssign sidebar.
+ */
+
+import { useState, useMemo } from 'react';
+import { ExternalLink } from 'lucide-react';
+import { RollupZone } from '../RollupZone';
+import { RecurringList } from '../RecurringList';
+import { ReadyToAssign, BurndownChart, calculateBurndownData } from '../ReadyToAssign';
+import { formatCurrency } from '../../utils';
+import { RecurringSetupWizard } from '../wizards/RecurringSetupWizard';
+import {
+  useDashboardQuery,
+  useSyncMutation,
+  useRemoveFromRollupMutation,
+  useSetRollupBudgetMutation,
+  useUpdateRollupEmojiMutation,
+  useUpdateRollupNameMutation,
+} from '../../api/queries';
+import { useToast } from '../../context/ToastContext';
+import { usePageTitle } from '../../hooks';
+import { RateLimitError } from '../../api/client';
+import type { SyncResult } from '../../types';
+
+// Helper to format error messages for toasts
+function formatErrorMessage(err: unknown, fallback: string): string {
+  if (err instanceof RateLimitError) {
+    return `Monarch Money API rate limit reached. Please wait ${err.retryAfter}s.`;
+  }
+  return err instanceof Error ? err.message : fallback;
+}
+
+export function RecurringTab() {
+  const [syncResult, setSyncResult] = useState<SyncResult | null>(null);
+  const toast = useToast();
+
+  // All hooks must be called before any early returns
+  const { data, refetch, isLoading } = useDashboardQuery();
+
+  // Set page title with user's first name
+  usePageTitle('Recurring', data?.config.user_first_name);
+  const syncMutation = useSyncMutation();
+  const removeFromRollupMutation = useRemoveFromRollupMutation();
+  const rollupBudgetMutation = useSetRollupBudgetMutation();
+  const rollupEmojiMutation = useUpdateRollupEmojiMutation();
+  const rollupNameMutation = useUpdateRollupNameMutation();
+
+  // Check if recurring is configured (has a target group set)
+  const isConfigured = data?.config.target_group_id != null;
+
+  // Calculate burndown data for the chart (must be before early returns)
+  const currentMonthlyCost = data?.summary.total_monthly_contribution ?? 0;
+  const lowestMonthlyCost = data?.items
+    .filter(i => i.is_enabled)
+    .reduce((sum, item) => sum + item.ideal_monthly_rate, 0) ?? 0;
+  const burndownData = useMemo(
+    () => data ? calculateBurndownData(data.items, currentMonthlyCost, lowestMonthlyCost) : [],
+    [data, currentMonthlyCost, lowestMonthlyCost]
+  );
+
+  // Watch for sync mutation results
+  if (syncMutation.data && !syncResult) {
+    setSyncResult(syncMutation.data);
+  }
+
+  const handleRemoveFromRollup = async (itemId: string) => {
+    try {
+      await removeFromRollupMutation.mutateAsync(itemId);
+      toast.success('Removed from rollup');
+    } catch (err) {
+      toast.error(formatErrorMessage(err, 'Failed to remove from rollup'));
+    }
+  };
+
+  const handleRollupBudgetChange = async (amount: number) => {
+    try {
+      await rollupBudgetMutation.mutateAsync(amount);
+      toast.success('Budget updated');
+    } catch (err) {
+      toast.error(formatErrorMessage(err, 'Failed to update rollup budget'));
+    }
+  };
+
+  const handleRollupEmojiChange = async (emoji: string) => {
+    try {
+      await rollupEmojiMutation.mutateAsync(emoji);
+      toast.success('Emoji updated');
+    } catch (err) {
+      toast.error(formatErrorMessage(err, 'Failed to update emoji'));
+    }
+  };
+
+  const handleRollupNameChange = async (name: string) => {
+    try {
+      await rollupNameMutation.mutateAsync(name);
+      toast.success('Name updated');
+    } catch (err) {
+      toast.error(formatErrorMessage(err, 'Failed to update name'));
+    }
+  };
+
+  const handleRefresh = () => {
+    refetch();
+  };
+
+  // Show loading state while checking configuration
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div style={{ color: 'var(--monarch-text-muted)' }}>Loading...</div>
+      </div>
+    );
+  }
+
+  // Show setup wizard if not configured
+  if (!isConfigured) {
+    return <RecurringSetupWizard onComplete={() => refetch()} />;
+  }
+
+  if (!data) {
+    return null;
+  }
+
+  return (
+    <div className="recurring-tab-layout">
+      {/* Main content area */}
+      <div className="recurring-tab-content">
+        {/* Horizontal tabs */}
+        <div
+          className="flex items-center gap-1 mb-4 border-b"
+          style={{ borderColor: 'var(--monarch-border)' }}
+        >
+          <button
+            className="px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors"
+            style={{
+              color: 'var(--monarch-orange)',
+              borderColor: 'var(--monarch-orange)',
+            }}
+          >
+            Recurring Categories
+          </button>
+          <a
+            href="https://app.monarchmoney.com/recurring/all"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-1.5"
+            style={{
+              color: 'var(--monarch-text-muted)',
+              borderColor: 'transparent',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = 'var(--monarch-text-dark)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = 'var(--monarch-text-muted)';
+            }}
+          >
+            All Recurring
+            <ExternalLink size={14} />
+          </a>
+          <a
+            href="https://app.monarchmoney.com/settings/categories"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-1.5"
+            style={{
+              color: 'var(--monarch-text-muted)',
+              borderColor: 'transparent',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = 'var(--monarch-text-dark)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = 'var(--monarch-text-muted)';
+            }}
+          >
+            Category Groups
+            <ExternalLink size={14} />
+          </a>
+        </div>
+
+        {syncResult && (
+          <div
+            className="mb-4 p-3 rounded-lg"
+            style={{
+              backgroundColor: syncResult.success ? 'var(--monarch-success-bg)' : 'var(--monarch-warning-bg)',
+              color: syncResult.success ? 'var(--monarch-success)' : 'var(--monarch-warning)'
+            }}
+          >
+            <div className="flex items-start justify-between">
+              <div>
+                <div className="font-medium">
+                  {syncResult.success ? 'Sync completed!' : 'Sync completed with issues'}
+                </div>
+                <div className="text-sm mt-1">
+                  {syncResult.categories_created > 0 && (
+                    <span className="mr-3">
+                      Created: {syncResult.categories_created}
+                    </span>
+                  )}
+                  {syncResult.categories_updated > 0 && (
+                    <span className="mr-3">
+                      Updated: {syncResult.categories_updated}
+                    </span>
+                  )}
+                  {syncResult.categories_deactivated > 0 && (
+                    <span>Deactivated: {syncResult.categories_deactivated}</span>
+                  )}
+                </div>
+                {syncResult.errors.length > 0 && (
+                  <ul className="text-sm mt-2 list-disc list-inside">
+                    {syncResult.errors.map((err, i) => (
+                      <li key={`error-${i}`}>{err}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <button
+                onClick={() => setSyncResult(null)}
+                className="text-sm underline opacity-70 hover:opacity-100"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Catch-up Burndown Chart */}
+        {burndownData.length >= 2 && (
+          <div
+            className="rounded-xl shadow-sm overflow-hidden mb-4"
+            style={{ backgroundColor: 'var(--monarch-bg-card)', border: '1px solid var(--monarch-border)' }}
+          >
+            <div className="px-5 py-4">
+              <h3 className="text-lg font-semibold mb-1" style={{ color: 'var(--monarch-text-dark)' }}>
+                Monthly Savings Target
+              </h3>
+              <p className="text-sm" style={{ color: 'var(--monarch-text-muted)' }}>
+                Your monthly contribution will decrease as catch-up payments complete
+              </p>
+              <BurndownChart data={burndownData} formatCurrency={formatCurrency} />
+            </div>
+          </div>
+        )}
+
+        <div data-tour="rollup-zone">
+          <RollupZone
+            rollup={data.rollup}
+            onRemoveItem={handleRemoveFromRollup}
+            onBudgetChange={handleRollupBudgetChange}
+            onEmojiChange={handleRollupEmojiChange}
+            onNameChange={handleRollupNameChange}
+          />
+        </div>
+
+        <div data-tour="recurring-list">
+          <RecurringList
+            items={data.items.filter(i => !i.is_in_rollup)}
+            onRefresh={handleRefresh}
+          />
+        </div>
+      </div>
+
+      {/* Desktop: Sticky sidebar on right */}
+      <aside className="stats-sidebar hidden lg:block" data-tour="ready-to-assign">
+        {data.ready_to_assign && (
+          <ReadyToAssign
+            data={data.ready_to_assign}
+            summary={data.summary}
+            items={data.items}
+            rollup={data.rollup}
+            variant="sidebar"
+          />
+        )}
+      </aside>
+    </div>
+  );
+}

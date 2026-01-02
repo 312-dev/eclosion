@@ -1,0 +1,58 @@
+# Version control
+.git
+.gitignore
+
+# Documentation (keep README for reference)
+CHANGELOG.md
+SECURITY.md
+LICENSE
+
+# Development files
+.env
+.env.local
+.env.*.local
+*.log
+api.log
+.session_secret
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+.venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node/Frontend dev (built assets copied from builder stage)
+frontend/node_modules/
+frontend/.vite/
+frontend/dist/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# State files (should be in mounted volume, not baked into image)
+state/tracker_state.json
+state/credentials.json
+
+# Docker
+docker-compose.override.yml
+
+# Claude/AI
+.claude/
+
+# Test files
+tests/
+*.test.py
+*.spec.ts
+*.spec.tsx
