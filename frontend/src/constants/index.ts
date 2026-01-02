@@ -69,6 +69,15 @@ export const UI = {
     SEARCH: 300,
     RESIZE: 150,
   },
+  /** Polling/update intervals */
+  INTERVAL: {
+    SYNC_STATUS: 30000, // 30 seconds - for last sync time display
+    TOUR_CLOSE_CHECK: 100, // Quick check for tour close state
+  },
+  /** Scroll behavior delays */
+  SCROLL: {
+    AFTER_MOUNT: 100, // Delay before scroll after component mount
+  },
 } as const;
 
 // ============================================================================
@@ -98,4 +107,37 @@ export const LAYOUT = {
     DROPDOWN_OFFSET: 4,
     POPOVER_OFFSET: 8,
   },
+} as const;
+
+// ============================================================================
+// Z-Index Hierarchy
+// ============================================================================
+// This creates a clear stacking order for all UI elements.
+// Lower values are below higher values.
+//
+// Hierarchy (lowest to highest):
+// 1. DROPDOWN (10)      - Dropdown menus, select menus
+// 2. STICKY (20)        - Sticky headers, navigation
+// 3. POPOVER (30)       - Popovers, config panels
+// 4. MODAL_BACKDROP (40) - Modal/dialog backdrops (semi-transparent overlay)
+// 5. MODAL (50)         - Modal/dialog content
+// 6. TOAST (60)         - Toast notifications (should appear above modals)
+// 7. TOOLTIP (70)       - Tooltips (should appear above everything)
+// ============================================================================
+
+export const Z_INDEX = {
+  /** Dropdown menus, select menus, action menus */
+  DROPDOWN: 10,
+  /** Sticky headers, navigation bars */
+  STICKY: 20,
+  /** Popovers, config panels, info panels */
+  POPOVER: 30,
+  /** Semi-transparent backdrop behind modals */
+  MODAL_BACKDROP: 40,
+  /** Modal/dialog content */
+  MODAL: 50,
+  /** Toast notifications - above modals */
+  TOAST: 60,
+  /** Tooltips - highest layer, always visible */
+  TOOLTIP: 70,
 } as const;

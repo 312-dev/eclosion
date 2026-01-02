@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { getErrorMessage } from '../utils';
 
 interface AutoSyncSecurityModalProps {
   isOpen: boolean;
@@ -34,7 +35,7 @@ export function AutoSyncSecurityModal({
       await onEnable(interval, passphrase);
       handleClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to enable auto-sync');
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -51,7 +52,7 @@ export function AutoSyncSecurityModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-(--z-index-modal) flex items-center justify-center">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/50 modal-backdrop"
@@ -60,7 +61,7 @@ export function AutoSyncSecurityModal({
 
       {/* Modal */}
       <div
-        className="relative z-10 w-full max-w-lg mx-4 rounded-xl shadow-xl max-h-[90vh] overflow-y-auto modal-content"
+        className="relative w-full max-w-lg mx-4 rounded-xl shadow-xl max-h-[90vh] overflow-y-auto modal-content"
         style={{ backgroundColor: 'var(--monarch-bg-card)', border: '1px solid var(--monarch-border)' }}
       >
         {/* Header */}

@@ -1,8 +1,12 @@
 /**
  * LoadingSpinner Component
  *
- * A consistent loading spinner.
- * Replaces inline SVG spinners throughout the app.
+ * A consistent, accessible loading spinner.
+ * Features:
+ * - Size variants
+ * - Color customization
+ * - Screen reader support
+ * - Replaces inline SVG spinners throughout the app
  */
 
 export interface LoadingSpinnerProps {
@@ -12,6 +16,8 @@ export interface LoadingSpinnerProps {
   color?: string;
   /** Additional CSS classes */
   className?: string;
+  /** Screen reader label (defaults to "Loading") */
+  label?: string;
 }
 
 const SIZE_CLASSES = {
@@ -21,35 +27,50 @@ const SIZE_CLASSES = {
 };
 
 /**
- * A consistent loading spinner component.
+ * A consistent, accessible loading spinner component.
+ *
+ * @example
+ * ```tsx
+ * <LoadingSpinner size="md" />
+ * <LoadingSpinner size="lg" color="var(--monarch-primary)" />
+ * ```
  */
 export function LoadingSpinner({
   size = 'md',
   color = 'currentColor',
   className = '',
+  label = 'Loading',
 }: LoadingSpinnerProps) {
   return (
-    <svg
-      className={`animate-spin ${SIZE_CLASSES[size]} ${className}`}
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-      style={{ color }}
+    <output
+      aria-label={label}
+      aria-live="polite"
+      className={`inline-flex items-center justify-center ${className}`}
     >
-      <circle
-        className="opacity-25"
-        cx="12"
-        cy="12"
-        r="10"
-        stroke="currentColor"
-        strokeWidth="4"
-      />
-      <path
-        className="opacity-75"
-        fill="currentColor"
-        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-      />
-    </svg>
+      <svg
+        className={`animate-spin ${SIZE_CLASSES[size]}`}
+        xmlns="http://www.w3.org/2000/svg"
+        fill="none"
+        viewBox="0 0 24 24"
+        style={{ color }}
+        aria-hidden="true"
+      >
+        <circle
+          className="opacity-25"
+          cx="12"
+          cy="12"
+          r="10"
+          stroke="currentColor"
+          strokeWidth="4"
+        />
+        <path
+          className="opacity-75"
+          fill="currentColor"
+          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+        />
+      </svg>
+      <span className="sr-only">{label}</span>
+    </output>
   );
 }
 
@@ -62,7 +83,7 @@ export function LoadingOverlay({
   message?: string;
 }) {
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50">
+    <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-modal">
       <div
         className="flex flex-col items-center gap-3 p-6 rounded-lg"
         style={{ backgroundColor: 'var(--monarch-bg-card)' }}

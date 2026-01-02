@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { getErrorMessage } from '../utils';
 
 interface CredentialUpdateFormProps {
   /** The passphrase that successfully decrypted the old credentials */
@@ -35,7 +36,7 @@ export function CredentialUpdateForm({ passphrase, onSuccess, onCancel }: Creden
         setError(result.error || 'Failed to update credentials');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update credentials');
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }

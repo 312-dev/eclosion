@@ -47,19 +47,14 @@ export function UpdateBanner() {
         <div className="flex items-center gap-2">
           <button
             onClick={dismissUpdate}
-            className="px-3 py-1 text-sm rounded transition-colors"
-            style={{ backgroundColor: 'rgba(255, 255, 255, 0.1)' }}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)'}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)'}
+            className="px-3 py-1 text-sm rounded hover-bg-white-alpha-10-to-20"
           >
             Later
           </button>
           <button
             onClick={() => setShowChangelog(true)}
-            className="px-3 py-1 text-sm rounded font-medium transition-colors"
-            style={{ backgroundColor: 'white', color: 'var(--monarch-orange)' }}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
+            className="px-3 py-1 text-sm rounded font-medium hover-bg-white-to-gray"
+            style={{ color: 'var(--monarch-orange)' }}
           >
             View Update
           </button>

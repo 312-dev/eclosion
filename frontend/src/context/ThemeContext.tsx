@@ -69,7 +69,7 @@ export function ThemeProvider({ children }: Readonly<{ children: ReactNode }>) {
     root.classList.add(resolvedTheme);
 
     // Also set data attribute for potential CSS selectors
-    root.dataset.theme = resolvedTheme;
+    root.dataset['theme'] = resolvedTheme;
   }, [resolvedTheme]);
 
   const setTheme = useCallback((newTheme: Theme) => {

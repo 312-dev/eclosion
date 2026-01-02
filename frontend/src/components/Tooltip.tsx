@@ -20,7 +20,7 @@ export function Tooltip({ children, content, side = 'top', delayDuration = 200 }
             side={side}
             sideOffset={5}
             collisionPadding={10}
-            className="z-[100] px-2.5 py-1.5 text-xs rounded-md shadow-lg animate-in fade-in-0 zoom-in-95 max-w-75"
+            className="z-tooltip px-2.5 py-1.5 text-xs rounded-md shadow-lg animate-in fade-in-0 zoom-in-95 max-w-75"
             style={{
               backgroundColor: '#1c1917',
               color: '#f5f5f4',

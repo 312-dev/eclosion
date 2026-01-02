@@ -1,12 +1,19 @@
 /**
  * Modal Component
  *
- * A reusable modal/dialog component.
- * Consolidates modal patterns from LinkCategoryModal and UninstallModal.
+ * A reusable modal/dialog component with full accessibility support.
+ * Features:
+ * - Portal-based rendering
+ * - Focus trapping
+ * - Escape to close
+ * - Click outside to close
+ * - ARIA attributes for screen readers
  */
 
-import React, { useEffect } from 'react';
+import { useEffect, useRef, useCallback, useId } from 'react';
+import type { ReactNode, RefObject } from 'react';
 import { createPortal } from 'react-dom';
+import { CloseButton } from './CloseButton';
 
 export interface ModalProps {
   /** Whether the modal is open */
@@ -18,15 +25,21 @@ export interface ModalProps {
   /** Optional description below title */
   description?: string;
   /** Modal content */
-  children: React.ReactNode;
+  children: ReactNode;
   /** Optional footer content (buttons, etc.) */
-  footer?: React.ReactNode;
+  footer?: ReactNode;
   /** Whether clicking backdrop closes modal */
   closeOnBackdrop?: boolean;
   /** Whether pressing Escape closes modal */
   closeOnEscape?: boolean;
   /** Maximum width of modal */
   maxWidth?: 'sm' | 'md' | 'lg' | 'xl';
+  /** Optional ID for aria-labelledby */
+  id?: string;
+  /** Whether to show the close button */
+  showCloseButton?: boolean;
+  /** Initial element to focus when modal opens (selector or ref) */
+  initialFocus?: RefObject<HTMLElement>;
 }
 
 const MAX_WIDTH_CLASSES = {
@@ -36,8 +49,12 @@ const MAX_WIDTH_CLASSES = {
   xl: 'max-w-xl',
 };
 
+/** Query selector for focusable elements */
+const FOCUSABLE_ELEMENTS =
+  'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 /**
- * A reusable modal component.
+ * A reusable modal component with focus trapping and full accessibility.
  */
 export function Modal({
   isOpen,
@@ -49,20 +66,89 @@ export function Modal({
   closeOnBackdrop = true,
   closeOnEscape = true,
   maxWidth = 'md',
+  id,
+  showCloseButton = true,
+  initialFocus,
 }: ModalProps) {
-  // Handle escape key
-  useEffect(() => {
-    if (!isOpen || !closeOnEscape) return;
+  const modalRef = useRef<HTMLDialogElement>(null);
+  const previousActiveElement = useRef<HTMLElement | null>(null);
+  const generatedId = useId();
+  const modalId = id || `modal-${generatedId}`;
+  const titleId = `${modalId}-title`;
+  const descriptionId = `${modalId}-description`;
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+  // Get all focusable elements in the modal
+  const getFocusableElements = useCallback(() => {
+    if (!modalRef.current) return [];
+    return Array.from(
+      modalRef.current.querySelectorAll<HTMLElement>(FOCUSABLE_ELEMENTS)
+    ).filter((el) => el.offsetParent !== null);
+  }, []);
+
+  // Handle focus trapping
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && closeOnEscape) {
+        e.preventDefault();
         onClose();
+        return;
       }
-    };
 
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, closeOnEscape, onClose]);
+      if (e.key !== 'Tab') return;
+
+      const focusableElements = getFocusableElements();
+      if (focusableElements.length === 0) return;
+
+      const firstElement = focusableElements[0];
+      const lastElement = focusableElements.at(-1);
+
+      // Shift+Tab on first element -> focus last element
+      if (e.shiftKey && document.activeElement === firstElement) {
+        e.preventDefault();
+        lastElement?.focus();
+      } else if (!e.shiftKey && document.activeElement === lastElement) {
+        // Tab on last element -> focus first element
+        e.preventDefault();
+        firstElement?.focus();
+      }
+    },
+    [closeOnEscape, onClose, getFocusableElements]
+  );
+
+  // Store previous active element and set up focus trap
+  useEffect(() => {
+    if (isOpen) {
+      // Store the currently focused element
+      previousActiveElement.current = document.activeElement as HTMLElement;
+
+      // Focus initial element or first focusable element
+      const focusTarget = initialFocus?.current;
+      if (focusTarget) {
+        focusTarget.focus();
+      } else {
+        const focusableElements = getFocusableElements();
+        const firstFocusable = focusableElements[0];
+        if (firstFocusable) {
+          firstFocusable.focus();
+        }
+      }
+
+      // Add keydown listener
+      document.addEventListener('keydown', handleKeyDown);
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, handleKeyDown, initialFocus, getFocusableElements]);
+
+  // Restore focus when modal closes
+  useEffect(() => {
+    if (!isOpen && previousActiveElement.current) {
+      previousActiveElement.current.focus();
+      previousActiveElement.current = null;
+    }
+  }, [isOpen]);
 
   // Prevent body scroll when modal is open
   useEffect(() => {
@@ -76,18 +162,37 @@ export function Modal({
     };
   }, [isOpen]);
 
+  // Handle backdrop click - must be defined before early return
+  const handleBackdropClick = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      // Only close if clicking directly on the backdrop, not its children
+      if (closeOnBackdrop && e.target === e.currentTarget) {
+        onClose();
+      }
+    },
+    [closeOnBackdrop, onClose]
+  );
+
   if (!isOpen) return null;
 
   const modalContent = (
+    // Backdrop overlay - click to close is handled via onClick
+    // Keyboard closing is handled via Escape key in handleKeyDown
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-(--z-index-modal) flex items-center justify-center p-4"
       style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
-      onClick={closeOnBackdrop ? onClose : undefined}
+      onClick={handleBackdropClick}
     >
-      <div
-        className={`w-full ${MAX_WIDTH_CLASSES[maxWidth]} rounded-lg shadow-xl`}
+      {/* Dialog */}
+      <dialog
+        ref={modalRef}
+        open
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={description ? descriptionId : undefined}
+        className={`w-full ${MAX_WIDTH_CLASSES[maxWidth]} rounded-lg shadow-xl p-0 m-0`}
         style={{ backgroundColor: 'var(--monarch-bg-card)' }}
-        onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div
@@ -96,6 +201,7 @@ export function Modal({
         >
           <div>
             <h2
+              id={titleId}
               className="text-lg font-semibold"
               style={{ color: 'var(--monarch-text)' }}
             >
@@ -103,6 +209,7 @@ export function Modal({
             </h2>
             {description && (
               <p
+                id={descriptionId}
                 className="mt-1 text-sm"
                 style={{ color: 'var(--monarch-text-muted)' }}
               >
@@ -110,22 +217,13 @@ export function Modal({
               </p>
             )}
           </div>
-          <button
-            onClick={onClose}
-            className="p-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-            aria-label="Close"
-          >
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="var(--monarch-text-muted)"
-              strokeWidth="2"
-            >
-              <path d="M18 6L6 18M6 6l12 12" />
-            </svg>
-          </button>
+          {showCloseButton && (
+            <CloseButton
+              onClick={onClose}
+              size="md"
+              aria-label="Close modal"
+            />
+          )}
         </div>
 
         {/* Body */}
@@ -140,7 +238,7 @@ export function Modal({
             {footer}
           </div>
         )}
-      </div>
+      </dialog>
     </div>
   );
 

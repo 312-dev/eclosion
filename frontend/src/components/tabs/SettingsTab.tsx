@@ -23,6 +23,7 @@ import { useToast } from '../../context/ToastContext';
 import { usePageTitle } from '../../hooks';
 import { getLandingPage, setLandingPage } from '../../App';
 import { RecurringIcon } from '../wizards/WizardComponents';
+import { UI } from '../../constants';
 
 type LandingPage = 'dashboard' | 'recurring';
 
@@ -88,7 +89,7 @@ export function SettingsTab() {
     if (globalThis.location.hash === '#recurring') {
       setTimeout(() => {
         recurringSettingsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 100);
+      }, UI.SCROLL.AFTER_MOUNT);
     }
   }, []);
 
@@ -427,15 +428,9 @@ export function SettingsTab() {
                   {/* Arrow to navigate to tool */}
                   <button
                     type="button"
-                    className="p-2 rounded-lg shrink-0 transition-colors"
+                    className="p-2 rounded-lg shrink-0 hover-bg-transparent-to-hover"
                     style={{ background: 'none', border: 'none', cursor: 'pointer' }}
                     onClick={() => navigate('/recurring')}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = 'var(--monarch-bg-hover)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = 'transparent';
-                    }}
                   >
                     <ChevronRight size={20} style={{ color: 'var(--monarch-text-muted)' }} />
                   </button>
@@ -446,15 +441,9 @@ export function SettingsTab() {
                   <div className="flex justify-end mt-3">
                     <button
                       type="button"
-                      className="text-sm font-medium transition-opacity"
+                      className="text-sm font-medium hover-opacity-80"
                       style={{ color: 'var(--monarch-orange)', background: 'none', border: 'none', cursor: 'pointer' }}
                       onClick={() => setShowRecurringResetModal(true)}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.opacity = '0.8';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.opacity = '1';
-                      }}
                     >
                       Reset
                     </button>
@@ -661,17 +650,10 @@ export function SettingsTab() {
               <button
                 type="button"
                 onClick={() => setShowUpdateModal(true)}
-                className="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+                className="px-3 py-1.5 rounded-lg text-sm font-medium hover-bg-page-to-hover"
                 style={{
-                  backgroundColor: 'var(--monarch-bg-page)',
                   color: 'var(--monarch-text-dark)',
                   border: '1px solid var(--monarch-border)',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = 'var(--monarch-bg-hover)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = 'var(--monarch-bg-page)';
                 }}
               >
                 Check for Updates
@@ -697,15 +679,9 @@ export function SettingsTab() {
         >
           <button
             type="button"
-            className="w-full p-4 flex items-center gap-4 transition-colors text-left"
+            className="w-full p-4 flex items-center gap-4 text-left hover-bg-transparent-to-hover"
             style={{ background: 'none', border: 'none', cursor: 'pointer' }}
             onClick={() => logout()}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = 'var(--monarch-bg-hover)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'transparent';
-            }}
           >
             <div
               className="p-2.5 rounded-lg shrink-0"
@@ -743,15 +719,9 @@ export function SettingsTab() {
           {/* Reset App */}
           <button
             type="button"
-            className="w-full p-4 flex items-center gap-4 transition-colors text-left"
+            className="w-full p-4 flex items-center gap-4 text-left hover-bg-transparent-to-hover"
             style={{ background: 'none', border: 'none', cursor: 'pointer' }}
             onClick={() => setShowResetModal(true)}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = 'var(--monarch-bg-hover)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'transparent';
-            }}
           >
             <div
               className="p-2.5 rounded-lg shrink-0"
@@ -779,15 +749,9 @@ export function SettingsTab() {
           {/* Uninstall */}
           <button
             type="button"
-            className="w-full p-4 flex items-center gap-4 transition-colors text-left"
+            className="w-full p-4 flex items-center gap-4 text-left hover-bg-transparent-to-error-bg"
             style={{ background: 'none', border: 'none', cursor: 'pointer' }}
             onClick={() => setShowUninstallModal(true)}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = 'var(--monarch-error-bg)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'transparent';
-            }}
           >
             <div
               className="p-2.5 rounded-lg shrink-0"
@@ -831,13 +795,13 @@ export function SettingsTab() {
 
       {/* Recurring Tool Reset Modal */}
       {showRecurringResetModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div className="fixed inset-0 z-(--z-index-modal) flex items-center justify-center">
           <div
             className="absolute inset-0 bg-black/50 modal-backdrop"
             onClick={handleCloseRecurringReset}
           />
           <div
-            className="relative z-10 w-full max-w-md mx-4 rounded-xl shadow-xl modal-content"
+            className="relative w-full max-w-md mx-4 rounded-xl shadow-xl modal-content"
             style={{ backgroundColor: 'var(--monarch-bg-card)', border: '1px solid var(--monarch-border)' }}
           >
             {/* Header */}

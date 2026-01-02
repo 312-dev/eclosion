@@ -1,10 +1,10 @@
 import { useChangelogQuery, useDeploymentInfoQuery } from '../api/queries';
 import type { ChangelogEntry, ChangelogSection } from '../types';
 
-interface ChangelogDisplayProps {
-  version?: string; // Show specific version, or all if undefined
+export interface ChangelogDisplayProps {
+  version: string | undefined; // Show specific version, or all if undefined
   limit?: number;
-  showUpdateInstructions?: boolean;
+  showUpdateInstructions: boolean | undefined;
 }
 
 const SECTION_CONFIG: Record<keyof ChangelogSection, { icon: string; label: string; color: string }> = {

@@ -2,9 +2,9 @@
  * VersionBadge - Shows BETA or STABLE badge based on version string
  */
 
-interface VersionBadgeProps {
+export interface VersionBadgeProps {
   version: string;
-  channel?: string;
+  channel: string | undefined;
   size?: 'sm' | 'md';
 }
 

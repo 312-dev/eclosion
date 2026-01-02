@@ -302,9 +302,9 @@ function ItemCard({
   item: RecurringItem;
   checked: boolean;
   onChange: () => void;
-  onLinkClick?: () => void;
-  onUnlink?: () => void;
-  pendingLink?: PendingLink;
+  onLinkClick: (() => void) | undefined;
+  onUnlink: (() => void) | undefined;
+  pendingLink: PendingLink | undefined;
 }) {
   const displayName = item.merchant_name || item.name.split(' (')[0];
   const isLinked = !!pendingLink;
@@ -558,11 +558,17 @@ function ItemSelectionStep({
 
   // Sort each group by amount descending
   Object.keys(groupedItems).forEach(freq => {
-    groupedItems[freq].sort((a, b) => b.amount - a.amount);
+    const group = groupedItems[freq];
+    if (group) {
+      group.sort((a, b) => b.amount - a.amount);
+    }
   });
 
   // Sort groups by frequency order
-  const sortedFrequencies = FREQUENCY_ORDER.filter(f => groupedItems[f]?.length > 0);
+  const sortedFrequencies = Object.keys(groupedItems).filter(f => {
+    const group = groupedItems[f];
+    return group && group.length > 0;
+  });
 
   // Calculate totals
   const totalMonthly = items.reduce((sum, i) => sum + i.monthly_contribution, 0);
@@ -769,7 +775,7 @@ function ItemSelectionStep({
           <FrequencyGroup
             key={frequency}
             frequency={frequency}
-            items={groupedItems[frequency]}
+            items={groupedItems[frequency] ?? []}
             selectedIds={selectedIds}
             pendingLinks={pendingLinks}
             onToggleItem={onToggleItem}
@@ -1476,7 +1482,7 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
         await setConfig(selectedGroupId, selectedGroupName);
       }
       onComplete();
-    } catch (err) {
+    } catch {
       // Even if save fails, proceed to dashboard
       onComplete();
     }
@@ -1671,12 +1677,12 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
           <>
             {/* Backdrop */}
             <div
-              className="fixed inset-0 z-40"
+              className="fixed inset-0 z-(--z-index-modal-backdrop)"
               style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
             />
             {/* Modal */}
             <div
-              className="fixed inset-0 z-50 flex items-center justify-center p-4"
+              className="fixed inset-0 z-(--z-index-modal) flex items-center justify-center p-4"
             >
               <div
                 className="rounded-xl p-5"

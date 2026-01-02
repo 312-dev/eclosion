@@ -4,6 +4,7 @@ import { getCategoryGroups, setConfig } from '../api/client';
 import { Portal } from './Portal';
 import { SearchableSelect } from './SearchableSelect';
 import { useDropdown } from '../hooks';
+import { handleApiError } from '../utils';
 
 interface ConfigPanelProps {
   config: DashboardConfig;
@@ -30,7 +31,7 @@ export function ConfigPanel({ config, onUpdate }: ConfigPanelProps) {
       const data = await getCategoryGroups();
       setGroups(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load groups');
+      setError(handleApiError(err, 'Loading category groups'));
     } finally {
       setLoading(false);
     }
@@ -53,7 +54,7 @@ export function ConfigPanel({ config, onUpdate }: ConfigPanelProps) {
       onUpdate();
       dropdown.close();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save');
+      setError(handleApiError(err, 'Saving configuration'));
     } finally {
       setSaving(false);
     }
@@ -97,12 +98,12 @@ export function ConfigPanel({ config, onUpdate }: ConfigPanelProps) {
       {dropdown.isOpen && (
         <Portal>
           <div
-            className="fixed inset-0 z-50"
+            className="fixed inset-0 z-(--z-index-popover)"
             onClick={dropdown.close}
           />
           <div
             ref={dropdown.dropdownRef}
-            className="fixed z-50 w-80 rounded-xl shadow-lg p-4"
+            className="fixed z-(--z-index-popover) w-80 rounded-xl shadow-lg p-4"
             style={{
               backgroundColor: 'var(--monarch-bg-card)',
               border: '1px solid var(--monarch-border)',

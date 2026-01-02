@@ -137,17 +137,8 @@ export function RecurringTab() {
             href="https://app.monarchmoney.com/recurring/all"
             target="_blank"
             rel="noopener noreferrer"
-            className="px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-1.5"
-            style={{
-              color: 'var(--monarch-text-muted)',
-              borderColor: 'transparent',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.color = 'var(--monarch-text-dark)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.color = 'var(--monarch-text-muted)';
-            }}
+            className="px-4 py-2.5 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 hover-text-muted-to-dark"
+            style={{ borderColor: 'transparent' }}
           >
             All Recurring
             <ExternalLink size={14} />
@@ -156,17 +147,8 @@ export function RecurringTab() {
             href="https://app.monarchmoney.com/settings/categories"
             target="_blank"
             rel="noopener noreferrer"
-            className="px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-1.5"
-            style={{
-              color: 'var(--monarch-text-muted)',
-              borderColor: 'transparent',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.color = 'var(--monarch-text-dark)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.color = 'var(--monarch-text-muted)';
-            }}
+            className="px-4 py-2.5 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 hover-text-muted-to-dark"
+            style={{ borderColor: 'transparent' }}
           >
             Category Groups
             <ExternalLink size={14} />
