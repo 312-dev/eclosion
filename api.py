@@ -1366,7 +1366,12 @@ def get_update_info():
     is_railway = os.environ.get("RAILWAY_PROJECT_ID") is not None
     is_container = config.is_container_environment()
 
-    deployment_type = "railway" if is_railway else ("docker" if is_container else "local")
+    if is_railway:
+        deployment_type = "railway"
+    elif is_container:
+        deployment_type = "docker"
+    else:
+        deployment_type = "local"
 
     instructions = {
         "railway": {
@@ -1450,7 +1455,7 @@ def get_migration_status():
 
 
 @app.route("/migration/execute", methods=["POST"])
-@api_handler.require_auth
+@api_handler(handle_mfa=False)
 def execute_migration():
     """
     Execute migration to target schema version.
@@ -1514,7 +1519,7 @@ def list_backups():
 
 
 @app.route("/migration/backups", methods=["POST"])
-@api_handler.require_auth
+@api_handler(handle_mfa=False)
 def create_backup():
     """
     Create a manual backup of the current state.
@@ -1544,7 +1549,7 @@ def create_backup():
 
 
 @app.route("/migration/restore", methods=["POST"])
-@api_handler.require_auth
+@api_handler(handle_mfa=False)
 def restore_backup():
     """
     Restore state from a backup.

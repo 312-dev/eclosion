@@ -8,15 +8,17 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Settings, RefreshCw, Trash2, AlertTriangle, Repeat, Key, Database, ChevronRight, Clock, LogOut, Sun, Moon, Monitor, Home } from 'lucide-react';
+import { Settings, RefreshCw, Trash2, AlertTriangle, Repeat, Key, Database, ChevronRight, Clock, LogOut, Sun, Moon, Monitor, Home, Download } from 'lucide-react';
 import { ResetAppModal } from '../ResetAppModal';
 import { UninstallModal } from '../UninstallModal';
 import { AutoSyncSettings } from '../AutoSyncSettings';
 import { SearchableSelect } from '../SearchableSelect';
+import { UpdateModal } from '../UpdateModal';
+import { VersionBadge } from '../VersionBadge';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, type Theme } from '../../context/ThemeContext';
-import { getDashboard, resetRecurringTool, getAutoSyncStatus, enableAutoSync, disableAutoSync, getCategoryGroups, setConfig, updateSettings } from '../../api/client';
-import type { DashboardData, AutoSyncStatus, CategoryGroup } from '../../types';
+import { getDashboard, resetRecurringTool, getAutoSyncStatus, enableAutoSync, disableAutoSync, getCategoryGroups, setConfig, updateSettings, getVersion } from '../../api/client';
+import type { DashboardData, AutoSyncStatus, CategoryGroup, VersionInfo } from '../../types';
 import { useToast } from '../../context/ToastContext';
 import { usePageTitle } from '../../hooks';
 import { getLandingPage, setLandingPage } from '../../App';
@@ -28,11 +30,13 @@ export function SettingsTab() {
   const [showResetModal, setShowResetModal] = useState(false);
   const [showUninstallModal, setShowUninstallModal] = useState(false);
   const [showRecurringResetModal, setShowRecurringResetModal] = useState(false);
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [resettingRecurring, setResettingRecurring] = useState(false);
   const [resetConfirmed, setResetConfirmed] = useState(false);
   const [resetError, setResetError] = useState<string | null>(null);
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [autoSyncStatus, setAutoSyncStatus] = useState<AutoSyncStatus | null>(null);
+  const [versionInfo, setVersionInfo] = useState<VersionInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const { logout } = useAuth();
   const toast = useToast();
@@ -78,6 +82,7 @@ export function SettingsTab() {
   useEffect(() => {
     fetchDashboardData();
     fetchAutoSyncStatus();
+    fetchVersionInfo();
 
     // Check if we should scroll to recurring settings
     if (globalThis.location.hash === '#recurring') {
@@ -86,6 +91,15 @@ export function SettingsTab() {
       }, 100);
     }
   }, []);
+
+  const fetchVersionInfo = async () => {
+    try {
+      const info = await getVersion();
+      setVersionInfo(info);
+    } catch {
+      // Non-critical if this fails
+    }
+  };
 
   const fetchDashboardData = async () => {
     try {
@@ -601,6 +615,72 @@ export function SettingsTab() {
         />
       </section>
 
+      {/* Updates Section */}
+      <section className="mb-8">
+        <h2 className="text-xs font-semibold uppercase tracking-wider mb-3 px-1 flex items-center gap-1.5" style={{ color: 'var(--monarch-text-muted)' }}>
+          <Download size={12} />
+          Updates
+        </h2>
+        <div
+          className="rounded-xl overflow-hidden"
+          style={{
+            backgroundColor: 'var(--monarch-bg-card)',
+            border: '1px solid var(--monarch-border)',
+            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)'
+          }}
+        >
+          <div className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div
+                  className="p-2.5 rounded-lg"
+                  style={{ backgroundColor: 'var(--monarch-bg-page)' }}
+                >
+                  <Download size={20} style={{ color: 'var(--monarch-text-muted)' }} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium" style={{ color: 'var(--monarch-text-dark)' }}>
+                      v{versionInfo?.version || '...'}
+                    </span>
+                    {versionInfo && (
+                      <VersionBadge
+                        version={versionInfo.version}
+                        channel={versionInfo.channel}
+                      />
+                    )}
+                  </div>
+                  <div className="text-sm mt-0.5" style={{ color: 'var(--monarch-text-muted)' }}>
+                    {versionInfo?.build_time && versionInfo.build_time !== 'unknown'
+                      ? `Built ${new Date(versionInfo.build_time).toLocaleDateString()}`
+                      : 'Current version'
+                    }
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowUpdateModal(true)}
+                className="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+                style={{
+                  backgroundColor: 'var(--monarch-bg-page)',
+                  color: 'var(--monarch-text-dark)',
+                  border: '1px solid var(--monarch-border)',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'var(--monarch-bg-hover)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'var(--monarch-bg-page)';
+                }}
+              >
+                Check for Updates
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Account Section */}
       <section className="mb-8">
         <h2 className="text-xs font-semibold uppercase tracking-wider mb-3 px-1 flex items-center gap-1.5" style={{ color: 'var(--monarch-text-muted)' }}>
@@ -743,6 +823,10 @@ export function SettingsTab() {
       <UninstallModal
         isOpen={showUninstallModal}
         onClose={() => setShowUninstallModal(false)}
+      />
+      <UpdateModal
+        isOpen={showUpdateModal}
+        onClose={() => setShowUpdateModal(false)}
       />
 
       {/* Recurring Tool Reset Modal */}

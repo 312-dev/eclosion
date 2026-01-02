@@ -13,6 +13,10 @@ export {
   formatFrequencyShort,
   formatDateRelative,
   formatPercent,
+  formatDueDate,
+  formatDate,
+  formatInterval,
+  formatDateTime,
   FREQUENCY_LABELS,
   FREQUENCY_SHORT_LABELS,
   FREQUENCY_ORDER,
@@ -20,10 +24,18 @@ export {
 } from './formatters';
 
 export {
+  formatErrorMessage,
+  isRateLimitError,
+  getRetryAfter,
+} from './errors';
+
+export {
   getStatusLabel,
   getStatusStyles,
+  getStatusStylesExtended,
   calculateDisplayStatus,
   isAttentionStatus,
   isHealthyStatus,
   type StatusStyles,
+  type StatusStylesExtended,
 } from './status';

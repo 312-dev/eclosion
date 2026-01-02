@@ -10,7 +10,7 @@ import { ExternalLink } from 'lucide-react';
 import { RollupZone } from '../RollupZone';
 import { RecurringList } from '../RecurringList';
 import { ReadyToAssign, BurndownChart, calculateBurndownData } from '../ReadyToAssign';
-import { formatCurrency } from '../../utils';
+import { formatCurrency, formatErrorMessage } from '../../utils';
 import { RecurringSetupWizard } from '../wizards/RecurringSetupWizard';
 import {
   useDashboardQuery,
@@ -22,16 +22,7 @@ import {
 } from '../../api/queries';
 import { useToast } from '../../context/ToastContext';
 import { usePageTitle } from '../../hooks';
-import { RateLimitError } from '../../api/client';
 import type { SyncResult } from '../../types';
-
-// Helper to format error messages for toasts
-function formatErrorMessage(err: unknown, fallback: string): string {
-  if (err instanceof RateLimitError) {
-    return `Monarch Money API rate limit reached. Please wait ${err.retryAfter}s.`;
-  }
-  return err instanceof Error ? err.message : fallback;
-}
 
 export function RecurringTab() {
   const [syncResult, setSyncResult] = useState<SyncResult | null>(null);

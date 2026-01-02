@@ -1,15 +1,8 @@
 import { useState, useEffect } from 'react';
 import type { UnmappedCategory, RecurringItem } from '../types';
-import { getUnmappedCategories, linkToCategory, RateLimitError } from '../api/client';
+import { getUnmappedCategories, linkToCategory } from '../api/client';
 import { useToast } from '../context/ToastContext';
-
-// Helper to format error messages for toasts
-function formatErrorMessage(err: unknown, fallback: string): string {
-  if (err instanceof RateLimitError) {
-    return `Monarch Money API rate limit reached. Please wait ${err.retryAfter}s.`;
-  }
-  return err instanceof Error ? err.message : fallback;
-}
+import { formatErrorMessage } from '../utils';
 
 export interface PendingLink {
   categoryId: string;

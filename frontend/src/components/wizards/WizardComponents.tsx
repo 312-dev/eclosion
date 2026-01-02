@@ -5,56 +5,18 @@
  * Extracted from the original SetupWizard for use in per-tool wizards.
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useTour } from '@reactour/tour';
 import type { RecurringItem } from '../../types';
 import type { PendingLink } from '../LinkCategoryModal';
 
-// ============================================================================
-// Utility Functions
-// ============================================================================
-
-export function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount);
-}
-
-export function formatFrequency(frequency: string): string {
-  const labels: Record<string, string> = {
-    weekly: 'Weekly',
-    every_two_weeks: 'Bi-weekly',
-    twice_a_month: 'Twice monthly',
-    monthly: 'Monthly',
-    quarterly: 'Quarterly',
-    semiyearly: 'Every 6 months',
-    yearly: 'Yearly',
-  };
-  return labels[frequency] || frequency;
-}
-
-export function formatDueDate(dateStr: string): string {
-  const date = new Date(dateStr);
-  const now = new Date();
-  const diffTime = date.getTime() - now.getTime();
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-  if (diffDays < 0) return 'Overdue';
-  if (diffDays === 0) return 'Due today';
-  if (diffDays === 1) return 'Due tomorrow';
-  if (diffDays <= 7) return `Due in ${diffDays} days`;
-  if (diffDays <= 30) return `Due in ${Math.ceil(diffDays / 7)} weeks`;
-
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
-
-// ============================================================================
-// Constants
-// ============================================================================
-
-export const FREQUENCY_ORDER = ['weekly', 'every_two_weeks', 'twice_a_month', 'monthly', 'quarterly', 'semiyearly', 'yearly'];
+// Re-export utilities from centralized location for backward compatibility
+export {
+  formatCurrency,
+  formatFrequency,
+  formatDueDate,
+  FREQUENCY_ORDER,
+} from '../../utils';
 
 // ============================================================================
 // Icon Components
@@ -613,8 +575,45 @@ export function WizardNavigation({
 }
 
 // ============================================================================
-// Tour Styles (for use with @reactour/tour)
+// Tour Components & Styles (for use with @reactour/tour)
 // ============================================================================
+
+/**
+ * TourController - Syncs external state with @reactour/tour
+ *
+ * Use this component inside a TourProvider to control the tour from parent state.
+ *
+ * @example
+ * <TourProvider steps={steps} styles={wizardTourStyles}>
+ *   <TourController isOpen={showTour} onClose={() => setShowTour(false)} />
+ *   {children}
+ * </TourProvider>
+ */
+export function TourController({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+  const { setIsOpen, isOpen: tourIsOpen } = useTour();
+
+  // Sync external state → tour state
+  useEffect(() => {
+    setIsOpen(isOpen);
+  }, [isOpen, setIsOpen]);
+
+  // Notify parent when tour closes internally
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const checkClosed = () => {
+      if (!tourIsOpen) {
+        onClose();
+      }
+    };
+
+    // Small delay to let tour state settle
+    const timer = setTimeout(checkClosed, 100);
+    return () => clearTimeout(timer);
+  }, [isOpen, tourIsOpen, onClose]);
+
+  return null;
+}
 
 export const wizardTourStyles = {
   popover: (base: object) => ({

@@ -1,5 +1,40 @@
 @import "tailwindcss";
 
+/* Tailwind v4 Theme Extension - Map CSS custom properties to Tailwind utilities */
+@theme {
+  /* Primary colors */
+  --color-monarch-orange: var(--monarch-orange);
+  --color-monarch-orange-hover: var(--monarch-orange-hover);
+  --color-monarch-orange-disabled: var(--monarch-orange-disabled);
+  --color-monarch-orange-light: var(--monarch-orange-light);
+
+  /* Text colors */
+  --color-monarch-text-dark: var(--monarch-text-dark);
+  --color-monarch-text-muted: var(--monarch-text-muted);
+  --color-monarch-text-light: var(--monarch-text-light);
+
+  /* Background colors */
+  --color-monarch-bg-page: var(--monarch-bg-page);
+  --color-monarch-bg-card: var(--monarch-bg-card);
+  --color-monarch-bg-hover: var(--monarch-bg-hover);
+  --color-monarch-bg-input: var(--monarch-bg-input);
+  --color-monarch-bg-elevated: var(--monarch-bg-elevated);
+
+  /* Border colors */
+  --color-monarch-border: var(--monarch-border);
+  --color-monarch-border-light: var(--monarch-border-light);
+
+  /* Status colors */
+  --color-monarch-success: var(--monarch-success);
+  --color-monarch-success-bg: var(--monarch-success-bg);
+  --color-monarch-error: var(--monarch-error);
+  --color-monarch-error-bg: var(--monarch-error-bg);
+  --color-monarch-warning: var(--monarch-warning);
+  --color-monarch-warning-bg: var(--monarch-warning-bg);
+  --color-monarch-info: var(--monarch-info);
+  --color-monarch-info-bg: var(--monarch-info-bg);
+}
+
 /* Unbounded Font for Logo */
 @font-face {
   font-family: 'Unbounded';

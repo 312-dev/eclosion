@@ -1,0 +1,163 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "eclosion"
+version = "1.0.0"
+description = "Eclosion for Monarch - Your budgeting, evolved"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.11"
+authors = [{ name = "Grayson Adams" }]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Framework :: Flask",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+dependencies = [
+    "monarchmoney @ git+https://github.com/GraysonCAdams/monarchmoney.git@flex-budget",
+    "pyotp>=2.9.0",
+    "Flask>=3.1.0",
+    "flask-cors>=4.0.0",
+    "flask-limiter>=3.8.0",
+    "python-dotenv>=1.1.0",
+    "cachetools>=6.1.0",
+    "cryptography>=41.0.0",
+    "APScheduler>=3.10.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    # Testing
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=4.1.0",
+    "pytest-mock>=3.12.0",
+    # Linting & Formatting
+    "ruff>=0.4.0",
+    "mypy>=1.10.0",
+    # Pre-commit
+    "pre-commit>=3.7.0",
+    # Type stubs
+    "types-cachetools>=5.3.0",
+]
+
+# ============================================================================
+# Ruff Configuration (replaces black, isort, flake8, pylint)
+# ============================================================================
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+src = [".", "core", "services", "state"]
+
+exclude = [
+    ".git",
+    ".venv",
+    "__pycache__",
+    "frontend",
+    "static",
+    "*.egg-info",
+    ".pytest_cache",
+    ".mypy_cache",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # Pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "UP",  # pyupgrade
+    "SIM", # flake8-simplify
+    "RUF", # Ruff-specific rules
+]
+
+ignore = [
+    "E501",   # line too long (handled by formatter)
+    "B008",   # function call in default argument (common in Flask)
+    "B904",   # raise-without-from (too noisy initially)
+    "SIM108", # ternary operator (readability preference)
+]
+
+fixable = ["ALL"]
+unfixable = []
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+"tests/**/*.py" = ["B011", "S101"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["core", "services", "state", "monarch_utils"]
+section-order = [
+    "future",
+    "standard-library",
+    "third-party",
+    "first-party",
+    "local-folder",
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+# ============================================================================
+# Mypy Configuration
+# ============================================================================
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+check_untyped_defs = true
+disallow_untyped_defs = false  # Start permissive, tighten later
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+
+[[tool.mypy.overrides]]
+module = "monarchmoney.*"
+ignore_missing_imports = true
+
+# ============================================================================
+# Pytest Configuration
+# ============================================================================
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+asyncio_mode = "auto"
+addopts = ["-v", "--tb=short", "--strict-markers", "-ra"]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests requiring external services",
+]
+filterwarnings = ["ignore::DeprecationWarning:monarchmoney.*"]
+
+[tool.coverage.run]
+source = ["core", "services", "state"]
+branch = true
+omit = ["*/tests/*", "*/__pycache__/*", "*/migrations/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+]
+show_missing = true
+fail_under = 0  # Start at 0, increase as coverage improves

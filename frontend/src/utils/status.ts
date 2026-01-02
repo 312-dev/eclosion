@@ -18,6 +18,14 @@ export interface StatusStyles {
 }
 
 /**
+ * Extended status style properties with progress bar color.
+ */
+export interface StatusStylesExtended extends StatusStyles {
+  /** Progress bar color */
+  progressColor: string;
+}
+
+/**
  * Get human-readable label for a status.
  *
  * @param status - The item status
@@ -157,4 +165,55 @@ export function isHealthyStatus(status: ItemStatus): boolean {
     status === 'on_track' ||
     status === 'ahead'
   );
+}
+
+/**
+ * Get extended CSS styles for a status including progress bar color.
+ * Used by components that need progress bar styling (e.g., CategoryCard).
+ *
+ * @param status - The item status
+ * @returns Object with bg, color, and progressColor CSS values
+ */
+export function getStatusStylesExtended(status: ItemStatus): StatusStylesExtended {
+  switch (status) {
+    case 'funded':
+      return {
+        bg: 'var(--monarch-success-bg)',
+        color: 'var(--monarch-success)',
+        progressColor: 'var(--monarch-success)',
+      };
+    case 'ahead':
+      return {
+        bg: 'var(--monarch-info-bg)',
+        color: 'var(--monarch-info)',
+        progressColor: 'var(--monarch-info)',
+      };
+    case 'on_track':
+      return {
+        bg: 'var(--monarch-bg-hover)',
+        color: 'var(--monarch-text-muted)',
+        progressColor: 'var(--monarch-text-muted)',
+      };
+    case 'behind':
+      return {
+        bg: 'var(--monarch-warning-bg)',
+        color: 'var(--monarch-warning)',
+        progressColor: 'var(--monarch-warning)',
+      };
+    case 'critical':
+    case 'due_now':
+      return {
+        bg: 'var(--monarch-error-bg)',
+        color: 'var(--monarch-error)',
+        progressColor: 'var(--monarch-error)',
+      };
+    case 'inactive':
+    case 'disabled':
+    default:
+      return {
+        bg: 'var(--monarch-bg-hover)',
+        color: 'var(--monarch-text-light)',
+        progressColor: 'var(--monarch-border)',
+      };
+  }
 }

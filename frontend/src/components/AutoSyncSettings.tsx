@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { AutoSyncStatus } from '../types';
+import { formatInterval, formatDateTime } from '../utils';
 import { AutoSyncSecurityModal } from './AutoSyncSecurityModal';
 
 interface AutoSyncSettingsProps {
@@ -7,22 +8,6 @@ interface AutoSyncSettingsProps {
   onEnable: (intervalMinutes: number, passphrase: string) => Promise<void>;
   onDisable: () => Promise<void>;
   onRefresh: () => Promise<void>;
-}
-
-function formatInterval(minutes: number): string {
-  if (minutes < 60) return `${minutes} minutes`;
-  if (minutes === 60) return '1 hour';
-  if (minutes < 1440) return `${minutes / 60} hours`;
-  return '24 hours';
-}
-
-function formatDateTime(isoString: string | null): string {
-  if (!isoString) return 'Never';
-  try {
-    return new Date(isoString).toLocaleString();
-  } catch {
-    return 'Unknown';
-  }
 }
 
 export function AutoSyncSettings({
