@@ -95,17 +95,11 @@ export function DashboardTab() {
               href="https://www.reddit.com/r/Eclosion/"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg transition-colors"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg hover-border-to-orange"
               style={{
                 backgroundColor: 'var(--monarch-bg-page)',
                 color: 'var(--monarch-text-dark)',
                 border: '1px solid var(--monarch-border)',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = 'var(--monarch-orange)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = 'var(--monarch-border)';
               }}
             >
               <RedditIcon size={18} />
@@ -115,17 +109,11 @@ export function DashboardTab() {
               href="https://github.com/graysonhead/eclosion"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg transition-colors"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg hover-border-to-orange"
               style={{
                 backgroundColor: 'var(--monarch-bg-page)',
                 color: 'var(--monarch-text-dark)',
                 border: '1px solid var(--monarch-border)',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = 'var(--monarch-orange)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = 'var(--monarch-border)';
               }}
             >
               <Github size={18} />

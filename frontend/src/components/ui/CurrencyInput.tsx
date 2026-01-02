@@ -110,10 +110,16 @@ export function CurrencyInput({
           color: 'var(--monarch-text)',
         }}
         onFocus={(e) => {
-          e.currentTarget.parentElement!.style.borderColor = focusBorderColor;
+          const parent = e.currentTarget.parentElement;
+          if (parent) {
+            parent.style.borderColor = focusBorderColor;
+          }
         }}
         onBlurCapture={(e) => {
-          e.currentTarget.parentElement!.style.borderColor = borderColor;
+          const parent = e.currentTarget.parentElement;
+          if (parent) {
+            parent.style.borderColor = borderColor;
+          }
         }}
       />
     </div>

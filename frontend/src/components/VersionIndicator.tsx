@@ -98,7 +98,7 @@ export function VersionIndicator() {
           </button>
         }
       >
-        <ChangelogDisplay showUpdateInstructions={updateAvailable} />
+        <ChangelogDisplay version={undefined} showUpdateInstructions={updateAvailable} />
       </Modal>
     </>
   );

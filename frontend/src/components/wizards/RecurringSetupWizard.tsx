@@ -36,6 +36,7 @@ import {
   TourController,
   FREQUENCY_ORDER,
 } from './WizardComponents';
+import { UI } from '../../constants';
 
 interface RecurringSetupWizardProps {
   onComplete: () => void;
@@ -303,17 +304,10 @@ function ItemSelectionStep({
         <button
           onClick={onRefresh}
           disabled={loading}
-          className="mt-4 text-sm px-4 py-2 rounded-lg transition-colors"
+          className="mt-4 text-sm px-4 py-2 rounded-lg hover-bg-transparent-to-orange-light"
           style={{
             color: 'var(--monarch-orange)',
             border: '1px solid var(--monarch-orange)',
-            backgroundColor: 'transparent',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = 'rgba(255, 105, 45, 0.1)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = 'transparent';
           }}
         >
           {loading ? 'Refreshing...' : 'Refresh from Monarch'}
@@ -358,34 +352,20 @@ function ItemSelectionStep({
       <div className="flex gap-2 mb-4">
         <button
           onClick={onSelectAll}
-          className="text-xs px-3 py-1.5 rounded-full transition-colors"
+          className="text-xs px-3 py-1.5 rounded-full hover-bg-transparent-to-orange-light"
           style={{
             color: 'var(--monarch-orange)',
             border: '1px solid var(--monarch-orange)',
-            backgroundColor: 'transparent',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = 'rgba(255, 105, 45, 0.1)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = 'transparent';
           }}
         >
           Select All
         </button>
         <button
           onClick={onDeselectAll}
-          className="text-xs px-3 py-1.5 rounded-full transition-colors"
+          className="text-xs px-3 py-1.5 rounded-full hover-bg-transparent-to-hover"
           style={{
             color: 'var(--monarch-text-muted)',
             border: '1px solid var(--monarch-border)',
-            backgroundColor: 'transparent',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = 'var(--monarch-bg-page)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = 'transparent';
           }}
         >
           Deselect All
@@ -706,8 +686,8 @@ export function RecurringSetupWizard({ onComplete }: RecurringSetupWizardProps) 
     try {
       const categories = await getUnmappedCategories();
       setRollupCategories(categories);
-    } catch (err) {
-      console.error('Failed to fetch rollup categories:', err);
+    } catch {
+      // Silently fail - the dropdown will show empty state
     } finally {
       setLoadingRollupCategories(false);
     }
@@ -759,7 +739,7 @@ export function RecurringSetupWizard({ onComplete }: RecurringSetupWizardProps) 
           setTimeout(() => {
             setShowLinkTour(true);
             setLinkTourShown(true);
-          }, 300);
+          }, UI.ANIMATION.NORMAL);
         }
 
         // Show rollup tip for small items
@@ -1046,10 +1026,10 @@ export function RecurringSetupWizard({ onComplete }: RecurringSetupWizardProps) 
         {showRollupTip && (
           <>
             <div
-              className="fixed inset-0 z-40"
+              className="fixed inset-0 z-(--z-index-modal-backdrop)"
               style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
             />
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="fixed inset-0 z-(--z-index-modal) flex items-center justify-center p-4">
               <div
                 className="rounded-xl p-5"
                 style={{
@@ -1067,13 +1047,8 @@ export function RecurringSetupWizard({ onComplete }: RecurringSetupWizardProps) 
                 </p>
                 <button
                   onClick={() => setShowRollupTip(false)}
-                  className="w-full py-2 px-4 rounded-lg text-sm font-medium transition-colors"
-                  style={{
-                    backgroundColor: 'var(--monarch-orange)',
-                    color: 'white',
-                  }}
-                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--monarch-orange-hover)'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--monarch-orange)'; }}
+                  className="w-full py-2 px-4 rounded-lg text-sm font-medium hover-bg-orange-to-orange-hover"
+                  style={{ color: 'white' }}
                 >
                   Got it
                 </button>

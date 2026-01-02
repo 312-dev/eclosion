@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import type { DeletableCategory } from '../types';
 import { getDeletableCategories, deleteAllCategories, cancelSubscription, getDeploymentInfo } from '../api/client';
 import type { CancelSubscriptionResult, DeploymentInfo } from '../api/client';
+import { getErrorMessage } from '../utils';
+import { WarningIcon, XIcon, CheckSimpleIcon, SpinnerIcon, TrashIcon } from './icons';
 
 interface UninstallModalProps {
   isOpen: boolean;
@@ -46,7 +48,7 @@ export function UninstallModal({ isOpen, onClose }: UninstallModalProps) {
       const data = await getDeletableCategories();
       setCategories(data.categories);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load categories');
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -86,7 +88,7 @@ export function UninstallModal({ isOpen, onClose }: UninstallModalProps) {
         throw new Error(`Failed to delete categories: ${result.failed.map(f => f.error).join(', ')}`);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete categories');
+      setError(getErrorMessage(err));
       setDeleting(false);
     }
   };
@@ -100,7 +102,7 @@ export function UninstallModal({ isOpen, onClose }: UninstallModalProps) {
       const result = await cancelSubscription();
       setCancelResult(result);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to cancel subscription');
+      setError(getErrorMessage(err));
     } finally {
       setCancelling(false);
     }
@@ -109,7 +111,7 @@ export function UninstallModal({ isOpen, onClose }: UninstallModalProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-(--z-index-modal) flex items-center justify-center">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/50 modal-backdrop"
@@ -118,16 +120,14 @@ export function UninstallModal({ isOpen, onClose }: UninstallModalProps) {
 
       {/* Modal */}
       <div
-        className="relative z-10 w-full max-w-lg mx-4 rounded-xl shadow-xl max-h-[80vh] flex flex-col modal-content"
+        className="relative w-full max-w-lg mx-4 rounded-xl shadow-xl max-h-[80vh] flex flex-col modal-content"
         style={{ backgroundColor: 'var(--monarch-bg-card)', border: '1px solid var(--monarch-border)' }}
       >
         {/* Header */}
         <div className="p-4 border-b" style={{ borderColor: 'var(--monarch-border)' }}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: 'var(--monarch-error)' }}>
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
+              <WarningIcon size={20} color="var(--monarch-error)" />
               <h2 className="text-lg font-semibold" style={{ color: 'var(--monarch-error)' }}>
                 Uninstall / Cancel
               </h2>
@@ -138,9 +138,7 @@ export function UninstallModal({ isOpen, onClose }: UninstallModalProps) {
                 className="p-1 rounded hover:bg-gray-100 transition-colors"
                 style={{ color: 'var(--monarch-text-muted)' }}
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                <XIcon size={20} />
               </button>
             )}
           </div>
@@ -186,9 +184,7 @@ export function UninstallModal({ isOpen, onClose }: UninstallModalProps) {
             }}
           >
             {toast.type === 'success' && (
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
+              <CheckSimpleIcon size={16} />
             )}
             {toast.message}
           </div>
@@ -277,9 +273,7 @@ export function UninstallModal({ isOpen, onClose }: UninstallModalProps) {
                 <div className="space-y-4">
                   <div className="p-4 rounded-lg" style={{ backgroundColor: 'var(--monarch-success-bg)' }}>
                     <div className="flex items-center gap-2 mb-2">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: 'var(--monarch-success)' }}>
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
+                      <CheckSimpleIcon size={20} color="var(--monarch-success)" />
                       <span className="font-medium" style={{ color: 'var(--monarch-success)' }}>Data Cleared Successfully</span>
                     </div>
                     <ul className="text-sm space-y-1 ml-7" style={{ color: 'var(--monarch-text-dark)' }}>
@@ -376,17 +370,12 @@ export function UninstallModal({ isOpen, onClose }: UninstallModalProps) {
               >
                 {deleting ? (
                   <>
-                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
+                    <SpinnerIcon size={16} />
                     Deleting...
                   </>
                 ) : (
                   <>
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
+                    <TrashIcon size={16} />
                     Delete All
                   </>
                 )}
@@ -431,17 +420,12 @@ export function UninstallModal({ isOpen, onClose }: UninstallModalProps) {
                   >
                     {cancelling ? (
                       <>
-                        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                        </svg>
+                        <SpinnerIcon size={16} />
                         Processing...
                       </>
                     ) : (
                       <>
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
+                        <XIcon size={16} />
                         Tear Down Instance
                       </>
                     )}

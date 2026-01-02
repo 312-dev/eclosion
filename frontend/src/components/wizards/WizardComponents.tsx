@@ -9,6 +9,12 @@ import { useState, useEffect } from 'react';
 import { useTour } from '@reactour/tour';
 import type { RecurringItem } from '../../types';
 import type { PendingLink } from '../LinkCategoryModal';
+import { UI } from '../../constants';
+import {
+  formatCurrency,
+  formatFrequency,
+  formatDueDate,
+} from '../../utils';
 
 // Re-export utilities from centralized location for backward compatibility
 export {
@@ -608,7 +614,7 @@ export function TourController({ isOpen, onClose }: { isOpen: boolean; onClose: 
     };
 
     // Small delay to let tour state settle
-    const timer = setTimeout(checkClosed, 100);
+    const timer = setTimeout(checkClosed, UI.INTERVAL.TOUR_CLOSE_CHECK);
     return () => clearTimeout(timer);
   }, [isOpen, tourIsOpen, onClose]);
 

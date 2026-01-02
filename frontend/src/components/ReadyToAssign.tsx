@@ -29,7 +29,9 @@ export function calculateBurndownData(items: RecurringItem[], currentMonthlyCost
   );
 
   // Find the latest due date (when we reach minimum)
-  const latestDate = new Date(sortedItems[sortedItems.length - 1].next_due_date);
+  const lastItem = sortedItems[sortedItems.length - 1];
+  if (!lastItem) return [];
+  const latestDate = new Date(lastItem.next_due_date);
   const latestEndMonth = new Date(latestDate.getFullYear(), latestDate.getMonth() + 1, 1);
 
   // Ensure at least 6 months are shown
@@ -146,9 +148,10 @@ function CustomTooltip({ active, payload, formatCurrency, coordinate }: CustomTo
     }
   });
 
-  if (!active || !payload || !payload.length || !coordinate) return null;
+  const firstPayload = payload?.[0];
+  if (!active || !firstPayload || !coordinate) return null;
 
-  const data = payload[0].payload;
+  const data = firstPayload.payload;
 
   // Calculate position directly from current coordinate, with viewport boundary checks
   const tooltipWidth = 180;
@@ -355,12 +358,13 @@ interface ReadyToAssignProps {
 
 function getLowestMonthlyDate(items: RecurringItem[]): string | null {
   const enabledItems = items.filter(i => i.is_enabled && i.progress_percent < 100);
-  if (enabledItems.length === 0) return null;
+  const firstEnabledItem = enabledItems[0];
+  if (!firstEnabledItem) return null;
 
   const latestDate = enabledItems.reduce((latest, item) => {
     const itemDate = new Date(item.next_due_date);
     return itemDate > latest ? itemDate : latest;
-  }, new Date(enabledItems[0].next_due_date));
+  }, new Date(firstEnabledItem.next_due_date));
 
   // Costs lower the month after the last catch-up payment
   const startingMonth = new Date(latestDate.getFullYear(), latestDate.getMonth() + 1, 1);
@@ -530,12 +534,12 @@ export function ReadyToAssign({ data, summary, items, rollup, variant = 'sidebar
         {infoDropdown.isOpen && (
           <Portal>
             <div
-              className="fixed inset-0 z-50"
+              className="fixed inset-0 z-(--z-index-popover)"
               onClick={infoDropdown.close}
             />
             <div
               ref={infoDropdown.dropdownRef}
-              className="fixed z-50 rounded-xl shadow-lg p-4 text-left"
+              className="fixed z-(--z-index-popover) rounded-xl shadow-lg p-4 text-left"
               style={{
                 backgroundColor: 'var(--monarch-bg-card)',
                 border: '1px solid var(--monarch-border)',

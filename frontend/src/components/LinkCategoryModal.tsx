@@ -2,12 +2,12 @@ import { useState, useEffect } from 'react';
 import type { UnmappedCategory, RecurringItem } from '../types';
 import { getUnmappedCategories, linkToCategory } from '../api/client';
 import { useToast } from '../context/ToastContext';
-import { formatErrorMessage } from '../utils';
+import { handleApiError } from '../utils';
 
 export interface PendingLink {
   categoryId: string;
   categoryName: string;
-  categoryIcon?: string;
+  categoryIcon: string | undefined;
   syncName: boolean;
 }
 
@@ -48,7 +48,7 @@ export function LinkCategoryModal({ item, isOpen, onClose, onSuccess, deferSave 
       const data = await getUnmappedCategories();
       setCategories(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load categories');
+      setError(handleApiError(err, 'Loading categories'));
     } finally {
       setLoading(false);
     }
@@ -85,7 +85,7 @@ export function LinkCategoryModal({ item, isOpen, onClose, onSuccess, deferSave 
         toast.error(errorMsg);
       }
     } catch (err) {
-      const errorMsg = formatErrorMessage(err, 'Failed to link category');
+      const errorMsg = handleApiError(err, 'Linking category');
       setError(errorMsg);
       toast.error(errorMsg);
     } finally {
@@ -129,7 +129,7 @@ export function LinkCategoryModal({ item, isOpen, onClose, onSuccess, deferSave 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-(--z-index-modal) flex items-center justify-center">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/50 modal-backdrop"
@@ -138,7 +138,7 @@ export function LinkCategoryModal({ item, isOpen, onClose, onSuccess, deferSave 
 
       {/* Modal */}
       <div
-        className="relative z-10 w-full max-w-lg mx-4 rounded-xl shadow-xl max-h-[80vh] flex flex-col modal-content"
+        className="relative w-full max-w-lg mx-4 rounded-xl shadow-xl max-h-[80vh] flex flex-col modal-content"
         style={{ backgroundColor: 'var(--monarch-bg-card)', border: '1px solid var(--monarch-border)' }}
       >
         {/* Header */}

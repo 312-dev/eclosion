@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { getDeploymentInfo } from '../api/client';
 import type { DeploymentInfo } from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { getErrorMessage } from '../utils';
 
 interface ResetAppModalProps {
   isOpen: boolean;
@@ -42,7 +43,7 @@ export function ResetAppModal({ isOpen, onClose, onReset }: ResetAppModalProps) 
         setError(result.error || 'Failed to reset app');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to reset app');
+      setError(getErrorMessage(err));
     } finally {
       setResetting(false);
     }
@@ -51,7 +52,7 @@ export function ResetAppModal({ isOpen, onClose, onReset }: ResetAppModalProps) 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-(--z-index-modal) flex items-center justify-center">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/50 modal-backdrop"
@@ -60,7 +61,7 @@ export function ResetAppModal({ isOpen, onClose, onReset }: ResetAppModalProps) 
 
       {/* Modal */}
       <div
-        className="relative z-10 w-full max-w-md mx-4 rounded-xl shadow-xl modal-content"
+        className="relative w-full max-w-md mx-4 rounded-xl shadow-xl modal-content"
         style={{ backgroundColor: 'var(--monarch-bg-card)', border: '1px solid var(--monarch-border)' }}
       >
         {/* Header */}

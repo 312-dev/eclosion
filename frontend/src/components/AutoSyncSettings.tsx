@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { AutoSyncStatus } from '../types';
 import { formatInterval, formatDateTime } from '../utils';
 import { AutoSyncSecurityModal } from './AutoSyncSecurityModal';
+import { SpinnerIcon, ClockIcon, XIcon, CheckSimpleIcon, AlertCircleIcon } from './icons';
 
 interface AutoSyncSettingsProps {
   status: AutoSyncStatus | null;
@@ -44,10 +45,7 @@ export function AutoSyncSettings({
         }}
       >
         <div className="flex items-center gap-3">
-          <svg className="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: 'var(--monarch-text-muted)' }}>
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-          </svg>
+          <SpinnerIcon size={20} color="var(--monarch-text-muted)" />
           <span style={{ color: 'var(--monarch-text-muted)' }}>Loading auto-sync status...</span>
         </div>
       </div>
@@ -65,9 +63,7 @@ export function AutoSyncSettings({
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: 'var(--monarch-orange)' }}>
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
+            <ClockIcon size={20} color="var(--monarch-orange)" />
             <div>
               <div className="font-medium" style={{ color: 'var(--monarch-text-dark)' }}>
                 Automatic Background Sync
@@ -93,17 +89,12 @@ export function AutoSyncSettings({
             >
               {disabling ? (
                 <>
-                  <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
+                  <SpinnerIcon size={16} />
                   Disabling...
                 </>
               ) : (
                 <>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
+                  <XIcon size={16} />
                   Disable
                 </>
               )}
@@ -114,9 +105,7 @@ export function AutoSyncSettings({
               className="px-4 py-2 rounded-lg flex items-center gap-2 text-white transition-colors"
               style={{ backgroundColor: 'var(--monarch-orange)' }}
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
+              <CheckSimpleIcon size={16} />
               Enable
             </button>
           )}
@@ -137,14 +126,10 @@ export function AutoSyncSettings({
                 <div className="flex items-center gap-1" style={{ color: 'var(--monarch-text-dark)' }}>
                   {formatDateTime(status.last_sync)}
                   {status.last_sync && status.last_sync_success === false && (
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: 'var(--monarch-error)' }}>
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
+                    <AlertCircleIcon size={16} color="var(--monarch-error)" />
                   )}
                   {status.last_sync && status.last_sync_success === true && (
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: 'var(--monarch-success)' }}>
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
+                    <CheckSimpleIcon size={16} color="var(--monarch-success)" />
                   )}
                 </div>
               </div>

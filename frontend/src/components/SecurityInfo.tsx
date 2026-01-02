@@ -31,7 +31,7 @@ export function SecurityInfo({ isOpen, onClose }: SecurityInfoProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
+    <div className="fixed inset-0 z-(--z-index-modal) flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}>
       <div
         className="rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto"
         style={{ backgroundColor: 'var(--monarch-bg-card)' }}
@@ -218,13 +218,8 @@ export function SecurityInfo({ isOpen, onClose }: SecurityInfoProps) {
 
           <button
             onClick={onClose}
-            className="w-full mt-6 px-4 py-2 rounded-lg font-medium transition-colors"
-            style={{
-              backgroundColor: 'var(--monarch-orange)',
-              color: 'white',
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--monarch-orange-hover)'}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--monarch-orange)'}
+            className="w-full mt-6 px-4 py-2 rounded-lg font-medium hover-bg-orange-to-orange-hover"
+            style={{ color: 'white' }}
           >
             Got It
           </button>

@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef, useCallback, useId } from 'react';
+import { getErrorMessage } from '../utils';
 
 interface ResetFeatureModalProps {
   isOpen: boolean;
@@ -24,6 +25,10 @@ export function ResetFeatureModal({
   const [confirmed, setConfirmed] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
+  const previousActiveElement = useRef<HTMLElement | null>(null);
+  const titleId = useId();
+  const descriptionId = useId();
 
   const handleReset = async () => {
     if (!confirmed) return;
@@ -34,7 +39,7 @@ export function ResetFeatureModal({
       await onReset();
       // Modal will be closed by parent on success (typically triggers page reload)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to reset feature');
+      setError(getErrorMessage(err));
       setResetting(false);
     }
   };
@@ -53,7 +58,7 @@ export function ResetFeatureModal({
   const hasAnythingToReset = hasCategoriesToDelete || hasItemsToDisable;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-(--z-index-modal) flex items-center justify-center">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/50 modal-backdrop"
@@ -62,7 +67,7 @@ export function ResetFeatureModal({
 
       {/* Modal */}
       <div
-        className="relative z-10 w-full max-w-md mx-4 rounded-xl shadow-xl modal-content"
+        className="relative w-full max-w-md mx-4 rounded-xl shadow-xl modal-content"
         style={{ backgroundColor: 'var(--monarch-bg-card)', border: '1px solid var(--monarch-border)' }}
       >
         {/* Header */}

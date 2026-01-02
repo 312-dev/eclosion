@@ -1,0 +1,71 @@
+/**
+ * WizardNavigation - Navigation component for wizard flows
+ */
+
+interface WizardNavigationProps {
+  readonly onBack: () => void;
+  readonly onNext: () => void;
+  readonly onSkip: () => void;
+  readonly canGoBack: boolean;
+  readonly canProceed: boolean;
+  readonly isLastStep: boolean;
+  readonly isSaving: boolean;
+}
+
+export function WizardNavigation({
+  onBack,
+  onNext,
+  onSkip,
+  canGoBack,
+  canProceed,
+  isLastStep,
+  isSaving,
+}: WizardNavigationProps) {
+  return (
+    <div className="mt-6 pt-4" style={{ borderTop: '1px solid var(--monarch-border)' }}>
+      <div className="flex justify-center mb-4">
+        <button
+          onClick={onSkip}
+          disabled={isSaving}
+          className="text-sm px-4 py-1 rounded transition-colors hover:underline disabled:opacity-50"
+          style={{ color: 'var(--monarch-text-muted)' }}
+        >
+          Skip setup
+        </button>
+      </div>
+
+      <div className="flex gap-3">
+        {canGoBack && (
+          <button
+            onClick={onBack}
+            disabled={isSaving}
+            className="px-4 py-2 rounded-lg transition-colors btn-hover-lift disabled:opacity-50"
+            style={{
+              border: '1px solid var(--monarch-border)',
+              color: 'var(--monarch-text-dark)',
+              backgroundColor: 'var(--monarch-bg-card)',
+            }}
+          >
+            Back
+          </button>
+        )}
+        <button
+          onClick={onNext}
+          disabled={!canProceed || isSaving}
+          className="flex-1 px-4 py-2 text-white rounded-lg transition-colors disabled:cursor-not-allowed btn-hover-lift"
+          style={{
+            backgroundColor: !canProceed || isSaving ? 'var(--monarch-orange-disabled)' : 'var(--monarch-orange)',
+          }}
+          onMouseEnter={(e) => {
+            if (canProceed && !isSaving) e.currentTarget.style.backgroundColor = 'var(--monarch-orange-hover)';
+          }}
+          onMouseLeave={(e) => {
+            if (canProceed && !isSaving) e.currentTarget.style.backgroundColor = 'var(--monarch-orange)';
+          }}
+        >
+          {isSaving ? 'Setting up...' : isLastStep ? 'Get Started' : 'Continue'}
+        </button>
+      </div>
+    </div>
+  );
+}

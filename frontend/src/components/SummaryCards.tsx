@@ -11,7 +11,8 @@ function getLowestMonthlyDate(items: RecurringItem[]): string | null {
   // That's when all items will have reset and we'll be at the baseline rate
   const enabledItems = items.filter(i => i.is_enabled && i.progress_percent < 100);
 
-  if (enabledItems.length === 0) {
+  const firstItem = enabledItems[0];
+  if (!firstItem) {
     return null;
   }
 
@@ -19,7 +20,7 @@ function getLowestMonthlyDate(items: RecurringItem[]): string | null {
   const latestDate = enabledItems.reduce((latest, item) => {
     const itemDate = new Date(item.next_due_date);
     return itemDate > latest ? itemDate : latest;
-  }, new Date(enabledItems[0].next_due_date));
+  }, new Date(firstItem.next_due_date));
 
   return latestDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }

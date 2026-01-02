@@ -9,6 +9,7 @@ import {
   calculateDisplayStatus,
 } from '../utils';
 import { MerchantIcon, StatusBadge, LoadingSpinner } from './ui';
+import { TrendUpIcon, TrendDownIcon, XIcon, ExternalLinkIcon, ChevronRightIcon, PlusIcon } from './icons';
 
 interface RollupZoneProps {
   readonly rollup: RollupData;
@@ -79,10 +80,7 @@ const RollupItemRow = React.memo(function RollupItemRow({
           {isCatchingUp && (
             <Tooltip content={`Catching up: ${formatCurrency(item.frozen_monthly_target, { maximumFractionDigits: 0 })}/mo → ${formatCurrency(item.ideal_monthly_rate, { maximumFractionDigits: 0 })}/mo after ${date} payment`}>
               <span className="cursor-help" style={{ color: 'var(--monarch-error)' }}>
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="2 7 10.5 15.5 15.5 10.5 22 17"></polyline>
-                  <polyline points="8 7 2 7 2 13"></polyline>
-                </svg>
+                <TrendUpIcon size={10} strokeWidth={2.5} />
               </span>
             </Tooltip>
           )}
@@ -90,10 +88,7 @@ const RollupItemRow = React.memo(function RollupItemRow({
           {isAhead && (
             <Tooltip content={`Ahead: ${formatCurrency(item.frozen_monthly_target, { maximumFractionDigits: 0 })}/mo → ${formatCurrency(item.ideal_monthly_rate, { maximumFractionDigits: 0 })}/mo after ${date} payment`}>
               <span className="cursor-help" style={{ color: 'var(--monarch-success)' }}>
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="22 17 13.5 8.5 8.5 13.5 2 7"></polyline>
-                  <polyline points="16 17 22 17 22 11"></polyline>
-                </svg>
+                <TrendDownIcon size={10} strokeWidth={2.5} />
               </span>
             </Tooltip>
           )}
@@ -116,9 +111,7 @@ const RollupItemRow = React.memo(function RollupItemRow({
           {isRemoving ? (
             <LoadingSpinner size="sm" color="var(--monarch-text-muted)" />
           ) : (
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--monarch-text-muted)" strokeWidth="2">
-              <path d="M18 6L6 18M6 6l12 12" />
-            </svg>
+            <XIcon size={16} color="var(--monarch-text-muted)" />
           )}
         </button>
       </td>
@@ -281,9 +274,12 @@ export function RollupZone({ rollup, onRemoveItem, onBudgetChange, onEmojiChange
   const sortedGroupedItems = useMemo(() => {
     const result: Record<string, RollupItem[]> = {};
     for (const freq of sortedFrequencies) {
-      result[freq] = [...groupedItems[freq]].sort((a, b) =>
-        new Date(a.next_due_date).getTime() - new Date(b.next_due_date).getTime()
-      );
+      const items = groupedItems[freq];
+      if (items) {
+        result[freq] = [...items].sort((a, b) =>
+          new Date(a.next_due_date).getTime() - new Date(b.next_due_date).getTime()
+        );
+      }
     }
     return result;
   }, [groupedItems, sortedFrequencies]);
@@ -527,26 +523,30 @@ export function RollupZone({ rollup, onRemoveItem, onBudgetChange, onEmojiChange
                 </tr>
               </thead>
               <tbody>
-                {sortedFrequencies.map((frequency) => (
-                  <React.Fragment key={frequency}>
-                    <tr>
-                      <td
-                        colSpan={5}
-                        className="py-1 px-3 text-[10px] font-medium uppercase tracking-wide"
-                        style={{ backgroundColor: 'var(--monarch-bg-hover)', color: 'var(--monarch-text-muted)' }}
-                      >
-                        {formatFrequency(frequency)}
-                      </td>
-                    </tr>
-                    {sortedGroupedItems[frequency].map((item) => (
-                      <RollupItemRow
-                        key={item.id}
-                        item={item}
-                        onRemove={handleRemoveItem(item.id)}
-                      />
-                    ))}
-                  </React.Fragment>
-                ))}
+                {sortedFrequencies.map((frequency) => {
+                  const frequencyItems = sortedGroupedItems[frequency];
+                  if (!frequencyItems) return null;
+                  return (
+                    <React.Fragment key={frequency}>
+                      <tr>
+                        <td
+                          colSpan={5}
+                          className="py-1 px-3 text-[10px] font-medium uppercase tracking-wide"
+                          style={{ backgroundColor: 'var(--monarch-bg-hover)', color: 'var(--monarch-text-muted)' }}
+                        >
+                          {formatFrequency(frequency)}
+                        </td>
+                      </tr>
+                      {frequencyItems.map((item) => (
+                        <RollupItemRow
+                          key={item.id}
+                          item={item}
+                          onRemove={handleRemoveItem(item.id)}
+                        />
+                      ))}
+                    </React.Fragment>
+                  );
+                })}
               </tbody>
             </table>
           ) : (

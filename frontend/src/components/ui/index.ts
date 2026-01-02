@@ -7,11 +7,21 @@
  *   import { Button, StatusBadge, MerchantIcon } from '../components/ui';
  */
 
-export { StatusBadge, type StatusBadgeProps } from './StatusBadge';
-export { MerchantIcon, type MerchantIconProps } from './MerchantIcon';
-export { ProgressBar, type ProgressBarProps } from './ProgressBar';
-export { CurrencyInput, type CurrencyInputProps } from './CurrencyInput';
+// Core components
 export { Button, type ButtonProps } from './Button';
-export { LoadingSpinner, LoadingOverlay, type LoadingSpinnerProps } from './LoadingSpinner';
+export { Card, type CardProps, type CardHeaderProps, type CardBodyProps, type CardFooterProps } from './Card';
+export { CloseButton, type CloseButtonProps } from './CloseButton';
 export { Modal, type ModalProps } from './Modal';
 export { Tooltip, TooltipProvider, type TooltipProps } from './Tooltip';
+
+// Feedback components
+export { LoadingSpinner, LoadingOverlay, type LoadingSpinnerProps } from './LoadingSpinner';
+export { EmptyState, EmptyStateIcon, type EmptyStateProps } from './EmptyState';
+export { StatusBadge, type StatusBadgeProps } from './StatusBadge';
+export { ProgressBar, type ProgressBarProps } from './ProgressBar';
+
+// Form components
+export { CurrencyInput, type CurrencyInputProps } from './CurrencyInput';
+
+// Display components
+export { MerchantIcon, type MerchantIconProps } from './MerchantIcon';

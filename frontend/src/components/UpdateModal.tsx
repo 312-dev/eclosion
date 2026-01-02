@@ -35,7 +35,9 @@ export function UpdateModal({ isOpen, onClose, targetVersion }: UpdateModalProps
             if (latest) setSelectedVersion(latest.version);
           }
         })
-        .catch(console.error)
+        .catch(() => {
+          // Silently fail - the modal will show loading state
+        })
         .finally(() => setLoading(false));
     }
   }, [isOpen, selectedVersion]);
@@ -53,25 +55,20 @@ export function UpdateModal({ isOpen, onClose, targetVersion }: UpdateModalProps
 
   const DeploymentIcon = () => {
     const iconClass = "w-5 h-5";
-    // Railway gets a flag icon, Docker and Local both use Docker icon
+    // Railway gets a cloud icon
     if (updateInfo?.deployment_type === 'railway') {
       return (
         <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
-          <line x1="4" y1="22" x2="4" y2="15" />
+          <path d="M18 10h-1.26A8 8 0 109 20h9a5 5 0 000-10z" />
         </svg>
       );
     }
-    // Docker and Local both use Docker
+    // Docker and Local use a box/container icon
     return (
       <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M22 12.5c-.5-1-1.5-1.5-2.5-1.5h-1V9c0-.5-.5-1-1-1h-2V6c0-.5-.5-1-1-1h-4c-.5 0-1 .5-1 1v2H7c-.5 0-1 .5-1 1v2H5c-.5 0-1 .5-1 1v2H2.5" />
-        <rect x="6" y="11" width="2" height="2" rx="0.5" />
-        <rect x="9" y="11" width="2" height="2" rx="0.5" />
-        <rect x="12" y="11" width="2" height="2" rx="0.5" />
-        <rect x="9" y="8" width="2" height="2" rx="0.5" />
-        <rect x="12" y="8" width="2" height="2" rx="0.5" />
-        <path d="M2 17c6 0 8-3 10-3s4 3 10 3" />
+        <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" />
+        <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+        <line x1="12" y1="22.08" x2="12" y2="12" />
       </svg>
     );
   };
@@ -317,9 +314,9 @@ export function UpdateModal({ isOpen, onClose, targetVersion }: UpdateModalProps
               {updateInfo?.instructions.steps.map((step, index) => (
                 <li key={index} className="flex items-start gap-3">
                   <span
-                    className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-sm font-medium"
+                    className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-sm font-medium"
                     style={{
-                      backgroundColor: 'var(--monarch-accent)',
+                      backgroundColor: 'var(--monarch-orange)',
                       color: 'white',
                     }}
                   >

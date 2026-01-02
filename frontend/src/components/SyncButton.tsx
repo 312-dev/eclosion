@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { UI } from '../constants';
+import { SpinnerIcon, SyncIcon } from './icons';
 
 interface SyncButtonProps {
   onSync: () => void;
@@ -43,7 +45,7 @@ export function SyncButton({ onSync, isSyncing, lastSync, compact = false }: Syn
 
     const interval = setInterval(() => {
       setFormattedTime(formatLastSync(lastSync));
-    }, 30000); // Update every 30 seconds
+    }, UI.INTERVAL.SYNC_STATUS);
 
     return () => clearInterval(interval);
   }, [lastSync]);
@@ -52,50 +54,20 @@ export function SyncButton({ onSync, isSyncing, lastSync, compact = false }: Syn
     const syncStatus = lastSync ? `Synced ${formattedTime}` : 'Not yet synced';
     return (
       <button
+        type="button"
         onClick={onSync}
         disabled={isSyncing}
         className="flex items-center gap-1.5 text-xs disabled:opacity-60 disabled:cursor-not-allowed transition-colors hover:opacity-70"
         style={{ color: 'var(--monarch-text-muted)' }}
-        title="Click to sync"
+        aria-label={isSyncing ? 'Syncing data with Monarch' : `Sync now. Last synced: ${syncStatus}`}
+        aria-busy={isSyncing}
       >
         {isSyncing ? (
-          <svg
-            className="animate-spin h-3.5 w-3.5"
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-          >
-            <circle
-              className="opacity-25"
-              cx="12"
-              cy="12"
-              r="10"
-              stroke="currentColor"
-              strokeWidth="4"
-            />
-            <path
-              className="opacity-75"
-              fill="currentColor"
-              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-            />
-          </svg>
+          <SpinnerIcon size={14} />
         ) : (
-          <svg
-            className="h-3.5 w-3.5"
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-            />
-          </svg>
+          <SyncIcon size={14} />
         )}
-        <span>{isSyncing ? 'Syncing...' : syncStatus}</span>
+        <span aria-live="polite">{isSyncing ? 'Syncing...' : syncStatus}</span>
       </button>
     );
   }
@@ -106,54 +78,23 @@ export function SyncButton({ onSync, isSyncing, lastSync, compact = false }: Syn
         {formattedTime}
       </span>
       <button
+        type="button"
         onClick={onSync}
         disabled={isSyncing}
-        className="inline-flex items-center gap-2 px-4 py-2 text-white rounded-lg disabled:opacity-60 disabled:cursor-not-allowed transition-colors btn-hover-lift"
+        className="inline-flex items-center gap-2 px-4 py-2 text-white rounded-lg disabled:opacity-60 disabled:cursor-not-allowed transition-colors btn-hover-lift hover-bg-orange-to-orange-hover"
         style={{ backgroundColor: isSyncing ? 'var(--monarch-orange-disabled)' : 'var(--monarch-orange)' }}
-        onMouseEnter={(e) => { if (!isSyncing) e.currentTarget.style.backgroundColor = 'var(--monarch-orange-hover)'; }}
-        onMouseLeave={(e) => { if (!isSyncing) e.currentTarget.style.backgroundColor = 'var(--monarch-orange)'; }}
+        aria-label={isSyncing ? 'Syncing data' : 'Sync now'}
+        aria-busy={isSyncing}
       >
         {isSyncing ? (
           <>
-            <svg
-              className="animate-spin h-4 w-4"
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-            >
-              <circle
-                className="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                strokeWidth="4"
-              />
-              <path
-                className="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-              />
-            </svg>
-            Syncing...
+            <SpinnerIcon size={16} />
+            <span>Syncing...</span>
           </>
         ) : (
           <>
-            <svg
-              className="h-4 w-4"
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-              />
-            </svg>
-            Sync Now
+            <SyncIcon size={16} />
+            <span>Sync Now</span>
           </>
         )}
       </button>

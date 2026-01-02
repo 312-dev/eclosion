@@ -24,6 +24,8 @@ export {
 } from './formatters';
 
 export {
+  getErrorMessage,
+  handleApiError,
   formatErrorMessage,
   isRateLimitError,
   getRetryAfter,

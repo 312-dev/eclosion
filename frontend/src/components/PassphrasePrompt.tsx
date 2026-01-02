@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { getErrorMessage } from '../utils';
 
 interface PassphrasePromptProps {
   mode: 'create' | 'unlock';
@@ -119,7 +120,7 @@ export function PassphrasePrompt({ mode, onSuccess, onCredentialUpdateNeeded, on
       }
     } catch (err) {
       // Network errors shouldn't count against cooldown
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
