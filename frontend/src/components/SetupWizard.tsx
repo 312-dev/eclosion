@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { TourProvider, useTour } from '@reactour/tour';
+import { TourProvider } from '@reactour/tour';
 import type { CategoryGroup, RecurringItem, UnmappedCategory } from '../types';
 import {
   getCategoryGroups,
@@ -14,7 +14,19 @@ import {
 } from '../api/client';
 import { usePwaInstall } from '../hooks/usePwaInstall';
 import { LinkCategoryModal, type PendingLink } from './LinkCategoryModal';
-import { RecurringIcon } from './wizards/WizardComponents';
+import { RecurringIcon, TourController, wizardTourStyles } from './wizards/WizardComponents';
+import { formatDueDate, formatCurrency, formatFrequency } from '../utils';
+import {
+  AppIcon,
+  EmptyInboxIcon,
+  PackageIcon,
+  CheckCircleIcon,
+  DownloadIcon,
+  BookmarkIcon,
+  CheckIcon,
+  LinkIcon,
+  FrequencyIcon,
+} from './wizards/SetupWizardIcons';
 
 interface SetupWizardProps {
   onComplete: () => void;
@@ -41,64 +53,6 @@ const TOUR_STEPS = [
   },
 ];
 
-// Tour styling to match app theme
-const tourStyles = {
-  popover: (base: object) => ({
-    ...base,
-    backgroundColor: 'var(--monarch-bg-card)',
-    borderRadius: '12px',
-    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
-    border: '1px solid var(--monarch-border)',
-    padding: '16px',
-    maxWidth: '300px',
-  }),
-  maskArea: (base: object) => ({
-    ...base,
-    rx: 8,
-  }),
-  badge: (base: object) => ({
-    ...base,
-    display: 'none',
-  }),
-  controls: (base: object) => ({
-    ...base,
-    marginTop: '12px',
-  }),
-  close: (base: object) => ({
-    ...base,
-    color: 'var(--monarch-text-muted)',
-    width: '12px',
-    height: '12px',
-    top: '12px',
-    right: '12px',
-  }),
-};
-
-// Tour controller component to sync external state with tour
-function TourController({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
-  const { setIsOpen } = useTour();
-
-  useEffect(() => {
-    setIsOpen(isOpen);
-  }, [isOpen, setIsOpen]);
-
-  // When tour closes internally, notify parent
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
-
-  return null;
-}
-
 const STEPS = [
   { id: 'welcome', title: 'Welcome' },
   { id: 'category', title: 'Category' },
@@ -106,30 +60,6 @@ const STEPS = [
   { id: 'rollup', title: 'Rollup' },
   { id: 'finish', title: 'Finish' },
 ];
-
-// Format currency helper
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount);
-}
-
-// Format frequency helper
-function formatFrequency(frequency: string): string {
-  const labels: Record<string, string> = {
-    weekly: 'Weekly',
-    every_two_weeks: 'Bi-weekly',
-    twice_a_month: 'Twice monthly',
-    monthly: 'Monthly',
-    quarterly: 'Quarterly',
-    semiyearly: 'Every 6 months',
-    yearly: 'Yearly',
-  };
-  return labels[frequency] || frequency;
-}
 
 // Step Indicator Component
 function StepIndicator({ currentStep }: { currentStep: number }) {
@@ -159,96 +89,6 @@ function StepIndicator({ currentStep }: { currentStep: number }) {
         </div>
       ))}
     </div>
-  );
-}
-
-// App Icon Component (butterfly logo)
-function AppIcon({ size = 48 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 192 192" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect width="192" height="192" rx="32" fill="#1a1a2e"/>
-      <defs>
-        <linearGradient id="wingGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" style={{ stopColor: '#ff692d' }}/>
-          <stop offset="100%" style={{ stopColor: '#ff8f5a' }}/>
-        </linearGradient>
-      </defs>
-      <path d="M96 96 C70 70 50 62 46 76 C42 90 56 110 72 118 C82 123 92 118 96 96" fill="url(#wingGradient)" opacity="0.95"/>
-      <path d="M96 96 C78 106 66 126 69 138 C72 150 88 150 96 136 C99 128 99 106 96 96" fill="url(#wingGradient)" opacity="0.85"/>
-      <path d="M96 96 C122 70 142 62 146 76 C150 90 136 110 120 118 C110 123 100 118 96 96" fill="url(#wingGradient)" opacity="0.95"/>
-      <path d="M96 96 C114 106 126 126 123 138 C120 150 104 150 96 136 C93 128 93 106 96 96" fill="url(#wingGradient)" opacity="0.85"/>
-      <ellipse cx="60" cy="84" rx="6" ry="9" fill="#1a1a2e" opacity="0.4"/>
-      <ellipse cx="132" cy="84" rx="6" ry="9" fill="#1a1a2e" opacity="0.4"/>
-      <ellipse cx="96" cy="96" rx="4" ry="22" fill="#1a1a2e"/>
-      <circle cx="96" cy="70" r="5" fill="#1a1a2e"/>
-      <path d="M93 66 Q88 56 84 52" stroke="#1a1a2e" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
-      <path d="M99 66 Q104 56 108 52" stroke="#1a1a2e" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
-      <circle cx="84" cy="52" r="2" fill="#ff692d"/>
-      <circle cx="108" cy="52" r="2" fill="#ff692d"/>
-    </svg>
-  );
-}
-
-function EmptyInboxIcon({ size = 48 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="var(--monarch-text-muted)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M22 12h-6l-2 3h-4l-2-3H2" />
-      <path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
-    </svg>
-  );
-}
-
-function PackageIcon({ size = 48 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="var(--monarch-orange)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12.89 1.45l8 4A2 2 0 0 1 22 7.24v9.53a2 2 0 0 1-1.11 1.79l-8 4a2 2 0 0 1-1.79 0l-8-4a2 2 0 0 1-1.1-1.8V7.24a2 2 0 0 1 1.11-1.79l8-4a2 2 0 0 1 1.78 0z" />
-      <polyline points="2.32 6.16 12 11 21.68 6.16" />
-      <line x1="12" y1="22.76" x2="12" y2="11" />
-    </svg>
-  );
-}
-
-function CheckCircleIcon({ size = 48 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="var(--monarch-success)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-      <polyline points="22 4 12 14.01 9 11.01" />
-    </svg>
-  );
-}
-
-function DownloadIcon({ size = 24 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-      <polyline points="7 10 12 15 17 10" />
-      <line x1="12" y1="15" x2="12" y2="3" />
-    </svg>
-  );
-}
-
-function BookmarkIcon({ size = 24 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
-    </svg>
-  );
-}
-
-function CheckIcon({ size = 24 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="20 6 9 17 4 12" />
-    </svg>
-  );
-}
-
-function LinkIcon({ size = 16 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-    </svg>
   );
 }
 
@@ -413,112 +253,6 @@ function CategoryStep({
 
 // Frequency group order for display
 const FREQUENCY_ORDER = ['weekly', 'every_two_weeks', 'twice_a_month', 'monthly', 'quarterly', 'semiyearly', 'yearly'];
-
-// Frequency Icons as SVG components
-function WeeklyIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--monarch-orange)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-      <line x1="16" y1="2" x2="16" y2="6" />
-      <line x1="8" y1="2" x2="8" y2="6" />
-      <line x1="3" y1="10" x2="21" y2="10" />
-      <path d="M8 14h.01" />
-    </svg>
-  );
-}
-
-function BiweeklyIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--monarch-orange)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-      <line x1="16" y1="2" x2="16" y2="6" />
-      <line x1="8" y1="2" x2="8" y2="6" />
-      <line x1="3" y1="10" x2="21" y2="10" />
-      <path d="M8 14h.01M12 14h.01" />
-    </svg>
-  );
-}
-
-function MonthlyIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--monarch-orange)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-      <line x1="16" y1="2" x2="16" y2="6" />
-      <line x1="8" y1="2" x2="8" y2="6" />
-      <line x1="3" y1="10" x2="21" y2="10" />
-      <path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01" />
-    </svg>
-  );
-}
-
-function QuarterlyIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--monarch-orange)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-      <line x1="16" y1="2" x2="16" y2="6" />
-      <line x1="8" y1="2" x2="8" y2="6" />
-      <line x1="3" y1="10" x2="21" y2="10" />
-      <text x="12" y="18" textAnchor="middle" fontSize="8" fill="var(--monarch-orange)" stroke="none">Q</text>
-    </svg>
-  );
-}
-
-function SemiyearlyIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--monarch-orange)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-      <line x1="16" y1="2" x2="16" y2="6" />
-      <line x1="8" y1="2" x2="8" y2="6" />
-      <line x1="3" y1="10" x2="21" y2="10" />
-      <text x="12" y="18" textAnchor="middle" fontSize="8" fill="var(--monarch-orange)" stroke="none">6</text>
-    </svg>
-  );
-}
-
-function YearlyIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--monarch-orange)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10" />
-      <polyline points="12 6 12 12 16 14" />
-    </svg>
-  );
-}
-
-function FrequencyIcon({ frequency }: { frequency: string }) {
-  switch (frequency) {
-    case 'weekly':
-      return <WeeklyIcon />;
-    case 'every_two_weeks':
-    case 'twice_a_month':
-      return <BiweeklyIcon />;
-    case 'monthly':
-      return <MonthlyIcon />;
-    case 'quarterly':
-      return <QuarterlyIcon />;
-    case 'semiyearly':
-      return <SemiyearlyIcon />;
-    case 'yearly':
-      return <YearlyIcon />;
-    default:
-      return <MonthlyIcon />;
-  }
-}
-
-// Format next due date nicely
-function formatDueDate(dateStr: string): string {
-  const date = new Date(dateStr);
-  const now = new Date();
-  const diffTime = date.getTime() - now.getTime();
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-  if (diffDays < 0) return 'Overdue';
-  if (diffDays === 0) return 'Due today';
-  if (diffDays === 1) return 'Due tomorrow';
-  if (diffDays <= 7) return `Due in ${diffDays} days`;
-  if (diffDays <= 30) return `Due in ${Math.ceil(diffDays / 7)} weeks`;
-
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
 
 // Merchant Logo Component with fallback
 function MerchantLogo({ item, size = 40 }: { item: RecurringItem; size?: number }) {
@@ -1833,7 +1567,7 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
   return (
     <TourProvider
       steps={TOUR_STEPS}
-      styles={tourStyles}
+      styles={wizardTourStyles}
       showNavigation={false}
       showBadge={false}
       disableInteraction

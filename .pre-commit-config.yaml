@@ -1,0 +1,51 @@
+# Pre-commit hooks for Eclosion
+# Install: pre-commit install
+# Run manually: pre-commit run --all-files
+
+default_language_version:
+  python: python3.11
+
+repos:
+  # General file checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: ^frontend/
+      - id: end-of-file-fixer
+        exclude: ^frontend/
+      - id: check-yaml
+        args: [--unsafe]
+      - id: check-json
+        exclude: ^frontend/
+      - id: check-added-large-files
+        args: ["--maxkb=1000"]
+      - id: check-merge-conflict
+      - id: detect-private-key
+
+  # Ruff - Python linting and formatting (replaces black, isort, flake8)
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.4.4
+    hooks:
+      # Linter
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+        types_or: [python, pyi]
+        exclude: ^frontend/
+      # Formatter (replaces black)
+      - id: ruff-format
+        types_or: [python, pyi]
+        exclude: ^frontend/
+
+  # Type checking (runs on staged files only for speed)
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy
+        entry: mypy
+        language: system
+        types: [python]
+        exclude: ^(frontend/|tests/)
+        args: [--config-file=pyproject.toml]
+        pass_filenames: true
+        require_serial: true

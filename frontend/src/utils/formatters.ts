@@ -149,3 +149,63 @@ export function formatPercent(value: number, isDecimal = false): string {
   const percent = isDecimal ? value * 100 : value;
   return `${Math.round(percent)}%`;
 }
+
+/**
+ * Format a date string for due date display.
+ *
+ * @param dateStr - ISO date string (YYYY-MM-DD)
+ * @returns Formatted date (e.g., "Jan 15" or "Jan 15, 2025" if different year)
+ */
+export function formatDueDate(dateStr: string): string {
+  const date = new Date(dateStr + 'T00:00:00');
+  const today = new Date();
+  const sameYear = date.getFullYear() === today.getFullYear();
+
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    ...(sameYear ? {} : { year: 'numeric' }),
+  });
+}
+
+/**
+ * Format a date string for compact display.
+ *
+ * @param dateStr - ISO date string (YYYY-MM-DD)
+ * @returns Formatted date (e.g., "Jan 15")
+ */
+export function formatDate(dateStr: string): string {
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+/**
+ * Format an interval in minutes for display.
+ *
+ * @param minutes - Interval in minutes
+ * @returns Human-readable interval (e.g., "6 hours", "30 minutes")
+ */
+export function formatInterval(minutes: number): string {
+  if (minutes >= 60) {
+    const hours = minutes / 60;
+    return `${hours} hour${hours === 1 ? '' : 's'}`;
+  }
+  return `${minutes} minute${minutes === 1 ? '' : 's'}`;
+}
+
+/**
+ * Format an ISO datetime string for display.
+ *
+ * @param isoString - ISO datetime string or null
+ * @returns Formatted datetime (e.g., "Jan 15, 2025 at 3:45 PM") or "Never"
+ */
+export function formatDateTime(isoString: string | null): string {
+  if (!isoString) return 'Never';
+  return new Date(isoString).toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}

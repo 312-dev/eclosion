@@ -528,3 +528,123 @@ export async function disableAutoSync(): Promise<DisableAutoSyncResult> {
     method: 'POST',
   });
 }
+
+// Release and update functions
+
+export interface Release {
+  version: string;
+  tag: string;
+  name: string;
+  published_at: string;
+  is_prerelease: boolean;
+  html_url: string;
+  is_current: boolean;
+}
+
+export interface ReleasesResponse {
+  current_version: string;
+  current_channel: string;
+  stable_releases: Release[];
+  beta_releases: Release[];
+  error?: string;
+}
+
+export async function getAvailableReleases(): Promise<ReleasesResponse> {
+  return fetchApi<ReleasesResponse>('/version/releases');
+}
+
+export interface UpdateInfo {
+  deployment_type: 'railway' | 'docker' | 'local';
+  current_version: string;
+  current_channel: string;
+  instructions: {
+    steps: string[];
+    project_url?: string;
+    example_compose?: string;
+  };
+}
+
+export async function getUpdateInfo(): Promise<UpdateInfo> {
+  return fetchApi<UpdateInfo>('/version/update-info');
+}
+
+// Migration functions
+
+export interface MigrationStatus {
+  compatibility: 'compatible' | 'needs_migration' | 'incompatible' | 'channel_mismatch';
+  current_schema_version: string;
+  file_schema_version: string;
+  current_channel: string;
+  file_channel: string;
+  message: string;
+  needs_migration: boolean;
+  can_auto_migrate: boolean;
+  requires_backup_first: boolean;
+  has_beta_data: boolean;
+  has_backups: boolean;
+  latest_backup: Backup | null;
+}
+
+export interface Backup {
+  path: string;
+  filename: string;
+  timestamp: string;
+  channel: string;
+  schema_version: string;
+  reason: string;
+  size_bytes: number;
+  created_at: string;
+}
+
+export async function getMigrationStatus(): Promise<MigrationStatus> {
+  return fetchApi<MigrationStatus>('/migration/status');
+}
+
+export interface ExecuteMigrationResult {
+  success: boolean;
+  message: string;
+  backup_path: string | null;
+  warnings: string[];
+  error?: string;
+}
+
+export async function executeMigration(options: {
+  target_version?: string;
+  target_channel?: string;
+  confirm_backup: boolean;
+  force?: boolean;
+}): Promise<ExecuteMigrationResult> {
+  return fetchApi<ExecuteMigrationResult>('/migration/execute', {
+    method: 'POST',
+    body: JSON.stringify(options),
+  });
+}
+
+export interface BackupsResponse {
+  backups: Backup[];
+  max_backups: number;
+}
+
+export async function listBackups(): Promise<BackupsResponse> {
+  return fetchApi<BackupsResponse>('/migration/backups');
+}
+
+export async function createBackup(reason?: string): Promise<{ success: boolean; backup_path?: string; error?: string }> {
+  return fetchApi('/migration/backups', {
+    method: 'POST',
+    body: JSON.stringify({ reason: reason || 'manual' }),
+  });
+}
+
+export async function restoreBackup(
+  backupPath: string,
+  createBackupFirst: boolean = true
+): Promise<{ success: boolean; message?: string; error?: string }> {
+  return fetchApi('/migration/restore', {
+    method: 'POST',
+    body: JSON.stringify({
+      backup_path: backupPath,
+      create_backup_first: createBackupFirst,
+    }),
+  });
+}

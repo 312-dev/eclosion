@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import type { RecurringItem, CategoryGroup, ItemStatus } from '../types';
-import { toggleItemTracking, allocateFunds, recreateCategory, getCategoryGroups, changeCategoryGroup, addToRollup, updateCategoryEmoji, refreshItem, updateCategoryName, RateLimitError } from '../api/client';
+import { toggleItemTracking, allocateFunds, recreateCategory, getCategoryGroups, changeCategoryGroup, addToRollup, updateCategoryEmoji, refreshItem, updateCategoryName } from '../api/client';
 import { EmojiPicker } from './EmojiPicker';
 import { LinkCategoryModal } from './LinkCategoryModal';
 import { Tooltip } from './Tooltip';
 import { MerchantIcon } from './ui';
 import { useToast } from '../context/ToastContext';
+import { useClickOutside, useDropdown } from '../hooks';
 import {
   formatCurrency,
   formatFrequency,
@@ -13,17 +14,10 @@ import {
   formatDateRelative,
   getStatusLabel,
   getStatusStyles,
+  formatErrorMessage,
   FREQUENCY_ORDER,
 } from '../utils';
 import { Filter, Inbox, Eye, EyeOff } from 'lucide-react';
-
-// Helper to format error messages for toasts
-function formatErrorMessage(err: unknown, fallback: string): string {
-  if (err instanceof RateLimitError) {
-    return `Monarch Money API rate limit reached. Please wait ${err.retryAfter}s.`;
-  }
-  return err instanceof Error ? err.message : fallback;
-}
 
 interface RecurringListProps {
   readonly items: RecurringItem[];
@@ -64,17 +58,7 @@ function CategoryGroupDropdown({ currentGroupName, onChangeGroup, disabled }: Ca
   const [isChanging, setIsChanging] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    }
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isOpen]);
+  useClickOutside([dropdownRef], () => setIsOpen(false), isOpen);
 
   const handleOpen = async () => {
     if (disabled || isChanging) return;
@@ -181,55 +165,21 @@ function ActionsDropdown({
   isAddingToRollup,
   isRefreshing,
 }: ActionsDropdownProps) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 });
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const dropdown = useDropdown<HTMLDivElement, HTMLButtonElement>({
+    alignment: 'right',
+    offset: { y: 4 },
+  });
 
   const isLoading = isToggling || isRecreating || isAddingToRollup || isRefreshing;
 
-  const updatePosition = useCallback(() => {
-    if (buttonRef.current) {
-      const rect = buttonRef.current.getBoundingClientRect();
-      setDropdownPos({
-        top: rect.bottom + 4,
-        left: rect.right - 180, // 180 = dropdown min-width + some padding
-      });
-    }
-  }, []);
-
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node) &&
-        buttonRef.current &&
-        !buttonRef.current.contains(event.target as Node)
-      ) {
-        setIsOpen(false);
-      }
-    }
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-      window.addEventListener('scroll', updatePosition, true);
-      window.addEventListener('resize', updatePosition);
-    }
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      window.removeEventListener('scroll', updatePosition, true);
-      window.removeEventListener('resize', updatePosition);
-    };
-  }, [isOpen, updatePosition]);
-
   const handleToggle = () => {
-    if (!isOpen) {
-      updatePosition();
+    if (!isLoading) {
+      dropdown.toggle();
     }
-    setIsOpen(!isOpen);
   };
 
   const handleAction = (action: () => void) => {
-    setIsOpen(false);
+    dropdown.close();
     action();
   };
 
@@ -237,7 +187,7 @@ function ActionsDropdown({
     <div className="relative">
       <Tooltip content="Actions">
         <button
-          ref={buttonRef}
+          ref={dropdown.triggerRef}
           onClick={handleToggle}
           disabled={isLoading}
           className="w-7 h-7 flex items-center justify-center rounded-full transition-colors hover:bg-black/10 disabled:opacity-50"
@@ -256,15 +206,15 @@ function ActionsDropdown({
         </button>
       </Tooltip>
 
-      {isOpen && (
+      {dropdown.isOpen && (
         <div
-          ref={dropdownRef}
+          ref={dropdown.dropdownRef}
           className="fixed z-[100] py-1 rounded-lg shadow-lg text-sm min-w-[180px] dropdown-menu"
           style={{
             backgroundColor: 'var(--monarch-bg-card)',
             border: '1px solid var(--monarch-border)',
-            top: dropdownPos.top,
-            left: Math.max(8, dropdownPos.left),
+            top: dropdown.position.top,
+            right: dropdown.position.right,
           }}
         >
           {/* Enable/Disable */}

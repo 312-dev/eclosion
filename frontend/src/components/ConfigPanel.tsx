@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import type { CategoryGroup, DashboardConfig } from '../types';
 import { getCategoryGroups, setConfig } from '../api/client';
 import { Portal } from './Portal';
 import { SearchableSelect } from './SearchableSelect';
+import { useDropdown } from '../hooks';
 
 interface ConfigPanelProps {
   config: DashboardConfig;
@@ -10,7 +11,10 @@ interface ConfigPanelProps {
 }
 
 export function ConfigPanel({ config, onUpdate }: ConfigPanelProps) {
-  const [isOpen, setIsOpen] = useState(false);
+  const dropdown = useDropdown<HTMLDivElement, HTMLButtonElement>({
+    alignment: 'right',
+    offset: { y: 8 },
+  });
   const [groups, setGroups] = useState<CategoryGroup[]>([]);
   const [selectedGroup, setSelectedGroup] = useState<string>(
     config.target_group_id || ''
@@ -18,18 +22,6 @@ export function ConfigPanel({ config, onUpdate }: ConfigPanelProps) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, right: 0 });
-  const buttonRef = useRef<HTMLButtonElement>(null);
-
-  const updatePosition = () => {
-    if (buttonRef.current) {
-      const rect = buttonRef.current.getBoundingClientRect();
-      setDropdownPosition({
-        top: rect.bottom + 8,
-        right: window.innerWidth - rect.right,
-      });
-    }
-  };
 
   const fetchGroups = async () => {
     setLoading(true);
@@ -45,17 +37,10 @@ export function ConfigPanel({ config, onUpdate }: ConfigPanelProps) {
   };
 
   useEffect(() => {
-    if (isOpen) {
+    if (dropdown.isOpen) {
       fetchGroups();
-      updatePosition();
-      window.addEventListener('resize', updatePosition);
-      window.addEventListener('scroll', updatePosition, true);
-      return () => {
-        window.removeEventListener('resize', updatePosition);
-        window.removeEventListener('scroll', updatePosition, true);
-      };
     }
-  }, [isOpen]);
+  }, [dropdown.isOpen]);
 
   const handleSave = async () => {
     const group = groups.find((g) => g.id === selectedGroup);
@@ -66,7 +51,7 @@ export function ConfigPanel({ config, onUpdate }: ConfigPanelProps) {
     try {
       await setConfig(group.id, group.name);
       onUpdate();
-      setIsOpen(false);
+      dropdown.close();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save');
     } finally {
@@ -79,8 +64,8 @@ export function ConfigPanel({ config, onUpdate }: ConfigPanelProps) {
   return (
     <>
       <button
-        ref={buttonRef}
-        onClick={() => setIsOpen(!isOpen)}
+        ref={dropdown.triggerRef}
+        onClick={dropdown.toggle}
         className="p-2 rounded-lg transition-colors"
         style={{ color: 'var(--monarch-text-muted)' }}
         onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--monarch-text-dark)'; e.currentTarget.style.backgroundColor = 'var(--monarch-bg-page)'; }}
@@ -109,19 +94,20 @@ export function ConfigPanel({ config, onUpdate }: ConfigPanelProps) {
         </svg>
       </button>
 
-      {isOpen && (
+      {dropdown.isOpen && (
         <Portal>
           <div
             className="fixed inset-0 z-50"
-            onClick={() => setIsOpen(false)}
+            onClick={dropdown.close}
           />
           <div
+            ref={dropdown.dropdownRef}
             className="fixed z-50 w-80 rounded-xl shadow-lg p-4"
             style={{
               backgroundColor: 'var(--monarch-bg-card)',
               border: '1px solid var(--monarch-border)',
-              top: dropdownPosition.top,
-              right: dropdownPosition.right,
+              top: dropdown.position.top,
+              right: dropdown.position.right,
             }}
           >
             <h3 className="font-medium mb-3" style={{ color: 'var(--monarch-text-dark)' }}>Settings</h3>

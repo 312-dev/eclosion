@@ -1,0 +1,46 @@
+/**
+ * VersionBadge - Shows BETA or STABLE badge based on version string
+ */
+
+interface VersionBadgeProps {
+  version: string;
+  channel?: string;
+  size?: 'sm' | 'md';
+}
+
+export function VersionBadge({ version, channel, size = 'sm' }: VersionBadgeProps) {
+  // Determine if this is a beta version based on version string or channel
+  const isBeta =
+    channel === 'beta' ||
+    version.includes('-beta') ||
+    version.includes('-rc') ||
+    version.includes('-alpha');
+
+  const sizeClasses = size === 'sm' ? 'text-xs px-1.5 py-0.5' : 'text-sm px-2 py-1';
+
+  if (isBeta) {
+    return (
+      <span
+        className={`${sizeClasses} rounded font-medium`}
+        style={{
+          backgroundColor: 'var(--monarch-accent-muted)',
+          color: 'var(--monarch-accent)',
+        }}
+      >
+        BETA
+      </span>
+    );
+  }
+
+  return (
+    <span
+      className={`${sizeClasses} rounded font-medium`}
+      style={{
+        backgroundColor: 'var(--monarch-success-bg)',
+        color: 'var(--monarch-success)',
+      }}
+    >
+      STABLE
+    </span>
+  );
+}

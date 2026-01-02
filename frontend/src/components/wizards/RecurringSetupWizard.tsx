@@ -11,7 +11,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { TourProvider, useTour } from '@reactour/tour';
+import { TourProvider } from '@reactour/tour';
 import type { CategoryGroup, RecurringItem, UnmappedCategory } from '../../types';
 import {
   getCategoryGroups,
@@ -33,6 +33,7 @@ import {
   FrequencyGroup,
   formatCurrency,
   wizardTourStyles,
+  TourController,
   FREQUENCY_ORDER,
 } from './WizardComponents';
 
@@ -67,28 +68,6 @@ const TOUR_STEPS = [
     position: 'left' as const,
   },
 ];
-
-// Tour controller component
-function TourController({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
-  const { setIsOpen } = useTour();
-
-  useEffect(() => {
-    setIsOpen(isOpen);
-  }, [isOpen, setIsOpen]);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
-
-  return null;
-}
 
 // ============================================================================
 // Step Components

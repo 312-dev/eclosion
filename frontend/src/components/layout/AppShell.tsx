@@ -9,9 +9,9 @@
  * - Footer with GitHub link
  */
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
-import { TourProvider, useTour } from '@reactour/tour';
+import { TourProvider } from '@reactour/tour';
 import { HelpCircle, ShieldCheck } from 'lucide-react';
 import { SidebarNavigation } from './SidebarNavigation';
 import { SyncButton } from '../SyncButton';
@@ -24,7 +24,7 @@ import { useDashboardQuery, useSyncMutation } from '../../api/queries';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { RateLimitError } from '../../api/client';
-import { AppIcon } from '../wizards/WizardComponents';
+import { AppIcon, TourController } from '../wizards/WizardComponents';
 
 // Tour steps for the main app
 const TOUR_STEPS = [
@@ -90,28 +90,6 @@ const tourStyles = {
     right: '12px',
   }),
 };
-
-// Tour controller component
-function TourController({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
-  const { setIsOpen } = useTour();
-
-  useEffect(() => {
-    setIsOpen(isOpen);
-  }, [isOpen, setIsOpen]);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
-
-  return null;
-}
 
 export function AppShell() {
   const [showSecurityInfo, setShowSecurityInfo] = useState(false);

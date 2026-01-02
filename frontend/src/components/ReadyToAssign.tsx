@@ -1,9 +1,10 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import type { ReadyToAssign as ReadyToAssignData, RecurringItem, DashboardSummary, RollupData } from '../types';
 import { Portal } from './Portal';
 import { LineChart, Line, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, Area } from 'recharts';
 import { formatCurrency } from '../utils';
 import { Tooltip } from './ui/Tooltip';
+import { useDropdown } from '../hooks';
 
 export interface BurndownPoint {
   month: string;
@@ -369,10 +370,10 @@ function getLowestMonthlyDate(items: RecurringItem[]): string | null {
 }
 
 export function ReadyToAssign({ data, summary, items, rollup, variant = 'sidebar' }: ReadyToAssignProps) {
-  const [showInfo, setShowInfo] = useState(false);
-  const [infoPosition, setInfoPosition] = useState({ top: 0, right: 0 });
-  const infoButtonRef = useRef<HTMLButtonElement>(null);
-  const popoverRef = useRef<HTMLDivElement>(null);
+  const infoDropdown = useDropdown<HTMLDivElement, HTMLButtonElement>({
+    alignment: 'right',
+    offset: { y: 8 },
+  });
 
   const isPositive = data.ready_to_assign >= 0;
   const currentMonthlyCost = summary.total_monthly_contribution;
@@ -401,39 +402,6 @@ export function ReadyToAssign({ data, summary, items, rollup, variant = 'sidebar
       total: disabledItems.reduce((sum, item) => sum + item.amount, 0),
     };
   }, [items]);
-
-  const updateInfoPosition = useCallback(() => {
-    if (infoButtonRef.current) {
-      const rect = infoButtonRef.current.getBoundingClientRect();
-      setInfoPosition({
-        top: rect.bottom + 8,
-        right: window.innerWidth - rect.right,
-      });
-    }
-  }, []);
-
-  // Position updates and click outside handling
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (popoverRef.current && !popoverRef.current.contains(event.target as Node) &&
-          infoButtonRef.current && !infoButtonRef.current.contains(event.target as Node)) {
-        setShowInfo(false);
-      }
-    }
-
-    if (showInfo) {
-      updateInfoPosition();
-      window.addEventListener('resize', updateInfoPosition);
-      window.addEventListener('scroll', updateInfoPosition, true);
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      window.removeEventListener('resize', updateInfoPosition);
-      window.removeEventListener('scroll', updateInfoPosition, true);
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [showInfo, updateInfoPosition]);
 
   // Mobile horizontal layout
   if (variant === 'mobile') {
@@ -540,7 +508,7 @@ export function ReadyToAssign({ data, summary, items, rollup, variant = 'sidebar
         )}
         {showAnticipatedLower && (
           <button
-            ref={infoButtonRef}
+            ref={infoDropdown.triggerRef}
             className="text-xs flex items-center gap-1 mt-2 mx-auto"
             style={{
               color: 'var(--monarch-success)',
@@ -548,7 +516,7 @@ export function ReadyToAssign({ data, summary, items, rollup, variant = 'sidebar
               textDecorationStyle: 'dotted',
               textUnderlineOffset: '2px',
             }}
-            onClick={() => setShowInfo(true)}
+            onClick={infoDropdown.open}
           >
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="22 17 13.5 8.5 8.5 13.5 2 7"></polyline>
@@ -559,21 +527,21 @@ export function ReadyToAssign({ data, summary, items, rollup, variant = 'sidebar
         )}
 
         {/* Info Popover */}
-        {showInfo && (
+        {infoDropdown.isOpen && (
           <Portal>
             <div
               className="fixed inset-0 z-50"
-              onClick={() => setShowInfo(false)}
+              onClick={infoDropdown.close}
             />
             <div
-              ref={popoverRef}
+              ref={infoDropdown.dropdownRef}
               className="fixed z-50 rounded-xl shadow-lg p-4 text-left"
               style={{
                 backgroundColor: 'var(--monarch-bg-card)',
                 border: '1px solid var(--monarch-border)',
                 width: '280px',
-                top: infoPosition.top,
-                right: infoPosition.right,
+                top: infoDropdown.position.top,
+                right: infoDropdown.position.right,
               }}
             >
               <div className="flex justify-between items-start mb-3">
@@ -581,7 +549,7 @@ export function ReadyToAssign({ data, summary, items, rollup, variant = 'sidebar
                   Why will my costs decrease?
                 </div>
                 <button
-                  onClick={() => setShowInfo(false)}
+                  onClick={infoDropdown.close}
                   className="-mt-1 -mr-1 p-1 transition-colors"
                   style={{ color: 'var(--monarch-text-muted)' }}
                 >

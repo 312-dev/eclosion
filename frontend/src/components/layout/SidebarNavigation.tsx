@@ -5,10 +5,11 @@
  * Converts to bottom navigation on mobile screens.
  */
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { Settings, LogOut, Lightbulb, Github } from 'lucide-react';
 import { RecurringIcon } from '../wizards/WizardComponents';
+import { useClickOutside } from '../../hooks';
 
 function RedditIcon({ size = 20 }: { size?: number }) {
   return (
@@ -70,17 +71,7 @@ export function SidebarNavigation({ onSignOut }: Readonly<SidebarNavigationProps
   const [ideaMenuOpen, setIdeaMenuOpen] = useState(false);
   const ideaMenuRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (ideaMenuRef.current && !ideaMenuRef.current.contains(event.target as Node)) {
-        setIdeaMenuOpen(false);
-      }
-    }
-    if (ideaMenuOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
-    }
-  }, [ideaMenuOpen]);
+  useClickOutside([ideaMenuRef], () => setIdeaMenuOpen(false), ideaMenuOpen);
 
   const handleSettingsClick = (hash: string) => {
     navigate(`/settings${hash}`);
