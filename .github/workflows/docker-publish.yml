@@ -30,7 +30,7 @@ jobs:
     outputs:
       should_build: ${{ steps.check.outputs.should_build }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Check if build needed
         id: check
@@ -61,7 +61,7 @@ jobs:
       packages: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -106,7 +106,7 @@ jobs:
 
       - name: Build and push Docker image
         if: startsWith(github.ref, 'refs/tags/v')
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           platforms: linux/amd64,linux/arm64
@@ -124,7 +124,7 @@ jobs:
       # Build-only for PRs and main branch pushes (no publish)
       - name: Build Docker image (CI only)
         if: "!startsWith(github.ref, 'refs/tags/v')"
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           platforms: linux/amd64,linux/arm64
