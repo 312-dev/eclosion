@@ -11,7 +11,7 @@ import { Link } from 'react-router-dom';
 import { DocsLayout, FeatureGrid } from '../components/marketing';
 import { GetStartedModal } from '../components/ui/GetStartedModal';
 import { useIsMarketingSite } from '../hooks/useIsMarketingSite';
-import { getAvailableFeatures } from '../data/features';
+import { getAvailableFeatures, getComingSoonFeatures } from '../data/features';
 import {
   ChevronRightIcon,
   ExternalLinkIcon,
@@ -19,7 +19,6 @@ import {
   BookmarkIcon,
   InfoIcon,
   ShieldCheckIcon,
-  UsersIcon,
 } from '../components/icons';
 
 // =============================================================================
@@ -29,6 +28,7 @@ import {
 function MarketingDocsContent() {
   const [showGetStartedModal, setShowGetStartedModal] = useState(false);
   const availableFeatures = getAvailableFeatures();
+  const comingSoonFeatures = getComingSoonFeatures();
 
   return (
     <>
@@ -153,42 +153,22 @@ function MarketingDocsContent() {
       </section>
 
       {/* Upcoming Tools */}
-      <section className="px-4 sm:px-6 py-12">
-        <div className="max-w-4xl mx-auto">
-          <h2
-            className="text-2xl font-bold text-[var(--monarch-text-dark)] mb-8 text-center"
-            style={{ fontFamily: "'Unbounded', sans-serif" }}
-          >
-            Our Goals
-          </h2>
-          <p className="text-center text-[var(--monarch-text)] mb-8">
-            Features we're working on to make Eclosion even better.
-          </p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Our Goals */}
-            <div className="relative p-6 rounded-xl bg-[var(--monarch-bg-card)] border border-[var(--monarch-border)]">
-              <span className="absolute top-4 right-4 px-2 py-1 text-xs font-medium rounded-full bg-[var(--monarch-orange)]/10 text-[var(--monarch-orange)]">
-                Coming Soon
-              </span>
-              <div className="flex items-start gap-4">
-                <div className="flex-shrink-0 flex items-center justify-center w-12 h-12 rounded-xl bg-(--monarch-orange)/10">
-                  <UsersIcon size={24} color="var(--monarch-orange)" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-[var(--monarch-text-dark)] mb-2">
-                    Our Goals
-                  </h3>
-                  <p className="text-sm text-[var(--monarch-text)]">
-                    Unify shared financial goals between two different Monarch accounts.
-                    Track joint progress, visualize combined trajectories, and celebrate
-                    milestones together.
-                  </p>
-                </div>
-              </div>
-            </div>
+      {comingSoonFeatures.length > 0 && (
+        <section className="px-4 sm:px-6 py-12">
+          <div className="max-w-4xl mx-auto">
+            <h2
+              className="text-2xl font-bold text-[var(--monarch-text-dark)] mb-8 text-center"
+              style={{ fontFamily: "'Unbounded', sans-serif" }}
+            >
+              Our Goals
+            </h2>
+            <p className="text-center text-[var(--monarch-text)] mb-8">
+              Features we're working on to make Eclosion even better.
+            </p>
+            <FeatureGrid features={comingSoonFeatures} variant="compact" />
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* FAQ */}
       <section className="px-4 sm:px-6 py-12 bg-[var(--monarch-bg-card)]">
