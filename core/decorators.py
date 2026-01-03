@@ -89,6 +89,35 @@ def api_handler(
     return decorator
 
 
+def _safe_error_message(e: Exception) -> str:
+    """
+    Get a safe error message that doesn't expose internal details.
+
+    For known exception types, returns the message.
+    For unknown types, returns a generic message to prevent information leakage.
+    """
+    from .exceptions import ValidationError
+
+    # Known safe exceptions where we can expose the message
+    safe_exception_types = (
+        ValidationError,
+        ValueError,
+        KeyError,
+        FileNotFoundError,
+    )
+
+    if isinstance(e, safe_exception_types):
+        # Still sanitize to remove any potential path info
+        msg = str(e)
+        # Don't expose full file paths
+        if "/" in msg and len(msg) > 100:
+            return "Operation failed"
+        return msg
+
+    # For all other exceptions, return generic message
+    return "An internal error occurred"
+
+
 def _handle_exception(e: Exception, handle_mfa: bool) -> tuple:
     """
     Centralized exception handling.
@@ -124,11 +153,11 @@ def _handle_exception(e: Exception, handle_mfa: bool) -> tuple:
         logger.warning(f"Rate limited: {e}")
         retry_after = getattr(e, "retry_after", 60)
         return (
-            jsonify({"error": str(e), "code": "RATE_LIMITED", "retry_after": retry_after}),
+            jsonify({"error": "Rate limit exceeded. Please try again later.", "code": "RATE_LIMITED", "retry_after": retry_after}),
             429,
         )
 
-    # Validation error
+    # Validation error - safe to expose message
     if isinstance(e, ValidationError):
         logger.warning(f"Validation error: {e}")
         return (
@@ -136,6 +165,6 @@ def _handle_exception(e: Exception, handle_mfa: bool) -> tuple:
             400,
         )
 
-    # Generic error
+    # Generic error - use safe message to prevent information exposure
     logger.exception(f"API error: {e}")
-    return jsonify({"error": str(e), "success": False, "code": "INTERNAL_ERROR"}), 500
+    return jsonify({"error": _safe_error_message(e), "success": False, "code": "INTERNAL_ERROR"}), 500
