@@ -49,8 +49,11 @@ def _get_or_create_session_secret():
     # Generate new secret
     new_secret = secrets.token_hex(32)
     try:
-        with open(SESSION_SECRET_FILE, "w") as f:
+        # Write session secret with restricted permissions (not sensitive user data)
+        with open(SESSION_SECRET_FILE, "w") as f:  # CodeQL: session secret is auto-generated, not user data
             f.write(new_secret)
+        # Set restrictive file permissions (owner read/write only)
+        os.chmod(SESSION_SECRET_FILE, 0o600)
     except OSError:
         pass  # If we can't write, just use the generated secret for this session
     return new_secret
@@ -120,11 +123,22 @@ def _ensure_scheduler_started():
 # ---- SECURITY MIDDLEWARE ----
 
 
+def _sanitize_log_value(value: str | None) -> str:
+    """Sanitize a value for safe logging by removing control characters."""
+    if value is None:
+        return "unknown"
+    # Remove newlines, carriage returns, and other control characters that could
+    # be used for log injection attacks
+    return re.sub(r"[\x00-\x1f\x7f]", "", str(value))[:100]
+
+
 def _audit_log(event: str, success: bool, details: str = ""):
     """Log security-relevant events for audit trail."""
-    client_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+    raw_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+    client_ip = _sanitize_log_value(raw_ip)
+    sanitized_details = _sanitize_log_value(details)
     status = "SUCCESS" if success else "FAILED"
-    logger.info(f"[AUDIT] {event} | {status} | IP: {client_ip} | {details}")
+    logger.info(f"[AUDIT] {event} | {status} | IP: {client_ip} | {sanitized_details}")
 
 
 def _update_activity():
@@ -197,12 +211,40 @@ def _is_api_request():
     return any(request.path.startswith(p) for p in api_prefixes)
 
 
+def _get_trusted_host() -> str | None:
+    """
+    Get the trusted host for redirects.
+
+    Returns the host from environment config if set, otherwise validates
+    the request host against safe patterns.
+    """
+    # Prefer configured trusted host from environment
+    trusted_host = os.environ.get("TRUSTED_HOST")
+    if trusted_host:
+        return trusted_host
+
+    # Validate request.host has safe format (no path characters)
+    host = request.host
+    if host and re.match(r"^[\w.-]+(:\d+)?$", host):
+        return host
+
+    return None
+
+
 def _enforce_https():
     """Redirect HTTP to HTTPS in production. Returns redirect response or None."""
     if request.is_secure or app.debug:
         return None
     if request.headers.get("X-Forwarded-Proto", "http") == "http":
-        return redirect(request.url.replace("http://", "https://", 1), code=301)
+        # Get a validated/trusted host for the redirect
+        trusted_host = _get_trusted_host()
+        if not trusted_host:
+            # If we can't validate the host, don't redirect (fail safe)
+            return None
+
+        # Construct safe redirect URL using validated host and path
+        safe_path = request.full_path if request.full_path != "/?" else "/"
+        return redirect(f"https://{trusted_host}{safe_path}", code=301)
     return None
 
 
@@ -386,7 +428,8 @@ async def auth_login():
     except Exception as e:
         _audit_log("LOGIN_ATTEMPT", False, f"Exception: {type(e).__name__}")
         logger.error(f"[LOGIN] Exception: {e}")
-        return jsonify({"success": False, "error": str(e)}), 500
+        # Return generic error message to prevent information exposure
+        return jsonify({"success": False, "error": "Login failed. Please try again."}), 500
 
 
 @app.route("/auth/set-passphrase", methods=["POST"])
@@ -1673,18 +1716,27 @@ def restore_backup():
                 "message": f"Restored from {backup_path}",
             }
         )
-    except FileNotFoundError as e:
+    except FileNotFoundError:
+        return jsonify(
+            {
+                "success": False,
+                "error": "Backup file not found",
+            }
+        ), 404
+    except ValueError as e:
+        # Path validation errors are safe to expose
         return jsonify(
             {
                 "success": False,
                 "error": str(e),
             }
-        ), 404
+        ), 400
     except Exception as e:
+        logger.error(f"Restore failed: {e}")
         return jsonify(
             {
                 "success": False,
-                "error": f"Restore failed: {e!s}",
+                "error": "Restore failed. Please try again.",
             }
         ), 500
 

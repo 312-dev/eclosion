@@ -119,6 +119,32 @@ class BackupManager:
         backups.sort(key=lambda x: x["created_at"], reverse=True)
         return backups
 
+    def _validate_backup_path(self, backup_path: Path) -> Path:
+        """
+        Validate that a backup path is within the allowed backup directory.
+
+        Args:
+            backup_path: Path to validate
+
+        Returns:
+            Resolved, validated path
+
+        Raises:
+            ValueError: If path is outside backup directory (path traversal attempt)
+        """
+        resolved_path = backup_path.resolve()
+        resolved_backup_dir = self.backup_dir.resolve()
+
+        # Check that the path is within the backup directory
+        try:
+            resolved_path.relative_to(resolved_backup_dir)
+        except ValueError:
+            raise ValueError(
+                f"Invalid backup path: must be within {resolved_backup_dir}"
+            ) from None
+
+        return resolved_path
+
     def restore_backup(
         self,
         backup_path: Path,
@@ -135,9 +161,16 @@ class BackupManager:
 
         Returns:
             True if restore was successful
+
+        Raises:
+            FileNotFoundError: If backup file doesn't exist
+            ValueError: If backup path is outside backup directory (path traversal)
         """
         state_file = state_file or config.STATE_FILE
         backup_path = Path(backup_path)
+
+        # Validate path is within backup directory to prevent path traversal
+        backup_path = self._validate_backup_path(backup_path)
 
         if not backup_path.exists():
             raise FileNotFoundError(f"Backup file not found: {backup_path}")
@@ -177,8 +210,15 @@ class BackupManager:
 
         Returns:
             Dict with schema_version, schema_channel, and other state metadata
+
+        Raises:
+            ValueError: If backup path is outside backup directory (path traversal)
         """
         backup_path = Path(backup_path)
+
+        # Validate path is within backup directory to prevent path traversal
+        backup_path = self._validate_backup_path(backup_path)
+
         if not backup_path.exists():
             return None
 
