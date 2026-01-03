@@ -27,3 +27,4 @@
 10017	WARN	(Cross-Domain JavaScript Source File Inclusion)
 10055	WARN	(CSP: Wildcard Directive - intentional for img-src https:)
 10098	WARN	(Cross-Domain Misconfiguration)
+90004	WARN	(Spectre Vulnerability - COEP breaks cross-origin resources)
