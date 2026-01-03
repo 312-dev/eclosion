@@ -34,6 +34,7 @@ jobs:
               - 'tests/**'
               - 'requirements*.txt'
               - 'pyproject.toml'
+              - 'Dockerfile'
 
   # Frontend checks
   frontend:
@@ -66,6 +67,9 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Test
+        run: npm test -- --run
+
   # Backend checks
   backend:
     name: Backend
@@ -95,6 +99,9 @@ jobs:
       - name: Type check with mypy
         run: mypy . --ignore-missing-imports || true
         # Note: Start permissive, tighten over time
+
+      - name: Test
+        run: pytest
 
   # Final status check - always runs and reports aggregate result
   # Configure branch protection to require only this check
