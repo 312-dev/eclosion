@@ -1,0 +1,52 @@
+{
+  "version": "1.0.0",
+  "generated": "2026-01-04T23:32:50.342Z",
+  "appVersion": "1.2.0",
+  "contents": {
+    "recurring-overview": {
+      "hash": "d0648b3dee7a0211",
+      "generatedDocHash": "6265c2039d004ca828c6b87a8240c52bd933d1d5f2b6e843db20d41ffdc897f0",
+      "lastGenerated": "2026-01-04T23:32:50.341Z",
+      "sourceFiles": [
+        "frontend/src/components/layout/AppShell.tsx",
+        "frontend/src/components/tabs/RecurringTab.tsx",
+        "frontend/src/components/RollupZone.tsx"
+      ],
+      "outputFile": "docusaurus/docs/recurring/overview.mdx"
+    },
+    "setup-wizard": {
+      "hash": "45290c0000f512fb",
+      "generatedDocHash": "128cfa6315b87ca460db6b94602ede7e418a97e67d819ea346f2f6162f4fe1b7",
+      "lastGenerated": "2026-01-04T23:32:50.341Z",
+      "sourceFiles": [
+        "frontend/src/components/wizards/RecurringSetupWizard.tsx",
+        "frontend/src/components/wizards/steps/WelcomeStep.tsx",
+        "frontend/src/components/wizards/steps/CategoryStep.tsx",
+        "frontend/src/components/wizards/steps/ItemSelectionStep.tsx",
+        "frontend/src/components/wizards/steps/RollupConfigStep.tsx",
+        "frontend/src/components/wizards/steps/FinishStep.tsx"
+      ],
+      "outputFile": "docusaurus/docs/recurring/setup-wizard.mdx"
+    },
+    "rollup-category": {
+      "hash": "50afc78df3c3f781",
+      "generatedDocHash": "dba3400162a90f847b6e97779ee124b10b28626c033d145d333f405a30d3c226",
+      "lastGenerated": "2026-01-04T23:32:50.341Z",
+      "sourceFiles": [
+        "frontend/src/components/wizards/steps/RollupConfigStep.tsx",
+        "frontend/src/components/RollupZone.tsx"
+      ],
+      "outputFile": "docusaurus/docs/recurring/rollup-category.mdx"
+    },
+    "category-linking": {
+      "hash": "d1dee98c5e58c61c",
+      "generatedDocHash": "ec6ac30f4c6e1d82be22e4209f01e34eceac3a248e0a2f32c5d5c8fdd2e7ad99",
+      "lastGenerated": "2026-01-04T23:32:50.341Z",
+      "sourceFiles": [
+        "frontend/src/components/LinkCategoryModal.tsx",
+        "frontend/src/components/wizards/steps/ItemSelectionStep.tsx"
+      ],
+      "outputFile": "docusaurus/docs/recurring/category-linking.mdx"
+    }
+  }
+}
