@@ -1,4 +1,101 @@
 {
-  "lastSync": null,
-  "trackedIdeas": {}
+  "lastSync": "2026-01-04T20:02:21.275Z",
+  "trackedIdeas": {
+    "0baf9e8a-6b1b-47c7-98f8-fb67accb1dac": {
+      "discussionId": "D_kwDOQyteiM4Ajgau",
+      "discussionNumber": 31,
+      "status": "open",
+      "lastVoteCount": 1318,
+      "lastProductBoardStatus": "idea",
+      "githubVotes": 0
+    },
+    "279c6321-b841-4ee7-a427-bdf395eb9e92": {
+      "discussionId": "D_kwDOQyteiM4Ajgav",
+      "discussionNumber": 32,
+      "status": "open",
+      "lastVoteCount": 1042,
+      "lastProductBoardStatus": "idea",
+      "githubVotes": 0
+    },
+    "3014fbc4-7592-41ea-b654-b284d8c638e9": {
+      "discussionId": "D_kwDOQyteiM4Ajgaw",
+      "discussionNumber": 33,
+      "status": "open",
+      "lastVoteCount": 2358,
+      "lastProductBoardStatus": "idea",
+      "githubVotes": 0
+    },
+    "5cb19f83-5649-4a9a-a1a9-65374c86c363": {
+      "discussionId": "D_kwDOQyteiM4Ajgax",
+      "discussionNumber": 34,
+      "status": "open",
+      "lastVoteCount": 1193,
+      "lastProductBoardStatus": "idea",
+      "githubVotes": 0
+    },
+    "7b0666eb-b9cb-4a20-88db-70dac016a7b7": {
+      "discussionId": "D_kwDOQyteiM4Ajgay",
+      "discussionNumber": 35,
+      "status": "open",
+      "lastVoteCount": 1043,
+      "lastProductBoardStatus": "idea",
+      "githubVotes": 0
+    },
+    "94f907ae-f461-4ce7-a251-25b6e32eff51": {
+      "discussionId": "D_kwDOQyteiM4Ajgaz",
+      "discussionNumber": 36,
+      "status": "open",
+      "lastVoteCount": 1196,
+      "lastProductBoardStatus": "idea",
+      "githubVotes": 0
+    },
+    "a8b7d4a6-9f9a-4938-b8eb-8dab3bc6345a": {
+      "discussionId": "D_kwDOQyteiM4Ajga0",
+      "discussionNumber": 37,
+      "status": "open",
+      "lastVoteCount": 591,
+      "lastProductBoardStatus": "idea",
+      "githubVotes": 0
+    },
+    "a98cc77b-79f4-4d58-98dd-13da6945475d": {
+      "discussionId": "D_kwDOQyteiM4Ajga1",
+      "discussionNumber": 38,
+      "status": "open",
+      "lastVoteCount": 812,
+      "lastProductBoardStatus": "idea",
+      "githubVotes": 0
+    },
+    "b4ab0b06-f1ae-41ad-973c-e9125bcb258c": {
+      "discussionId": "D_kwDOQyteiM4Ajga2",
+      "discussionNumber": 39,
+      "status": "open",
+      "lastVoteCount": 2776,
+      "lastProductBoardStatus": "idea",
+      "githubVotes": 0
+    },
+    "b7498c70-03f9-4d64-9394-424e9a0bd1fd": {
+      "discussionId": "D_kwDOQyteiM4Ajga3",
+      "discussionNumber": 40,
+      "status": "open",
+      "lastVoteCount": 1180,
+      "lastProductBoardStatus": "idea",
+      "githubVotes": 0
+    },
+    "c34ff79b-2e01-411b-8674-595146535789": {
+      "discussionId": "D_kwDOQyteiM4Ajga4",
+      "discussionNumber": 41,
+      "status": "open",
+      "lastVoteCount": 520,
+      "lastProductBoardStatus": "idea",
+      "githubVotes": 0
+    },
+    "fab954de-53e1-4b64-b704-7b5f97a988b7": {
+      "discussionId": "D_kwDOQyteiM4Ajga5",
+      "discussionNumber": 42,
+      "status": "open",
+      "lastVoteCount": 1187,
+      "lastProductBoardStatus": "idea",
+      "githubVotes": 0
+    }
+  }
 }
