@@ -112,6 +112,9 @@ jobs:
 
       - name: Build Docusaurus
         working-directory: docusaurus
+        env:
+          ECLOSION_BETA: ${{ steps.config.outputs.environment == 'beta' && 'true' || '' }}
+          DOCS_LAST_VERSION: ${{ steps.config.outputs.environment == 'beta' && 'current' || '1.0' }}
         run: npm run build
 
       - name: Merge builds
