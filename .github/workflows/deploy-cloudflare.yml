@@ -116,8 +116,9 @@ jobs:
 
       - name: Merge builds
         run: |
-          # Copy Docusaurus build into frontend/dist/docs
-          cp -r docusaurus/build frontend/dist/docs
+          # Copy Docusaurus build contents into frontend/dist
+          # Docusaurus already builds to /docs path, so we copy to root
+          cp -r docusaurus/build/* frontend/dist/
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
