@@ -209,9 +209,10 @@ function AppRouter() {
       );
     }
 
-    // Docusaurus paths (/docs/*) - return null to let static server handle it
-    // This prevents the SPA from intercepting routes that Docusaurus should serve
+    // Docusaurus paths (/docs/*) - force full page reload to serve static HTML
+    // This handles the edge case where React Router intercepts a /docs navigation
     if (location.pathname.startsWith('/docs')) {
+      globalThis.location.replace(location.pathname + location.search + location.hash);
       return null;
     }
 

@@ -1,6 +1,10 @@
 # Cloudflare Pages redirects
-# Let Docusaurus static files be served directly
-/docs/* /docs/:splat 200
+#
+# Static files are served automatically by Cloudflare Pages before these rules apply.
+# These rules only match when no static file exists for the requested path.
 
-# SPA fallback for all other routes
+# For missing /docs paths, show Docusaurus 404 page (not the React SPA)
+/docs/* /404.html 404
+
+# SPA fallback for all other routes (React app)
 /* /index.html 200
