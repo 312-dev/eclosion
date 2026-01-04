@@ -209,6 +209,12 @@ function AppRouter() {
       );
     }
 
+    // Docusaurus paths (/docs/*) - return null to let static server handle it
+    // This prevents the SPA from intercepting routes that Docusaurus should serve
+    if (location.pathname.startsWith('/docs')) {
+      return null;
+    }
+
     // Catch-all: redirect to landing
     return <Navigate to="/" replace />;
   }
