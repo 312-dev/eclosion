@@ -77,6 +77,19 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
+          # Save the generated files
+          cp scripts/productboard-sync/state.json /tmp/state.json
+          cp data/ideas.json /tmp/ideas.json
+
+          # Switch to main branch
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
+          git fetch origin main
+          git checkout main
+
+          # Restore the generated files
+          cp /tmp/state.json scripts/productboard-sync/state.json
+          cp /tmp/ideas.json data/ideas.json
+
           # Check if there are changes to commit
           git add scripts/productboard-sync/state.json data/ideas.json
           if git diff --staged --quiet; then
@@ -84,10 +97,9 @@ jobs:
             exit 0
           fi
 
-          # Commit and push directly to main using PAT for authentication
+          # Commit and push directly to main
           git commit -m "chore: update productboard sync state and ideas data"
-          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
-          git push origin HEAD:main
+          git push origin main
 
       - name: Summary
         run: |
