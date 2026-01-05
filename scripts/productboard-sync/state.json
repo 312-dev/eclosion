@@ -1,5 +1,5 @@
 {
-  "lastSync": "2026-01-05T06:41:29.082Z",
+  "lastSync": "2026-01-05T06:46:22.931Z",
   "trackedIdeas": {
     "cf1f8240-67ae-4b18-a966-0d669813f07a": {
       "discussionId": "D_kwDOQyteiM4AjgiZ",
@@ -107,6 +107,28 @@
       "lastProductBoardStatus": "idea",
       "githubVotes": 0,
       "source": "productboard"
+    },
+    "github-53": {
+      "discussionId": "D_kwDOQyteiM4Ajgs1",
+      "discussionNumber": 53,
+      "status": "open",
+      "lastVoteCount": 0,
+      "githubVotes": 0,
+      "source": "github",
+      "title": "Notes field on categories or merchants",
+      "description": "688\nDashboard & System Wide\nView on Monarch's Roadmap",
+      "category": "Community"
+    },
+    "github-39": {
+      "discussionId": "D_kwDOQyteiM4Ajga2",
+      "discussionNumber": 39,
+      "status": "open",
+      "lastVoteCount": 0,
+      "githubVotes": 0,
+      "source": "github",
+      "title": "Associate 2 transactions together",
+      "description": "2,777\nTransactions\nView on Monarch's Roadmap",
+      "category": "Community"
     }
   }
 }
