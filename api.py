@@ -1474,11 +1474,15 @@ def export_security_events():
     """Export security events as CSV file."""
     from flask import Response
 
+    # CSV content is sanitized in security_service.export_events_csv()
     csv_content = security_service.export_events_csv()
     return Response(
         csv_content,
         mimetype="text/csv",
-        headers={"Content-Disposition": "attachment;filename=security_events.csv"},
+        headers={
+            "Content-Disposition": "attachment;filename=security_events.csv",
+            "X-Content-Type-Options": "nosniff",  # Prevent MIME type sniffing
+        },
     )
 
 

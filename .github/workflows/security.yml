@@ -227,6 +227,7 @@ jobs:
           exit-code: "1"
           severity: ${{ steps.severity.outputs.trivy_severity }}
           ignore-unfixed: true
+          trivy-config: trivy.yaml
 
       - name: Run Trivy and upload SARIF
         uses: aquasecurity/trivy-action@0.33.1
@@ -236,6 +237,7 @@ jobs:
           format: "sarif"
           output: "trivy-results.sarif"
           severity: ${{ steps.severity.outputs.trivy_severity }}
+          trivy-config: trivy.yaml
 
       - name: Upload Trivy SARIF to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v4

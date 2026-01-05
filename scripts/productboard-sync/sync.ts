@@ -346,6 +346,22 @@ function getClosedReason(disc: ExistingDiscussion): TrackedIdea['closedReason'] 
 }
 
 /**
+ * Remove HTML comments completely, looping until no more are found.
+ * This prevents incomplete multi-character sanitization vulnerabilities.
+ */
+function removeHtmlComments(text: string): string {
+  const commentPattern = /<!--[\s\S]*?-->/g;
+  let result = text;
+  let previous = '';
+  // Loop until no changes occur to handle nested/malformed comments
+  while (result !== previous) {
+    previous = result;
+    result = result.replaceAll(commentPattern, '');
+  }
+  return result;
+}
+
+/**
  * Extract description from discussion body (first paragraph or first 200 chars)
  */
 function extractDescription(body: string): string {
@@ -353,14 +369,16 @@ function extractDescription(body: string): string {
   const cleaned = body
     .replaceAll(/\*\*[^*]+\*\*:?\s*/g, '') // Remove bold labels
     .replaceAll(/\[([^\]]+)\]\([^)]+\)/g, '$1') // Convert links to text
-    .replaceAll(/<!--[\s\S]*?-->/g, '') // Remove HTML comments (non-greedy, handles > inside)
     .replaceAll(/^#+\s+.+$/gm, '') // Remove headers
     .replaceAll(/^-+$/gm, '') // Remove horizontal rules
     .replaceAll(/^\s*[-*]\s+/gm, '') // Remove list markers
     .trim();
 
+  // Remove HTML comments with loop to handle incomplete sanitization
+  const withoutComments = removeHtmlComments(cleaned);
+
   // Get first paragraph or first 200 chars
-  const firstPara = cleaned.split(/\n\n/)[0]?.trim() || '';
+  const firstPara = withoutComments.split(/\n\n/)[0]?.trim() || '';
   return firstPara.length > 200 ? `${firstPara.slice(0, 197)}...` : firstPara;
 }
 
