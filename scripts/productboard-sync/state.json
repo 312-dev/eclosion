@@ -1,5 +1,5 @@
 {
-  "lastSync": "2026-01-05T06:14:55.811Z",
+  "lastSync": "2026-01-05T06:37:07.886Z",
   "trackedIdeas": {
     "cf1f8240-67ae-4b18-a966-0d669813f07a": {
       "discussionId": "D_kwDOQyteiM4AjgiZ",
@@ -18,17 +18,6 @@
       "source": "github",
       "title": "Associate 2 transactions together",
       "description": "2,776\nTransactions\nView on Monarch's Roadmap",
-      "category": "Community"
-    },
-    "github-31": {
-      "discussionId": "D_kwDOQyteiM4Ajgau",
-      "discussionNumber": 31,
-      "status": "open",
-      "lastVoteCount": 0,
-      "githubVotes": 0,
-      "source": "github",
-      "title": "Budget income by paycheck, year or quarter (not just monthly)",
-      "description": "1,318\nPlan Budget & Forecast\nView on Monarch's Roadmap",
       "category": "Community"
     },
     "0baf9e8a-6b1b-47c7-98f8-fb67accb1dac": {
