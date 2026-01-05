@@ -53,3 +53,5 @@ export {
 } from './useItemDisplayStatus';
 
 export { useApiClient } from './useApiClient';
+
+export { useRecurringItemActions } from './useRecurringItemActions';

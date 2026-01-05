@@ -17,3 +17,4 @@ export { RecurringItemHeader } from './RecurringItemHeader';
 export { RecurringItemCost } from './RecurringItemCost';
 export { RecurringItemBudget } from './RecurringItemBudget';
 export { RecurringItemStatus } from './RecurringItemStatus';
+export { RecurringListSectionHeader } from './RecurringListSectionHeader';
