@@ -66,6 +66,18 @@ function getRepoUrl(): string {
 }
 
 /**
+ * Clean ProductBoard description text by removing unnecessary escape characters.
+ * ProductBoard stores descriptions with escaped special chars like \. and \-
+ */
+function cleanDescription(text: string): string {
+  return text
+    .replaceAll(/\\([.\-()[\]{}*+?^$|])/g, '$1') // Unescape regex special chars
+    .replaceAll('<span data-preserve-white-space></span>', '') // Remove empty spans
+    .replaceAll('<p></p>', '') // Remove empty paragraphs
+    .trim();
+}
+
+/**
  * Transform ProductBoard ideas to public format
  */
 function toPublicIdeasFromProductBoard(
@@ -80,7 +92,7 @@ function toPublicIdeasFromProductBoard(
       return {
         id: idea.id,
         title: idea.title,
-        description: idea.description,
+        description: cleanDescription(idea.description),
         votes: tracked.githubVotes ?? 0,
         category: idea.category,
         productboardUrl: idea.url,

@@ -213,11 +213,18 @@ function IdeaCard({ idea }: { idea: PublicIdea }) {
       className="p-4 rounded-lg border border-monarch-border bg-monarch-bg-page transition-colors hover:border-monarch-orange/30"
     >
       <div className="flex items-start gap-3">
-        {/* Vote count */}
-        <div className="flex flex-col items-center min-w-[50px] py-1">
+        {/* Vote count - links to discussion for voting */}
+        <a
+          href={idea.discussionUrl ?? '#'}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex flex-col items-center min-w-[50px] py-1 rounded-lg transition-colors hover:bg-monarch-orange/10"
+          title="Vote on GitHub"
+          aria-label={`Vote for ${idea.title} (${idea.votes} votes)`}
+        >
           <ThumbsUp className="w-4 h-4 text-monarch-text-muted mb-1" />
           <span className="text-sm font-semibold text-monarch-text-dark">{idea.votes}</span>
-        </div>
+        </a>
 
         {/* Content */}
         <div className="flex-1 min-w-0">

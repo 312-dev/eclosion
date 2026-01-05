@@ -32,7 +32,7 @@ export const APP_TOUR_STEPS = [
         </p>
       </div>
     ),
-    position: 'top' as const,
+    position: 'center' as const,
   },
 ];
 
@@ -46,6 +46,11 @@ export const appTourStyles = {
     border: '1px solid var(--monarch-border)',
     padding: '16px',
     maxWidth: '300px',
+    zIndex: 'var(--z-index-modal)',
+  }),
+  maskWrapper: (base: object) => ({
+    ...base,
+    zIndex: 'var(--z-index-modal-backdrop)',
   }),
   maskArea: (base: object) => ({
     ...base,
