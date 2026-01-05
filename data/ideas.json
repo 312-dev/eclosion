@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-01-05T06:14:56.671Z",
+  "generatedAt": "2026-01-05T06:37:08.745Z",
   "votesThreshold": 500,
-  "totalIdeas": 15,
-  "openCount": 15,
+  "totalIdeas": 14,
+  "openCount": 14,
   "closedCount": 0,
   "ideas": [
     {
@@ -168,20 +168,6 @@
       "productboardUrl": null,
       "discussionUrl": "https://github.com/GraysonCAdams/eclosion-for-monarch/discussions/39",
       "discussionNumber": 39,
-      "status": "open",
-      "closedReason": null,
-      "closedAt": null,
-      "source": "github"
-    },
-    {
-      "id": "github-31",
-      "title": "Budget income by paycheck, year or quarter (not just monthly)",
-      "description": "1,318\nPlan Budget & Forecast\nView on Monarch's Roadmap",
-      "votes": 0,
-      "category": "Community",
-      "productboardUrl": null,
-      "discussionUrl": "https://github.com/GraysonCAdams/eclosion-for-monarch/discussions/31",
-      "discussionNumber": 31,
       "status": "open",
       "closedReason": null,
       "closedAt": null,
