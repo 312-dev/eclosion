@@ -47,9 +47,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - runner: macos-15-large
-            arch: x64
-          - runner: macos-14
+          - runner: macos-15
             arch: arm64
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 20
@@ -147,11 +145,11 @@ jobs:
           retention-days: 1
 
   # =========================================================================
-  # Create macOS Universal Binary and Package
+  # Package for macOS (ARM64 - works on Intel Macs via Rosetta 2)
   # =========================================================================
   package-mac:
     needs: build-backend-mac
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 30
     steps:
       - name: Checkout
@@ -166,29 +164,16 @@ jobs:
             frontend/package-lock.json
             desktop/package-lock.json
 
-      - name: Download backend artifacts
+      - name: Download backend artifact
         uses: actions/download-artifact@v4
         with:
-          pattern: backend-mac-*
-          path: backend-artifacts
+          name: backend-mac-arm64
+          path: desktop/pyinstaller/dist/eclosion-backend
 
-      - name: Create universal binary
+      - name: Prepare backend
         run: |
-          mkdir -p desktop/pyinstaller/dist/eclosion-backend
-
-          # Copy ARM64 backend as base
-          cp -R backend-artifacts/backend-mac-arm64/* desktop/pyinstaller/dist/eclosion-backend/
-
-          # Create universal binary using lipo for the main executable
-          lipo -create \
-            backend-artifacts/backend-mac-x64/eclosion-backend \
-            backend-artifacts/backend-mac-arm64/eclosion-backend \
-            -output desktop/pyinstaller/dist/eclosion-backend/eclosion-backend
-
-          # Make executable
           chmod +x desktop/pyinstaller/dist/eclosion-backend/eclosion-backend
-
-          echo "Universal binary created:"
+          echo "Backend binary:"
           file desktop/pyinstaller/dist/eclosion-backend/eclosion-backend
 
       - name: Install frontend dependencies
@@ -228,26 +213,22 @@ jobs:
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx electron-builder --mac --publish never
+        run: npx electron-builder --mac --arm64 --publish never
 
-      - name: Validate universal binary
+      - name: Validate backend binary
         run: |
-          echo "## Universal Binary Validation" >> $GITHUB_STEP_SUMMARY
-          BINARY_INFO=$(lipo -info desktop/pyinstaller/dist/eclosion-backend/eclosion-backend)
+          echo "## macOS Backend Binary Validation" >> $GITHUB_STEP_SUMMARY
+          BINARY_INFO=$(file desktop/pyinstaller/dist/eclosion-backend/eclosion-backend)
           echo "Binary info: $BINARY_INFO"
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           echo "$BINARY_INFO" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
 
-          if ! echo "$BINARY_INFO" | grep -q "x86_64"; then
-            echo "::error::Universal binary missing x86_64 architecture"
-            exit 1
-          fi
           if ! echo "$BINARY_INFO" | grep -q "arm64"; then
-            echo "::error::Universal binary missing arm64 architecture"
+            echo "::error::Backend binary missing arm64 architecture"
             exit 1
           fi
-          echo "✅ Universal binary contains both x86_64 and arm64 architectures"
+          echo "✅ Backend binary is arm64 (runs on Intel Macs via Rosetta 2)"
 
       - name: Check binary sizes
         id: sizes
@@ -498,7 +479,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Platform | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|----------|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| macOS (Universal) | ${{ needs.package-mac.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| macOS (ARM64) | ${{ needs.package-mac.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Windows (x64) | ${{ needs.package-win.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Linux (x64) | ${{ needs.package-linux.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
