@@ -6,7 +6,7 @@
  * - Demo: LocalStorage-based data, no auth required
  */
 
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TooltipProvider } from './components/ui/Tooltip';
 import { ToastProvider } from './context/ToastContext';
@@ -272,17 +272,21 @@ function AppRouter() {
   );
 }
 
+// Use HashRouter for desktop (Electron) to handle refresh properly with file:// protocol
+const isDesktop = globalThis.window !== undefined && globalThis.electron !== undefined;
+const Router = isDesktop ? HashRouter : BrowserRouter;
+
 export default function App() {
   return (
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
         <ToastProvider>
           <TooltipProvider>
-            <BrowserRouter>
+            <Router>
               <DemoProvider>
                 <AppRouter />
               </DemoProvider>
-            </BrowserRouter>
+            </Router>
           </TooltipProvider>
         </ToastProvider>
       </QueryClientProvider>
