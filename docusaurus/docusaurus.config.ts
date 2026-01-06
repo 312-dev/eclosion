@@ -29,6 +29,31 @@ const config: Config = {
   organizationName: 'GraysonCAdams',
   projectName: 'eclosion-for-monarch',
 
+  // SEO: Head tags for all pages
+  headTags: [
+    {
+      tagName: 'meta',
+      attributes: {
+        name: 'keywords',
+        content: 'Monarch Money, budgeting, personal finance, recurring expenses, self-hosted, expense tracking, documentation',
+      },
+    },
+    {
+      tagName: 'meta',
+      attributes: {
+        name: 'author',
+        content: 'Eclosion',
+      },
+    },
+    {
+      tagName: 'link',
+      attributes: {
+        rel: 'preconnect',
+        href: 'https://fonts.googleapis.com',
+      },
+    },
+  ],
+
   // Links to / and /demo are served by the main React app, not Docusaurus
   // These are valid at runtime but unknown to Docusaurus during build
   onBrokenLinks: 'warn',
@@ -79,6 +104,16 @@ const config: Config = {
   ],
 
   themeConfig: {
+    // SEO: Open Graph / Social Card image
+    image: 'img/social-card.png',
+    metadata: [
+      { name: 'twitter:card', content: 'summary_large_image' },
+      { name: 'twitter:image:alt', content: 'Eclosion - Self-hosted toolkit for Monarch Money' },
+      { property: 'og:image:width', content: '1280' },
+      { property: 'og:image:height', content: '640' },
+      { property: 'og:image:alt', content: 'Eclosion - Self-hosted toolkit for Monarch Money' },
+      { property: 'og:site_name', content: 'Eclosion for Monarch' },
+    ],
     // Beta announcement bar - shown when ECLOSION_BETA env var is set
     ...(process.env.ECLOSION_BETA === 'true' && {
       announcementBar: {
