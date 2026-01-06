@@ -47,6 +47,7 @@ import {
 } from './tray';
 import { setupIpcHandlers } from './ipc';
 import { initializeUpdater, scheduleUpdateChecks } from './updater';
+import { createAppMenu } from './menu';
 
 // Single instance lock - prevent multiple instances
 debugLog('Requesting single instance lock...');
@@ -110,6 +111,9 @@ async function initialize(): Promise<void> {
     // Create main window
     console.log('Creating main window...');
     await createWindow(backendManager.getPort());
+
+    // Create application menu (adds Settings to macOS app menu)
+    createAppMenu();
 
     // Create system tray
     console.log('Creating system tray...');

@@ -80,6 +80,7 @@ CREDENTIALS_FILE = STATE_DIR / "credentials.json"
 AUTOMATION_CREDENTIALS_FILE = STATE_DIR / "automation_credentials.json"
 SESSION_SECRET_FILE = STATE_DIR / ".session_secret"
 SECURITY_DB_FILE = STATE_DIR / "security_events.db"
+MONARCH_SESSION_FILE = STATE_DIR / "mm_session.pickle"
 
 # Security event retention (days)
 SECURITY_EVENT_RETENTION_DAYS = 90
