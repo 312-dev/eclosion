@@ -58,3 +58,36 @@ export const PLATFORM_EXTENSIONS: Record<Platform, string> = {
   linux: '.AppImage',
   unknown: '',
 };
+
+/**
+ * System requirements for each platform.
+ */
+export interface SystemRequirements {
+  os: string;
+  arch: string;
+  ram: string;
+  disk: string;
+  notes?: string;
+}
+
+export const PLATFORM_REQUIREMENTS: Record<Exclude<Platform, 'unknown'>, SystemRequirements> = {
+  macos: {
+    os: 'macOS 11 (Big Sur) or later',
+    arch: 'Intel or Apple Silicon',
+    ram: '4 GB RAM',
+    disk: '200 MB disk space',
+  },
+  windows: {
+    os: 'Windows 10 (64-bit) or later',
+    arch: 'x64 processor',
+    ram: '4 GB RAM',
+    disk: '200 MB disk space',
+  },
+  linux: {
+    os: 'Ubuntu 20.04, Debian 10, Fedora 32, or equivalent',
+    arch: 'x64 processor',
+    ram: '4 GB RAM',
+    disk: '200 MB disk space',
+    notes: 'AppImage format - works on most distributions',
+  },
+};

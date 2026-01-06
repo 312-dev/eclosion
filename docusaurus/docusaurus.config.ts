@@ -85,8 +85,8 @@ const config: Config = {
         id: 'beta_warning',
         content:
           'You are viewing documentation for the <strong>beta</strong> version. Some features may be unstable. <a href="https://eclosion.app/docs">View stable docs</a>',
-        backgroundColor: '#fef3c7',
-        textColor: '#92400e',
+        backgroundColor: '#ede9fe',
+        textColor: '#6d28d9',
         isCloseable: false,
       },
     }),

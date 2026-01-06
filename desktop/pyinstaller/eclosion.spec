@@ -5,7 +5,7 @@ Bundles the Flask application and all dependencies into a single executable.
 """
 import sys
 from pathlib import Path
-import certifi
+from PyInstaller.utils.hooks import collect_data_files
 
 # Project root (parent of desktop/)
 project_root = Path(SPECPATH).parent.parent
@@ -14,9 +14,11 @@ project_root = Path(SPECPATH).parent.parent
 datas = [
     # Include version file
     (str(project_root / 'version.txt'), '.'),
-    # Include SSL certificates for HTTPS connections (required for PyInstaller bundles)
-    (certifi.where(), 'certifi'),
 ]
+
+# Include SSL certificates for HTTPS connections (required for PyInstaller bundles)
+# Uses PyInstaller's hook system to find certifi's CA bundle
+datas += collect_data_files('certifi')
 
 # Check for state migrations directory
 migrations_dir = project_root / 'state' / 'migrations'

@@ -25,11 +25,9 @@ export function MarketingVersionIndicator() {
         type="button"
         onClick={() => setShowChangelog(true)}
         className="flex items-center gap-1.5 text-xs px-2 py-1 rounded-md transition-colors hover:bg-[var(--monarch-bg-hover)]"
-        style={{ color: 'var(--monarch-text-muted)' }}
         title="View changelog"
       >
-        v{version}
-        <VersionBadge version={version} channel={undefined} />
+        <VersionBadge version={version} channel={undefined} size="md" />
       </button>
 
       <Modal

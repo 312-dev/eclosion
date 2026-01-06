@@ -11,10 +11,12 @@ import {
   LinuxIcon,
   DownloadIcon,
   GlobeIcon,
+  InfoIcon,
   type IconProps,
 } from '../icons';
+import { Tooltip } from '../ui/Tooltip';
 import type { Platform } from '../../utils/platformDetection';
-import { PLATFORM_LABELS } from '../../utils/platformDetection';
+import { PLATFORM_LABELS, PLATFORM_REQUIREMENTS } from '../../utils/platformDetection';
 
 interface PlatformDownloadCardProps {
   readonly platform: Platform;
@@ -31,6 +33,24 @@ const PLATFORM_ICONS: Record<Platform, ComponentType<IconProps>> = {
   linux: LinuxIcon,
   unknown: GlobeIcon,
 };
+
+function SystemRequirementsTooltip({ platform }: { platform: Exclude<Platform, 'unknown'> }) {
+  const req = PLATFORM_REQUIREMENTS[platform];
+  return (
+    <div className="space-y-1 text-left">
+      <div className="font-medium text-[var(--monarch-text-dark)] mb-2">
+        System Requirements
+      </div>
+      <div><span className="text-[var(--monarch-text-muted)]">OS:</span> {req.os}</div>
+      <div><span className="text-[var(--monarch-text-muted)]">CPU:</span> {req.arch}</div>
+      <div><span className="text-[var(--monarch-text-muted)]">Memory:</span> {req.ram}</div>
+      <div><span className="text-[var(--monarch-text-muted)]">Storage:</span> {req.disk}</div>
+      {req.notes && (
+        <div className="mt-2 text-xs text-[var(--monarch-text-muted)] italic">{req.notes}</div>
+      )}
+    </div>
+  );
+}
 
 export function PlatformDownloadCard({
   platform,
@@ -127,10 +147,30 @@ export function PlatformDownloadCard({
           {fileSize}
         </div>
       </div>
-      <DownloadIcon
-        size={primary ? 24 : 20}
-        color={primary ? 'white' : 'var(--monarch-text-muted)'}
-      />
+      <div className="flex items-center gap-2">
+        {platform !== 'unknown' && (
+          <Tooltip
+            content={<SystemRequirementsTooltip platform={platform} />}
+            side="left"
+          >
+            <button
+              type="button"
+              className="p-1 rounded hover:bg-white/10 transition-colors"
+              onClick={(e) => e.preventDefault()}
+              aria-label={`System requirements for ${label}`}
+            >
+              <InfoIcon
+                size={primary ? 18 : 16}
+                color={primary ? 'rgba(255, 255, 255, 0.7)' : 'var(--monarch-text-muted)'}
+              />
+            </button>
+          </Tooltip>
+        )}
+        <DownloadIcon
+          size={primary ? 24 : 20}
+          color={primary ? 'white' : 'var(--monarch-text-muted)'}
+        />
+      </div>
     </a>
   );
 }

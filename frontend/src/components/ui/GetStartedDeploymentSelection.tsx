@@ -5,10 +5,27 @@
  * Shows different descriptions based on coder mode.
  */
 
-import { MonitorIcon, CloudIcon, ServerIcon, ZapIcon, CheckIcon } from '../icons';
+import {
+  MonitorIcon,
+  CloudIcon,
+  ServerIcon,
+  ZapIcon,
+  GiftIcon,
+  SyncIcon,
+  ClockIcon,
+  ShieldIcon,
+  RocketIcon,
+  CheckIcon,
+  type IconProps,
+} from '../icons';
 import { useCoderModeSafe } from '../../context/CoderModeContext';
 
 export type DeploymentType = 'desktop' | 'railway' | 'selfhosted';
+
+interface Feature {
+  text: string;
+  icon: React.ComponentType<IconProps>;
+}
 
 interface DeploymentOption {
   id: DeploymentType;
@@ -18,8 +35,8 @@ interface DeploymentOption {
   description: string;
   descriptionCoder: string;
   badge?: string;
-  features: string[];
-  featuresCoder: string[];
+  features: Feature[];
+  featuresCoder: Feature[];
 }
 
 const DEPLOYMENT_OPTIONS: DeploymentOption[] = [
@@ -31,8 +48,16 @@ const DEPLOYMENT_OPTIONS: DeploymentOption[] = [
     description: 'Download for your computer. Syncs while the app is open.',
     descriptionCoder: 'Electron app with embedded backend. Local SQLite database.',
     badge: 'Simplest',
-    features: ['Free forever', 'No server to manage', 'Syncs to Monarch'],
-    featuresCoder: ['Local data storage', 'Sync on-demand', 'Auto-updates'],
+    features: [
+      { text: 'Free forever', icon: GiftIcon },
+      { text: 'No server to manage', icon: RocketIcon },
+      { text: 'Syncs to Monarch', icon: SyncIcon },
+    ],
+    featuresCoder: [
+      { text: 'Local data storage', icon: ServerIcon },
+      { text: 'Sync on-demand', icon: SyncIcon },
+      { text: 'Auto-updates', icon: RocketIcon },
+    ],
   },
   {
     id: 'railway',
@@ -42,8 +67,16 @@ const DEPLOYMENT_OPTIONS: DeploymentOption[] = [
     description: 'Runs 24/7 in the cloud. Syncs automatically, even when you\'re away.',
     descriptionCoder: 'Docker container on Railway. ~$5/mo. PostgreSQL backend.',
     badge: '24/7 Sync',
-    features: ['Always running', 'One-click setup', 'Automatic updates'],
-    featuresCoder: ['Managed hosting', 'Auto-scaling', 'CI/CD deploys'],
+    features: [
+      { text: 'Always running', icon: ClockIcon },
+      { text: 'One-click setup', icon: ZapIcon },
+      { text: 'Automatic updates', icon: SyncIcon },
+    ],
+    featuresCoder: [
+      { text: 'Managed hosting', icon: CloudIcon },
+      { text: 'Auto-scaling', icon: ZapIcon },
+      { text: 'CI/CD deploys', icon: RocketIcon },
+    ],
   },
   {
     id: 'selfhosted',
@@ -52,8 +85,15 @@ const DEPLOYMENT_OPTIONS: DeploymentOption[] = [
     titleCoder: 'Self-Hosted',
     description: 'You manage everything yourself. Requires technical knowledge.',
     descriptionCoder: 'Docker Compose or Kubernetes. Full infrastructure control.',
-    features: ['Free (your hardware)', 'Complete control'],
-    featuresCoder: ['Custom domains', 'Full customization', 'No vendor lock-in'],
+    features: [
+      { text: 'Free (your hardware)', icon: GiftIcon },
+      { text: 'Complete control', icon: ShieldIcon },
+    ],
+    featuresCoder: [
+      { text: 'Custom domains', icon: ServerIcon },
+      { text: 'Full customization', icon: ShieldIcon },
+      { text: 'No vendor lock-in', icon: GiftIcon },
+    ],
   },
 ];
 
@@ -82,7 +122,7 @@ function DeploymentCard({
       type="button"
       onClick={onClick}
       className={`
-        relative flex flex-col items-start gap-2 p-3 rounded-xl border-2 text-left transition-all
+        relative flex flex-col items-start gap-2 p-3 rounded-xl border-2 text-left transition-all w-full
         hover:scale-[1.01] hover:shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2
         ${selected
           ? 'border-[var(--monarch-orange)] bg-[var(--monarch-orange-bg,rgba(255,107,0,0.08))]'
@@ -145,16 +185,19 @@ function DeploymentCard({
 
       {/* Features - inline */}
       <div className="flex flex-wrap gap-x-3 gap-y-1">
-        {features.map((feature) => (
-          <span
-            key={feature}
-            className="inline-flex items-center gap-1 text-xs"
-            style={{ color: 'var(--monarch-text-muted)' }}
-          >
-            <CheckIcon size={10} color="var(--monarch-green)" />
-            {feature}
-          </span>
-        ))}
+        {features.map((feature) => {
+          const FeatureIcon = feature.icon;
+          return (
+            <span
+              key={feature.text}
+              className="inline-flex items-center gap-1 text-xs"
+              style={{ color: 'var(--monarch-text-muted)' }}
+            >
+              <FeatureIcon size={10} color="var(--monarch-orange)" />
+              {feature.text}
+            </span>
+          );
+        })}
       </div>
 
       {/* Selection indicator */}
@@ -208,7 +251,7 @@ export function GetStartedDeploymentSelection({
 
       {/* Web-based section label */}
       <p
-        className="text-xs font-medium uppercase tracking-wider"
+        className="text-xs font-medium uppercase tracking-wider text-center"
         style={{ color: 'var(--monarch-text-muted)' }}
       >
         Web-based options
