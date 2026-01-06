@@ -69,7 +69,6 @@ win:
       arch:
         - x64
   icon: assets/icon.ico
-  publisherName: Eclosion
 
 # NSIS installer configuration
 nsis:
