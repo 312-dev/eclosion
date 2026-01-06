@@ -193,6 +193,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.0.0] - 2025-01-15
 
+> This update brings a beta warning banner to the pre-release site, enhances documentation for self-hosting, and introduces new components for managing recurring items. Additionally, the UI has received some style updates, including new Tooltip styles and Monarch theme colors.
+
 > Initial release of Eclosion for Monarch Money with recurring expense tracking, smart savings calculations, encrypted credential storage, and PWA support.
 
 ### Added
