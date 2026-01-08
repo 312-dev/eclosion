@@ -3,14 +3,13 @@
 # Manually triggered workflow to create a beta pre-release from the develop branch.
 # Beta versions use the format: v{current}-beta.{YYYYMMDD}.{sequence}
 #
-# Release Flow (all steps must pass):
+# Release Flow:
 # 1. Security scan (HIGH+ severity fails the release)
-# 2. Desktop builds (all platforms: macOS, Windows, Linux)
-# 3. Docker image build and publish
-# 4. Cloudflare Pages deployment
-# 5. GitHub Release creation (only after all above succeed)
+# 2. Desktop + Docker builds (in PARALLEL - both must pass)
+# 3. Cloudflare Pages deployment (only if all builds pass)
+# 4. GitHub Release creation (only if deployment succeeds)
 #
-# If ANY step fails, the release is NOT created and nothing is published.
+# If ANY build fails, Cloudflare deploy is skipped and no release is created.
 # macOS builds require paid GitHub Actions minutes - check billing if they fail.
 
 name: "Release: Create Beta"
@@ -23,6 +22,7 @@ on:
 permissions:
   contents: write
   packages: write
+  security-events: write
 
 jobs:
   # =========================================================================
@@ -97,12 +97,9 @@ jobs:
     with:
       severity: high
       skip_dast: true
-    permissions:
-      security-events: write
-      contents: read
 
   # =========================================================================
-  # Step 4: Desktop builds (all platforms must pass)
+  # Step 4a: Desktop builds (runs in PARALLEL with Docker)
   # =========================================================================
   desktop-build:
     name: Desktop Build
@@ -110,7 +107,7 @@ jobs:
     uses: ./.github/workflows/build-desktop.yml
     with:
       version: ${{ needs.calculate-version.outputs.version }}
-      upload_to_release: false  # Don't upload yet - release doesn't exist
+      upload_to_release: false
     secrets:
       APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
       APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -119,24 +116,21 @@ jobs:
       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
   # =========================================================================
-  # Step 5: Docker build
+  # Step 4b: Docker build (runs in PARALLEL with Desktop)
   # =========================================================================
   docker-build:
     name: Docker Build
-    needs: [calculate-version, desktop-build]
+    needs: [calculate-version, security]
     uses: ./.github/workflows/docker-publish.yml
     with:
       tag: ${{ needs.calculate-version.outputs.tag }}
-    permissions:
-      contents: read
-      packages: write
 
   # =========================================================================
-  # Step 6: Cloudflare deploy
+  # Step 5: Cloudflare deploy (only if ALL builds pass)
   # =========================================================================
   cloudflare-deploy:
     name: Cloudflare Deploy
-    needs: [calculate-version, docker-build]
+    needs: [calculate-version, desktop-build, docker-build]
     uses: ./.github/workflows/deploy-cloudflare.yml
     with:
       environment: beta
@@ -146,15 +140,13 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
   # =========================================================================
-  # Step 7: Create GitHub Release (only after all builds succeed)
+  # Step 6: Create GitHub Release (only after deployment succeeds)
   # =========================================================================
   create-release:
     name: Create Release
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    needs: [calculate-version, desktop-build, docker-build, cloudflare-deploy]
-    permissions:
-      contents: write
+    needs: [calculate-version, cloudflare-deploy]
     steps:
       - name: Checkout develop
         uses: actions/checkout@v4
@@ -230,15 +222,13 @@ jobs:
           echo "Pre-release [${{ needs.calculate-version.outputs.tag }}](https://github.com/${{ github.repository }}/releases/tag/${{ needs.calculate-version.outputs.tag }}) created successfully." >> $GITHUB_STEP_SUMMARY
 
   # =========================================================================
-  # Step 8: Upload desktop artifacts to release
+  # Step 7: Upload desktop artifacts to release
   # =========================================================================
   upload-artifacts:
     name: Upload Artifacts
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: [calculate-version, create-release]
-    permissions:
-      contents: write
     steps:
       - name: Download all desktop artifacts
         uses: actions/download-artifact@v4
