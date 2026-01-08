@@ -41,12 +41,6 @@ on:
           - production
           - beta
 
-# Cancel any in-progress deployments to the same environment
-# This prevents queued deployments from piling up
-concurrency:
-  group: cloudflare-deploy-${{ inputs.environment || 'beta' }}
-  cancel-in-progress: true
-
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
