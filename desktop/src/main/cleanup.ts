@@ -172,7 +172,7 @@ export function factoryReset(): CleanupResult {
 export async function showFactoryResetDialog(): Promise<{ confirmed: boolean; result?: CleanupResult }> {
   const mainWindow = await import('./window').then((m) => m.getMainWindow());
 
-  const response = await dialog.showMessageBox(mainWindow!, {
+  const response = await dialog.showMessageBox(mainWindow ?? undefined, {
     type: 'warning',
     buttons: ['Cancel', 'Reset All Data'],
     defaultId: 0,
@@ -197,14 +197,14 @@ export async function showFactoryResetDialog(): Promise<{ confirmed: boolean; re
   const result = factoryReset();
 
   if (result.success) {
-    await dialog.showMessageBox(mainWindow!, {
+    await dialog.showMessageBox(mainWindow ?? undefined, {
       type: 'info',
       title: 'Reset Complete',
       message: 'All data has been reset.',
       detail: 'Please restart Eclosion to complete the reset.',
     });
   } else {
-    await dialog.showMessageBox(mainWindow!, {
+    await dialog.showMessageBox(mainWindow ?? undefined, {
       type: 'warning',
       title: 'Reset Partially Complete',
       message: 'Some files could not be deleted.',

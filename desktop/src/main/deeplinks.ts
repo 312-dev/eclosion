@@ -13,6 +13,7 @@
  */
 
 import { app } from 'electron';
+import { URL, URLSearchParams } from 'node:url';
 import { getMainWindow, showWindow } from './window';
 import { debugLog } from './logger';
 
