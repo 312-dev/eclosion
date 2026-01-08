@@ -174,9 +174,9 @@ export function ActionsDropdown({
                 <FolderIcon size={14} />
                 <CategoryGroupDropdown
                   currentGroupName={item.category_group_name}
-                  onChangeGroup={(groupId, groupName) => {
+                  onChangeGroup={async (groupId, groupName) => {
                     close();
-                    onChangeGroup(groupId, groupName);
+                    await onChangeGroup(groupId, groupName);
                   }}
                 />
               </div>

@@ -34,7 +34,7 @@ function getProgressFromBudget(budget: number): number {
 export function CatchUpRateDemo() {
   const [budget, setBudget] = useState(MIN_BUDGET);
   const [direction, setDirection] = useState<'up' | 'down' | 'hold'>('hold');
-  const timeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   // Schedule direction change after hold period
   const scheduleDirectionChange = useCallback((nextDirection: 'up' | 'down') => {

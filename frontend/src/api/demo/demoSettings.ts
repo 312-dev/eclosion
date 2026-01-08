@@ -159,6 +159,7 @@ export async function importSettings(
         auto_track_threshold: recurring.config.auto_track_threshold,
         auto_update_targets: recurring.config.auto_update_targets,
         auto_categorize_enabled: state.settings.auto_categorize_enabled,
+        show_category_group: state.settings.show_category_group,
       };
 
       const newItems = state.dashboard.items.map((item) => ({

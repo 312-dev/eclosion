@@ -29,7 +29,7 @@ export function LogViewerSection() {
       setLogFiles(files);
       // Auto-select first file if none selected
       if (!selectedFile && files.length > 0) {
-        setSelectedFile(files[0]);
+        setSelectedFile(files[0] ?? null);
       }
     } catch {
       // Ignore errors
@@ -42,7 +42,7 @@ export function LogViewerSection() {
     try {
       const content = await window.electron.readLogFile(selectedFile.path, {
         lines: MAX_LINES,
-        search: searchTerm || undefined,
+        ...(searchTerm ? { search: searchTerm } : {}),
       });
       setLogContent(content);
       // Auto-scroll to bottom
