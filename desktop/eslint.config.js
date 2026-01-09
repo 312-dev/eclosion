@@ -27,6 +27,9 @@ export default [
         fetch: 'readonly',
         // Electron namespace (for types)
         Electron: 'readonly',
+        // Build-time constants injected by esbuild
+        __APP_VERSION__: 'readonly',
+        __RELEASE_CHANNEL__: 'readonly',
       },
     },
     plugins: {
