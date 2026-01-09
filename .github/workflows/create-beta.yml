@@ -61,7 +61,7 @@ jobs:
       contents: write
     steps:
       - name: Checkout develop
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: develop
           fetch-depth: 0  # Need full history for tags
