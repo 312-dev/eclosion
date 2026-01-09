@@ -190,6 +190,7 @@ export function RecurringList({ items, onRefresh, showCategoryGroup = true }: Re
                   onLinkCategory={handleLinkCategory}
                   highlightId={highlightId}
                   showCategoryGroup={showCategoryGroup}
+                  {...(tourTargetIds[item.id] && { dataTourId: tourTargetIds[item.id] })}
                 />
               ))}
             </Fragment>

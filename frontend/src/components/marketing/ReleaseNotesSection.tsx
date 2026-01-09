@@ -79,9 +79,9 @@ function markdownToHtml(markdown: string): string {
     // Links [text](url) - restored > for URLs
     .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-[var(--monarch-orange)] hover:underline">$1</a>')
     // Unordered list items (- item or * item)
-    .replace(/^[-*] (.+)$/gm, '<li class="ml-4">$1</li>')
+    .replace(/^[-*] (.+)$/gm, '<li>$1</li>')
     // Wrap consecutive li elements in ul
-    .replace(/(<li[^>]*>.*<\/li>\n?)+/g, '<ul class="list-disc list-inside space-y-1 my-2">$&</ul>')
+    .replace(/(<li[^>]*>.*<\/li>\n?)+/g, '<ul class="list-disc pl-5 space-y-0.5 my-1.5">$&</ul>')
     // Blockquotes (> text)
     .replace(/^&gt; (.+)$/gm, '<blockquote class="border-l-2 border-[var(--monarch-border)] pl-3 italic text-[var(--monarch-text-muted)]">$1</blockquote>')
     // Line breaks - convert double newlines to paragraph breaks

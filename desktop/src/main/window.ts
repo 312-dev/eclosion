@@ -23,9 +23,10 @@ function setupCSP(): void {
             "default-src 'self'",
             "script-src 'self'",
             "style-src 'self' 'unsafe-inline'", // Tailwind uses inline styles
-            "img-src 'self' data:",
+            "img-src 'self' data: https:", // Allow external images (icons, etc.)
             "font-src 'self' data:",
-            "connect-src 'self' http://127.0.0.1:* ws://127.0.0.1:*",
+            // Allow backend API and GitHub raw for ideas.json fallback
+            "connect-src 'self' http://127.0.0.1:* ws://127.0.0.1:* https://raw.githubusercontent.com",
           ].join('; '),
         ],
       },

@@ -31,6 +31,8 @@ interface RecurringCardProps {
   readonly onNameChange: (id: string, name: string) => Promise<void>;
   readonly onLinkCategory: (item: RecurringItem) => void;
   readonly highlightId?: string | null;
+  /** Optional data-tour attribute for guided tour targeting */
+  readonly dataTourId?: string;
   readonly showCategoryGroup?: boolean;
 }
 
@@ -46,6 +48,7 @@ export const RecurringCard = memo(function RecurringCard({
   onNameChange,
   onLinkCategory,
   highlightId,
+  dataTourId,
   showCategoryGroup = true,
 }: RecurringCardProps) {
   // Async action hooks for loading states
@@ -118,6 +121,7 @@ export const RecurringCard = memo(function RecurringCard({
           ? 'animate-highlight bg-monarch-orange-light border-monarch-orange'
           : 'bg-monarch-bg-card border-monarch-border'
       } ${!item.is_enabled ? 'opacity-75' : ''}`}
+      data-tour={dataTourId}
     >
       {/* Row 1: Header + Actions */}
       <div className="flex items-start justify-between gap-3">

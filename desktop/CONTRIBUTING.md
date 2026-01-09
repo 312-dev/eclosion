@@ -52,15 +52,19 @@ pip install pyinstaller
 2. **Build components:**
 
 ```bash
-# Build frontend (required)
-cd frontend && npm run build
+# Build frontend for desktop (IMPORTANT: requires VITE_DESKTOP_BUILD=true for file:// paths)
+cd frontend && VITE_DESKTOP_BUILD=true npm run build
 
 # Build Python backend
-cd desktop && node scripts/build-backend.js
+cd desktop/pyinstaller && python -m PyInstaller eclosion.spec --noconfirm
 
-# Build Electron main process
-cd desktop && npm run build:main
+# Build Electron main process (with version/channel for proper display)
+cd desktop && ECLOSION_VERSION="1.0.0" RELEASE_CHANNEL="stable" npm run build:main
 ```
+
+> **Note**: `VITE_DESKTOP_BUILD=true` is required for the frontend build because Electron
+> loads files via `file://` protocol, which requires relative paths (`./assets/...`) instead
+> of absolute paths (`/assets/...`). CI sets this automatically.
 
 3. **Run in development:**
 
@@ -140,7 +144,37 @@ CI warns if packaged artifacts exceed 300MB. If you see this warning:
 - Review PyInstaller includes
 - Ensure assets aren't duplicated
 
+## Quick Local Build & Test
+
+To build and test the desktop app locally without signing (run from repo root):
+
+```bash
+# 1. Build frontend with desktop flag
+cd frontend && VITE_DESKTOP_BUILD=true npm run build && cd ..
+
+# 2. Build Python backend
+cd desktop/pyinstaller && python -m PyInstaller eclosion.spec --noconfirm && cd ..
+
+# 3. Build Electron main process with version info (from desktop/)
+cd desktop
+ECLOSION_VERSION="1.0.0-local" RELEASE_CHANNEL="stable" npm run build:main
+
+# 4. Package for your platform (still in desktop/)
+npx electron-builder --mac --publish never  # or --win / --linux
+
+# 5. Install (macOS) - remove quarantine for unsigned app
+rm -rf /Applications/Eclosion.app
+cp -R release/mac-arm64/Eclosion.app /Applications/
+xattr -cr /Applications/Eclosion.app
+```
+
 ## Troubleshooting
+
+### White screen / Assets not loading
+- **Cause**: Frontend was built without `VITE_DESKTOP_BUILD=true`
+- **Fix**: Rebuild frontend with the flag: `VITE_DESKTOP_BUILD=true npm run build`
+- **Why**: Electron uses `file://` protocol which requires relative paths (`./assets/...`).
+  Without the flag, Vite generates absolute paths (`/assets/...`) which fail to load.
 
 ### Backend won't start
 - Check Python dependencies are installed

@@ -180,7 +180,7 @@ export function DownloadPage() {
 
       {/* Download Status / Primary Download */}
       <section className="px-4 sm:px-6 pb-8">
-        <div className="max-w-md mx-auto">
+        <div className="max-w-xl mx-auto">
           {loading ? (
             <div className="flex flex-col items-center gap-3 py-8">
               <SpinnerIcon size={32} color="var(--monarch-orange)" />
@@ -272,7 +272,7 @@ export function DownloadPage() {
       {/* Release Notes */}
       {!loading && !error && release?.body && (
         <section className="px-4 sm:px-6 py-8">
-          <div className="max-w-md mx-auto">
+          <div className="max-w-xl mx-auto">
             <ReleaseNotesSection
               body={release.body}
               version={version ?? ''}
@@ -286,7 +286,7 @@ export function DownloadPage() {
       {/* Installation Instructions (platform-specific) */}
       {!loading && !error && activePlatform !== 'unknown' && (
         <section className="px-4 sm:px-6 py-8 border-t border-[var(--monarch-border)]">
-          <div className="max-w-md mx-auto">
+          <div className="max-w-xl mx-auto">
             <h2 className="text-xl font-semibold text-[var(--monarch-text-dark)] mb-4 text-center">
               Installation
             </h2>
@@ -326,7 +326,7 @@ export function DownloadPage() {
 
       {/* Previous Versions */}
       <section className="px-4 sm:px-6 py-8 border-t border-[var(--monarch-border)]">
-        <div className="max-w-md mx-auto text-center">
+        <div className="max-w-xl mx-auto text-center">
           <h2 className="text-lg font-semibold text-[var(--monarch-text-dark)] mb-2">
             Need an older version?
           </h2>

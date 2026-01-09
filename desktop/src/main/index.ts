@@ -82,6 +82,23 @@ let backendManager: BackendManager;
 let updateCheckInterval: NodeJS.Timeout | null = null;
 
 /**
+ * Format an ISO timestamp as a relative time string.
+ */
+function formatRelativeTime(timestamp: string): string {
+  const date = new Date(timestamp);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  return `${diffDays}d ago`;
+}
+
+/**
  * Initialize the application.
  */
 async function initialize(): Promise<void> {
@@ -132,6 +149,14 @@ async function initialize(): Promise<void> {
     // Create system tray
     console.log('Creating system tray...');
     createTray(handleSyncClick);
+
+    // Fetch and display last sync time in tray menu
+    const lastSyncIso = await backendManager.fetchLastSyncTime();
+    if (lastSyncIso) {
+      const syncStatus = `Last sync: ${formatRelativeTime(lastSyncIso)}`;
+      updateTrayMenu(handleSyncClick, syncStatus);
+      updateHealthStatus(true, formatRelativeTime(lastSyncIso));
+    }
 
     // Initialize global hotkeys
     initializeHotkeys(handleSyncClick);
