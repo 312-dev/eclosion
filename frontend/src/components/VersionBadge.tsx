@@ -23,8 +23,8 @@ export function VersionBadge({ version, channel, size = 'sm' }: VersionBadgeProp
       <span
         className={`${sizeClasses} rounded font-medium`}
         style={{
-          backgroundColor: 'var(--monarch-accent-muted)',
-          color: 'var(--monarch-accent)',
+          backgroundColor: 'rgba(139, 92, 246, 0.15)',
+          color: '#a78bfa',
         }}
       >
         BETA

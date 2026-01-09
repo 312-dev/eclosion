@@ -8,7 +8,7 @@ A self-hosted toolkit that expands what's possible with Monarch Money. Each tool
 
 *Eclosion (n.): The moment a butterfly emerges.*
 
-**[Try the Demo](https://docs.eclosion.app/demo)** · **[Documentation](https://docs.eclosion.app)**
+**[Try the Demo](https://eclosion.app/demo)** · **[Documentation](https://eclosion.app)**
 
 ## The Toolkit
 
@@ -106,6 +106,47 @@ server {
 }
 ```
 
+### Option 4: Desktop App
+
+Run Eclosion as a native desktop application on macOS, Windows, or Linux. No server required — everything runs locally on your computer.
+
+**Download the latest release:**
+
+- **macOS**: [Eclosion.dmg](https://github.com/graysoncadams/eclosion-for-monarch/releases/latest) (Universal - works on Intel and Apple Silicon)
+- **Windows**: [Eclosion-Setup.exe](https://github.com/graysoncadams/eclosion-for-monarch/releases/latest)
+- **Linux**: [Eclosion.AppImage](https://github.com/graysoncadams/eclosion-for-monarch/releases/latest) or [.deb](https://github.com/graysoncadams/eclosion-for-monarch/releases/latest)
+
+**Features:**
+- System tray icon with quick access menu
+- Auto-start on login (optional)
+- Automatic updates from GitHub Releases
+- Runs entirely on localhost (no instance secret needed)
+
+**Note:** Unlike the server deployment, syncing only runs while the app is open. The app will sync immediately on launch if it's been closed for a while.
+
+**Building from Source:**
+
+```bash
+# Prerequisites: Node.js 20+, Python 3.11+
+
+# Clone and install
+git clone https://github.com/graysoncadams/eclosion-for-monarch.git
+cd eclosion-for-monarch/desktop
+npm install
+
+# Install frontend and backend dependencies
+cd ../frontend && npm install && cd ../desktop
+pip install -r ../requirements.txt
+pip install pyinstaller
+
+# Build for your platform
+npm run dist:mac     # macOS
+npm run dist:win     # Windows
+npm run dist:linux   # Linux
+```
+
+The built application will be in `desktop/release/`.
+
 ## Why Self-Host?
 
 - **Fully Yours** — You own your copy completely. Your credentials stay encrypted on your server—no one else can access them.
@@ -114,7 +155,7 @@ server {
 
 ## How It Works
 
-1. **Deploy** — One-click setup with Railway (~$5-7/month) or self-host with Docker
+1. **Get Started** — Download the desktop app, self-host with Docker, or deploy to Railway
 2. **Connect** — Sign in with your Monarch Money credentials (encrypted with a passphrase only you know)
 3. **Enable** — Pick the tools you want to use
 4. **Relax** — Eclosion syncs with Monarch and keeps everything updated for you
@@ -197,8 +238,8 @@ docker compose up --build
 - **Frontend**: React 19 + TypeScript + Vite + Tailwind CSS
 - **Backend**: Python 3.12 + Flask
 - **State**: JSON file-based (no database required)
-- **Deployment**: Docker with persistent volume for state
-- **PWA**: Installable as a native-like app
+- **Deployment**: Docker, Railway, or Desktop (Electron + PyInstaller)
+- **PWA**: Installable as a native-like app (web version)
 
 ## Updating Your Instance
 
@@ -241,6 +282,15 @@ git pull
 docker compose up -d --build
 ```
 
+### Desktop App
+
+The desktop app checks for updates automatically on launch. When an update is available:
+1. A notification appears: "Update available. Restart to install?"
+2. Click to restart and apply the update
+3. The app relaunches with the new version
+
+You can also manually check for updates in the Settings menu.
+
 ### Rollback to a Previous Version
 
 If you need to revert to a specific version:
@@ -260,6 +310,12 @@ From within the app, go to Settings > Tear Down & Stop Paying to:
 1. Delete all Monarch Money categories created by the app
 2. Clear all stored credentials and data
 3. Get a direct link to delete your Railway project (if applicable)
+
+## Maintainers
+
+This project is maintained by [312.dev](https://312.dev). Contributions are welcome from the community.
+
+This software is provided as-is for self-hosting. 312.dev does not provide hosting services for this application.
 
 ## License
 

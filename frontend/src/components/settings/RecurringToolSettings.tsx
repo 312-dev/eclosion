@@ -7,11 +7,15 @@
 
 import { useState, forwardRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Repeat, ChevronRight } from 'lucide-react';
 import { SearchableSelect } from '../SearchableSelect';
 import { useToast } from '../../context/ToastContext';
 import { useDemo } from '../../context/DemoContext';
 import { useApiClient } from '../../hooks';
+import { useInvalidateDashboard } from '../../api/queries';
+import { RecurringToolHeader } from './RecurringToolHeader';
+import { SettingsRow } from './SettingsRow';
+import { ToggleSwitch } from './ToggleSwitch';
+import { ThresholdInput } from './ThresholdInput';
 import type { DashboardData, CategoryGroup } from '../../types';
 
 interface RecurringToolSettingsProps {
@@ -30,6 +34,7 @@ export const RecurringToolSettings = forwardRef<HTMLElement, RecurringToolSettin
     const toast = useToast();
     const isDemo = useDemo();
     const client = useApiClient();
+    const invalidateDashboard = useInvalidateDashboard();
 
     const [categoryGroups, setCategoryGroups] = useState<CategoryGroup[]>([]);
     const [loadingGroups, setLoadingGroups] = useState(false);
@@ -37,6 +42,8 @@ export const RecurringToolSettings = forwardRef<HTMLElement, RecurringToolSettin
     const [savingAutoTrack, setSavingAutoTrack] = useState(false);
     const [savingThreshold, setSavingThreshold] = useState(false);
     const [savingAutoUpdateTargets, setSavingAutoUpdateTargets] = useState(false);
+    const [savingAutoCategorize, setSavingAutoCategorize] = useState(false);
+    const [savingShowCategoryGroup, setSavingShowCategoryGroup] = useState(false);
 
     // Calculate recurring tool info
     const isConfigured = dashboardData?.config?.target_group_id != null;
@@ -117,6 +124,35 @@ export const RecurringToolSettings = forwardRef<HTMLElement, RecurringToolSettin
       }
     };
 
+    const handleAutoCategorizeChange = async () => {
+      const newValue = !(dashboardData?.config.auto_categorize_enabled ?? false);
+      setSavingAutoCategorize(true);
+      try {
+        await client.updateSettings({ auto_categorize_enabled: newValue });
+        await onRefreshDashboard();
+        toast.success(newValue ? 'Auto-categorization enabled' : 'Auto-categorization disabled');
+      } catch {
+        toast.error('Failed to update setting');
+      } finally {
+        setSavingAutoCategorize(false);
+      }
+    };
+
+    const handleShowCategoryGroupChange = async () => {
+      const newValue = !(dashboardData?.config.show_category_group ?? true);
+      setSavingShowCategoryGroup(true);
+      try {
+        await client.updateSettings({ show_category_group: newValue });
+        invalidateDashboard(); // Invalidate React Query cache for other tabs
+        await onRefreshDashboard();
+        toast.success(newValue ? 'Category groups shown' : 'Category groups hidden');
+      } catch {
+        toast.error('Failed to update setting');
+      } finally {
+        setSavingShowCategoryGroup(false);
+      }
+    };
+
     const getCategoryGroupOptions = () => {
       if (categoryGroups.length > 0) {
         return categoryGroups.map((group) => ({
@@ -132,6 +168,11 @@ export const RecurringToolSettings = forwardRef<HTMLElement, RecurringToolSettin
       }
       return [];
     };
+
+    const autoSyncEnabled = dashboardData?.config.auto_sync_new ?? false;
+    const autoUpdateEnabled = dashboardData?.config.auto_update_targets ?? false;
+    const autoCategorizeEnabled = dashboardData?.config.auto_categorize_enabled ?? false;
+    const showCategoryGroupEnabled = dashboardData?.config.show_category_group ?? true;
 
     return (
       <section ref={ref} id="recurring" className="mb-8">
@@ -154,187 +195,98 @@ export const RecurringToolSettings = forwardRef<HTMLElement, RecurringToolSettin
             </div>
           ) : (
             <>
-              {/* Recurring Tool Header */}
-              <div className="p-4">
-                <div className="flex items-center gap-4">
-                  <div
-                    className="p-2.5 rounded-lg shrink-0"
-                    style={{ backgroundColor: hasAnythingToReset ? 'var(--monarch-orange-light)' : 'var(--monarch-bg-page)' }}
-                  >
-                    <Repeat size={20} style={{ color: hasAnythingToReset ? 'var(--monarch-orange)' : 'var(--monarch-text-muted)' }} />
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium flex items-center gap-2" style={{ color: 'var(--monarch-text-dark)' }}>
-                      Recurring Tool
-                      {hasAnythingToReset && (
-                        <span
-                          className="px-2 py-0.5 text-xs font-medium rounded-full"
-                          style={{ backgroundColor: 'var(--monarch-success-bg)', color: 'var(--monarch-success)' }}
-                        >
-                          Active
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-sm mt-0.5" style={{ color: 'var(--monarch-text-muted)' }}>
-                      {hasAnythingToReset ? (
-                        <span className="flex items-center gap-3">
-                          <span>{totalCategories} {totalCategories === 1 ? 'category' : 'categories'}</span>
-                          <span style={{ color: 'var(--monarch-border)' }}>|</span>
-                          <span>{totalItems} tracked {totalItems === 1 ? 'item' : 'items'}</span>
-                        </span>
-                      ) : (
-                        'Not configured'
-                      )}
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    className="p-2 rounded-lg shrink-0 hover-bg-transparent-to-hover"
-                    style={{ background: 'none', border: 'none', cursor: 'pointer' }}
-                    onClick={() => navigate(isDemo ? '/demo/recurring' : '/recurring')}
-                    aria-label="Go to Recurring tool"
-                  >
-                    <ChevronRight size={20} style={{ color: 'var(--monarch-text-muted)' }} />
-                  </button>
-                </div>
-              </div>
+              <RecurringToolHeader
+                hasAnythingToReset={hasAnythingToReset}
+                totalCategories={totalCategories}
+                totalItems={totalItems}
+                onNavigate={() => navigate(isDemo ? '/demo/recurring' : '/recurring')}
+              />
 
               {/* Nested Settings - Only show when configured */}
               {isConfigured && (
                 <div style={{ borderTop: '1px solid var(--monarch-border-light, rgba(0,0,0,0.06))' }}>
                   {/* Default Category Group */}
-                  <div className="px-4 py-3 ml-14" style={{ borderBottom: '1px solid var(--monarch-border-light, rgba(0,0,0,0.06))' }}>
-                    <div className="flex items-center justify-between gap-4">
-                      <div className="text-sm" style={{ color: 'var(--monarch-text-dark)' }}>
-                        Default Category Group
-                      </div>
-                      <SearchableSelect
-                        value={dashboardData?.config.target_group_id || ''}
-                        onChange={handleGroupChange}
-                        options={getCategoryGroupOptions()}
-                        placeholder="Select a group..."
-                        searchPlaceholder="Search groups..."
-                        disabled={savingGroup}
-                        loading={loadingGroups}
-                        onOpen={() => {
-                          if (categoryGroups.length === 0) {
-                            fetchCategoryGroups();
-                          }
-                        }}
-                        className="min-w-45"
-                      />
-                    </div>
-                  </div>
+                  <SettingsRow label="Default Category Group">
+                    <SearchableSelect
+                      value={dashboardData?.config.target_group_id || ''}
+                      onChange={handleGroupChange}
+                      options={getCategoryGroupOptions()}
+                      placeholder="Select a group..."
+                      searchPlaceholder="Search groups..."
+                      disabled={savingGroup}
+                      loading={loadingGroups}
+                      onOpen={() => {
+                        if (categoryGroups.length === 0) {
+                          fetchCategoryGroups();
+                        }
+                      }}
+                      className="min-w-45"
+                    />
+                  </SettingsRow>
 
                   {/* Auto-add new recurring */}
-                  <div className="px-4 py-3 ml-14" style={{ borderBottom: '1px solid var(--monarch-border-light, rgba(0,0,0,0.06))' }}>
-                    <div className="flex items-center justify-between gap-4">
-                      <div className="text-sm" style={{ color: 'var(--monarch-text-dark)' }}>
-                        Auto-add new recurring
-                      </div>
-                      <button
-                        type="button"
-                        onClick={handleAutoTrackChange}
-                        disabled={savingAutoTrack}
-                        className="relative inline-flex h-5 w-9 items-center rounded-full toggle-switch"
-                        style={{
-                          backgroundColor: dashboardData?.config.auto_sync_new
-                            ? 'var(--monarch-orange)'
-                            : 'var(--monarch-border)',
-                        }}
-                        aria-label={dashboardData?.config.auto_sync_new ? 'Disable auto-add' : 'Enable auto-add'}
-                      >
-                        <span
-                          className="inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-sm toggle-knob"
-                          style={{
-                            transform: dashboardData?.config.auto_sync_new
-                              ? 'translateX(1rem)'
-                              : 'translateX(0.15rem)',
-                          }}
-                        />
-                      </button>
-                    </div>
-                  </div>
+                  <SettingsRow label="Auto-add new recurring">
+                    <ToggleSwitch
+                      checked={autoSyncEnabled}
+                      onChange={handleAutoTrackChange}
+                      disabled={savingAutoTrack}
+                      ariaLabel={autoSyncEnabled ? 'Disable auto-add' : 'Enable auto-add'}
+                    />
+                  </SettingsRow>
 
                   {/* Rollup threshold - only show when auto-add is enabled */}
-                  {dashboardData?.config.auto_sync_new && (
-                    <div className="px-4 py-3 ml-14" style={{ borderBottom: '1px solid var(--monarch-border-light, rgba(0,0,0,0.06))' }}>
-                      <div className="flex items-center justify-between gap-4">
-                        <div>
-                          <div className="text-sm" style={{ color: 'var(--monarch-text-dark)' }}>
-                            Auto-add to rollup threshold
-                          </div>
-                          <div className="text-xs mt-0.5" style={{ color: 'var(--monarch-text-muted)' }}>
-                            Items at or below this amount go to rollup
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-sm" style={{ color: 'var(--monarch-text-muted)' }}>$</span>
-                          <input
-                            type="number"
-                            defaultValue={dashboardData?.config.auto_track_threshold ?? ''}
-                            placeholder="any"
-                            onBlur={(e) => {
-                              const value = e.target.value ? Number.parseFloat(e.target.value) : null;
-                              if (value !== dashboardData?.config.auto_track_threshold) {
-                                handleThresholdChange(value);
-                              }
-                            }}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                (e.target as HTMLInputElement).blur();
-                              }
-                            }}
-                            disabled={savingThreshold}
-                            className="w-16 px-2 py-1 text-right rounded text-sm"
-                            style={{
-                              border: '1px solid var(--monarch-border)',
-                              backgroundColor: 'var(--monarch-bg-card)',
-                              color: 'var(--monarch-text-dark)',
-                            }}
-                          />
-                          <span className="text-sm" style={{ color: 'var(--monarch-text-muted)' }}>/mo</span>
-                        </div>
-                      </div>
-                    </div>
+                  {autoSyncEnabled && (
+                    <SettingsRow
+                      label="Auto-add to rollup threshold"
+                      description="Items at or below this amount go to rollup"
+                    >
+                      <ThresholdInput
+                        defaultValue={dashboardData?.config.auto_track_threshold}
+                        disabled={savingThreshold}
+                        onChange={handleThresholdChange}
+                      />
+                    </SettingsRow>
                   )}
 
                   {/* Auto-update targets */}
-                  <div className="px-4 py-3 ml-14">
-                    <div className="flex items-center justify-between gap-4">
-                      <div>
-                        <div className="text-sm" style={{ color: 'var(--monarch-text-dark)' }}>
-                          Auto-update category targets
-                        </div>
-                        <div className="text-xs mt-0.5" style={{ color: 'var(--monarch-text-muted)' }}>
-                          Update targets when recurring amounts change
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={handleAutoUpdateTargetsChange}
-                        disabled={savingAutoUpdateTargets}
-                        className="relative inline-flex h-5 w-9 items-center rounded-full toggle-switch"
-                        style={{
-                          backgroundColor: dashboardData?.config.auto_update_targets
-                            ? 'var(--monarch-orange)'
-                            : 'var(--monarch-border)',
-                        }}
-                        aria-label={dashboardData?.config.auto_update_targets ? 'Disable auto-update targets' : 'Enable auto-update targets'}
-                      >
-                        <span
-                          className="inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-sm toggle-knob"
-                          style={{
-                            transform: dashboardData?.config.auto_update_targets
-                              ? 'translateX(1rem)'
-                              : 'translateX(0.15rem)',
-                          }}
-                        />
-                      </button>
-                    </div>
-                  </div>
+                  <SettingsRow
+                    label="Auto-update category targets"
+                    description="Update targets when recurring amounts change"
+                  >
+                    <ToggleSwitch
+                      checked={autoUpdateEnabled}
+                      onChange={handleAutoUpdateTargetsChange}
+                      disabled={savingAutoUpdateTargets}
+                      ariaLabel={autoUpdateEnabled ? 'Disable auto-update targets' : 'Enable auto-update targets'}
+                    />
+                  </SettingsRow>
+
+                  {/* Auto-categorize transactions */}
+                  <SettingsRow
+                    label="Auto-categorize transactions"
+                    description="Categorize new recurring transactions to tracking categories"
+                  >
+                    <ToggleSwitch
+                      checked={autoCategorizeEnabled}
+                      onChange={handleAutoCategorizeChange}
+                      disabled={savingAutoCategorize}
+                      ariaLabel={autoCategorizeEnabled ? 'Disable auto-categorize' : 'Enable auto-categorize'}
+                    />
+                  </SettingsRow>
+
+                  {/* Show category group */}
+                  <SettingsRow
+                    label="Show category group"
+                    description="Display category group name under each item"
+                    isLast
+                  >
+                    <ToggleSwitch
+                      checked={showCategoryGroupEnabled}
+                      onChange={handleShowCategoryGroupChange}
+                      disabled={savingShowCategoryGroup}
+                      ariaLabel={showCategoryGroupEnabled ? 'Hide category groups' : 'Show category groups'}
+                    />
+                  </SettingsRow>
                 </div>
               )}
 

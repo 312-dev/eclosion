@@ -70,12 +70,35 @@ jobs:
       - name: Create PR with state and data changes
         if: ${{ !inputs.dry_run }}
         env:
-          # Use PAT instead of GITHUB_TOKEN so the PR triggers CI workflows
-          # Requires: repo scope (or contents:write + pull_requests:write for fine-grained)
+          # Use PAT so the PR triggers CI workflows and can be auto-merged
           GH_TOKEN: ${{ secrets.CI_TRIGGER_PAT }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Save the generated files (workflow may run on develop, but PR targets main)
+          cp scripts/productboard-sync/state.json /tmp/state.json
+          cp data/ideas.json /tmp/ideas.json
+
+          # Switch to main branch to create PR from there (avoids merge conflicts)
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
+          git fetch origin main
+          git checkout -f main
+
+          # Create branch with proper naming convention (update/ prefix)
+          BRANCH="update/productboard-sync-$(date +%Y%m%d)"
+
+          # Check if branch already exists remotely and delete it
+          if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
+            git push origin --delete "$BRANCH" || true
+          fi
+
+          # Create branch from main
+          git checkout -b "$BRANCH"
+
+          # Restore the generated files
+          cp /tmp/state.json scripts/productboard-sync/state.json
+          cp /tmp/ideas.json data/ideas.json
 
           # Check if there are changes to commit
           git add scripts/productboard-sync/state.json data/ideas.json
@@ -84,21 +107,11 @@ jobs:
             exit 0
           fi
 
-          # Create a unique branch name
-          BRANCH="chore/productboard-sync-$(date +%Y%m%d)"
-
-          # Check if branch already exists remotely and delete it
-          git fetch origin
-          if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
-            git push origin --delete "$BRANCH" || true
-          fi
-
-          # Create and push the branch
-          git checkout -b "$BRANCH"
+          # Commit and push
           git commit -m "chore: update productboard sync state and ideas data"
           git push -u origin "$BRANCH"
 
-          # Create PR with auto-merge enabled
+          # Create PR
           gh pr create \
             --title "chore: update productboard sync state and ideas data" \
             --body "Automated ProductBoard sync update.
@@ -111,8 +124,8 @@ jobs:
             --base main \
             --head "$BRANCH" || echo "PR may already exist"
 
-          # Enable auto-merge (will merge once status checks pass)
-          gh pr merge "$BRANCH" --auto --squash
+          # Enable auto-merge (will merge once status checks pass and review is approved)
+          gh pr merge "$BRANCH" --auto --squash || echo "Auto-merge may already be enabled"
 
       - name: Summary
         run: |

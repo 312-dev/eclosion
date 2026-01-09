@@ -3,69 +3,105 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Eclosion for Monarch</title>
+    <title>Eclosion for Monarch - Self-hosted Toolkit for Monarch Money</title>
+
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="Your budgeting, evolved. A self-hosted toolkit for Monarch Money that automates recurring expense tracking, smart savings calculations, and direct sync." />
+    <meta name="keywords" content="Monarch Money, budgeting, personal finance, recurring expenses, self-hosted, expense tracking, savings calculator" />
+    <meta name="author" content="Eclosion" />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://eclosion.app/" />
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://eclosion.app/" />
+    <meta property="og:title" content="Eclosion for Monarch - Self-hosted Toolkit for Monarch Money" />
+    <meta property="og:description" content="Your budgeting, evolved. A self-hosted toolkit for Monarch Money that automates recurring expense tracking, smart savings calculations, and direct sync." />
+    <meta property="og:image" content="https://eclosion.app/social-card.png" />
+    <meta property="og:image:width" content="1280" />
+    <meta property="og:image:height" content="640" />
+    <meta property="og:image:alt" content="Eclosion - Self-hosted toolkit for Monarch Money" />
+    <meta property="og:site_name" content="Eclosion for Monarch" />
+    <meta property="og:locale" content="en_US" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content="https://eclosion.app/" />
+    <meta name="twitter:title" content="Eclosion for Monarch - Self-hosted Toolkit for Monarch Money" />
+    <meta name="twitter:description" content="Your budgeting, evolved. A self-hosted toolkit for Monarch Money that automates recurring expense tracking, smart savings calculations, and direct sync." />
+    <meta name="twitter:image" content="https://eclosion.app/social-card.png" />
+    <meta name="twitter:image:alt" content="Eclosion - Self-hosted toolkit for Monarch Money" />
 
     <!-- PWA Meta Tags -->
-    <meta name="description" content="Your budgeting, evolved. A toolkit for Monarch Money that automates recurring expense tracking." />
     <meta name="theme-color" content="#ff692d" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Eclosion" />
+    <meta name="application-name" content="Eclosion" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="msapplication-TileColor" content="#ff692d" />
 
-    <!-- Icons -->
-    <link rel="icon" type="image/svg+xml" href="/icons/icon-192.svg" />
-    <link rel="apple-touch-icon" href="/icons/icon-192.svg" />
+    <!-- Icons (relative paths for desktop file:// protocol compatibility) -->
+    <link rel="icon" type="image/svg+xml" href="./icons/icon-192.svg" />
+    <link rel="apple-touch-icon" href="./icons/icon-192.svg" />
 
     <!-- PWA Manifest -->
-    <link rel="manifest" href="/manifest.json" />
+    <link rel="manifest" href="./manifest.json" />
+
+    <!-- JSON-LD Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "Eclosion for Monarch",
+      "applicationCategory": "FinanceApplication",
+      "operatingSystem": "Web, Windows, macOS, Linux",
+      "description": "A self-hosted toolkit for Monarch Money that automates recurring expense tracking, smart savings calculations, and direct sync.",
+      "url": "https://eclosion.app",
+      "image": "https://eclosion.app/social-card.png",
+      "screenshot": "https://eclosion.app/social-card.png",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "5",
+        "ratingCount": "1"
+      },
+      "author": {
+        "@type": "Organization",
+        "name": "Eclosion",
+        "url": "https://eclosion.app"
+      },
+      "maintainer": {
+        "@type": "Organization",
+        "name": "Eclosion",
+        "url": "https://eclosion.app"
+      }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "Eclosion for Monarch",
+      "url": "https://eclosion.app",
+      "description": "A self-hosted toolkit for Monarch Money",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": "https://eclosion.app/docs?q={search_term_string}",
+        "query-input": "required name=search_term_string"
+      }
+    }
+    </script>
 
     <!-- Theme initialization (prevents flash of wrong theme) -->
-    <script>
-      (function() {
-        const stored = localStorage.getItem('eclosion-theme-preference');
-        let theme = 'light';
-        if (stored === 'dark') {
-          theme = 'dark';
-        } else if (!stored || stored === 'system') {
-          if (globalThis.matchMedia && globalThis.matchMedia('(prefers-color-scheme: dark)').matches) {
-            theme = 'dark';
-          }
-        }
-        document.documentElement.classList.add(theme);
-        document.documentElement.dataset.theme = theme;
-      })();
-    </script>
-
-    <!-- SPA redirect handler for GitHub Pages -->
-    <script>
-      (function() {
-        // Check if we were redirected from 404.html
-        var redirect = sessionStorage.getItem('spa-redirect');
-        if (redirect) {
-          sessionStorage.removeItem('spa-redirect');
-          // Use replaceState to update the URL without reloading
-          history.replaceState(null, '', redirect);
-        }
-      })();
-    </script>
+    <script src="./theme-init.js"></script>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
-
-    <!-- Service Worker Registration -->
-    <script>
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js')
-            .then((registration) => {
-              console.log('SW registered:', registration.scope);
-            })
-            .catch((error) => {
-              console.log('SW registration failed:', error);
-            });
-        });
-      }
-    </script>
   </body>
 </html>

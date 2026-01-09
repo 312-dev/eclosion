@@ -22,6 +22,7 @@ import { useAuth } from '../../context/AuthContext';
 import type { DashboardData, AutoSyncStatus, VersionInfo } from '../../types';
 import { useDemo } from '../../context/DemoContext';
 import { usePageTitle, useApiClient } from '../../hooks';
+import { isDesktopMode } from '../../utils/apiBase';
 import { UI } from '../../constants';
 import * as api from '../../api/client';
 import {
@@ -30,11 +31,14 @@ import {
   RecurringResetModal,
   AutomationSection,
   UpdatesSection,
+  DesktopSection,
+  LogViewerSection,
   AccountSection,
   SecuritySection,
   DemoModeSection,
   DataManagementSection,
   DangerZoneSection,
+  CreditsSection,
 } from '../settings';
 
 export function SettingsTab() {
@@ -49,6 +53,7 @@ export function SettingsTab() {
   const [loading, setLoading] = useState(true);
   const { logout } = useAuth();
   const isDemo = useDemo();
+  const isDesktop = isDesktopMode();
   const recurringSettingsRef = useRef<HTMLElement>(null);
   const client = useApiClient();
 
@@ -142,6 +147,7 @@ export function SettingsTab() {
         </div>
       </div>
 
+      {/* User-facing settings */}
       <AppearanceSettings />
 
       <RecurringToolSettings
@@ -152,6 +158,16 @@ export function SettingsTab() {
         onShowResetModal={() => setShowRecurringResetModal(true)}
       />
 
+      <AccountSection />
+
+      <UpdatesSection
+        versionInfo={versionInfo}
+        onShowUpdateModal={() => setShowUpdateModal(true)}
+      />
+
+      <CreditsSection />
+
+      {/* Technical settings */}
       <AutomationSection
         status={autoSyncStatus}
         onEnable={handleEnableAutoSync}
@@ -159,18 +175,16 @@ export function SettingsTab() {
         onRefresh={fetchAutoSyncStatus}
       />
 
-      <UpdatesSection
-        versionInfo={versionInfo}
-        onShowUpdateModal={() => setShowUpdateModal(true)}
-      />
+      {isDesktop && <DesktopSection />}
 
-      <AccountSection />
-
-      <SecuritySection />
-
-      {isDemo && <DemoModeSection />}
+      {/* Hide security events on desktop - only relevant for web deployments */}
+      {!isDesktop && <SecuritySection />}
 
       <DataManagementSection onShowImportModal={() => setShowImportModal(true)} />
+
+      {isDesktop && <LogViewerSection />}
+
+      {isDemo && <DemoModeSection />}
 
       <DangerZoneSection
         onShowResetModal={() => setShowResetModal(true)}

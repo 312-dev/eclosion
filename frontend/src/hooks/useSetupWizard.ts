@@ -4,274 +4,87 @@
  * Manages all state and handlers for the setup wizard flow.
  */
 
-import { useState, useEffect, useCallback } from 'react';
-import type { CategoryGroup, RecurringItem, UnmappedCategory } from '../types';
-import { getErrorMessage, handleApiError } from '../utils/errors';
+import { useState, useEffect } from 'react';
+import { getErrorMessage } from '../utils/errors';
 import {
-  getCategoryGroups,
   setConfig,
-  getDashboard,
   toggleItemTracking,
-  triggerSync,
   linkToCategory,
-  getUnmappedCategories,
   linkRollupToCategory,
   createRollupCategory,
+  updateSettings,
 } from '../api/client';
-import type { PendingLink } from '../components/LinkCategoryModal';
-import { UI } from '../constants';
+import { useCategoryGroups, useItemSelection, useRollupConfig } from './wizard';
 
 interface UseSetupWizardOptions {
   onComplete: () => void;
 }
 
 export function useSetupWizard({ onComplete }: UseSetupWizardOptions) {
-  // Step state
   const [currentStep, setCurrentStep] = useState(0);
-
-  // Category group state
-  const [groups, setGroups] = useState<CategoryGroup[]>([]);
-  const [selectedGroupId, setSelectedGroupId] = useState('');
-  const [selectedGroupName, setSelectedGroupName] = useState('');
-  const [loadingGroups, setLoadingGroups] = useState(false);
-  const [groupError, setGroupError] = useState<string | null>(null);
-  const [groupsFetched, setGroupsFetched] = useState(false);
-
-  // Items state
-  const [items, setItems] = useState<RecurringItem[]>([]);
-  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
-  const [loadingItems, setLoadingItems] = useState(false);
-  const [itemsError, setItemsError] = useState<string | null>(null);
-  const [itemsFetched, setItemsFetched] = useState(false);
-
-  // Linking state
-  const [pendingLinks, setPendingLinks] = useState<Map<string, PendingLink>>(new Map());
-  const [linkModalItem, setLinkModalItem] = useState<RecurringItem | null>(null);
-
-  // Tour state
-  const [showLinkTour, setShowLinkTour] = useState(false);
-  const [linkTourShown, setLinkTourShown] = useState(false);
-
-  // Rollup tip toast state
-  const [rollupTipShown, setRollupTipShown] = useState(false);
-  const [showRollupTip, setShowRollupTip] = useState(false);
-
-  // Rollup configuration state
-  const [rollupMode, setRollupMode] = useState<'new' | 'existing'>('new');
-  const [rollupCategories, setRollupCategories] = useState<UnmappedCategory[]>([]);
-  const [selectedRollupCategoryId, setSelectedRollupCategoryId] = useState('');
-  const [rollupSyncName, setRollupSyncName] = useState(true);
-  const [loadingRollupCategories, setLoadingRollupCategories] = useState(false);
-
-  // Saving state
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [autoCategorizeEnabled, setAutoCategorizeEnabled] = useState(false);
 
-  // Fetch category groups
-  const fetchGroups = async () => {
-    setLoadingGroups(true);
-    setGroupError(null);
-    try {
-      const data = await getCategoryGroups();
-      setGroups(data);
-      setGroupsFetched(true);
-    } catch (err) {
-      setGroupError(getErrorMessage(err));
-    } finally {
-      setLoadingGroups(false);
-    }
-  };
+  const categoryGroups = useCategoryGroups();
+  const itemSelection = useItemSelection();
+  const rollupConfig = useRollupConfig();
 
-  // Fetch recurring items
-  const fetchItems = async () => {
-    setLoadingItems(true);
-    setItemsError(null);
-    try {
-      const data = await getDashboard();
-      const availableItems = data.items.filter((item) => !item.is_enabled);
-      setItems(availableItems);
-      setItemsFetched(true);
-    } catch (err) {
-      setItemsError(getErrorMessage(err));
-    } finally {
-      setLoadingItems(false);
-    }
-  };
-
-  // Fetch rollup categories
-  const fetchRollupCategories = async () => {
-    setLoadingRollupCategories(true);
-    try {
-      const categories = await getUnmappedCategories();
-      setRollupCategories(categories);
-    } catch (err) {
-      handleApiError(err, 'Failed to fetch rollup categories');
-    } finally {
-      setLoadingRollupCategories(false);
-    }
-  };
-
-  // Load groups when entering category step
+  // Load groups when entering category step (step 1)
+  const { groupsFetched, loadingGroups, groupError, fetchGroups } = categoryGroups;
   useEffect(() => {
     if (currentStep === 1 && !groupsFetched && !loadingGroups && !groupError) {
       fetchGroups();
     }
-  }, [currentStep, groupsFetched, loadingGroups, groupError]);
+  }, [currentStep, groupsFetched, loadingGroups, groupError, fetchGroups]);
 
-  // Load items when entering items step
+  // Load items when entering items step (step 2)
+  const { itemsFetched, loadingItems, itemsError, fetchItems } = itemSelection;
   useEffect(() => {
     if (currentStep === 2 && !itemsFetched && !loadingItems && !itemsError) {
       fetchItems();
     }
-  }, [currentStep, itemsFetched, loadingItems, itemsError]);
+  }, [currentStep, itemsFetched, loadingItems, itemsError, fetchItems]);
 
-  // Load rollup categories when entering rollup step
+  // Load rollup categories when entering rollup step (step 3)
+  const { rollupCategories, loadingRollupCategories, fetchRollupCategories } = rollupConfig;
   useEffect(() => {
     if (currentStep === 3 && rollupCategories.length === 0 && !loadingRollupCategories) {
       fetchRollupCategories();
     }
-  }, [currentStep, rollupCategories.length, loadingRollupCategories]);
+  }, [currentStep, rollupCategories.length, loadingRollupCategories, fetchRollupCategories]);
 
-  // Check if can proceed to next step
   const canProceed = (): boolean => {
     switch (currentStep) {
       case 0: return true;
-      case 1: return !!selectedGroupId;
+      case 1: return !!categoryGroups.selectedGroupId;
       case 2: return true;
-      case 3: return rollupMode === 'new' || !!selectedRollupCategoryId;
+      case 3: return rollupConfig.rollupMode === 'new' || !!rollupConfig.selectedRollupCategoryId;
       case 4: return true;
       default: return false;
     }
   };
 
-  // Handle group selection
-  const handleSelectGroup = (id: string, name: string) => {
-    setSelectedGroupId(id);
-    setSelectedGroupName(name);
-  };
-
-  // Handle item toggle
-  const handleToggleItem = useCallback((id: string) => {
-    const item = items.find(i => i.id === id);
-
-    setSelectedItemIds((prev) => {
-      const next = new Set(prev);
-      const wasEmpty = prev.size === 0;
-
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-
-        // Show link tour after a brief delay to let the UI settle
-        if (wasEmpty && !linkTourShown) {
-          setTimeout(() => {
-            setShowLinkTour(true);
-            setLinkTourShown(true);
-          }, UI.ANIMATION.NORMAL);
-        }
-
-        if (item && item.amount < 60 && !rollupTipShown) {
-          setRollupTipShown(true);
-          setShowRollupTip(true);
-        }
-      }
-      return next;
-    });
-  }, [items, linkTourShown, rollupTipShown]);
-
-  // Handle select all
-  const handleSelectAll = () => {
-    setSelectedItemIds(new Set(items.map((item) => item.id)));
-    if (!rollupTipShown && items.some(item => item.amount < 60)) {
-      setRollupTipShown(true);
-      setShowRollupTip(true);
-    }
-  };
-
-  // Handle deselect all
-  const handleDeselectAll = () => {
-    setSelectedItemIds(new Set());
-  };
-
-  // Handle toggle group
-  const handleToggleGroup = (ids: string[], select: boolean) => {
-    setSelectedItemIds((prev) => {
-      const next = new Set(prev);
-      ids.forEach((id) => {
-        if (select) next.add(id);
-        else next.delete(id);
-      });
-      return next;
-    });
-  };
-
-  // Handle refresh items
-  const handleRefreshItems = async () => {
-    setLoadingItems(true);
-    setItemsError(null);
-    setItemsFetched(false);
-    try {
-      await triggerSync();
-      const data = await getDashboard();
-      const availableItems = data.items.filter((item) => !item.is_enabled);
-      setItems(availableItems);
-      setItemsFetched(true);
-    } catch (err) {
-      setItemsError(getErrorMessage(err));
-    } finally {
-      setLoadingItems(false);
-    }
-  };
-
-  // Handle opening link modal
-  const handleOpenLinkModal = (item: RecurringItem) => {
-    setLinkModalItem(item);
-  };
-
-  // Handle link result from modal
-  const handleLinkSuccess = (link?: PendingLink) => {
-    if (link && linkModalItem) {
-      setPendingLinks((prev) => {
-        const next = new Map(prev);
-        next.set(linkModalItem.id, link);
-        return next;
-      });
-    }
-    setLinkModalItem(null);
-  };
-
-  // Handle unlinking an item
-  const handleUnlink = (itemId: string) => {
-    setPendingLinks((prev) => {
-      const next = new Map(prev);
-      next.delete(itemId);
-      return next;
-    });
-  };
-
-  // Handle going back to category step
   const handleChangeGroup = () => {
     setCurrentStep(1);
   };
 
-  // Handle completion
   const handleComplete = async () => {
     setSaving(true);
     setSaveError(null);
 
     try {
-      if (selectedGroupId && selectedGroupName) {
-        await setConfig(selectedGroupId, selectedGroupName);
+      if (categoryGroups.selectedGroupId && categoryGroups.selectedGroupName) {
+        await setConfig(categoryGroups.selectedGroupId, categoryGroups.selectedGroupName);
       }
 
-      if (rollupMode === 'existing' && selectedRollupCategoryId) {
-        await linkRollupToCategory(selectedRollupCategoryId, rollupSyncName);
+      if (rollupConfig.rollupMode === 'existing' && rollupConfig.selectedRollupCategoryId) {
+        await linkRollupToCategory(rollupConfig.selectedRollupCategoryId, rollupConfig.rollupSyncName);
       } else {
         await createRollupCategory(0);
       }
 
-      const linkPromises = Array.from(pendingLinks.entries()).map(([itemId, link]) =>
+      const linkPromises = Array.from(itemSelection.pendingLinks.entries()).map(([itemId, link]) =>
         linkToCategory(itemId, link.categoryId, link.syncName).catch((err) => ({
           itemId,
           error: err instanceof Error ? err.message : 'Failed to link',
@@ -280,8 +93,8 @@ export function useSetupWizard({ onComplete }: UseSetupWizardOptions) {
 
       await Promise.all(linkPromises);
 
-      const linkedItemIds = new Set(pendingLinks.keys());
-      const enablePromises = Array.from(selectedItemIds)
+      const linkedItemIds = new Set(itemSelection.pendingLinks.keys());
+      const enablePromises = Array.from(itemSelection.selectedItemIds)
         .filter((id) => !linkedItemIds.has(id))
         .map((id) =>
           toggleItemTracking(id, true, { initialBudget: 0 }).catch((err) => ({
@@ -291,6 +104,12 @@ export function useSetupWizard({ onComplete }: UseSetupWizardOptions) {
         );
 
       await Promise.all(enablePromises);
+
+      // Save auto-categorize setting
+      if (autoCategorizeEnabled) {
+        await updateSettings({ auto_categorize_enabled: true });
+      }
+
       onComplete();
     } catch (err) {
       setSaveError(getErrorMessage(err));
@@ -298,12 +117,11 @@ export function useSetupWizard({ onComplete }: UseSetupWizardOptions) {
     }
   };
 
-  // Handle skip
   const handleSkip = async () => {
     setSaving(true);
     try {
-      if (selectedGroupId && selectedGroupName) {
-        await setConfig(selectedGroupId, selectedGroupName);
+      if (categoryGroups.selectedGroupId && categoryGroups.selectedGroupName) {
+        await setConfig(categoryGroups.selectedGroupId, categoryGroups.selectedGroupName);
       }
       onComplete();
     } catch {
@@ -311,7 +129,6 @@ export function useSetupWizard({ onComplete }: UseSetupWizardOptions) {
     }
   };
 
-  // Handle next
   const handleNext = () => {
     if (currentStep === 4) {
       handleComplete();
@@ -320,7 +137,6 @@ export function useSetupWizard({ onComplete }: UseSetupWizardOptions) {
     }
   };
 
-  // Handle back
   const handleBack = () => {
     setCurrentStep((prev) => prev - 1);
   };
@@ -333,51 +149,55 @@ export function useSetupWizard({ onComplete }: UseSetupWizardOptions) {
     handleBack,
 
     // Groups
-    groups,
-    selectedGroupId,
-    selectedGroupName,
-    loadingGroups,
-    groupError,
-    handleSelectGroup,
-    fetchGroups,
+    groups: categoryGroups.groups,
+    selectedGroupId: categoryGroups.selectedGroupId,
+    selectedGroupName: categoryGroups.selectedGroupName,
+    loadingGroups: categoryGroups.loadingGroups,
+    groupError: categoryGroups.groupError,
+    handleSelectGroup: categoryGroups.handleSelectGroup,
+    fetchGroups: categoryGroups.fetchGroups,
 
     // Items
-    items,
-    selectedItemIds,
-    loadingItems,
-    itemsError,
-    pendingLinks,
-    handleToggleItem,
-    handleSelectAll,
-    handleDeselectAll,
-    handleToggleGroup,
-    handleRefreshItems,
-    handleOpenLinkModal,
-    handleLinkSuccess,
-    handleUnlink,
+    items: itemSelection.items,
+    selectedItemIds: itemSelection.selectedItemIds,
+    loadingItems: itemSelection.loadingItems,
+    itemsError: itemSelection.itemsError,
+    pendingLinks: itemSelection.pendingLinks,
+    handleToggleItem: itemSelection.handleToggleItem,
+    handleSelectAll: itemSelection.handleSelectAll,
+    handleDeselectAll: itemSelection.handleDeselectAll,
+    handleToggleGroup: itemSelection.handleToggleGroup,
+    handleRefreshItems: itemSelection.handleRefreshItems,
+    handleOpenLinkModal: itemSelection.handleOpenLinkModal,
+    handleLinkSuccess: itemSelection.handleLinkSuccess,
+    handleUnlink: itemSelection.handleUnlink,
     handleChangeGroup,
 
     // Link modal
-    linkModalItem,
-    setLinkModalItem,
+    linkModalItem: itemSelection.linkModalItem,
+    setLinkModalItem: itemSelection.setLinkModalItem,
 
     // Tour
-    showLinkTour,
-    setShowLinkTour,
+    showLinkTour: itemSelection.showLinkTour,
+    setShowLinkTour: itemSelection.setShowLinkTour,
 
     // Rollup tip
-    showRollupTip,
-    setShowRollupTip,
+    showRollupTip: itemSelection.showRollupTip,
+    setShowRollupTip: itemSelection.setShowRollupTip,
 
     // Rollup config
-    rollupMode,
-    setRollupMode,
-    rollupCategories,
-    selectedRollupCategoryId,
-    setSelectedRollupCategoryId,
-    rollupSyncName,
-    setRollupSyncName,
-    loadingRollupCategories,
+    rollupMode: rollupConfig.rollupMode,
+    setRollupMode: rollupConfig.setRollupMode,
+    rollupCategories: rollupConfig.rollupCategories,
+    selectedRollupCategoryId: rollupConfig.selectedRollupCategoryId,
+    setSelectedRollupCategoryId: rollupConfig.setSelectedRollupCategoryId,
+    rollupSyncName: rollupConfig.rollupSyncName,
+    setRollupSyncName: rollupConfig.setRollupSyncName,
+    loadingRollupCategories: rollupConfig.loadingRollupCategories,
+
+    // Auto-categorize
+    autoCategorizeEnabled,
+    setAutoCategorizeEnabled,
 
     // Saving
     saving,

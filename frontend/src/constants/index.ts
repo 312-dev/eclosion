@@ -155,3 +155,49 @@ export const Z_INDEX = {
   /** Tooltips - highest layer, always visible */
   TOOLTIP: 70,
 } as const;
+
+// ============================================================================
+// Currency Rounding Rules
+// ============================================================================
+// Monarch Money doesn't support cents, so we round to whole dollars.
+//
+// Rules:
+// 1. Monthly targets: Math.ceil() - Always round UP to ensure enough is saved
+// 2. Balance comparisons: Math.round() - Standard rounding for display
+// 3. Currency display: maximumFractionDigits: 0 - No cents shown
+//
+// Example: If ideal_monthly_rate calculates to $33.33, we round UP to $34
+// to ensure the user saves enough to cover the expense.
+// ============================================================================
+
+export const ROUNDING = {
+  /** Round monthly targets UP to ensure sufficient savings */
+  TARGET: 'ceil',
+  /** Round balances for display comparison */
+  BALANCE: 'round',
+  /** Fraction digits for currency display */
+  CURRENCY_DECIMALS: 0,
+} as const;
+
+// ============================================================================
+// Ideas Board Animation Timings
+// ============================================================================
+
+export const IDEAS_BOARD = {
+  /** Interval between showing new ideas (ms) */
+  IDEA_CYCLE: 4000,
+  /** Duration of idea pop-in animation (ms) */
+  IDEA_POP_IN: 400,
+  /** Duration of upvote animation sequence (ms) */
+  UPVOTE_DURATION: 1500,
+  /** Duration of each dev cycle stage (ms) */
+  DEV_STAGE_DURATION: 2000,
+  /** Typewriter typing speed (ms per character) */
+  TYPEWRITER_SPEED: 50,
+  /** Typewriter backspace speed (ms per character) */
+  BACKSPACE_SPEED: 30,
+  /** Pause before backspacing placeholder (ms) */
+  PROMPT_PAUSE: 2000,
+  /** Number of ideas to cycle before showing dev cycle */
+  IDEAS_BEFORE_DEV_CYCLE: 3,
+} as const;

@@ -12,6 +12,13 @@ from pathlib import Path
 # Determine if running in Docker container
 _IN_CONTAINER = os.path.exists("/.dockerenv") or os.environ.get("DOCKER_CONTAINER") == "1"
 
+# Determine if running as desktop app (Electron-bundled)
+# Desktop mode is explicitly signaled by the Electron main process via ECLOSION_DESKTOP=1
+# Falls back to STATE_DIR heuristic for backward compatibility
+_IS_DESKTOP = os.environ.get("ECLOSION_DESKTOP") == "1" or (
+    bool(os.environ.get("STATE_DIR")) and not _IN_CONTAINER
+)
+
 
 # ============================================================================
 # SERVER CONFIGURATION
@@ -55,9 +62,14 @@ DEFAULT_RATE_LIMITS = [f"{RATE_LIMIT_DAILY} per day", f"{RATE_LIMIT_HOURLY} per 
 # ============================================================================
 
 # Base directory for persistent state
-# In container: /app/state (mounted volume)
-# Local: ./state (relative to project root)
-if _IN_CONTAINER:
+# Priority:
+# 1. STATE_DIR env var (desktop mode - user's app data folder)
+# 2. Container: /app/state (mounted volume)
+# 3. Local dev: ./state (relative to project root)
+_state_dir_env = os.environ.get("STATE_DIR")
+if _state_dir_env:
+    STATE_DIR = Path(_state_dir_env)
+elif _IN_CONTAINER:
     STATE_DIR = Path("/app/state")
 else:
     STATE_DIR = Path(__file__).parent.parent / "state"
@@ -71,6 +83,7 @@ CREDENTIALS_FILE = STATE_DIR / "credentials.json"
 AUTOMATION_CREDENTIALS_FILE = STATE_DIR / "automation_credentials.json"
 SESSION_SECRET_FILE = STATE_DIR / ".session_secret"
 SECURITY_DB_FILE = STATE_DIR / "security_events.db"
+MONARCH_SESSION_FILE = STATE_DIR / "mm_session.pickle"
 
 # Security event retention (days)
 SECURITY_EVENT_RETENTION_DAYS = 90
@@ -89,6 +102,11 @@ INSTANCE_SECRET = os.environ.get("INSTANCE_SECRET")
 
 # Cookie name for instance access
 INSTANCE_SECRET_COOKIE = "eclosion_access"
+
+# Desktop secret for API authentication in Electron mode
+# This is a runtime secret passed by the Electron main process
+# to prevent other local processes from accessing the API
+DESKTOP_SECRET = os.environ.get("DESKTOP_SECRET")
 
 
 # ============================================================================
@@ -145,3 +163,24 @@ def get_state_file_path(filename: str) -> Path:
 def is_container_environment() -> bool:
     """Check if running inside a Docker container."""
     return _IN_CONTAINER
+
+
+def is_desktop_environment() -> bool:
+    """Check if running as a desktop application (Electron-bundled)."""
+    return _IS_DESKTOP
+
+
+def requires_instance_secret() -> bool:
+    """
+    Check if instance secret should be required.
+
+    Instance secret is NOT required for:
+    - Desktop mode (localhost only, inherently trusted)
+    - Development mode when not explicitly set
+
+    Instance secret IS required for:
+    - Container/server deployments when INSTANCE_SECRET is set
+    """
+    if _IS_DESKTOP:
+        return False
+    return bool(INSTANCE_SECRET)

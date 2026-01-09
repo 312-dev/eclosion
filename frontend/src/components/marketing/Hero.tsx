@@ -2,23 +2,34 @@
  * Hero Component
  *
  * Main hero section for the landing page.
- * Features the Eclosion branding with toolkit positioning.
+ * Features the Eclosion branding with evolution/community positioning.
+ * Side-by-side layout on desktop: branding left, IdeasBoard right.
+ * Stacked layout on mobile: branding top, IdeasBoard below.
  */
 
-import { Link } from 'react-router-dom';
-import { ChevronRightIcon } from '../icons';
+import {
+  ChevronRightIcon,
+  WindowsIcon,
+  AppleIcon,
+  LinuxIcon,
+  GlobeIcon,
+} from '../icons';
 import { AppIcon } from '../wizards/SetupWizardIcons';
+import { IdeasBoard } from './IdeasBoard';
+import { CoderModeToggle } from './CoderModeToggle';
 
 interface HeroProps {
-  onGetStarted?: () => void;
+  readonly onGetStarted?: () => void;
+  readonly demoHref?: string;
 }
 
-export function Hero({ onGetStarted }: HeroProps) {
+export function Hero({ onGetStarted, demoHref = '/demo' }: HeroProps) {
   return (
-    <section className="flex flex-col items-center justify-center px-6 py-16 md:py-24 text-center">
-      <div className="max-w-3xl mx-auto">
+    <section className="flex flex-col lg:flex-row items-center justify-center gap-8 lg:gap-16 px-6 py-16 md:py-24 bg-[var(--monarch-bg-card)]">
+      {/* Branding side */}
+      <div className="flex-1 max-w-lg text-center lg:text-left">
         {/* Animated Logo */}
-        <div className="flex justify-center mb-8">
+        <div className="flex justify-center lg:justify-start mb-8">
           <div className="relative">
             <div className="absolute inset-0 bg-[var(--monarch-orange)] opacity-20 blur-2xl rounded-full" />
             <div className="relative">
@@ -35,34 +46,86 @@ export function Hero({ onGetStarted }: HeroProps) {
           Eclosion
         </h1>
 
-        {/* Toolkit positioning tagline */}
+        {/* Tagline */}
         <p className="text-xl sm:text-2xl text-[var(--monarch-orange)] font-medium mb-3">
-          Extra features for Monarch Money
+          Helping Monarch spread its wings
         </p>
 
-        {/* Subtitle - accessible explanation */}
-        <p className="text-lg sm:text-xl text-[var(--monarch-text)] mb-6 max-w-xl mx-auto">
-          A free, open-source toolkit that adds budgeting features Monarch doesn't have yet.
-          You own it completely — set it up once, and it runs automatically.
+        {/* Subtitle - community positioning */}
+        <p className="text-lg sm:text-xl text-[var(--monarch-text)] mb-8 max-w-xl mx-auto lg:mx-0">
+          Built by budgeters, for budgeters.
         </p>
 
         {/* CTA Buttons */}
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-          <Link
-            to="/demo"
-            className="inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-[var(--monarch-orange)] text-white font-semibold text-lg hover:opacity-90 transition-opacity shadow-lg shadow-[var(--monarch-orange)]/20"
-          >
-            Try the Demo
-            <ChevronRightIcon size={20} color="white" />
-          </Link>
+        <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4">
           <button
             type="button"
             onClick={onGetStarted}
-            className="inline-flex items-center gap-2 px-8 py-4 rounded-xl border-2 border-[var(--monarch-orange)] text-[var(--monarch-orange)] font-semibold text-lg hover:bg-(--monarch-orange)/10 transition-colors"
+            className="inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-[var(--monarch-orange)] text-white font-semibold text-lg hover:opacity-90 transition-opacity shadow-lg shadow-[var(--monarch-orange)]/20"
           >
-            Get Started
+            Start Here
+            <ChevronRightIcon size={20} color="white" />
           </button>
+          <a
+            href={demoHref}
+            className="inline-flex items-center gap-2 px-8 py-4 rounded-xl border-2 border-[var(--monarch-orange)] text-[var(--monarch-orange)] font-semibold text-lg hover:bg-[var(--monarch-orange)]/10 transition-colors"
+          >
+            Explore Demo
+          </a>
         </div>
+
+        {/* Platform Icons */}
+        <div className="flex items-center justify-center lg:justify-start gap-4 mt-6">
+          <span className="text-sm text-[var(--monarch-text-muted)]">
+            Available for:
+          </span>
+          <div className="flex items-center gap-3">
+            <a
+              href="/download?platform=windows"
+              aria-label="Download for Windows"
+              className="p-2 rounded-lg text-[var(--monarch-text-muted)] hover:text-[var(--monarch-orange)] hover:bg-[var(--monarch-bg-hover)] transition-colors"
+            >
+              <WindowsIcon size={22} />
+            </a>
+            <a
+              href="/download?platform=macos"
+              aria-label="Download for macOS"
+              className="p-2 rounded-lg text-[var(--monarch-text-muted)] hover:text-[var(--monarch-orange)] hover:bg-[var(--monarch-bg-hover)] transition-colors"
+            >
+              <AppleIcon size={22} />
+            </a>
+            <a
+              href="/download?platform=linux"
+              aria-label="Download for Linux"
+              className="p-2 rounded-lg text-[var(--monarch-text-muted)] hover:text-[var(--monarch-orange)] hover:bg-[var(--monarch-bg-hover)] transition-colors"
+            >
+              <LinuxIcon size={22} />
+            </a>
+            <span className="w-px h-5 bg-[var(--monarch-border)]" />
+            <a
+              href="/"
+              onClick={(e) => {
+                e.preventDefault();
+                onGetStarted?.();
+              }}
+              aria-label="Cloud hosted (24/7)"
+              className="p-2 rounded-lg text-[var(--monarch-text-muted)] hover:text-[var(--monarch-orange)] hover:bg-[var(--monarch-bg-hover)] transition-colors"
+              title="24/7 Cloud Hosted"
+            >
+              <GlobeIcon size={22} />
+            </a>
+          </div>
+        </div>
+
+        {/* Coder Mode Toggle */}
+        <div className="mt-6 flex justify-center lg:justify-start">
+          <CoderModeToggle />
+        </div>
+      </div>
+
+      {/* Ideas Board side */}
+      <div className="flex-1 w-full max-w-md">
+        <IdeasBoard />
       </div>
     </section>
   );

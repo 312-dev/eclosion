@@ -4,6 +4,7 @@ import { PassphrasePrompt } from './PassphrasePrompt';
 import { SecurityInfo } from './SecurityInfo';
 import { TermsModal, hasAcceptedTerms, setTermsAccepted } from './ui/TermsModal';
 import { getErrorMessage } from '../utils';
+import { ElectronTitleBar } from './ElectronTitleBar';
 
 interface LoginFormProps {
   onSuccess: () => void;
@@ -42,10 +43,16 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
                           errorLower.includes('multi-factor') ||
                           errorLower.includes('2fa') ||
                           errorLower.includes('two-factor');
+        // Monarch returns 404 for incorrect credentials
+        const isCredentialsError = errorLower.includes('404') ||
+                                   errorLower.includes('not found');
         if (isMfaError && !showMfa) {
           // First MFA prompt - show the field and generic message
           setShowMfa(true);
           setError('MFA required. Please enter your TOTP secret key.');
+        } else if (isCredentialsError) {
+          // 404 from Monarch means incorrect email/password
+          setError('Incorrect email or password. Please check your credentials and try again.');
         } else {
           // Either not MFA-related, or user already provided MFA and it failed
           // Show the actual error from the backend
@@ -87,11 +94,13 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
 
   return (
     <>
+      {/* Draggable title bar for macOS Electron */}
+      <ElectronTitleBar />
       <div className="min-h-screen flex items-center justify-center p-4" style={{ backgroundColor: 'var(--monarch-bg-page)' }}>
         <div className="flex flex-col items-center">
           {/* Eclosion branding */}
           <div className="flex items-center gap-3 mb-6">
-            <img src="/icons/icon-192.svg" alt="Eclosion" className="w-12 h-12" />
+            <img src={`${import.meta.env.BASE_URL}icons/icon-192.svg`} alt="Eclosion" className="w-12 h-12" />
             <span className="text-3xl" style={{ fontFamily: 'Unbounded, sans-serif', fontWeight: 600, color: 'var(--monarch-text-dark)' }}>
               Eclosion
             </span>

@@ -106,6 +106,12 @@ async function getCategoryId(): Promise<string> {
 /** Label used to mark ideas shipped by Eclosion */
 const ECLOSION_SHIPPED_LABEL = 'eclosion-shipped';
 
+/** Author info from GitHub Discussion */
+export interface DiscussionAuthor {
+  username: string;
+  avatarUrl: string;
+}
+
 /** Structure returned from getExistingDiscussions */
 export interface ExistingDiscussion {
   id: string;
@@ -116,6 +122,7 @@ export interface ExistingDiscussion {
   closedAt: string | null;
   thumbsUpCount: number;
   labels: string[];
+  author: DiscussionAuthor | null;
 }
 
 /**
@@ -137,6 +144,10 @@ async function getExistingDiscussions(): Promise<ExistingDiscussion[]> {
             closedAt
             category {
               name
+            }
+            author {
+              login
+              avatarUrl
             }
             reactions(content: THUMBS_UP) {
               totalCount
@@ -165,6 +176,7 @@ async function getExistingDiscussions(): Promise<ExistingDiscussion[]> {
             closed: boolean;
             closedAt: string | null;
             category: { name: string };
+            author: { login: string; avatarUrl: string } | null;
             reactions: { totalCount: number };
             labels: { nodes: Array<{ name: string }> };
           }>;
@@ -186,6 +198,7 @@ async function getExistingDiscussions(): Promise<ExistingDiscussion[]> {
       closedAt: d.closedAt,
       thumbsUpCount: d.reactions.totalCount,
       labels: d.labels.nodes.map((l) => l.name),
+      author: d.author ? { username: d.author.login, avatarUrl: d.author.avatarUrl } : null,
     }));
 }
 
@@ -346,6 +359,22 @@ function getClosedReason(disc: ExistingDiscussion): TrackedIdea['closedReason'] 
 }
 
 /**
+ * Remove HTML comments completely, looping until no more are found.
+ * This prevents incomplete multi-character sanitization vulnerabilities.
+ */
+function removeHtmlComments(text: string): string {
+  const commentPattern = /<!--[\s\S]*?-->/g;
+  let result = text;
+  let previous = '';
+  // Loop until no changes occur to handle nested/malformed comments
+  while (result !== previous) {
+    previous = result;
+    result = result.replaceAll(commentPattern, '');
+  }
+  return result;
+}
+
+/**
  * Extract description from discussion body (first paragraph or first 200 chars)
  */
 function extractDescription(body: string): string {
@@ -353,14 +382,16 @@ function extractDescription(body: string): string {
   const cleaned = body
     .replaceAll(/\*\*[^*]+\*\*:?\s*/g, '') // Remove bold labels
     .replaceAll(/\[([^\]]+)\]\([^)]+\)/g, '$1') // Convert links to text
-    .replaceAll(/<!--[\s\S]*?-->/g, '') // Remove HTML comments (non-greedy, handles > inside)
     .replaceAll(/^#+\s+.+$/gm, '') // Remove headers
     .replaceAll(/^-+$/gm, '') // Remove horizontal rules
     .replaceAll(/^\s*[-*]\s+/gm, '') // Remove list markers
     .trim();
 
+  // Remove HTML comments with loop to handle incomplete sanitization
+  const withoutComments = removeHtmlComments(cleaned);
+
   // Get first paragraph or first 200 chars
-  const firstPara = cleaned.split(/\n\n/)[0]?.trim() || '';
+  const firstPara = withoutComments.split(/\n\n/)[0]?.trim() || '';
   return firstPara.length > 200 ? `${firstPara.slice(0, 197)}...` : firstPara;
 }
 
@@ -411,7 +442,11 @@ export async function syncToDiscussions(ideas: ProductBoardIdea[]): Promise<void
           closedReason: getClosedReason(disc),
           closedAt: disc.closedAt ?? undefined,
           source: 'productboard',
+          author: disc.author ?? undefined,
         };
+      } else if (disc.author && !state.trackedIdeas[idea.id].author) {
+        // Backfill author info if missing
+        state.trackedIdeas[idea.id].author = disc.author;
       }
       // Clean up orphaned github-XX entry if it exists for this discussion
       const githubKey = `github-${disc.number}`;
@@ -437,6 +472,7 @@ export async function syncToDiscussions(ideas: ProductBoardIdea[]): Promise<void
         closedReason: getClosedReason(matchingDisc),
         closedAt: matchingDisc.closedAt ?? undefined,
         source: 'productboard',
+        author: matchingDisc.author ?? undefined,
       };
       // Add to the map so we don't create a duplicate
       existingByPbId.set(idea.id, matchingDisc);
@@ -455,12 +491,6 @@ export async function syncToDiscussions(ideas: ProductBoardIdea[]): Promise<void
   for (const disc of existingDiscussions) {
     // Skip if already matched to a ProductBoard idea
     if (matchedDiscussionIds.has(disc.id)) continue;
-    // Skip discussions with ProductBoard IDs that weren't in the filtered list
-    // (these are PB ideas the AI determined aren't feasible for Eclosion)
-    const pbIdInBody = extractProductBoardId(disc.body);
-    if (pbIdInBody) {
-      continue; // Has PB ID but wasn't matched = not feasible, skip entirely
-    }
     // Skip if already in state (use discussion number as key for GitHub-only ideas)
     const githubKey = `github-${disc.number}`;
     if (state.trackedIdeas[githubKey]) {
@@ -487,6 +517,7 @@ export async function syncToDiscussions(ideas: ProductBoardIdea[]): Promise<void
       title: disc.title,
       description: extractDescription(disc.body),
       category: 'Community',
+      author: disc.author ?? undefined,
     };
   }
 

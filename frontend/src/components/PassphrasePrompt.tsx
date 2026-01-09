@@ -1,8 +1,10 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getErrorMessage } from '../utils';
 import { UI } from '../constants';
-import { LockIcon, EyeIcon, EyeOffIcon, CheckIcon, CircleIcon, ShieldCheckIcon } from './icons';
+import { LockIcon, EyeIcon, EyeOffIcon, CheckIcon, CircleIcon, ShieldCheckIcon, FingerprintIcon, SpinnerIcon, InfoIcon } from './icons';
+import { ElectronTitleBar } from './ElectronTitleBar';
+import { useBiometric } from '../hooks';
 
 interface PassphrasePromptProps {
   mode: 'create' | 'unlock';
@@ -42,6 +44,13 @@ export function PassphrasePrompt({ mode, onSuccess, onCredentialUpdateNeeded, on
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassphrase, setShowPassphrase] = useState(false);
+
+  // Biometric authentication
+  const biometric = useBiometric();
+  const [biometricLoading, setBiometricLoading] = useState(false);
+  const biometricAttempted = useRef(false);
+  // Track if biometric was reset (enrollment cleared due to keychain mismatch)
+  const [biometricWasReset, setBiometricWasReset] = useState(false);
 
   // Progressive cooldown state for failed unlock attempts
   const [failedAttempts, setFailedAttempts] = useState(0);
@@ -84,6 +93,111 @@ export function PassphrasePrompt({ mode, onSuccess, onCredentialUpdateNeeded, on
     }
   }, []);
 
+  /**
+   * Handle biometric authentication.
+   * Retrieves passphrase from secure storage and unlocks.
+   */
+  const handleBiometricUnlock = useCallback(async () => {
+    if (biometricLoading || loading) return;
+
+    setBiometricLoading(true);
+    setError(null);
+
+    try {
+      const result = await biometric.authenticate();
+      if (result.success && result.passphrase) {
+        // Use the retrieved passphrase to unlock
+        const unlockResult = await unlockCredentials(result.passphrase);
+        if (unlockResult.success) {
+          setFailedAttempts(0);
+          setCooldownUntil(null);
+          onSuccess();
+        } else if (unlockResult.needs_credential_update && unlockResult.unlock_success) {
+          setFailedAttempts(0);
+          setCooldownUntil(null);
+          onCredentialUpdateNeeded?.(result.passphrase);
+        } else {
+          setError(unlockResult.error || 'Failed to unlock');
+        }
+      } else if (result.error) {
+        // Only show error if not cancelled
+        if (!result.error.includes('cancel')) {
+          // Check if biometric was reset (enrollment cleared due to keychain mismatch)
+          if (result.error.includes('reset') || !biometric.enrolled) {
+            setBiometricWasReset(true);
+          }
+          setError(result.error);
+        }
+      }
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setBiometricLoading(false);
+    }
+  }, [biometric, biometricLoading, loading, unlockCredentials, onSuccess, onCredentialUpdateNeeded]);
+
+  // Auto-trigger biometric authentication on mount if enrolled (unlock mode only)
+  useEffect(() => {
+    if (
+      mode === 'unlock' &&
+      biometric.available &&
+      biometric.enrolled &&
+      !biometric.loading &&
+      !biometricAttempted.current
+    ) {
+      biometricAttempted.current = true;
+      void handleBiometricUnlock();
+    }
+  }, [mode, biometric.available, biometric.enrolled, biometric.loading, handleBiometricUnlock]);
+
+  /**
+   * Store passphrase for background sync (on desktop).
+   * This enables auto-sync on startup/wake even without biometric unlock.
+   */
+  const storePassphraseForSync = useCallback(async (enteredPassphrase: string): Promise<void> => {
+    if (!window.electron?.biometric) return;
+
+    try {
+      await window.electron.biometric.storeForSync(enteredPassphrase);
+    } catch {
+      // Don't block unlock flow if storage fails
+    }
+  }, []);
+
+  /**
+   * Offer to enable biometric authentication after successful passphrase entry.
+   * Returns true if enrollment was successful or user declined.
+   */
+  const offerBiometricEnrollment = useCallback(async (enteredPassphrase: string): Promise<void> => {
+    // Only offer on desktop with biometric support, if not already enrolled
+    if (!window.electron || !biometric.available || biometric.enrolled || biometric.loading) {
+      return;
+    }
+
+    try {
+      const confirmed = await window.electron.showConfirmDialog({
+        title: `Enable ${biometric.displayName}?`,
+        message: `Would you like to use ${biometric.displayName} to unlock Eclosion in the future?`,
+        detail: 'Your passphrase will be securely stored and protected by biometric authentication.',
+        confirmText: 'Enable',
+        cancelText: 'Not now',
+      });
+
+      if (confirmed) {
+        const success = await biometric.enroll(enteredPassphrase);
+        if (!success) {
+          // Enrollment failed, but don't block the unlock flow
+          await window.electron.showErrorDialog({
+            title: 'Enrollment Failed',
+            content: `Could not enable ${biometric.displayName}. You can try again from Settings.`,
+          });
+        }
+      }
+    } catch {
+      // Don't block unlock flow if dialog fails
+    }
+  }, [biometric]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isValid || loading) return;
@@ -95,6 +209,10 @@ export function PassphrasePrompt({ mode, onSuccess, onCredentialUpdateNeeded, on
       if (mode === 'create') {
         const result = await setPassphrase(passphrase);
         if (result.success) {
+          // Store passphrase for background sync (desktop only)
+          await storePassphraseForSync(passphrase);
+          // Offer biometric enrollment after successful passphrase creation
+          await offerBiometricEnrollment(passphrase);
           onSuccess();
         } else {
           setError(result.error || 'Failed to set passphrase');
@@ -105,12 +223,18 @@ export function PassphrasePrompt({ mode, onSuccess, onCredentialUpdateNeeded, on
           // Reset cooldown state on success
           setFailedAttempts(0);
           setCooldownUntil(null);
+          // Store passphrase for background sync (desktop only)
+          await storePassphraseForSync(passphrase);
+          // Offer biometric enrollment after successful unlock (if not already enrolled)
+          await offerBiometricEnrollment(passphrase);
           onSuccess();
         } else if (result.needs_credential_update && result.unlock_success) {
           // Passphrase was correct but Monarch credentials are invalid
           // Reset cooldown since passphrase was correct
           setFailedAttempts(0);
           setCooldownUntil(null);
+          // Store passphrase for background sync (desktop only) - passphrase was correct
+          await storePassphraseForSync(passphrase);
           onCredentialUpdateNeeded?.(passphrase);
         } else {
           // Passphrase was wrong - increment failed attempts and start cooldown
@@ -130,6 +254,8 @@ export function PassphrasePrompt({ mode, onSuccess, onCredentialUpdateNeeded, on
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4" style={{ backgroundColor: 'var(--monarch-bg-page)' }}>
+      {/* Draggable title bar for macOS Electron */}
+      <ElectronTitleBar />
       <div className="rounded-xl shadow-lg max-w-md w-full p-6" style={{ backgroundColor: 'var(--monarch-bg-card)', border: '1px solid var(--monarch-border)' }}>
         <div className="flex items-center gap-3 mb-2">
           <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: 'var(--monarch-orange-bg)' }}>
@@ -147,10 +273,63 @@ export function PassphrasePrompt({ mode, onSuccess, onCredentialUpdateNeeded, on
           }
         </p>
 
-        {error && (
+        {/* Info banner when Touch ID was reset */}
+        {biometricWasReset && biometric.available && (
+          <div className="mb-4 p-3 rounded-lg text-sm" style={{ backgroundColor: 'var(--monarch-info-bg, var(--monarch-orange-bg))', color: 'var(--monarch-info, var(--monarch-orange))' }}>
+            <div className="flex items-start gap-2">
+              <InfoIcon size={16} className="mt-0.5 shrink-0" />
+              <div>
+                <p className="font-medium">{biometric.displayName} was reset</p>
+                <p style={{ color: 'var(--monarch-text-muted)' }}>
+                  Enter your passphrase below, then you&apos;ll be prompted to re-enable {biometric.displayName}.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {error && !biometricWasReset && (
           <div className="mb-4 p-3 rounded-lg text-sm" style={{ backgroundColor: 'var(--monarch-error-bg)', color: 'var(--monarch-error)' }}>
             {error}
           </div>
+        )}
+
+        {/* Biometric unlock button (unlock mode only, when available and enrolled) */}
+        {mode === 'unlock' && biometric.available && biometric.enrolled && (
+          <>
+            <button
+              type="button"
+              onClick={handleBiometricUnlock}
+              disabled={biometricLoading || loading || isInCooldown}
+              className="w-full px-4 py-3 rounded-lg transition-colors disabled:cursor-not-allowed btn-hover-lift flex items-center justify-center gap-2"
+              style={{
+                backgroundColor: biometricLoading || isInCooldown ? 'var(--monarch-orange-disabled)' : 'var(--monarch-orange)',
+                color: 'white',
+              }}
+              aria-label={`Unlock with ${biometric.displayName}`}
+            >
+              {biometricLoading ? (
+                <>
+                  <SpinnerIcon size={20} />
+                  <span>Authenticating...</span>
+                </>
+              ) : (
+                <>
+                  <FingerprintIcon size={20} />
+                  <span>Unlock with {biometric.displayName}</span>
+                </>
+              )}
+            </button>
+
+            {/* Divider */}
+            <div className="flex items-center gap-3 my-4">
+              <div className="flex-1 h-px" style={{ backgroundColor: 'var(--monarch-border)' }} />
+              <span className="text-xs" style={{ color: 'var(--monarch-text-muted)' }}>
+                or enter passphrase
+              </span>
+              <div className="flex-1 h-px" style={{ backgroundColor: 'var(--monarch-border)' }} />
+            </div>
+          </>
         )}
 
         <form onSubmit={handleSubmit}>

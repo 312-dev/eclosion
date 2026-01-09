@@ -10,6 +10,7 @@ readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.11"
 authors = [{ name = "Grayson Adams" }]
+maintainers = [{ name = "312.dev", email = "ope@312.dev" }]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Framework :: Flask",
@@ -21,7 +22,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "monarchmoney @ git+https://github.com/GraysonCAdams/monarchmoney.git@flex-budget",
+    "monarchmoney @ git+https://github.com/312-dev/monarchmoney.git@flex-budget",
     "pyotp>=2.9.0",
     "Flask>=3.1.0",
     "flask-cors>=4.0.0",
@@ -65,6 +66,9 @@ exclude = [
     "*.egg-info",
     ".pytest_cache",
     ".mypy_cache",
+    "desktop",
+    "docusaurus",
+    "scripts",
 ]
 
 [tool.ruff.lint]
@@ -121,6 +125,12 @@ warn_redundant_casts = true
 check_untyped_defs = true
 disallow_untyped_defs = false  # Start permissive, tighten later
 ignore_missing_imports = true
+exclude = [
+    "^desktop/",
+    "^docusaurus/",
+    "^scripts/",
+    "^frontend/",
+]
 
 [[tool.mypy.overrides]]
 module = "tests.*"

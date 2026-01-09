@@ -4,7 +4,30 @@
  * Shared fetch wrapper and error classes for the API client.
  */
 
-const API_BASE = '';
+import { getApiBaseSync, getDesktopSecret, initializeApiBase, isDesktopMode } from '../../utils/apiBase';
+
+// Track initialization state for desktop mode
+let apiBaseInitialized = false;
+
+/**
+ * Get the API base URL.
+ * - Web mode: returns empty string (relative URLs)
+ * - Desktop mode: returns http://127.0.0.1:{port}
+ */
+function getApiBase(): string {
+  return getApiBaseSync();
+}
+
+/**
+ * Initialize the API for desktop mode.
+ * Must be called during app startup before making API calls.
+ */
+export async function initializeApi(): Promise<void> {
+  if (isDesktopMode() && !apiBaseInitialized) {
+    await initializeApiBase();
+    apiBaseInitialized = true;
+  }
+}
 
 export class AuthRequiredError extends Error {
   constructor() {
@@ -56,11 +79,20 @@ export async function fetchApi<T>(
 
   const requestPromise = (async () => {
     try {
-      const response = await fetch(`${API_BASE}${endpoint}`, {
+      // Build headers, including desktop secret if in Electron mode
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+
+      // Add desktop secret header for API authentication in Electron mode
+      const desktopSecret = getDesktopSecret();
+      if (desktopSecret) {
+        headers['X-Desktop-Secret'] = desktopSecret;
+      }
+
+      const response = await fetch(`${getApiBase()}${endpoint}`, {
         credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         ...options,
       });
 
@@ -98,8 +130,16 @@ export async function fetchApi<T>(
  * Fetch a blob response (for file downloads).
  */
 export async function fetchBlob(endpoint: string): Promise<Blob> {
-  const response = await fetch(`${API_BASE}${endpoint}`, {
+  // Build headers, including desktop secret if in Electron mode
+  const headers: Record<string, string> = {};
+  const desktopSecret = getDesktopSecret();
+  if (desktopSecret) {
+    headers['X-Desktop-Secret'] = desktopSecret;
+  }
+
+  const response = await fetch(`${getApiBase()}${endpoint}`, {
     credentials: 'include',
+    headers,
   });
   if (!response.ok) {
     throw new Error(`Failed to fetch: ${response.status}`);

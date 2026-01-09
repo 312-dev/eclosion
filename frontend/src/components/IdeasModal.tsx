@@ -1,30 +1,9 @@
 import { useState, useEffect } from 'react';
 import { ThumbsUp, ExternalLink, Search, X, AtSign } from 'lucide-react';
-
-/** Public idea from the ideas.json export */
-interface PublicIdea {
-  id: string;
-  title: string;
-  description: string;
-  votes: number;
-  category: string;
-  productboardUrl: string | null;
-  discussionUrl: string | null;
-  discussionNumber: number | null;
-  status: 'open' | 'closed';
-  closedReason: 'monarch-committed' | 'eclosion-shipped' | null;
-  closedAt: string | null;
-  source: 'productboard' | 'github';
-}
-
-interface IdeasData {
-  generatedAt: string;
-  votesThreshold: number;
-  totalIdeas: number;
-  openCount: number;
-  closedCount: number;
-  ideas: PublicIdea[];
-}
+import { IdeatorAvatar } from './ui/IdeatorAvatar';
+import { getUsernameForIdea, getAvatarUrlForIdea } from './marketing/IdeasBoard/useIdeasAnimation';
+import type { PublicIdea, IdeasData } from '../types/ideas';
+import { Portal } from './Portal';
 
 interface IdeasModalProps {
   isOpen: boolean;
@@ -82,9 +61,10 @@ export function IdeasModal({ isOpen, onClose }: IdeasModalProps) {
   );
 
   return (
-    <div className="fixed inset-0 z-(--z-index-modal) flex items-center justify-center">
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50 modal-backdrop" onClick={onClose} />
+    <Portal>
+      <div className="fixed inset-0 z-(--z-index-modal) flex items-center justify-center">
+        {/* Backdrop */}
+        <div className="absolute inset-0 bg-black/70 modal-backdrop" onClick={onClose} />
 
       {/* Modal */}
       <div className="relative w-full max-w-2xl mx-4 rounded-xl shadow-xl max-h-[85vh] flex flex-col modal-content bg-monarch-bg-card border border-monarch-border">
@@ -204,33 +184,37 @@ export function IdeasModal({ isOpen, onClose }: IdeasModalProps) {
         </div>
       </div>
     </div>
+    </Portal>
   );
 }
 
 function IdeaCard({ idea }: { idea: PublicIdea }) {
+  const username = getUsernameForIdea(idea);
+  const avatarUrl = getAvatarUrlForIdea(idea);
+
   return (
     <div
       className="p-4 rounded-lg border border-monarch-border bg-monarch-bg-page transition-colors hover:border-monarch-orange/30"
     >
+      {/* User info */}
+      <div className="flex items-center gap-2 mb-3">
+        <IdeatorAvatar avatarUrl={avatarUrl} username={username} size="sm" />
+        <span className="text-sm font-medium text-monarch-text-dark">{username}</span>
+      </div>
+
       <div className="flex items-start gap-3">
         {/* Vote count - links to discussion for voting */}
-        {idea.discussionUrl ? (
-          <a
-            href={idea.discussionUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex flex-col items-center min-w-[50px] py-1 rounded-lg hover:bg-monarch-bg-card transition-colors group"
-            title="Vote on GitHub"
-          >
-            <ThumbsUp className="w-4 h-4 text-monarch-text-muted mb-1 group-hover:text-monarch-orange transition-colors" />
-            <span className="text-sm font-semibold text-monarch-text-dark">{idea.votes}</span>
-          </a>
-        ) : (
-          <div className="flex flex-col items-center min-w-[50px] py-1">
-            <ThumbsUp className="w-4 h-4 text-monarch-text-muted mb-1" />
-            <span className="text-sm font-semibold text-monarch-text-dark">{idea.votes}</span>
-          </div>
-        )}
+        <a
+          href={idea.discussionUrl ?? '#'}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex flex-col items-center min-w-[50px] py-1 rounded-lg transition-colors hover:bg-monarch-orange/10"
+          title="Vote on GitHub"
+          aria-label={`Vote for ${idea.title} (${idea.votes} votes)`}
+        >
+          <ThumbsUp className="w-4 h-4 text-monarch-text-muted mb-1" />
+          <span className="text-sm font-semibold text-monarch-text-dark">{idea.votes}</span>
+        </a>
 
         {/* Content */}
         <div className="flex-1 min-w-0">

@@ -5,10 +5,15 @@
  * Provides header with branding, navigation, theme toggle, and footer.
  */
 
+import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { GitHubIcon, MoonIcon, SunIcon } from '../icons';
 import { AppIcon } from '../wizards/SetupWizardIcons';
 import { useTheme } from '../../context/ThemeContext';
+import { IdeasModal } from '../IdeasModal';
+import { Portal } from '../Portal';
+import { MarketingVersionIndicator } from './MarketingVersionIndicator';
+import { useLandingContent } from '../../hooks';
 
 interface DocsLayoutProps {
   children: React.ReactNode;
@@ -56,7 +61,9 @@ function NavLink({
 }
 
 export function DocsLayout({ children, minimal = false }: DocsLayoutProps) {
+  const { isCoderMode } = useLandingContent();
   const { theme, setTheme } = useTheme();
+  const [showIdeasModal, setShowIdeasModal] = useState(false);
 
   const handleToggleTheme = () => {
     setTheme(theme === 'dark' ? 'light' : 'dark');
@@ -72,20 +79,32 @@ export function DocsLayout({ children, minimal = false }: DocsLayoutProps) {
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
-            <Link to="/" className="flex items-center gap-2.5">
-              <AppIcon size={32} />
-              <span
-                className="text-xl font-bold text-[var(--monarch-text-dark)]"
-                style={{ fontFamily: "'Unbounded', sans-serif" }}
-              >
-                Eclosion
-              </span>
-            </Link>
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+              <Link to="/" className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+                <AppIcon size={32} />
+                <span
+                  className="text-lg sm:text-xl font-bold text-[var(--monarch-text-dark)]"
+                  style={{ fontFamily: "'Unbounded', sans-serif" }}
+                >
+                  Eclosion
+                </span>
+              </Link>
+              <div className="hidden xs:block">
+                <MarketingVersionIndicator />
+              </div>
+            </div>
 
             {/* Navigation */}
             {!minimal && (
               <nav className="hidden md:flex items-center gap-8">
                 <NavLink to="/features">Features</NavLink>
+                <button
+                  type="button"
+                  onClick={() => setShowIdeasModal(true)}
+                  className="text-sm font-medium text-[var(--monarch-text)] hover:text-[var(--monarch-text-dark)] transition-colors"
+                >
+                  Roadmap
+                </button>
                 <a
                   href="/docs"
                   className="text-sm font-medium text-[var(--monarch-text)] hover:text-[var(--monarch-text-dark)] transition-colors"
@@ -93,60 +112,78 @@ export function DocsLayout({ children, minimal = false }: DocsLayoutProps) {
                   User Guide
                 </a>
                 <NavLink to="/demo">Demo</NavLink>
-                <NavLink
-                  to="https://github.com/graysoncadams/eclosion-for-monarch/wiki"
-                  external
-                >
-                  Self-Hosting
-                </NavLink>
-                <NavLink to="https://github.com/graysoncadams/eclosion-for-monarch" external>
-                  GitHub
-                </NavLink>
+                {isCoderMode && (
+                  <>
+                    <NavLink
+                      to="https://github.com/graysoncadams/eclosion-for-monarch/wiki"
+                      external
+                    >
+                      Self-Hosting
+                    </NavLink>
+                    <NavLink to="https://github.com/graysoncadams/eclosion-for-monarch" external>
+                      GitHub
+                    </NavLink>
+                  </>
+                )}
               </nav>
             )}
 
             {/* Actions */}
-            <div className="flex items-center gap-2">
-              {/* User Guide & Self-Hosting Links (shown on landing page) */}
+            <div className="flex items-center gap-1 sm:gap-2">
+              {/* User Guide, Roadmap & Self-Hosting Links (shown on landing page, hidden on mobile) */}
               {minimal && (
-                <>
+                <div className="hidden sm:flex items-center gap-1 sm:gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowIdeasModal(true)}
+                    className="text-sm font-medium text-[var(--monarch-text)] hover:text-[var(--monarch-text-dark)] transition-colors px-2"
+                  >
+                    Roadmap
+                  </button>
                   <a
                     href="/docs"
-                    className="text-sm font-medium text-[var(--monarch-text)] hover:text-[var(--monarch-text-dark)] transition-colors mr-2"
+                    className="text-sm font-medium text-[var(--monarch-text)] hover:text-[var(--monarch-text-dark)] transition-colors px-2"
                   >
                     User Guide
                   </a>
-                  <a
-                    href="https://github.com/graysoncadams/eclosion-for-monarch/wiki"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm font-medium text-[var(--monarch-text)] hover:text-[var(--monarch-text-dark)] transition-colors mr-2"
-                  >
-                    Self-Hosting
-                  </a>
-                </>
+                  {isCoderMode && (
+                    <a
+                      href="https://github.com/graysoncadams/eclosion-for-monarch/wiki"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm font-medium text-[var(--monarch-text)] hover:text-[var(--monarch-text-dark)] transition-colors px-2"
+                    >
+                      Self-Hosting
+                    </a>
+                  )}
+                </div>
               )}
 
               {/* Theme Toggle */}
               <button
                 type="button"
                 onClick={handleToggleTheme}
-                className="flex items-center justify-center w-10 h-10 rounded-lg text-[var(--monarch-text-muted)] hover:text-[var(--monarch-text-dark)] hover:bg-[var(--monarch-bg-hover)] transition-colors"
+                className="flex items-center justify-center gap-1.5 h-10 px-2 sm:px-3 rounded-lg text-[var(--monarch-text-muted)] hover:text-[var(--monarch-text-dark)] hover:bg-[var(--monarch-bg-hover)] transition-colors"
                 aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
               >
-                {theme === 'dark' ? <SunIcon size={20} /> : <MoonIcon size={20} />}
+                {theme === 'dark' ? <SunIcon size={18} /> : <MoonIcon size={18} />}
+                <span className="hidden sm:inline text-sm font-medium">
+                  {theme === 'dark' ? 'Light' : 'Dark'}
+                </span>
               </button>
 
               {/* GitHub Link (mobile) */}
-              <a
-                href="https://github.com/graysoncadams/eclosion-for-monarch"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center w-10 h-10 rounded-lg text-[var(--monarch-text-muted)] hover:text-[var(--monarch-text-dark)] hover:bg-[var(--monarch-bg-hover)] transition-colors md:hidden"
-                aria-label="View on GitHub"
-              >
-                <GitHubIcon size={20} />
-              </a>
+              {isCoderMode && (
+                <a
+                  href="https://github.com/graysoncadams/eclosion-for-monarch"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center w-10 h-10 rounded-lg text-[var(--monarch-text-muted)] hover:text-[var(--monarch-text-dark)] hover:bg-[var(--monarch-bg-hover)] transition-colors md:hidden"
+                  aria-label="View on GitHub"
+                >
+                  <GitHubIcon size={20} />
+                </a>
+              )}
             </div>
           </div>
         </div>
@@ -157,29 +194,43 @@ export function DocsLayout({ children, minimal = false }: DocsLayoutProps) {
 
       {/* Footer */}
       <footer className="border-t border-[var(--monarch-border)] bg-[var(--monarch-bg-card)]">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+          <div className="flex flex-col items-center gap-4">
             {/* Brand */}
             <div className="flex items-center gap-2">
               <AppIcon size={24} />
-              <span className="text-sm text-[var(--monarch-text-muted)] italic">
+              <span className="text-xs sm:text-sm text-[var(--monarch-text-muted)] italic text-center">
                 An evolving toolkit for Monarch Money
               </span>
             </div>
 
-            {/* Links */}
-            <div className="flex items-center gap-6 text-sm text-[var(--monarch-text-muted)]">
-              <a
-                href="https://github.com/graysoncadams/eclosion-for-monarch"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 hover:text-[var(--monarch-text-dark)] transition-colors"
-              >
-                <GitHubIcon size={16} />
-                GitHub
-              </a>
-              <span>•</span>
-              <span>
+            {/* Links - stack on mobile, inline on larger screens */}
+            <div className="flex flex-col sm:flex-row flex-wrap items-center justify-center gap-2 sm:gap-x-4 sm:gap-y-2 text-sm text-[var(--monarch-text-muted)]">
+              <div className="flex items-center gap-3 sm:gap-4">
+                <button
+                  type="button"
+                  onClick={() => setShowIdeasModal(true)}
+                  className="hover:text-[var(--monarch-text-dark)] transition-colors"
+                >
+                  Roadmap
+                </button>
+                {isCoderMode && (
+                  <>
+                    <span className="text-[var(--monarch-border)]">•</span>
+                    <a
+                      href="https://github.com/graysoncadams/eclosion-for-monarch"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 hover:text-[var(--monarch-text-dark)] transition-colors"
+                    >
+                      <GitHubIcon size={16} />
+                      <span className="hidden xs:inline">GitHub</span>
+                    </a>
+                  </>
+                )}
+              </div>
+              <span className="hidden sm:inline text-[var(--monarch-border)]">•</span>
+              <span className="text-center">
                 Built for{' '}
                 <a
                   href="https://monarchmoney.com"
@@ -190,6 +241,8 @@ export function DocsLayout({ children, minimal = false }: DocsLayoutProps) {
                   Monarch Money
                 </a>
               </span>
+              <span className="hidden sm:inline text-[var(--monarch-border)]">•</span>
+              <MarketingVersionIndicator />
             </div>
           </div>
 
@@ -221,6 +274,11 @@ export function DocsLayout({ children, minimal = false }: DocsLayoutProps) {
           </div>
         </div>
       </footer>
+
+      {/* Ideas/Roadmap Modal */}
+      <Portal>
+        <IdeasModal isOpen={showIdeasModal} onClose={() => setShowIdeasModal(false)} />
+      </Portal>
     </div>
   );
 }

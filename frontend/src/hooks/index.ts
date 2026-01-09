@@ -53,3 +53,34 @@ export {
 } from './useItemDisplayStatus';
 
 export { useApiClient } from './useApiClient';
+
+export { useRecurringItemActions } from './useRecurringItemActions';
+
+export {
+  useContributors,
+  useAllContributors,
+  useUniqueContributors,
+  type Contributor,
+  type FeatureContributors,
+} from './useContributors';
+
+export { useLandingContent } from './useLandingContent';
+
+export {
+  useElectronUpdates,
+  type UseElectronUpdatesReturn,
+} from './useElectronUpdates';
+
+export { useIsBetaSite } from './useIsBetaSite';
+
+export { useMacOSElectron } from './useMacOSElectron';
+
+export { useElectronNavigation } from './useElectronNavigation';
+
+export {
+  useRecurringTour,
+  TOUR_STATE_KEY,
+  type UseRecurringTourReturn,
+} from './useRecurringTour';
+
+export { useBiometric, type UseBiometricReturn } from './useBiometric';

@@ -5,7 +5,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { ProductBoardIdea, TrackedIdea, SyncState, ClosedReason, IdeaSource } from './types.js';
+import type { ProductBoardIdea, TrackedIdea, SyncState, ClosedReason, IdeaSource, IdeaAuthor } from './types.js';
 import { CONFIG } from './types.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -33,6 +33,7 @@ export interface PublicIdea {
   closedReason: ClosedReason | null;
   closedAt: string | null;
   source: IdeaSource; // 'productboard' or 'github'
+  author: IdeaAuthor | null; // GitHub Discussion author (null if unknown)
 }
 
 interface ExportedData {
@@ -66,6 +67,18 @@ function getRepoUrl(): string {
 }
 
 /**
+ * Clean ProductBoard description text by removing unnecessary escape characters.
+ * ProductBoard stores descriptions with escaped special chars like \. and \-
+ */
+function cleanDescription(text: string): string {
+  return text
+    .replaceAll(/\\([.\-()[\]{}*+?^$|])/g, '$1') // Unescape regex special chars
+    .replaceAll('<span data-preserve-white-space></span>', '') // Remove empty spans
+    .replaceAll('<p></p>', '') // Remove empty paragraphs
+    .trim();
+}
+
+/**
  * Transform ProductBoard ideas to public format
  */
 function toPublicIdeasFromProductBoard(
@@ -80,7 +93,7 @@ function toPublicIdeasFromProductBoard(
       return {
         id: idea.id,
         title: idea.title,
-        description: idea.description,
+        description: cleanDescription(idea.description),
         votes: tracked.githubVotes ?? 0,
         category: idea.category,
         productboardUrl: idea.url,
@@ -90,6 +103,7 @@ function toPublicIdeasFromProductBoard(
         closedReason: tracked.closedReason ?? null,
         closedAt: tracked.closedAt ?? null,
         source: 'productboard' as const,
+        author: tracked.author ?? null,
       };
     });
 }
@@ -106,7 +120,7 @@ function toPublicIdeasFromGitHub(
     .map(([key, tracked]) => ({
       id: key,
       title: tracked.title ?? 'Untitled',
-      description: tracked.description ?? '',
+      description: cleanDescription(tracked.description ?? ''),
       votes: tracked.githubVotes ?? 0,
       category: tracked.category ?? 'Community',
       productboardUrl: null,
@@ -116,6 +130,7 @@ function toPublicIdeasFromGitHub(
       closedReason: tracked.closedReason ?? null,
       closedAt: tracked.closedAt ?? null,
       source: 'github' as const,
+      author: tracked.author ?? null,
     }));
 }
 

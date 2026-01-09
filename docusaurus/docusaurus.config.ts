@@ -29,6 +29,31 @@ const config: Config = {
   organizationName: 'GraysonCAdams',
   projectName: 'eclosion-for-monarch',
 
+  // SEO: Head tags for all pages
+  headTags: [
+    {
+      tagName: 'meta',
+      attributes: {
+        name: 'keywords',
+        content: 'Monarch Money, budgeting, personal finance, recurring expenses, self-hosted, expense tracking, documentation',
+      },
+    },
+    {
+      tagName: 'meta',
+      attributes: {
+        name: 'author',
+        content: 'Eclosion',
+      },
+    },
+    {
+      tagName: 'link',
+      attributes: {
+        rel: 'preconnect',
+        href: 'https://fonts.googleapis.com',
+      },
+    },
+  ],
+
   // Links to / and /demo are served by the main React app, not Docusaurus
   // These are valid at runtime but unknown to Docusaurus during build
   onBrokenLinks: 'warn',
@@ -79,14 +104,24 @@ const config: Config = {
   ],
 
   themeConfig: {
+    // SEO: Open Graph / Social Card image
+    image: 'img/social-card.png',
+    metadata: [
+      { name: 'twitter:card', content: 'summary_large_image' },
+      { name: 'twitter:image:alt', content: 'Eclosion - Self-hosted toolkit for Monarch Money' },
+      { property: 'og:image:width', content: '1280' },
+      { property: 'og:image:height', content: '640' },
+      { property: 'og:image:alt', content: 'Eclosion - Self-hosted toolkit for Monarch Money' },
+      { property: 'og:site_name', content: 'Eclosion for Monarch' },
+    ],
     // Beta announcement bar - shown when ECLOSION_BETA env var is set
     ...(process.env.ECLOSION_BETA === 'true' && {
       announcementBar: {
         id: 'beta_warning',
         content:
           'You are viewing documentation for the <strong>beta</strong> version. Some features may be unstable. <a href="https://eclosion.app/docs">View stable docs</a>',
-        backgroundColor: '#fef3c7',
-        textColor: '#92400e',
+        backgroundColor: '#ede9fe',
+        textColor: '#6d28d9',
         isCloseable: false,
       },
     }),
@@ -182,7 +217,7 @@ const config: Config = {
           ],
         },
       ],
-      copyright: `Copyright ${new Date().getFullYear()} Eclosion for Monarch. Built with Docusaurus.<br/>Eclosion is not affiliated with, endorsed by, or sponsored by Monarch Money.`,
+      copyright: `Copyright ${new Date().getFullYear()} 312.dev and contributors. Built with Docusaurus.<br/>Eclosion is not affiliated with, endorsed by, or sponsored by Monarch Money.`,
     },
     prism: {
       theme: prismThemes.github,

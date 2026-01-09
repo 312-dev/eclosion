@@ -6,7 +6,8 @@
  * - Demo: LocalStorage-based data, no auth required
  */
 
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { useEffect } from 'react';
+import { BrowserRouter, HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TooltipProvider } from './components/ui/Tooltip';
 import { ToastProvider } from './context/ToastContext';
@@ -21,15 +22,40 @@ import { UnlockPage } from './pages/UnlockPage';
 import { LandingPage } from './pages/LandingPage';
 import { FeaturesPage } from './pages/FeaturesPage';
 import { FeatureDetailPage } from './pages/FeatureDetailPage';
+import { DownloadPage } from './pages/DownloadPage';
 import { DashboardTab } from './components/tabs/DashboardTab';
 import { RecurringTab } from './components/tabs/RecurringTab';
 import { SettingsTab } from './components/tabs/SettingsTab';
 import { RateLimitError, AuthRequiredError } from './api/client';
 import { ErrorPage } from './components/ui/ErrorPage';
 import { useIsMarketingSite } from './hooks/useIsMarketingSite';
+import { useElectronNavigation } from './hooks/useElectronNavigation';
 import { BetaBanner } from './components/ui/BetaBanner';
 
 const LANDING_PAGE_KEY = 'eclosion-landing-page';
+
+/**
+ * Scrolls to top on route changes, unless there's a hash anchor
+ */
+function ScrollToTop() {
+  const { pathname, hash } = useLocation();
+
+  useEffect(() => {
+    // If there's a hash, let the browser handle scrolling to the element
+    if (hash) {
+      const element = document.getElementById(hash.slice(1));
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth' });
+      }
+      return;
+    }
+
+    // Otherwise scroll to top
+    window.scrollTo(0, 0);
+  }, [pathname, hash]);
+
+  return null;
+}
 
 export function getLandingPage(): string {
   const stored = localStorage.getItem(LANDING_PAGE_KEY);
@@ -168,8 +194,12 @@ function AppRouter() {
   const location = useLocation();
   const isMarketingSite = useIsMarketingSite();
 
+  // Listen for navigation events from Electron main process (e.g., Settings menu)
+  useElectronNavigation();
+
   const isDemo = location.pathname.startsWith('/demo');
   const isLanding = location.pathname === '/';
+  const isDownload = location.pathname === '/download';
   const isFeatures =
     location.pathname === '/features' ||
     location.pathname.startsWith('/features/');
@@ -199,6 +229,16 @@ function AppRouter() {
       );
     }
 
+    // Download page
+    if (isDownload) {
+      return (
+        <>
+          <BetaBanner />
+          <DownloadPage />
+        </>
+      );
+    }
+
     // Demo at /demo/* paths
     if (isDemo) {
       return (
@@ -212,6 +252,28 @@ function AppRouter() {
     // Docusaurus paths (/docs/*) - force full page reload to serve static HTML
     // This handles the edge case where React Router intercepts a /docs navigation
     if (location.pathname.startsWith('/docs')) {
+      const isLocalhost = globalThis.location.hostname === 'localhost' || globalThis.location.hostname === '127.0.0.1';
+      if (isLocalhost) {
+        // Show helpful message on localhost since Docusaurus runs on a separate port
+        return (
+          <div className="min-h-screen flex items-center justify-center p-8" style={{ backgroundColor: 'var(--monarch-bg-page)' }}>
+            <div className="text-center max-w-md">
+              <h1 className="text-xl font-semibold mb-2" style={{ color: 'var(--monarch-text-dark)' }}>
+                Docs not available here
+              </h1>
+              <p className="text-sm mb-4" style={{ color: 'var(--monarch-text-muted)' }}>
+                In development, Docusaurus runs on a separate port. Start it with:
+              </p>
+              <code className="block p-3 rounded-lg text-sm mb-4" style={{ backgroundColor: 'var(--monarch-bg-card)', color: 'var(--monarch-text)' }}>
+                cd docusaurus && npm start
+              </code>
+              <a href="/" className="text-sm" style={{ color: 'var(--monarch-orange)' }}>
+                ← Back to home
+              </a>
+            </div>
+          </div>
+        );
+      }
       globalThis.location.replace(location.pathname + location.search + location.hash);
       return null;
     }
@@ -238,17 +300,22 @@ function AppRouter() {
   );
 }
 
+// Use HashRouter for desktop (Electron) to handle refresh properly with file:// protocol
+const isDesktop = globalThis.window !== undefined && globalThis.electron !== undefined;
+const Router = isDesktop ? HashRouter : BrowserRouter;
+
 export default function App() {
   return (
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
         <ToastProvider>
           <TooltipProvider>
-            <BrowserRouter>
+            <Router>
+              <ScrollToTop />
               <DemoProvider>
                 <AppRouter />
               </DemoProvider>
-            </BrowserRouter>
+            </Router>
           </TooltipProvider>
         </ToastProvider>
       </QueryClientProvider>

@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 from gql import gql
 from monarchmoney import MonarchMoney
 
+from core import config
 from core.error_detection import is_rate_limit_error
 
 load_dotenv()
@@ -214,13 +215,14 @@ async def get_mm(email=None, password=None, mfa_secret_key=None):
     if mfa_secret_key:
         mfa_secret_key = _sanitize_base32_secret(mfa_secret_key)
 
-    mm = MonarchMoney()
+    # Use configured session file path (stored in STATE_DIR for desktop/docker compatibility)
+    mm = MonarchMoney(session_file=str(config.MONARCH_SESSION_FILE))
 
     # Use browser-like user agent (per Monarch support guidance for firewall issues)
     mm._headers["User-Agent"] = (
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
     )
-    session_file = getattr(mm, "_session_file", None)
+    session_file = str(config.MONARCH_SESSION_FILE)
     use_saved_session = False
     if session_file and os.path.exists(session_file):
         mtime = datetime.fromtimestamp(os.path.getmtime(session_file))

@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { getErrorMessage } from '../utils';
+import { ElectronTitleBar } from './ElectronTitleBar';
 
 interface CredentialUpdateFormProps {
   /** The passphrase that successfully decrypted the old credentials */
@@ -13,6 +15,7 @@ interface CredentialUpdateFormProps {
 
 export function CredentialUpdateForm({ passphrase, onSuccess, onCancel }: CredentialUpdateFormProps) {
   const { updateCredentials } = useAuth();
+  const toast = useToast();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [mfaSecret, setMfaSecret] = useState('');
@@ -28,15 +31,20 @@ export function CredentialUpdateForm({ passphrase, onSuccess, onCancel }: Creden
     try {
       const result = await updateCredentials(email, password, passphrase, mfaSecret);
       if (result.success) {
+        toast.success('Credentials updated successfully');
         onSuccess();
       } else if (result.needs_mfa) {
         setShowMfa(true);
         setError('MFA required. Please enter your TOTP secret key.');
       } else {
-        setError(result.error || 'Failed to update credentials');
+        const errorMsg = result.error || 'Failed to update credentials';
+        toast.error(errorMsg);
+        setError(errorMsg);
       }
     } catch (err) {
-      setError(getErrorMessage(err));
+      const errorMsg = getErrorMessage(err);
+      toast.error(errorMsg);
+      setError(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -44,6 +52,8 @@ export function CredentialUpdateForm({ passphrase, onSuccess, onCancel }: Creden
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4" style={{ backgroundColor: 'var(--monarch-bg-page)' }}>
+      {/* Draggable title bar for macOS Electron */}
+      <ElectronTitleBar />
       <div className="rounded-xl shadow-lg max-w-md w-full p-6" style={{ backgroundColor: 'var(--monarch-bg-card)', border: '1px solid var(--monarch-border)' }}>
         {/* Warning banner */}
         <div className="mb-4 p-3 rounded-lg flex items-start gap-2" style={{ backgroundColor: 'var(--monarch-orange-bg)' }}>

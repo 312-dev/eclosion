@@ -14,6 +14,7 @@ interface UpdatesSectionProps {
 }
 
 export function UpdatesSection({ versionInfo, onShowUpdateModal }: UpdatesSectionProps) {
+
   return (
     <section className="mb-8">
       <h2 className="text-xs font-semibold uppercase tracking-wider mb-3 px-1 flex items-center gap-1.5" style={{ color: 'var(--monarch-text-muted)' }}>
@@ -70,6 +71,7 @@ export function UpdatesSection({ versionInfo, onShowUpdateModal }: UpdatesSectio
             </button>
           </div>
         </div>
+
       </div>
     </section>
   );

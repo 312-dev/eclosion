@@ -4,6 +4,8 @@
  * Educational modal explaining the rollup category feature.
  */
 
+import { Portal } from '../Portal';
+
 interface RollupTipModalProps {
   readonly isOpen: boolean;
   readonly onClose: () => void;
@@ -13,7 +15,7 @@ export function RollupTipModal({ isOpen, onClose }: RollupTipModalProps) {
   if (!isOpen) return null;
 
   return (
-    <>
+    <Portal>
       <div
         className="fixed inset-0 z-modal-backdrop"
         style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
@@ -45,6 +47,6 @@ export function RollupTipModal({ isOpen, onClose }: RollupTipModalProps) {
           </button>
         </div>
       </div>
-    </>
+    </Portal>
   );
 }

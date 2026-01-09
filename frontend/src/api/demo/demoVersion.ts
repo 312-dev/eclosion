@@ -15,6 +15,7 @@ export interface Release {
   is_prerelease: boolean;
   html_url: string;
   is_current: boolean;
+  release_notes?: string;
 }
 
 export interface ReleasesResponse {
@@ -26,7 +27,7 @@ export interface ReleasesResponse {
 }
 
 export interface UpdateInfo {
-  deployment_type: 'railway' | 'docker' | 'local';
+  deployment_type: 'railway' | 'docker' | 'local' | 'electron';
   current_version: string;
   current_channel: string;
   instructions: {

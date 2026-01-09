@@ -1,0 +1,14 @@
+# Eclosion for Monarch - robots.txt
+# https://eclosion.app
+
+User-agent: *
+Allow: /
+
+# Allow all crawlers to access the site
+# Demo pages are allowed (they showcase the product)
+
+# Sitemap location
+Sitemap: https://eclosion.app/sitemap.xml
+
+# Crawl-delay suggestion for polite crawling
+Crawl-delay: 1
