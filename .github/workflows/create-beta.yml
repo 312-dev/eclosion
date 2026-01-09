@@ -7,10 +7,16 @@
 #   1. Validate develop branch
 #   2. Calculate version
 #   3. Create draft pre-release
-#   4. Run release pipeline (security → build all → validate → publish)
-#   5. Finalize pre-release (mark non-draft)
+#   4. Run release pipeline (security → build all → validate → publish artifacts)
+#   5. ⏸️ MANUAL APPROVAL - Review draft release notes before publishing
+#   6. Finalize pre-release (mark non-draft)
 #
-# If any step fails, the release remains in draft state and nothing is published.
+# The release stays as a draft until manually approved. You can review:
+#   - The generated release notes
+#   - Build artifacts uploaded to the release
+#   - The beta site deployment at beta.eclosion.app
+#
+# If any step fails or approval is rejected, the draft release is cleaned up.
 
 name: "Release: Create Beta"
 
@@ -181,11 +187,30 @@ jobs:
       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
   # ===========================================================================
+  # MANUAL APPROVAL GATE
+  # ===========================================================================
+  wait-for-approval:
+    name: "⏸️ Awaiting Approval"
+    needs: [calculate-version, release-pipeline]
+    runs-on: ubuntu-latest
+    timeout-minutes: 1440  # 24 hours
+    environment: beta-release
+    steps:
+      - name: Approval received
+        run: |
+          echo "### ✅ Release Approved" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ needs.calculate-version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Tag:** ${{ needs.calculate-version.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Proceeding to publish the release..." >> $GITHUB_STEP_SUMMARY
+
+  # ===========================================================================
   # FINALIZE
   # ===========================================================================
   publish-release:
     name: Publish Release
-    needs: [calculate-version, release-pipeline]
+    needs: [calculate-version, wait-for-approval]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -204,10 +229,10 @@ jobs:
           echo "- [beta.eclosion.app](https://beta.eclosion.app)" >> $GITHUB_STEP_SUMMARY
           echo "- Docker: \`ghcr.io/${{ github.repository }}:${{ needs.calculate-version.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
 
-  # Cleanup draft release if pipeline fails
+  # Cleanup draft release if pipeline fails or approval is rejected
   cleanup-on-failure:
     name: Cleanup Failed Release
-    needs: [calculate-version, release-pipeline]
+    needs: [calculate-version, release-pipeline, wait-for-approval]
     if: failure()
     runs-on: ubuntu-latest
     timeout-minutes: 5

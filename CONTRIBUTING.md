@@ -423,9 +423,9 @@ Workflows called via `workflow_call` should remain generic and reusable:
 
 This project uses two versioning schemes:
 
-**Production releases** — Semantic versioning managed by release-please
+**Production releases** — Semantic versioning, created manually
 - Format: `vX.Y.Z` (e.g., `v1.2.0`)
-- Version determined automatically from conventional commits
+- Version bump chosen manually (patch/minor/major)
 
 **Beta releases** — Date-based versioning
 - Format: `v{current}-beta.{YYYYMMDD}.{sequence}`
@@ -438,6 +438,24 @@ This project uses two versioning schemes:
 |-------------|-----|---------|----------|
 | **Beta** | [beta.eclosion.app](https://beta.eclosion.app) | Beta pre-release created | Required |
 | **Production** | [eclosion.app](https://eclosion.app) | Release published | Required |
+
+### Required GitHub Environments
+
+Releases require manual approval before becoming public. Configure these environments in **Settings → Environments**:
+
+| Environment Name | Purpose | Required Reviewers |
+|------------------|---------|-------------------|
+| `beta-release` | Approve beta releases | At least 1 maintainer |
+| `production-release` | Approve production releases | At least 1 maintainer |
+
+**Setup steps:**
+1. Go to repository **Settings** → **Environments**
+2. Click **New environment**
+3. Name it `beta-release` (or `production-release`)
+4. Enable **Required reviewers** and add maintainers
+5. Save protection rules
+
+When a release workflow runs, it will pause at the approval step. Reviewers receive a notification and can approve after reviewing the draft release notes.
 
 ### Release Flow
 
@@ -454,15 +472,24 @@ This project uses two versioning schemes:
 │  → Runs security scan (HIGH+ blocks)                    │
 │  → Reads version from package.json (e.g., 1.1.0)        │
 │  → Creates tag: v1.1.0-beta.20260104.1                  │
-│  → Creates GitHub pre-release                           │
+│  → Creates draft GitHub pre-release                     │
+│  → Deploys to beta.eclosion.app                         │
+│  → Builds Docker image and desktop apps                 │
 └─────────────────────┬───────────────────────────────────┘
                       │
                       ▼
 ┌─────────────────────────────────────────────────────────┐
-│              AUTOMATIC: prereleased event               │
-│  → Deploys to beta.eclosion.app                         │
-│  → Builds Docker image with beta tag                    │
-│  → Builds desktop apps for all platforms                │
+│        ⏸️ MANUAL APPROVAL REQUIRED (beta-release)        │
+│  → Review draft release notes in GitHub                 │
+│  → Verify beta.eclosion.app is working                  │
+│  → Approve to publish the release                       │
+└─────────────────────┬───────────────────────────────────┘
+                      │
+                      ▼
+┌─────────────────────────────────────────────────────────┐
+│              AUTOMATIC: Release published               │
+│  → Draft release marked as public pre-release           │
+│  → Notification sent to watchers                        │
 └─────────────────────────────────────────────────────────┘
                       │
                       │ (when ready for production)
@@ -475,20 +502,27 @@ This project uses two versioning schemes:
                       │
                       ▼
 ┌─────────────────────────────────────────────────────────┐
-│            AUTOMATIC: release-please runs               │
-│  → Analyzes commits since last release                  │
-│  → Determines version bump (patch/minor/major)          │
-│  → Creates release PR with changelog                    │
+│       MANUAL: Run "Create Stable Release" workflow      │
+│  → Choose version bump (patch/minor/major)              │
+│  → Updates version files, creates tag                   │
+│  → Creates draft release with changelog                 │
+│  → Runs release pipeline (security → build → publish)   │
 └─────────────────────┬───────────────────────────────────┘
                       │
                       ▼
 ┌─────────────────────────────────────────────────────────┐
-│              MERGE: Release PR                          │
-│  → GitHub release created (e.g., v1.2.0)                │
-│  → Production deployment triggered                      │
-│  → Docker image published                               │
-│  → Desktop apps built and attached to release           │
-│  → Future betas use new version as base                 │
+│    ⏸️ MANUAL APPROVAL REQUIRED (production-release)      │
+│  → Review draft release notes in GitHub                 │
+│  → Verify eclosion.app is working                       │
+│  → Approve to publish the release                       │
+└─────────────────────┬───────────────────────────────────┘
+                      │
+                      ▼
+┌─────────────────────────────────────────────────────────┐
+│              AUTOMATIC: Release published               │
+│  → Draft release marked as public                       │
+│  → Notification sent to watchers                        │
+│  → Docs version created                                 │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -505,56 +539,41 @@ The workflow automatically:
 - **Runs full security scan** (CodeQL, npm audit, pip-audit, Trivy — HIGH+ blocks)
 - Reads the current version from `package.json`
 - Creates a tag like `v1.1.0-beta.20260104.1`
-- Creates a GitHub pre-release with auto-generated notes
-- Triggers deployment to beta.eclosion.app
-- Builds and publishes a Docker image
-- Builds desktop apps for macOS (universal), Windows, and Linux
+- Creates a **draft** GitHub pre-release with auto-generated notes
+- Deploys to beta.eclosion.app
+- Builds Docker image and desktop apps for all platforms
+- **Pauses for manual approval** — review the draft release notes
+- Marks the release as public after approval
 
 > **Security Gate**: Beta releases run the full security scan suite against the develop branch. Any HIGH or CRITICAL vulnerabilities will block the release. DAST is skipped for faster execution.
 
-### How release-please Works
+> **Approval Gate**: After builds complete, the workflow pauses. Navigate to the workflow run in GitHub Actions to approve. This lets you review the draft release notes before making them public.
 
-When `develop` is merged to `main`:
+### Creating a Stable Release
 
-1. **Commit analysis** — Scans all commits since the last release tag
-2. **Version calculation** — Determines bump from commit types:
-   - Any `feat!:` or `BREAKING CHANGE:` → major bump
-   - Any `feat:` → minor bump
-   - Only `fix:`/`perf:` → patch bump
-3. **PR creation** — Creates/updates a release PR with:
-   - Version bumps in `package.json`, `pyproject.toml`
-   - Updated `CHANGELOG.md`
-4. **Release** — When the PR is merged:
-   - GitHub release is created
-   - Production deployment triggers
-   - Docker image is published
+When `main` is ready for a production release:
 
-### Release PR Pipeline
+1. Go to **Actions** → **Release: Create Stable**
+2. Click **Run workflow**
+3. Select `main` from the branch dropdown
+4. Choose the version bump type (patch/minor/major)
+5. Click **Run workflow**
 
-When release-please creates a PR, several automated jobs run sequentially to enhance the PR:
+The workflow automatically:
+1. **Validates** that you're on the `main` branch
+2. **Calculates** the next version based on your bump choice
+3. **Updates** version files (`package.json`, `pyproject.toml`)
+4. **Generates** release notes from commits/PRs since last tag
+5. **Creates** a draft release with the changelog
+6. **Runs** the release pipeline (security scan → build all artifacts → publish)
+7. **Pauses for manual approval** — review the draft release notes
+8. **Finalizes** the release (marks as non-draft) after approval
 
-```
-release-please creates PR (GITHUB_TOKEN)
-       │
-       ▼
-generate-summary ─── Adds AI changelog summary (may push)
-       │
-       ▼
-generate-docs ─── Updates user documentation (may push)
-       │
-       ▼
-trigger-checks ─── Dispatches CI/Security/require-develop ONCE
-       │              with final HEAD SHA
-       ▼
-auto-merge ─── Sets up auto-merge (if no docs review needed)
-```
+If any step fails or approval is rejected, the draft release is automatically cleaned up and the version commit is reverted.
 
-**Key design principles:**
+> **Approval Gate**: After builds complete, the workflow pauses at the `production-release` environment. Navigate to the workflow run in GitHub Actions to approve. This lets you review the draft release notes before making them public.
 
-1. **Single trigger point** — CI/Security are triggered exactly once by `trigger-checks` after all commits are done
-2. **Final SHA** — The trigger uses the HEAD SHA after all jobs have potentially pushed commits
-3. **No loops** — All pushes use `GITHUB_TOKEN` which doesn't trigger `on:push` events
-4. **Reusable workflows** — `generate-docs.yml` stays generic with no release-specific logic
+> **Note:** Conventional commit types are still useful for organizing the auto-generated changelog, even though versioning is manual.
 
 ## Code Style
 
