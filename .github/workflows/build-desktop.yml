@@ -243,6 +243,9 @@ jobs:
       - name: Build Electron main process
         working-directory: desktop
         run: npm run build:main
+        env:
+          ECLOSION_VERSION: ${{ inputs.version }}
+          RELEASE_CHANNEL: ${{ contains(inputs.version, 'beta') && 'beta' || 'stable' }}
 
       - name: Import Code Signing Certificate
         if: env.APPLE_CERTIFICATE != ''
@@ -366,6 +369,9 @@ jobs:
       - name: Build Electron main process
         working-directory: desktop
         run: npm run build:main
+        env:
+          ECLOSION_VERSION: ${{ inputs.version }}
+          RELEASE_CHANNEL: ${{ contains(inputs.version, 'beta') && 'beta' || 'stable' }}
 
       - name: Package for Windows
         working-directory: desktop
@@ -471,6 +477,9 @@ jobs:
       - name: Build Electron main process
         working-directory: desktop
         run: npm run build:main
+        env:
+          ECLOSION_VERSION: ${{ inputs.version }}
+          RELEASE_CHANNEL: ${{ contains(inputs.version, 'beta') && 'beta' || 'stable' }}
 
       - name: Package for Linux
         working-directory: desktop

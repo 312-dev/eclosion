@@ -22,6 +22,12 @@ const electronAPI = {
   getBackendPort: (): Promise<number> => ipcRenderer.invoke('get-backend-port'),
 
   /**
+   * Get the runtime secret for API authentication.
+   * Must be included in X-Desktop-Secret header for all API requests.
+   */
+  getDesktopSecret: (): Promise<string> => ipcRenderer.invoke('get-desktop-secret'),
+
+  /**
    * Get backend status (running and port).
    */
   getBackendStatus: (): Promise<{ running: boolean; port: number }> =>
@@ -90,13 +96,7 @@ const electronAPI = {
   }> => ipcRenderer.invoke('get-update-status'),
 
   /**
-   * Set update channel.
-   */
-  setUpdateChannel: (channel: 'stable' | 'beta'): Promise<'stable' | 'beta'> =>
-    ipcRenderer.invoke('set-update-channel', channel),
-
-  /**
-   * Get update channel.
+   * Get update channel (build-time determined, no switching).
    */
   getUpdateChannel: (): Promise<'stable' | 'beta'> => ipcRenderer.invoke('get-update-channel'),
 

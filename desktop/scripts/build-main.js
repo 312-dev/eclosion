@@ -20,8 +20,11 @@ const commonOptions = {
   external: ['electron'],
   logLevel: 'info',
   // Ensure electron is properly externalized and not bundled
+  // Inject build-time constants for version and channel
   define: {
     'process.env.NODE_ENV': '"production"',
+    '__APP_VERSION__': JSON.stringify(process.env.ECLOSION_VERSION || '0.0.0'),
+    '__RELEASE_CHANNEL__': JSON.stringify(process.env.RELEASE_CHANNEL || 'dev'),
   },
   // Keep require() calls as-is for external modules
   mainFields: ['main', 'module'],

@@ -175,6 +175,7 @@ export interface CleanupInstructions {
 export interface ElectronAPI {
   // Backend Communication
   getBackendPort: () => Promise<number>;
+  getDesktopSecret: () => Promise<string>;
   getBackendStatus: () => Promise<BackendStatus>;
   triggerSync: () => Promise<SyncResult>;
   getHealthStatus: () => Promise<HealthStatus>;
@@ -187,7 +188,6 @@ export interface ElectronAPI {
   // Updates
   checkForUpdates: () => Promise<UpdateCheckResult>;
   getUpdateStatus: () => Promise<UpdateStatus>;
-  setUpdateChannel: (channel: 'stable' | 'beta') => Promise<'stable' | 'beta'>;
   getUpdateChannel: () => Promise<'stable' | 'beta'>;
   quitAndInstall: () => Promise<void>;
 

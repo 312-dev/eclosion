@@ -3,15 +3,16 @@
  *
  * Handles checking for updates, downloading, and installation.
  * Uses electron-updater with GitHub Releases as the update source.
+ *
+ * Channel is determined at build time - no runtime switching.
+ * Beta builds see all releases (prereleases + stable).
+ * Stable builds see only stable releases.
  */
 
 import { autoUpdater, UpdateInfo } from 'electron-updater';
 import { app } from 'electron';
-import Store from 'electron-store';
 import { showNotification } from './tray';
 import { getMainWindow } from './window';
-
-const store = new Store();
 
 // Update channels
 type UpdateChannel = 'stable' | 'beta';
@@ -21,16 +22,34 @@ let updateDownloaded = false;
 let updateInfo: UpdateInfo | null = null;
 
 /**
+ * Get the build-time release channel.
+ * Defaults to 'stable' if not defined (dev builds).
+ */
+function getBuildTimeChannel(): UpdateChannel {
+  if (typeof __RELEASE_CHANNEL__ !== 'undefined' && __RELEASE_CHANNEL__ === 'beta') {
+    return 'beta';
+  }
+  return 'stable';
+}
+
+/**
  * Initialize the auto-updater.
+ * Channel is determined at build time - beta builds see prereleases.
  */
 export function initializeUpdater(): void {
-  // Configure update channel from stored preference
-  const channel = store.get('updateChannel', 'stable') as UpdateChannel;
-  setUpdateChannel(channel);
+  // Use build-time channel - no runtime switching
+  const channel = getBuildTimeChannel();
+  const isBeta = channel === 'beta';
+
+  // Beta builds can see prereleases, stable builds cannot
+  autoUpdater.allowPrerelease = isBeta;
+  autoUpdater.allowDowngrade = false;
 
   // Configure auto-updater
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
+
+  console.log(`Update channel: ${channel} (allowPrerelease: ${isBeta})`);
 
   // Event handlers
   autoUpdater.on('checking-for-update', () => {
@@ -76,19 +95,11 @@ export function initializeUpdater(): void {
 }
 
 /**
- * Set the update channel (stable or beta).
- */
-export function setUpdateChannel(channel: UpdateChannel): void {
-  store.set('updateChannel', channel);
-  autoUpdater.channel = channel;
-  console.log(`Update channel set to: ${channel}`);
-}
-
-/**
  * Get the current update channel.
+ * Returns the build-time channel (no runtime switching).
  */
 export function getUpdateChannel(): UpdateChannel {
-  return store.get('updateChannel', 'stable') as UpdateChannel;
+  return getBuildTimeChannel();
 }
 
 /**

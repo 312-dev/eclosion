@@ -15,7 +15,6 @@ import {
   checkForUpdates,
   quitAndInstall,
   getUpdateStatus,
-  setUpdateChannel,
   getUpdateChannel,
 } from './updater';
 import { exportDiagnostics, getQuickDebugInfo } from './diagnostics';
@@ -63,6 +62,14 @@ export function setupIpcHandlers(backendManager: BackendManager): void {
    */
   ipcMain.handle('get-backend-port', () => {
     return backendManager.getPort();
+  });
+
+  /**
+   * Get the runtime secret for API authentication.
+   * This secret must be included in the X-Desktop-Secret header for all API requests.
+   */
+  ipcMain.handle('get-desktop-secret', () => {
+    return backendManager.getDesktopSecret();
   });
 
   /**
@@ -126,15 +133,7 @@ export function setupIpcHandlers(backendManager: BackendManager): void {
   });
 
   /**
-   * Set update channel.
-   */
-  ipcMain.handle('set-update-channel', (_event, channel: 'stable' | 'beta') => {
-    setUpdateChannel(channel);
-    return getUpdateChannel();
-  });
-
-  /**
-   * Get update channel.
+   * Get update channel (build-time determined, no switching).
    */
   ipcMain.handle('get-update-channel', () => {
     return getUpdateChannel();
@@ -232,8 +231,8 @@ export function setupIpcHandlers(backendManager: BackendManager): void {
   /**
    * Get desktop-specific settings.
    */
-  ipcMain.handle('get-desktop-settings', async () => {
-    const autoStart = await isAutoStartEnabled();
+  ipcMain.handle('get-desktop-settings', () => {
+    const autoStart = isAutoStartEnabled();
     return {
       runInBackground: store.get('runInBackground', false) as boolean,
       showInDock: store.get('showInDock', true) as boolean,
