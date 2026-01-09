@@ -66,7 +66,10 @@ export {
 
 export { useLandingContent } from './useLandingContent';
 
-export { useElectronUpdates } from './useElectronUpdates';
+export {
+  useElectronUpdates,
+  type UseElectronUpdatesReturn,
+} from './useElectronUpdates';
 
 export { useIsBetaSite } from './useIsBetaSite';
 

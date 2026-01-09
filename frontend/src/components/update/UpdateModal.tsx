@@ -1,5 +1,8 @@
 /**
  * UpdateModal - Shows deployment-specific instructions for updating to a new version
+ *
+ * For desktop apps: Shows live update status with download progress and restart button
+ * For web deployments: Shows static instructions for Railway, Docker, or local
  */
 
 import { useState, useEffect, useMemo } from 'react';
@@ -7,8 +10,10 @@ import { Modal } from '../ui/Modal';
 import { getUpdateInfo, getAvailableReleases, type UpdateInfo, type Release } from '../../api/client';
 import * as demoApi from '../../api/demoClient';
 import { useDemo } from '../../context/DemoContext';
+import { useElectronUpdates } from '../../hooks';
 import { VersionBadge } from '../VersionBadge';
 import { ReleaseSelector } from './ReleaseSelector';
+import { DesktopUpdateContent } from './DesktopUpdateContent';
 
 interface UpdateModalProps {
   readonly isOpen: boolean;
@@ -20,6 +25,7 @@ function DeploymentIcon({ deploymentType }: { readonly deploymentType: string | 
   const iconClass = "w-5 h-5";
 
   if (deploymentType === 'railway') {
+    // Cloud icon for Railway
     return (
       <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M18 10h-1.26A8 8 0 109 20h9a5 5 0 000-10z" />
@@ -27,6 +33,18 @@ function DeploymentIcon({ deploymentType }: { readonly deploymentType: string | 
     );
   }
 
+  if (deploymentType === 'electron') {
+    // Monitor icon for Desktop
+    return (
+      <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+        <line x1="8" y1="21" x2="16" y2="21" />
+        <line x1="12" y1="17" x2="12" y2="21" />
+      </svg>
+    );
+  }
+
+  // Box/container icon for Docker/Local
   return (
     <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" />
@@ -76,13 +94,17 @@ function BetaWarning() {
 
 export function UpdateModal({ isOpen, onClose, targetVersion }: UpdateModalProps) {
   const isDemo = useDemo();
+  const electronUpdates = useElectronUpdates();
+  const isDesktop = electronUpdates.isDesktop;
+
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [releases, setReleases] = useState<{ stable: Release[]; beta: Release[] }>({ stable: [], beta: [] });
   const [loading, setLoading] = useState(true);
   const [selectedVersion, setSelectedVersion] = useState<string | null>(targetVersion || null);
 
+  // Fetch update info for web deployments (skip for desktop)
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !isDesktop) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- Loading state for async fetch
       setLoading(true);
       const fetchUpdateInfo = isDemo ? demoApi.getUpdateInfo : getUpdateInfo;
@@ -103,20 +125,25 @@ export function UpdateModal({ isOpen, onClose, targetVersion }: UpdateModalProps
           // Silently fail
         })
         .finally(() => setLoading(false));
+    } else if (isDesktop) {
+      // For desktop, we don't need to fetch - useElectronUpdates handles it
+      setLoading(false);
     }
-  }, [isOpen, selectedVersion, isDemo]);
+  }, [isOpen, selectedVersion, isDemo, isDesktop]);
 
   const getDeploymentLabel = () => {
+    if (isDesktop) return 'Desktop';
     switch (updateInfo?.deployment_type) {
       case 'railway': return 'Railway';
       case 'docker': return 'Docker';
+      case 'electron': return 'Desktop';
       default: return 'Local';
     }
   };
 
   const deploymentIcon = useMemo(() => (
-    <DeploymentIcon deploymentType={updateInfo?.deployment_type} />
-  ), [updateInfo?.deployment_type]);
+    <DeploymentIcon deploymentType={isDesktop ? 'electron' : updateInfo?.deployment_type} />
+  ), [updateInfo?.deployment_type, isDesktop]);
 
   return (
     <Modal
@@ -139,7 +166,37 @@ export function UpdateModal({ isOpen, onClose, targetVersion }: UpdateModalProps
         <div className="flex items-center justify-center py-8">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-current" />
         </div>
+      ) : isDesktop ? (
+        // Desktop: Show live update status with electron-updater
+        <div className="space-y-6">
+          {/* Current Version */}
+          <div
+            className="p-4 rounded-lg border"
+            style={{ backgroundColor: 'var(--monarch-bg-input)', borderColor: 'var(--monarch-border)' }}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm" style={{ color: 'var(--monarch-text-muted)' }}>Current Version</div>
+                <div className="text-lg font-medium flex items-center gap-2" style={{ color: 'var(--monarch-text-dark)' }}>
+                  v{electronUpdates.currentVersion || '...'}
+                  <VersionBadge version={electronUpdates.currentVersion || ''} channel={electronUpdates.channel} />
+                </div>
+              </div>
+              <div
+                className="p-2 rounded-lg"
+                style={{ backgroundColor: 'var(--monarch-bg-card)', color: 'var(--monarch-text-muted)' }}
+                title={getDeploymentLabel()}
+              >
+                {deploymentIcon}
+              </div>
+            </div>
+          </div>
+
+          {/* Desktop Update Content */}
+          <DesktopUpdateContent electronUpdates={electronUpdates} />
+        </div>
       ) : (
+        // Web: Show deployment-specific instructions
         <div className="space-y-6">
           {/* Current Version */}
           <div

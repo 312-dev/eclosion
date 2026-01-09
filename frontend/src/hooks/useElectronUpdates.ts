@@ -27,7 +27,7 @@ interface ElectronUpdateState {
   error: string | null;
 }
 
-interface UseElectronUpdatesReturn extends ElectronUpdateState {
+export interface UseElectronUpdatesReturn extends ElectronUpdateState {
   /** Quit the app and install the downloaded update */
   quitAndInstall: () => void;
   /** Manually check for updates */

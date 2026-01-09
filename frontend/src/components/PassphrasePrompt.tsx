@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { getErrorMessage } from '../utils';
 import { UI } from '../constants';
 import { LockIcon, EyeIcon, EyeOffIcon, CheckIcon, CircleIcon, ShieldCheckIcon } from './icons';
+import { ElectronTitleBar } from './ElectronTitleBar';
 
 interface PassphrasePromptProps {
   mode: 'create' | 'unlock';
@@ -130,6 +131,8 @@ export function PassphrasePrompt({ mode, onSuccess, onCredentialUpdateNeeded, on
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4" style={{ backgroundColor: 'var(--monarch-bg-page)' }}>
+      {/* Draggable title bar for macOS Electron */}
+      <ElectronTitleBar />
       <div className="rounded-xl shadow-lg max-w-md w-full p-6" style={{ backgroundColor: 'var(--monarch-bg-card)', border: '1px solid var(--monarch-border)' }}>
         <div className="flex items-center gap-3 mb-2">
           <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: 'var(--monarch-orange-bg)' }}>

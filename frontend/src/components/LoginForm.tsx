@@ -4,6 +4,7 @@ import { PassphrasePrompt } from './PassphrasePrompt';
 import { SecurityInfo } from './SecurityInfo';
 import { TermsModal, hasAcceptedTerms, setTermsAccepted } from './ui/TermsModal';
 import { getErrorMessage } from '../utils';
+import { ElectronTitleBar } from './ElectronTitleBar';
 
 interface LoginFormProps {
   onSuccess: () => void;
@@ -87,6 +88,8 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
 
   return (
     <>
+      {/* Draggable title bar for macOS Electron */}
+      <ElectronTitleBar />
       <div className="min-h-screen flex items-center justify-center p-4" style={{ backgroundColor: 'var(--monarch-bg-page)' }}>
         <div className="flex flex-col items-center">
           {/* Eclosion branding */}

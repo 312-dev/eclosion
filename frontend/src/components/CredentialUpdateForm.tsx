@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getErrorMessage } from '../utils';
+import { ElectronTitleBar } from './ElectronTitleBar';
 
 interface CredentialUpdateFormProps {
   /** The passphrase that successfully decrypted the old credentials */
@@ -44,6 +45,8 @@ export function CredentialUpdateForm({ passphrase, onSuccess, onCancel }: Creden
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4" style={{ backgroundColor: 'var(--monarch-bg-page)' }}>
+      {/* Draggable title bar for macOS Electron */}
+      <ElectronTitleBar />
       <div className="rounded-xl shadow-lg max-w-md w-full p-6" style={{ backgroundColor: 'var(--monarch-bg-card)', border: '1px solid var(--monarch-border)' }}>
         {/* Warning banner */}
         <div className="mb-4 p-3 rounded-lg flex items-start gap-2" style={{ backgroundColor: 'var(--monarch-orange-bg)' }}>
