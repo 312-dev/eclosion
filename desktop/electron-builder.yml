@@ -58,9 +58,10 @@ mac:
   entitlements: entitlements.mac.plist
   entitlementsInherit: entitlements.mac.plist
   darkModeSupport: true
-  # Skip signing Python.framework (already signed by afterPack.js with --no-strict)
+  # Skip re-signing backend binaries (already signed by afterPack.js)
+  # electron-builder's signing can break our custom --no-strict signatures
   signIgnore:
-    - "backend/_internal/Python.framework"
+    - "backend/**/*"
 
 # macOS code signing
 afterSign: notarize.js
