@@ -58,14 +58,8 @@ mac:
   entitlements: entitlements.mac.plist
   entitlementsInherit: entitlements.mac.plist
   darkModeSupport: true
-  # Skip re-signing backend binaries (already signed by afterPack.js)
-  # electron-builder's signing can break our custom --no-strict signatures
-  # Use regex patterns to match ONLY backend paths, not Electron Framework
-  signIgnore:
-    - "backend.*Python\\.framework"
-    - "backend.*\\.so$"
-    - "backend.*\\.dylib$"
-    - "backend.*eclosion-backend$"
+  # Note: afterPack.js pre-signs backend binaries with --no-strict and entitlements
+  # electron-builder will then sign Electron.framework and main app
 
 # macOS code signing
 afterSign: notarize.js
