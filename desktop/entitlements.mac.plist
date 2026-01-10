@@ -10,6 +10,14 @@
     <key>com.apple.security.cs.allow-jit</key>
     <true/>
 
+    <!-- CRITICAL for Python: Disable library validation to load .so/.dylib modules -->
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+
+    <!-- Allow DYLD environment variables (Python needs this) -->
+    <key>com.apple.security.cs.allow-dyld-environment-variables</key>
+    <true/>
+
     <!-- Allow outbound network connections (required for API calls) -->
     <key>com.apple.security.network.client</key>
     <true/>

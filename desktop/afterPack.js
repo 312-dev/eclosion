@@ -1,15 +1,16 @@
 /**
  * afterPack Hook
  *
- * Fixes PyInstaller backend signing issues before electron-builder signs the app.
- * PyInstaller bundles include Python.framework and many shared libraries that
- * need to be signed for notarization.
+ * Signs PyInstaller backend binaries BEFORE electron-builder signs the app.
+ * PyInstaller's Python.framework is non-standard and requires --no-strict.
  *
  * Strategy:
- * 1. Find all Mach-O binaries (executables, dylibs, .so files)
- * 2. Sign each one with hardened runtime and timestamp
- * 3. Sign any frameworks/bundles after their contents
- * 4. Don't verify strictly since PyInstaller's Python.framework is non-standard
+ * 1. Sign all .so and .dylib files in _internal with --no-strict --entitlements
+ * 2. Sign Python.framework contents (versioned binaries first)
+ * 3. Sign Python.framework bundle itself
+ * 4. Sign the main eclosion-backend executable
+ *
+ * electron-builder will then sign Electron.framework and the main app.
  */
 
 const { execSync } = require('child_process');
@@ -51,11 +52,18 @@ function isMachO(filePath) {
 }
 
 /**
- * Sign a single file
+ * Sign a single file with the given flags
+ * @param {string} filePath - Path to file
+ * @param {string} identity - Signing identity
+ * @param {string} entitlementsPath - Path to entitlements plist
+ * @param {boolean} useNoStrict - Whether to use --no-strict flag
  */
-function signFile(filePath, identity, isFramework = false) {
-  const flags = isFramework ? '--deep --no-strict' : '';
-  const cmd = `codesign --sign "${identity}" --force --timestamp --options runtime ${flags} "${filePath}"`;
+function signFile(filePath, identity, entitlementsPath, useNoStrict = false) {
+  const noStrictFlag = useNoStrict ? '--no-strict' : '';
+  const entitlementsFlag = entitlementsPath ? `--entitlements "${entitlementsPath}"` : '';
+
+  const cmd = `codesign --sign "${identity}" --force --timestamp --options runtime ${noStrictFlag} ${entitlementsFlag} "${filePath}"`;
+
   execSync(cmd, { stdio: 'inherit' });
 }
 
@@ -68,13 +76,9 @@ exports.default = async function (context) {
   }
 
   const appName = context.packager.appInfo.productFilename;
-  const backendDir = path.join(
-    appOutDir,
-    `${appName}.app`,
-    'Contents',
-    'Resources',
-    'backend'
-  );
+  const appDir = path.join(appOutDir, `${appName}.app`);
+  const backendDir = path.join(appDir, 'Contents', 'Resources', 'backend');
+  const entitlementsPath = path.join(__dirname, 'entitlements.mac.plist');
 
   if (!fs.existsSync(backendDir)) {
     console.log('No backend directory found, skipping pre-sign');
@@ -106,19 +110,19 @@ exports.default = async function (context) {
   console.log('Pre-signing PyInstaller backend binaries...');
   console.log(`  Identity: ${identity}`);
   console.log(`  Backend: ${backendDir}`);
+  console.log(`  Entitlements: ${entitlementsPath}`);
 
   try {
-    // Step 1: Find and sign all Mach-O binaries (dylibs, .so files, executables)
-    // These need to be signed before any containing bundles
-    const binaries = findFiles(backendDir, (name, fullPath) => {
-      // Match common binary extensions
+    // Step 1: Find all .so and .dylib files in _internal
+    const internalDir = path.join(backendDir, '_internal');
+    const binaries = findFiles(internalDir, (name, fullPath) => {
       if (name.endsWith('.dylib') || name.endsWith('.so')) return true;
       // Check executables (no extension but are Mach-O)
       if (!name.includes('.') && isMachO(fullPath)) return true;
       return false;
     });
 
-    console.log(`  Found ${binaries.length} binaries to sign`);
+    console.log(`  Found ${binaries.length} binaries to sign in _internal`);
 
     // Sign binaries (deepest first by sorting by path depth)
     binaries.sort((a, b) => b.split('/').length - a.split('/').length);
@@ -127,20 +131,57 @@ exports.default = async function (context) {
       const relativePath = path.relative(backendDir, binary);
       console.log(`  Signing: ${relativePath}`);
       try {
-        signFile(binary, identity);
+        signFile(binary, identity, entitlementsPath, true); // --no-strict for PyInstaller binaries
       } catch (e) {
         console.log(`    Warning: Failed to sign ${relativePath}: ${e.message}`);
       }
     }
 
-    // Step 2: Sign Python.framework if it exists (with --deep --no-strict)
-    const pythonFramework = path.join(backendDir, '_internal', 'Python.framework');
+    // Step 2: Sign Python.framework if it exists
+    const pythonFramework = path.join(internalDir, 'Python.framework');
     if (fs.existsSync(pythonFramework)) {
-      console.log('  Signing Python.framework (with --deep --no-strict)');
+      console.log('  Signing Python.framework...');
+
+      // Sign the versioned Python binary (the actual file, not symlinks)
+      const versionsDir = path.join(pythonFramework, 'Versions');
+      if (fs.existsSync(versionsDir)) {
+        const versions = fs.readdirSync(versionsDir).filter(v => v !== 'Current');
+        for (const version of versions) {
+          const pythonBinary = path.join(versionsDir, version, 'Python');
+          if (fs.existsSync(pythonBinary) && !fs.lstatSync(pythonBinary).isSymbolicLink()) {
+            console.log(`    Signing Versions/${version}/Python`);
+            try {
+              signFile(pythonBinary, identity, entitlementsPath, true);
+            } catch (e) {
+              console.log(`    Warning: Failed to sign Versions/${version}/Python: ${e.message}`);
+            }
+          }
+        }
+      }
+
+      // Sign the top-level Python binary/symlink target
+      const topLevelPython = path.join(pythonFramework, 'Python');
+      if (fs.existsSync(topLevelPython)) {
+        // If it's a symlink, we need to sign the actual target
+        const realPath = fs.realpathSync(topLevelPython);
+        if (realPath !== topLevelPython) {
+          console.log(`    Signing Python (symlink target: ${path.relative(pythonFramework, realPath)})`);
+        } else {
+          console.log('    Signing Python (direct file)');
+        }
+        try {
+          signFile(realPath, identity, entitlementsPath, true);
+        } catch (e) {
+          console.log(`    Warning: Failed to sign Python: ${e.message}`);
+        }
+      }
+
+      // Sign the framework bundle itself (without --deep to preserve inner signatures)
+      console.log('    Signing Python.framework bundle');
       try {
-        signFile(pythonFramework, identity, true);
+        signFile(pythonFramework, identity, entitlementsPath, true);
       } catch (e) {
-        console.log(`    Warning: Framework signing issue: ${e.message}`);
+        console.log(`    Warning: Framework bundle signing issue: ${e.message}`);
       }
     }
 
@@ -148,12 +189,16 @@ exports.default = async function (context) {
     const mainExecutable = path.join(backendDir, 'eclosion-backend');
     if (fs.existsSync(mainExecutable)) {
       console.log('  Signing main executable: eclosion-backend');
-      signFile(mainExecutable, identity);
+      try {
+        signFile(mainExecutable, identity, entitlementsPath, true);
+      } catch (e) {
+        console.log(`    Warning: Failed to sign eclosion-backend: ${e.message}`);
+      }
     }
 
     console.log('Pre-signing complete');
   } catch (error) {
     console.error('Pre-signing failed:', error.message);
-    // Don't throw - let electron-builder continue
+    throw error; // Fail the build if pre-signing fails
   }
 };

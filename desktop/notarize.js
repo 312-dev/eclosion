@@ -4,6 +4,9 @@
  * This script is called by electron-builder after signing the app.
  * It submits the app to Apple's notarization service.
  *
+ * Note: All signing is handled by afterPack.js (backend) and electron-builder (Electron).
+ * This script only performs notarization.
+ *
  * Required environment variables:
  * - APPLE_ID: Your Apple ID email
  * - APPLE_APP_SPECIFIC_PASSWORD: App-specific password from appleid.apple.com
@@ -53,7 +56,6 @@ exports.default = async function notarizing(context) {
     console.log('Notarization complete!');
   } catch (error) {
     console.error('Notarization failed:', error.message);
-    // Don't throw - allow build to continue without notarization
-    // This allows local development builds without Apple credentials
+    throw error; // Throw to fail the build - notarization is required for distribution
   }
 };
