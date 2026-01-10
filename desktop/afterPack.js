@@ -176,13 +176,9 @@ exports.default = async function (context) {
         }
       }
 
-      // Sign the framework bundle itself (without --deep to preserve inner signatures)
-      console.log('    Signing Python.framework bundle');
-      try {
-        signFile(pythonFramework, identity, entitlementsPath, true);
-      } catch (e) {
-        console.log(`    Warning: Framework bundle signing issue: ${e.message}`);
-      }
+      // NOTE: Do NOT sign Python.framework as a bundle - it would overwrite
+      // our --no-strict signature on Python.framework/Python with a standard
+      // signature that fails Apple's notarization validation.
     }
 
     // Step 3: Sign the main backend executable
