@@ -7,9 +7,9 @@
  * Strategy:
  * 1. Sign all .so and .dylib files in _internal (excluding Python.framework)
  * 2. For Python.framework:
- *    a. Remove pre-existing signatures from Versions/X.Y/Python
- *    b. Sign Versions/X.Y/Python directly
- *    c. Do NOT sign the framework bundle (conflicts with the signed binary)
+ *    a. Remove _CodeSignature directory (bundle signature with bad timestamps)
+ *    b. Remove signatures from Versions/X.Y/Python
+ *    c. Sign framework bundle with --deep --no-strict (creates fresh signatures)
  * 3. Sign the main eclosion-backend executable
  *
  * electron-builder will then sign Electron.framework and the main app.
@@ -159,37 +159,40 @@ exports.default = async function (context) {
     }
 
     // Step 2: Sign Python.framework
-    // PyInstaller's Python.framework may have pre-existing signatures without timestamps.
-    // We must: 1) remove old signatures, 2) sign the actual binary, 3) sign the framework bundle
+    // PyInstaller's Python.framework has pre-existing signatures without timestamps.
+    // We must remove the bundle signature AND the binary signature, then re-sign everything.
     if (fs.existsSync(pythonFrameworkPath)) {
       console.log('  Signing Python.framework...');
 
+      // Remove the framework's _CodeSignature directory (bundle signature)
+      // This contains metadata about symlinks that we can't update otherwise
+      const codeSignatureDir = path.join(pythonFrameworkPath, '_CodeSignature');
+      if (fs.existsSync(codeSignatureDir)) {
+        console.log('    Removing _CodeSignature directory');
+        fs.rmSync(codeSignatureDir, { recursive: true, force: true });
+      }
+
+      // Remove existing signatures from versioned Python binaries
       const versionsDir = path.join(pythonFrameworkPath, 'Versions');
       if (fs.existsSync(versionsDir)) {
         const versions = fs.readdirSync(versionsDir).filter(v => v !== 'Current');
         for (const version of versions) {
           const pythonBinary = path.join(versionsDir, version, 'Python');
           if (fs.existsSync(pythonBinary) && !fs.lstatSync(pythonBinary).isSymbolicLink()) {
-            // Remove existing signature (may be from PyInstaller without timestamp)
             console.log(`    Removing existing signature from Versions/${version}/Python`);
             removeSignature(pythonBinary);
-
-            // Sign the actual binary directly (--deep doesn't reach it through symlinks)
-            console.log(`    Signing Versions/${version}/Python`);
-            try {
-              signFile(pythonBinary, identity, entitlementsPath, true); // --no-strict
-            } catch (e) {
-              console.log(`      Warning: Failed to sign Versions/${version}/Python: ${e.message}`);
-            }
           }
         }
       }
 
-      // NOTE: Do NOT sign Python.framework as a bundle.
-      // Signing the bundle creates a signature for the symlink (Python.framework/Python)
-      // that conflicts with the already-signed target binary (Versions/3.12/Python).
-      // The signIgnore pattern in electron-builder.yml prevents electron-builder from
-      // signing it either, so it stays with just the directly-signed binary.
+      // Sign the framework bundle with --deep --no-strict
+      // This will sign both the binary AND create proper bundle signature with timestamps
+      console.log('    Signing Python.framework bundle with --deep --no-strict');
+      try {
+        signFile(pythonFrameworkPath, identity, entitlementsPath, true, true); // --no-strict, --deep
+      } catch (e) {
+        console.log(`    Warning: Failed to sign Python.framework: ${e.message}`);
+      }
     }
 
     // Step 3: Sign the main backend executable
