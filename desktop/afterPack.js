@@ -133,12 +133,27 @@ exports.default = async function (context) {
       }
     }
 
-    // Step 2: Sign Python.framework if it exists (with --deep --no-strict)
+    // Step 2: Sign Python.framework if it exists
+    // Sign versioned binaries first, then the framework (WITHOUT --deep to preserve inner signatures)
     const pythonFramework = path.join(backendDir, '_internal', 'Python.framework');
     if (fs.existsSync(pythonFramework)) {
-      console.log('  Signing Python.framework (with --deep --no-strict)');
+      console.log('  Signing Python.framework...');
       try {
-        signFile(pythonFramework, identity, true);
+        // Sign versioned Python binaries first (the actual files, not symlinks)
+        const versionsDir = path.join(pythonFramework, 'Versions');
+        if (fs.existsSync(versionsDir)) {
+          const versions = fs.readdirSync(versionsDir).filter(v => v !== 'Current');
+          for (const version of versions) {
+            const pythonBinary = path.join(versionsDir, version, 'Python');
+            if (fs.existsSync(pythonBinary) && !fs.lstatSync(pythonBinary).isSymbolicLink()) {
+              console.log(`    Signing Versions/${version}/Python`);
+              signFile(pythonBinary, identity);
+            }
+          }
+        }
+        // Sign the framework bundle (without --deep)
+        console.log('    Signing Python.framework bundle');
+        signFile(pythonFramework, identity); // Note: no isFramework=true, so no --deep
       } catch (e) {
         console.log(`    Warning: Framework signing issue: ${e.message}`);
       }
