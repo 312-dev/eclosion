@@ -6,10 +6,11 @@
  *
  * Strategy:
  * 1. Sign all .so and .dylib files in _internal (excluding Python.framework)
- * 2. Remove pre-existing signatures from Python.framework/Versions/X.Y/Python
- *    (PyInstaller may leave signatures without timestamps)
- * 3. Sign Python.framework with --deep --no-strict to recursively sign all nested code
- * 4. Sign the main eclosion-backend executable
+ * 2. For Python.framework:
+ *    a. Remove pre-existing signatures from Versions/X.Y/Python
+ *    b. Sign Versions/X.Y/Python directly (--deep doesn't reach through symlinks)
+ *    c. Sign the framework bundle
+ * 3. Sign the main eclosion-backend executable
  *
  * electron-builder will then sign Electron.framework and the main app.
  */
@@ -159,29 +160,35 @@ exports.default = async function (context) {
 
     // Step 2: Sign Python.framework
     // PyInstaller's Python.framework may have pre-existing signatures without timestamps.
-    // We need to remove them and sign fresh with --deep to recursively sign all nested code.
+    // We must: 1) remove old signatures, 2) sign the actual binary, 3) sign the framework bundle
     if (fs.existsSync(pythonFrameworkPath)) {
       console.log('  Signing Python.framework...');
 
-      // First, remove existing signatures from Python binaries
-      // (they may be from PyInstaller without timestamps)
       const versionsDir = path.join(pythonFrameworkPath, 'Versions');
       if (fs.existsSync(versionsDir)) {
         const versions = fs.readdirSync(versionsDir).filter(v => v !== 'Current');
         for (const version of versions) {
           const pythonBinary = path.join(versionsDir, version, 'Python');
           if (fs.existsSync(pythonBinary) && !fs.lstatSync(pythonBinary).isSymbolicLink()) {
+            // Remove existing signature (may be from PyInstaller without timestamp)
             console.log(`    Removing existing signature from Versions/${version}/Python`);
             removeSignature(pythonBinary);
+
+            // Sign the actual binary directly (--deep doesn't reach it through symlinks)
+            console.log(`    Signing Versions/${version}/Python`);
+            try {
+              signFile(pythonBinary, identity, entitlementsPath, true); // --no-strict
+            } catch (e) {
+              console.log(`      Warning: Failed to sign Versions/${version}/Python: ${e.message}`);
+            }
           }
         }
       }
 
-      // Sign the framework with --deep to recursively sign all nested code
-      // Use --no-strict because PyInstaller creates a non-standard framework structure
-      console.log('    Signing Python.framework with --deep --no-strict');
+      // Sign the framework bundle (creates bundle signature, signs symlinks)
+      console.log('    Signing Python.framework bundle');
       try {
-        signFile(pythonFrameworkPath, identity, entitlementsPath, true, true); // --no-strict, --deep
+        signFile(pythonFrameworkPath, identity, entitlementsPath, true); // --no-strict, no --deep
       } catch (e) {
         console.log(`    Warning: Failed to sign Python.framework: ${e.message}`);
       }
