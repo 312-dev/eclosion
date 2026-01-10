@@ -5,10 +5,13 @@
  * PyInstaller's Python.framework is non-standard and requires --no-strict.
  *
  * Strategy:
- * 1. Sign all .so and .dylib files in _internal with --no-strict --entitlements
- * 2. Sign Python.framework contents (versioned binaries first)
- * 3. Sign Python.framework bundle itself
- * 4. Sign the main eclosion-backend executable
+ * 1. Sign all .so and .dylib files in _internal (excluding Python.framework)
+ * 2. Sign Python.framework as a bundle (handles Python binary automatically)
+ * 3. Sign the main eclosion-backend executable
+ *
+ * Key insight: Apple requires framework bundles to be signed. Bundle signing
+ * handles the main executable (Python.framework/Python). Don't sign binaries
+ * inside Python.framework separately - just sign the bundle with --no-strict.
  *
  * electron-builder will then sign Electron.framework and the main app.
  */
@@ -113,9 +116,14 @@ exports.default = async function (context) {
   console.log(`  Entitlements: ${entitlementsPath}`);
 
   try {
-    // Step 1: Find all .so and .dylib files in _internal
+    // Step 1: Find all .so and .dylib files in _internal (excluding Python.framework)
     const internalDir = path.join(backendDir, '_internal');
+    const pythonFrameworkPath = path.join(internalDir, 'Python.framework');
+
     const binaries = findFiles(internalDir, (name, fullPath) => {
+      // Skip anything inside Python.framework - we'll sign it as a bundle
+      if (fullPath.includes('Python.framework')) return false;
+
       if (name.endsWith('.dylib') || name.endsWith('.so')) return true;
       // Check executables (no extension but are Mach-O)
       if (!name.includes('.') && isMachO(fullPath)) return true;
@@ -137,48 +145,17 @@ exports.default = async function (context) {
       }
     }
 
-    // Step 2: Sign Python.framework if it exists
-    const pythonFramework = path.join(internalDir, 'Python.framework');
-    if (fs.existsSync(pythonFramework)) {
-      console.log('  Signing Python.framework...');
-
-      // Sign the versioned Python binary (the actual file, not symlinks)
-      const versionsDir = path.join(pythonFramework, 'Versions');
-      if (fs.existsSync(versionsDir)) {
-        const versions = fs.readdirSync(versionsDir).filter(v => v !== 'Current');
-        for (const version of versions) {
-          const pythonBinary = path.join(versionsDir, version, 'Python');
-          if (fs.existsSync(pythonBinary) && !fs.lstatSync(pythonBinary).isSymbolicLink()) {
-            console.log(`    Signing Versions/${version}/Python`);
-            try {
-              signFile(pythonBinary, identity, entitlementsPath, true);
-            } catch (e) {
-              console.log(`    Warning: Failed to sign Versions/${version}/Python: ${e.message}`);
-            }
-          }
-        }
+    // Step 2: Sign Python.framework as a bundle
+    // Apple requires framework bundles to be signed. Bundle signing handles
+    // the main executable (Python.framework/Python) automatically.
+    // Use --no-strict because PyInstaller creates a non-standard framework structure.
+    if (fs.existsSync(pythonFrameworkPath)) {
+      console.log('  Signing Python.framework bundle...');
+      try {
+        signFile(pythonFrameworkPath, identity, entitlementsPath, true);
+      } catch (e) {
+        console.log(`    Warning: Failed to sign Python.framework: ${e.message}`);
       }
-
-      // Sign the top-level Python binary/symlink target
-      const topLevelPython = path.join(pythonFramework, 'Python');
-      if (fs.existsSync(topLevelPython)) {
-        // If it's a symlink, we need to sign the actual target
-        const realPath = fs.realpathSync(topLevelPython);
-        if (realPath !== topLevelPython) {
-          console.log(`    Signing Python (symlink target: ${path.relative(pythonFramework, realPath)})`);
-        } else {
-          console.log('    Signing Python (direct file)');
-        }
-        try {
-          signFile(realPath, identity, entitlementsPath, true);
-        } catch (e) {
-          console.log(`    Warning: Failed to sign Python: ${e.message}`);
-        }
-      }
-
-      // NOTE: Do NOT sign Python.framework as a bundle - it would overwrite
-      // our --no-strict signature on Python.framework/Python with a standard
-      // signature that fails Apple's notarization validation.
     }
 
     // Step 3: Sign the main backend executable
