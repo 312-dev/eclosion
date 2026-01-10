@@ -7,9 +7,10 @@
  * Strategy:
  * 1. Sign all .so and .dylib files in _internal (excluding Python.framework)
  * 2. For Python.framework:
- *    a. Remove _CodeSignature directory (bundle signature with bad timestamps)
- *    b. Remove signatures from Versions/X.Y/Python
- *    c. Sign framework bundle with --deep --no-strict (creates fresh signatures)
+ *    a. Remove _CodeSignature directory (has stale metadata without timestamps)
+ *    b. Sign ALL binaries inside (Python binary, dylibs in lib/) from inside out
+ *    c. Sign the framework bundle (creates fresh _CodeSignature)
+ *    d. Verify the signatures are valid
  * 3. Sign the main eclosion-backend executable
  *
  * electron-builder will then sign Electron.framework and the main app.
@@ -62,6 +63,20 @@ function removeSignature(filePath) {
     execSync(`codesign --remove-signature "${filePath}"`, { stdio: 'pipe' });
   } catch {
     // Ignore errors - file might not have a signature
+  }
+}
+
+/**
+ * Verify a signature and return the result
+ * @param {string} filePath - Path to file
+ * @returns {object} - { valid: boolean, output: string }
+ */
+function verifySignature(filePath) {
+  try {
+    const output = execSync(`codesign -vvv --deep --strict "${filePath}" 2>&1`, { encoding: 'utf-8' });
+    return { valid: true, output };
+  } catch (e) {
+    return { valid: false, output: e.stdout || e.stderr || e.message };
   }
 }
 
@@ -160,38 +175,72 @@ exports.default = async function (context) {
 
     // Step 2: Sign Python.framework
     // PyInstaller's Python.framework has pre-existing signatures without timestamps.
-    // We must remove the bundle signature AND the binary signature, then re-sign everything.
+    // We must: 1) remove stale signatures, 2) sign all binaries inside-out, 3) sign bundle
     if (fs.existsSync(pythonFrameworkPath)) {
       console.log('  Signing Python.framework...');
 
-      // Remove the framework's _CodeSignature directory (bundle signature)
-      // This contains metadata about symlinks that we can't update otherwise
+      // Step 2a: Remove the framework's _CodeSignature directory
+      // It contains stale metadata with bad timestamps that can't be updated
       const codeSignatureDir = path.join(pythonFrameworkPath, '_CodeSignature');
       if (fs.existsSync(codeSignatureDir)) {
         console.log('    Removing _CodeSignature directory');
         fs.rmSync(codeSignatureDir, { recursive: true, force: true });
       }
 
-      // Remove existing signatures from versioned Python binaries
-      const versionsDir = path.join(pythonFrameworkPath, 'Versions');
-      if (fs.existsSync(versionsDir)) {
-        const versions = fs.readdirSync(versionsDir).filter(v => v !== 'Current');
-        for (const version of versions) {
-          const pythonBinary = path.join(versionsDir, version, 'Python');
-          if (fs.existsSync(pythonBinary) && !fs.lstatSync(pythonBinary).isSymbolicLink()) {
-            console.log(`    Removing existing signature from Versions/${version}/Python`);
-            removeSignature(pythonBinary);
-          }
+      // Step 2b: Find ALL binaries inside Python.framework (not just the Python executable)
+      const frameworkBinaries = findFiles(pythonFrameworkPath, (name, fullPath) => {
+        if (name.endsWith('.dylib') || name.endsWith('.so')) return true;
+        // The Python executable itself
+        if (name === 'Python' && isMachO(fullPath)) return true;
+        return false;
+      });
+
+      console.log(`    Found ${frameworkBinaries.length} binaries inside Python.framework`);
+
+      // Sort by depth (deepest first = inside-out signing)
+      frameworkBinaries.sort((a, b) => b.split('/').length - a.split('/').length);
+
+      // Remove signatures from all binaries first
+      console.log('    Removing all existing signatures...');
+      for (const binary of frameworkBinaries) {
+        removeSignature(binary);
+      }
+
+      // Sign all binaries inside-out
+      console.log('    Signing all binaries inside Python.framework...');
+      for (const binary of frameworkBinaries) {
+        const relativePath = path.relative(pythonFrameworkPath, binary);
+        console.log(`      Signing: ${relativePath}`);
+        try {
+          signFile(binary, identity, entitlementsPath, true); // --no-strict
+        } catch (e) {
+          console.log(`        Warning: Failed to sign ${relativePath}: ${e.message}`);
         }
       }
 
-      // Sign the framework bundle with --deep --no-strict
-      // This will sign both the binary AND create proper bundle signature with timestamps
-      console.log('    Signing Python.framework bundle with --deep --no-strict');
+      // Step 2c: Sign the framework bundle to create _CodeSignature
+      // This seals all the files and creates proper metadata for symlinks
+      console.log('    Signing Python.framework bundle');
       try {
-        signFile(pythonFrameworkPath, identity, entitlementsPath, true, true); // --no-strict, --deep
+        signFile(pythonFrameworkPath, identity, entitlementsPath, true); // --no-strict
       } catch (e) {
-        console.log(`    Warning: Failed to sign Python.framework: ${e.message}`);
+        console.log(`      Warning: Failed to sign Python.framework bundle: ${e.message}`);
+      }
+
+      // Step 2d: Verify the signatures
+      console.log('    Verifying Python.framework signatures...');
+      const pythonBinaryPath = path.join(pythonFrameworkPath, 'Versions', '3.12', 'Python');
+      if (fs.existsSync(pythonBinaryPath)) {
+        const binaryResult = verifySignature(pythonBinaryPath);
+        console.log(`      Versions/3.12/Python: ${binaryResult.valid ? 'VALID' : 'INVALID'}`);
+        if (!binaryResult.valid) {
+          console.log(`        ${binaryResult.output}`);
+        }
+      }
+      const frameworkResult = verifySignature(pythonFrameworkPath);
+      console.log(`      Python.framework: ${frameworkResult.valid ? 'VALID' : 'INVALID'}`);
+      if (!frameworkResult.valid) {
+        console.log(`        ${frameworkResult.output}`);
       }
     }
 
