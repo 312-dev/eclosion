@@ -6,12 +6,10 @@
  *
  * Strategy:
  * 1. Sign all .so and .dylib files in _internal (excluding Python.framework)
- * 2. Sign Python.framework as a bundle (handles Python binary automatically)
- * 3. Sign the main eclosion-backend executable
- *
- * Key insight: Apple requires framework bundles to be signed. Bundle signing
- * handles the main executable (Python.framework/Python). Don't sign binaries
- * inside Python.framework separately - just sign the bundle with --no-strict.
+ * 2. Remove pre-existing signatures from Python.framework/Versions/X.Y/Python
+ *    (PyInstaller may leave signatures without timestamps)
+ * 3. Sign Python.framework with --deep --no-strict to recursively sign all nested code
+ * 4. Sign the main eclosion-backend executable
  *
  * electron-builder will then sign Electron.framework and the main app.
  */
@@ -55,17 +53,31 @@ function isMachO(filePath) {
 }
 
 /**
+ * Remove any existing signature from a file
+ * @param {string} filePath - Path to file
+ */
+function removeSignature(filePath) {
+  try {
+    execSync(`codesign --remove-signature "${filePath}"`, { stdio: 'pipe' });
+  } catch {
+    // Ignore errors - file might not have a signature
+  }
+}
+
+/**
  * Sign a single file with the given flags
  * @param {string} filePath - Path to file
  * @param {string} identity - Signing identity
  * @param {string} entitlementsPath - Path to entitlements plist
  * @param {boolean} useNoStrict - Whether to use --no-strict flag
+ * @param {boolean} useDeep - Whether to use --deep flag for recursive signing
  */
-function signFile(filePath, identity, entitlementsPath, useNoStrict = false) {
+function signFile(filePath, identity, entitlementsPath, useNoStrict = false, useDeep = false) {
   const noStrictFlag = useNoStrict ? '--no-strict' : '';
+  const deepFlag = useDeep ? '--deep' : '';
   const entitlementsFlag = entitlementsPath ? `--entitlements "${entitlementsPath}"` : '';
 
-  const cmd = `codesign --sign "${identity}" --force --timestamp --options runtime ${noStrictFlag} ${entitlementsFlag} "${filePath}"`;
+  const cmd = `codesign --sign "${identity}" --force --timestamp --options runtime ${deepFlag} ${noStrictFlag} ${entitlementsFlag} "${filePath}"`;
 
   execSync(cmd, { stdio: 'inherit' });
 }
@@ -145,14 +157,31 @@ exports.default = async function (context) {
       }
     }
 
-    // Step 2: Sign Python.framework as a bundle
-    // Apple requires framework bundles to be signed. Bundle signing handles
-    // the main executable (Python.framework/Python) automatically.
-    // Use --no-strict because PyInstaller creates a non-standard framework structure.
+    // Step 2: Sign Python.framework
+    // PyInstaller's Python.framework may have pre-existing signatures without timestamps.
+    // We need to remove them and sign fresh with --deep to recursively sign all nested code.
     if (fs.existsSync(pythonFrameworkPath)) {
-      console.log('  Signing Python.framework bundle...');
+      console.log('  Signing Python.framework...');
+
+      // First, remove existing signatures from Python binaries
+      // (they may be from PyInstaller without timestamps)
+      const versionsDir = path.join(pythonFrameworkPath, 'Versions');
+      if (fs.existsSync(versionsDir)) {
+        const versions = fs.readdirSync(versionsDir).filter(v => v !== 'Current');
+        for (const version of versions) {
+          const pythonBinary = path.join(versionsDir, version, 'Python');
+          if (fs.existsSync(pythonBinary) && !fs.lstatSync(pythonBinary).isSymbolicLink()) {
+            console.log(`    Removing existing signature from Versions/${version}/Python`);
+            removeSignature(pythonBinary);
+          }
+        }
+      }
+
+      // Sign the framework with --deep to recursively sign all nested code
+      // Use --no-strict because PyInstaller creates a non-standard framework structure
+      console.log('    Signing Python.framework with --deep --no-strict');
       try {
-        signFile(pythonFrameworkPath, identity, entitlementsPath, true);
+        signFile(pythonFrameworkPath, identity, entitlementsPath, true, true); // --no-strict, --deep
       } catch (e) {
         console.log(`    Warning: Failed to sign Python.framework: ${e.message}`);
       }
