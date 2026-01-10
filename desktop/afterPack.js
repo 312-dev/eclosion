@@ -8,8 +8,9 @@
  * 1. Sign all .so and .dylib files in _internal (excluding Python.framework)
  * 2. For Python.framework:
  *    a. Remove _CodeSignature directory (has stale metadata without timestamps)
- *    b. Sign ALL Python binaries (PyInstaller creates copies, not symlinks)
- *    c. Do NOT sign the bundle (PyInstaller's format is "ambiguous" to codesign)
+ *    b. Sign the real binary at Versions/X.Y/Python
+ *    c. Replace copies with proper symlinks (PyInstaller creates copies, breaking signing)
+ *    d. Do NOT sign the bundle (PyInstaller's format is "ambiguous" to codesign)
  * 3. Sign the main eclosion-backend executable
  *
  * electron-builder's signIgnore patterns prevent re-signing of backend binaries.
@@ -186,33 +187,75 @@ exports.default = async function (context) {
         fs.rmSync(codeSignatureDir, { recursive: true, force: true });
       }
 
-      // Step 2b: Find and sign ALL Python binaries in the framework
-      // PyInstaller creates COPIES (not symlinks) at multiple locations:
-      //   - Python.framework/Python
-      //   - Python.framework/Versions/Current/Python
-      //   - Python.framework/Versions/3.12/Python
-      // All three need to be signed with proper timestamps
-      const pythonBinaries = findFiles(pythonFrameworkPath, (name) => name === 'Python');
-      console.log(`    Found ${pythonBinaries.length} Python binaries to sign`);
+      // Step 2b: Fix framework structure and sign Python binary
+      // PyInstaller creates COPIES instead of symlinks, which breaks code signing.
+      // A proper framework structure should be:
+      //   - Python.framework/Python -> Versions/Current/Python (symlink)
+      //   - Python.framework/Versions/Current -> 3.12 (symlink)
+      //   - Python.framework/Versions/3.12/Python (actual binary)
+      //
+      // We'll replace the copies with proper symlinks before signing.
 
-      for (const binary of pythonBinaries) {
-        const relativePath = path.relative(pythonFrameworkPath, binary);
-        console.log(`    Removing signature from ${relativePath}`);
-        removeSignature(binary);
+      const versionsDir = path.join(pythonFrameworkPath, 'Versions');
+      const topLevelPython = path.join(pythonFrameworkPath, 'Python');
 
-        console.log(`    Signing ${relativePath}`);
-        try {
-          signFile(binary, identity, entitlementsPath, true); // --no-strict
-        } catch (e) {
-          console.log(`      Warning: Failed to sign: ${e.message}`);
+      // Find the actual version directory (e.g., "3.12")
+      let actualVersion = null;
+      if (fs.existsSync(versionsDir)) {
+        const entries = fs.readdirSync(versionsDir);
+        for (const entry of entries) {
+          if (/^\d+\.\d+$/.test(entry)) {
+            actualVersion = entry;
+            break;
+          }
+        }
+      }
+
+      if (actualVersion) {
+        const versionedPython = path.join(versionsDir, actualVersion, 'Python');
+        const currentDir = path.join(versionsDir, 'Current');
+
+        // Step 1: Sign the actual binary first
+        if (fs.existsSync(versionedPython)) {
+          console.log(`    Removing signature from Versions/${actualVersion}/Python`);
+          removeSignature(versionedPython);
+
+          console.log(`    Signing Versions/${actualVersion}/Python`);
+          signFile(versionedPython, identity, entitlementsPath, true);
+
+          const result = verifySignature(versionedPython);
+          console.log(`    Verify Versions/${actualVersion}/Python: ${result.valid ? 'VALID' : 'INVALID'}`);
         }
 
-        // Verify the signature
-        const result = verifySignature(binary);
-        console.log(`    Verify ${relativePath}: ${result.valid ? 'VALID' : 'INVALID'}`);
-        if (!result.valid) {
-          console.log(`      ${result.output}`);
+        // Step 2: Replace Versions/Current with a symlink to the version directory
+        if (fs.existsSync(currentDir)) {
+          const currentStat = fs.lstatSync(currentDir);
+          if (!currentStat.isSymbolicLink()) {
+            console.log('    Replacing Versions/Current directory with symlink');
+            fs.rmSync(currentDir, { recursive: true, force: true });
+            fs.symlinkSync(actualVersion, currentDir);
+          }
+        } else {
+          console.log('    Creating Versions/Current symlink');
+          fs.symlinkSync(actualVersion, currentDir);
         }
+
+        // Step 3: Replace top-level Python with a symlink
+        if (fs.existsSync(topLevelPython)) {
+          const topStat = fs.lstatSync(topLevelPython);
+          if (!topStat.isSymbolicLink()) {
+            console.log('    Replacing top-level Python with symlink');
+            fs.unlinkSync(topLevelPython);
+            fs.symlinkSync('Versions/Current/Python', topLevelPython);
+          }
+        } else {
+          console.log('    Creating top-level Python symlink');
+          fs.symlinkSync('Versions/Current/Python', topLevelPython);
+        }
+
+        console.log('    Framework structure fixed with proper symlinks');
+      } else {
+        console.log('    Warning: Could not find versioned Python directory');
       }
 
       // NOTE: We intentionally do NOT sign Python.framework as a bundle.
