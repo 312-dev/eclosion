@@ -147,6 +147,18 @@ jobs:
 
           sed -i 's/^          //' /tmp/release-notes.md
 
+      - name: Clean up any existing draft with same tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ needs.calculate-version.outputs.tag }}"
+          # Check if a draft release with this tag already exists (from a failed previous run)
+          EXISTING_DRAFT=$(gh release view "$TAG" --json isDraft --jq '.isDraft' 2>/dev/null || echo "not_found")
+          if [ "$EXISTING_DRAFT" = "true" ]; then
+            echo "Found existing draft release $TAG from a previous failed run - deleting it"
+            gh release delete "$TAG" --yes --cleanup-tag || true
+          fi
+
       - name: Create draft pre-release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
