@@ -60,12 +60,12 @@ mac:
   darkModeSupport: true
   # Skip re-signing backend binaries (already signed by afterPack.js)
   # electron-builder's signing can break our custom --no-strict signatures
-  # Use regex patterns to match paths in Contents/Resources/backend
+  # Use regex patterns to match ONLY backend paths, not Electron Framework
   signIgnore:
-    - "Python\\.framework"
-    - ".*\\.so$"
-    - ".*\\.dylib$"
-    - "eclosion-backend"
+    - "backend.*Python\\.framework"
+    - "backend.*\\.so$"
+    - "backend.*\\.dylib$"
+    - "backend.*eclosion-backend$"
 
 # macOS code signing
 afterSign: notarize.js
