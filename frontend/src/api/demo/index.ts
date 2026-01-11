@@ -80,3 +80,17 @@ export {
   dismissNotice,
   clearCategoryCache,
 } from './demoMisc';
+
+// Notes
+export {
+  getMonthNotes,
+  saveCategoryNote,
+  deleteCategoryNote,
+  getGeneralNote,
+  saveGeneralNote,
+  deleteGeneralNote,
+  getArchivedNotes,
+  deleteArchivedNote,
+  syncNotesCategories,
+  getNoteHistory,
+} from './demoNotes';

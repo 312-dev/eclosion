@@ -12,11 +12,27 @@ import type {
   RollupData,
   CategoryGroup,
   UnmappedCategory,
+  Note,
+  GeneralMonthNote,
+  ArchivedNote,
 } from '../types';
 
 // ============================================================================
 // Demo State Interface
 // ============================================================================
+
+export interface DemoNotesState {
+  /** Category/group notes: note_id -> Note */
+  notes: Record<string, Note>;
+  /** General month notes: month_key -> GeneralMonthNote */
+  generalNotes: Record<string, GeneralMonthNote>;
+  /** Archived notes from deleted categories */
+  archivedNotes: ArchivedNote[];
+  /** Known category IDs for deletion detection */
+  knownCategoryIds: Record<string, string>;
+  /** Last updated timestamps per month */
+  monthLastUpdated: Record<string, string>;
+}
 
 export interface DemoState {
   dashboard: DashboardData;
@@ -29,6 +45,7 @@ export interface DemoState {
     auto_categorize_enabled: boolean;
     show_category_group: boolean;
   };
+  notes: DemoNotesState;
 }
 
 // ============================================================================
@@ -1182,6 +1199,96 @@ function createDashboardData(items: RecurringItem[]): DashboardData {
   };
 }
 
+/**
+ * Get current month key in YYYY-MM format
+ */
+function getCurrentMonthKey(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+
+/**
+ * Get previous month key
+ */
+function getPreviousMonthKey(offset: number = 1): string {
+  const date = new Date();
+  date.setMonth(date.getMonth() - offset);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+}
+
+/**
+ * Create initial demo notes with example data
+ */
+function createInitialDemoNotes(): DemoNotesState {
+  const currentMonth = getCurrentMonthKey();
+  const prevMonth = getPreviousMonthKey(1);
+  const twoMonthsAgo = getPreviousMonthKey(2);
+  const now = new Date().toISOString();
+
+  return {
+    notes: {
+      'demo-note-1': {
+        id: 'demo-note-1',
+        categoryRef: {
+          type: 'group',
+          id: 'group-subscriptions',
+          name: 'Subscriptions',
+        },
+        monthKey: twoMonthsAgo,
+        content: '**Review all streaming services** this quarter.\n\n- Check for price increases\n- Consider bundling options\n- Cancel unused services',
+        createdAt: now,
+        updatedAt: now,
+      },
+      'demo-note-2': {
+        id: 'demo-note-2',
+        categoryRef: {
+          type: 'category',
+          id: 'cat-amazon-prime',
+          name: 'Amazon Prime',
+          groupId: 'group-subscriptions',
+          groupName: 'Subscriptions',
+        },
+        monthKey: prevMonth,
+        content: 'Consider switching to annual plan - saves $20/year.\n\nCurrent: $14.99/mo = $179.88/yr\nAnnual: $139/yr\n\n**Savings: $40.88/yr**',
+        createdAt: now,
+        updatedAt: now,
+      },
+      'demo-note-3': {
+        id: 'demo-note-3',
+        categoryRef: {
+          type: 'group',
+          id: 'group-insurance',
+          name: 'Insurance',
+        },
+        monthKey: currentMonth,
+        content: '## Annual Review\n\nCompare rates from:\n1. Progressive\n2. Geico\n3. State Farm\n\nCurrent policy expires in 3 months.',
+        createdAt: now,
+        updatedAt: now,
+      },
+    },
+    generalNotes: {
+      [currentMonth]: {
+        id: 'demo-general-1',
+        monthKey: currentMonth,
+        content: '## Monthly Budget Check-in\n\n- [ ] Review all recurring expenses\n- [ ] Check subscription usage\n- [ ] Update insurance quotes\n\n*Total subscription cost this month: ~$85*',
+        createdAt: now,
+        updatedAt: now,
+      },
+    },
+    archivedNotes: [],
+    knownCategoryIds: {
+      'group-subscriptions': 'Subscriptions',
+      'group-insurance': 'Insurance',
+      'cat-amazon-prime': 'Amazon Prime',
+    },
+    monthLastUpdated: {
+      [currentMonth]: now,
+      [prevMonth]: now,
+      [twoMonthsAgo]: now,
+    },
+  };
+}
+
 export function createInitialDemoState(): DemoState {
   return {
     dashboard: createDashboardData(DEMO_RECURRING_ITEMS),
@@ -1194,6 +1301,7 @@ export function createInitialDemoState(): DemoState {
       auto_categorize_enabled: false,
       show_category_group: true,
     },
+    notes: createInitialDemoNotes(),
   };
 }
 

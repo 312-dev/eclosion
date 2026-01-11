@@ -76,3 +76,17 @@ export {
   useChangelogStatusQuery,
   useMarkChangelogReadMutation,
 } from './versionQueries';
+
+// Notes queries
+export {
+  useMonthNotesQuery,
+  useArchivedNotesQuery,
+  useNoteHistoryQuery,
+  useSaveCategoryNoteMutation,
+  useDeleteCategoryNoteMutation,
+  useSaveGeneralNoteMutation,
+  useDeleteGeneralNoteMutation,
+  useDeleteArchivedNoteMutation,
+  useSyncNotesCategoriesMutation,
+  useInvalidateNotes,
+} from './notesQueries';

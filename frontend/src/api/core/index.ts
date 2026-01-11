@@ -18,6 +18,8 @@ export {
   resetApp,
   lockCredentials,
   logout,
+  reauthenticate,
+  type ReauthResult,
 } from './auth';
 
 // Security
@@ -86,6 +88,20 @@ export {
   type ReleasesResponse,
   type UpdateInfo,
 } from './version';
+
+// Notes
+export {
+  getMonthNotes,
+  saveCategoryNote,
+  deleteCategoryNote,
+  getGeneralNote,
+  saveGeneralNote,
+  deleteGeneralNote,
+  getArchivedNotes,
+  deleteArchivedNote,
+  syncNotesCategories,
+  getNoteHistory,
+} from './notes';
 
 // Misc (auto-sync, deployment, notices, uninstall, migration)
 export {

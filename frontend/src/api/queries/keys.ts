@@ -18,6 +18,10 @@ export const queryKeys = {
   changelog: ['changelog'] as const,
   versionCheck: ['versionCheck'] as const,
   changelogStatus: ['changelogStatus'] as const,
+  // Notes
+  monthNotes: ['monthNotes'] as const,
+  archivedNotes: ['archivedNotes'] as const,
+  noteHistory: ['noteHistory'] as const,
 };
 
 /**
