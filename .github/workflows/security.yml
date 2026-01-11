@@ -133,6 +133,27 @@ jobs:
           category: "/language:${{ matrix.language }}"
 
   # ============================================================================
+  # Secret Scanning with Gitleaks
+  # Detects hardcoded secrets, API keys, passwords in code
+  # ============================================================================
+  secret-scan:
+    name: Secret Scan
+    needs: changes
+    if: needs.changes.outputs.security_relevant == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Full history for scanning all commits
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ============================================================================
   # Dependency Scanning
   # Checks npm and pip packages for known vulnerabilities
   # ============================================================================
@@ -370,7 +391,7 @@ jobs:
   security-status:
     name: Security Status
     runs-on: ubuntu-latest
-    needs: [changes, codeql, dependency-scan, container-scan, dast]
+    needs: [changes, codeql, secret-scan, dependency-scan, container-scan, dast]
     if: always()
     steps:
       - name: Check security scan results
@@ -379,6 +400,7 @@ jobs:
           echo "=== Security Scan Results ==="
           echo "Security-relevant files changed: ${{ needs.changes.outputs.security_relevant }}"
           echo "CodeQL: ${{ needs.codeql.result }}"
+          echo "Secret Scan: ${{ needs.secret-scan.result }}"
           echo "Dependency Scan: ${{ needs.dependency-scan.result }}"
           echo "Container Scan: ${{ needs.container-scan.result }}"
           echo "DAST: ${{ needs.dast.result }}"
@@ -401,7 +423,7 @@ jobs:
           fi
 
           # Check other scans (DAST is allowed to be skipped for fork PRs)
-          results="${{ needs.dependency-scan.result }} ${{ needs.container-scan.result }}"
+          results="${{ needs.secret-scan.result }} ${{ needs.dependency-scan.result }} ${{ needs.container-scan.result }}"
           dast_result="${{ needs.dast.result }}"
 
           if echo "$results" | grep -qE '(failure|cancelled)'; then

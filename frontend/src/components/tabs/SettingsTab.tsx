@@ -147,6 +147,8 @@ export function SettingsTab() {
         </div>
       </div>
 
+      {isDemo && <DemoModeSection />}
+
       {/* User-facing settings */}
       <AppearanceSettings />
 
@@ -183,8 +185,6 @@ export function SettingsTab() {
       <DataManagementSection onShowImportModal={() => setShowImportModal(true)} />
 
       {isDesktop && <LogViewerSection />}
-
-      {isDemo && <DemoModeSection />}
 
       <DangerZoneSection
         onShowResetModal={() => setShowResetModal(true)}

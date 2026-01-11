@@ -147,9 +147,9 @@ docker compose up --build
 
 ## Architecture
 
-**Frontend**: React 19 · TypeScript · Vite · Tailwind CSS
-**Backend**: Python 3.12 · Flask
-**State**: JSON file-based (no database)
+**Frontend**: React 19 · TypeScript · Vite · Tailwind CSS<br>
+**Backend**: Python 3.12 · Flask<br>
+**State**: JSON file-based (no database)<br>
 **Deployment**: Docker · Railway · Desktop (Electron + PyInstaller)
 
 ## Contributing

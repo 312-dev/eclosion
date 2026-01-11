@@ -129,6 +129,9 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
     // This preserves credentials, just requires re-authentication
     setAuthenticated(false);
     setNeedsUnlock(true);
+
+    // Trigger Electron lock if available (desktop app)
+    globalThis.electron?.lock?.lockApp();
   }, []);
 
   const logout = useCallback(async () => {
