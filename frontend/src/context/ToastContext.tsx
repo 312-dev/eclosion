@@ -3,10 +3,12 @@
  *
  * Global toast notification system for the app.
  * Provides a useToast hook for showing success/error/warning messages.
+ *
+ * UI rendering is handled separately by ToastContainer component.
  */
 
 import { createContext, useContext, useState, useCallback, useRef, type ReactNode } from 'react';
-import { Icons } from '../components/icons';
+import { ToastContainer } from '../components/ui/ToastContainer';
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info';
 
@@ -78,86 +80,10 @@ export function useToast() {
   return context.toast;
 }
 
-// Icons for each toast type
-function ToastIcon({ type }: { type: ToastType }) {
-  const iconProps = { size: 16, className: 'shrink-0' };
-  switch (type) {
-    case 'success':
-      return <Icons.CheckSimple {...iconProps} strokeWidth={2.5} />;
-    case 'error':
-      return <Icons.X {...iconProps} />;
-    case 'warning':
-      return <Icons.Warning {...iconProps} />;
-    case 'info':
-      return <Icons.AlertCircle {...iconProps} />;
+export function useToasts() {
+  const context = useContext(ToastContext);
+  if (!context) {
+    throw new Error('useToasts must be used within a ToastProvider');
   }
-}
-
-// Get styles for each toast type
-function getToastStyles(type: ToastType): { bg: string; color: string; border: string } {
-  switch (type) {
-    case 'success':
-      return {
-        bg: 'var(--monarch-success-bg)',
-        color: 'var(--monarch-success)',
-        border: 'var(--monarch-success)',
-      };
-    case 'error':
-      return {
-        bg: 'var(--monarch-error-bg)',
-        color: 'var(--monarch-error)',
-        border: 'var(--monarch-error)',
-      };
-    case 'warning':
-      return {
-        bg: 'var(--monarch-warning-bg)',
-        color: 'var(--monarch-warning)',
-        border: 'var(--monarch-warning)',
-      };
-    case 'info':
-      return {
-        bg: 'var(--monarch-bg-card)',
-        color: 'var(--monarch-text-dark)',
-        border: 'var(--monarch-border)',
-      };
-  }
-}
-
-interface ToastContainerProps {
-  toasts: Toast[];
-  onRemove: (id: string) => void;
-}
-
-function ToastContainer({ toasts, onRemove }: ToastContainerProps) {
-  if (toasts.length === 0) return null;
-
-  return (
-    <div className="toast-container">
-      {toasts.map((toast) => {
-        const styles = getToastStyles(toast.type);
-        return (
-          <div
-            key={toast.id}
-            className="toast-item"
-            data-type={toast.type}
-            style={{
-              backgroundColor: styles.bg,
-              color: styles.color,
-              borderLeft: `3px solid ${styles.border}`,
-            }}
-          >
-            <ToastIcon type={toast.type} />
-            <span className="toast-message">{toast.message}</span>
-            <button
-              onClick={() => onRemove(toast.id)}
-              className="toast-close"
-              style={{ color: styles.color }}
-            >
-              <Icons.X size={14} />
-            </button>
-          </div>
-        );
-      })}
-    </div>
-  );
+  return { toasts: context.toasts, removeToast: context.removeToast };
 }

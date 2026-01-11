@@ -10,7 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import { SearchableSelect } from '../SearchableSelect';
 import { useToast } from '../../context/ToastContext';
 import { useDemo } from '../../context/DemoContext';
-import { useApiClient } from '../../hooks';
+import { useApiClient, useSavingStates } from '../../hooks';
 import { useInvalidateDashboard } from '../../api/queries';
 import { RecurringToolHeader } from './RecurringToolHeader';
 import { SettingsRow } from './SettingsRow';
@@ -38,12 +38,9 @@ export const RecurringToolSettings = forwardRef<HTMLElement, RecurringToolSettin
 
     const [categoryGroups, setCategoryGroups] = useState<CategoryGroup[]>([]);
     const [loadingGroups, setLoadingGroups] = useState(false);
-    const [savingGroup, setSavingGroup] = useState(false);
-    const [savingAutoTrack, setSavingAutoTrack] = useState(false);
-    const [savingThreshold, setSavingThreshold] = useState(false);
-    const [savingAutoUpdateTargets, setSavingAutoUpdateTargets] = useState(false);
-    const [savingAutoCategorize, setSavingAutoCategorize] = useState(false);
-    const [savingShowCategoryGroup, setSavingShowCategoryGroup] = useState(false);
+
+    type SettingKey = 'group' | 'autoTrack' | 'threshold' | 'autoUpdateTargets' | 'autoCategorize' | 'showCategoryGroup';
+    const { isSaving, withSaving } = useSavingStates<SettingKey>();
 
     // Calculate recurring tool info
     const isConfigured = dashboardData?.config?.target_group_id != null;
@@ -71,86 +68,80 @@ export const RecurringToolSettings = forwardRef<HTMLElement, RecurringToolSettin
       const group = categoryGroups.find(g => g.id === groupId);
       if (!group) return;
 
-      setSavingGroup(true);
-      try {
-        await client.setConfig(group.id, group.name);
-        await onRefreshDashboard();
-        toast.success(`Category group set to ${group.name}`);
-      } catch {
-        toast.error('Failed to update category group');
-      } finally {
-        setSavingGroup(false);
-      }
+      await withSaving('group', async () => {
+        try {
+          await client.setConfig(group.id, group.name);
+          await onRefreshDashboard();
+          toast.success(`Category group set to ${group.name}`);
+        } catch {
+          toast.error('Failed to update category group');
+        }
+      });
     };
 
     const handleAutoTrackChange = async () => {
       const newValue = !(dashboardData?.config.auto_sync_new ?? false);
-      setSavingAutoTrack(true);
-      try {
-        await client.updateSettings({ auto_sync_new: newValue });
-        await onRefreshDashboard();
-        toast.success(newValue ? 'Auto-track enabled' : 'Auto-track disabled');
-      } catch {
-        toast.error('Failed to update setting');
-      } finally {
-        setSavingAutoTrack(false);
-      }
+      await withSaving('autoTrack', async () => {
+        try {
+          await client.updateSettings({ auto_sync_new: newValue });
+          await onRefreshDashboard();
+          toast.success(newValue ? 'Auto-track enabled' : 'Auto-track disabled');
+        } catch {
+          toast.error('Failed to update setting');
+        }
+      });
     };
 
     const handleThresholdChange = async (value: number | null) => {
-      setSavingThreshold(true);
-      try {
-        await client.updateSettings({ auto_track_threshold: value });
-        await onRefreshDashboard();
-        toast.success('Threshold updated');
-      } catch {
-        toast.error('Failed to update threshold');
-      } finally {
-        setSavingThreshold(false);
-      }
+      await withSaving('threshold', async () => {
+        try {
+          await client.updateSettings({ auto_track_threshold: value });
+          await onRefreshDashboard();
+          toast.success('Threshold updated');
+        } catch {
+          toast.error('Failed to update threshold');
+        }
+      });
     };
 
     const handleAutoUpdateTargetsChange = async () => {
       const newValue = !(dashboardData?.config.auto_update_targets ?? false);
-      setSavingAutoUpdateTargets(true);
-      try {
-        await client.updateSettings({ auto_update_targets: newValue });
-        await onRefreshDashboard();
-        toast.success(newValue ? 'Auto-update targets enabled' : 'Auto-update targets disabled');
-      } catch {
-        toast.error('Failed to update setting');
-      } finally {
-        setSavingAutoUpdateTargets(false);
-      }
+      await withSaving('autoUpdateTargets', async () => {
+        try {
+          await client.updateSettings({ auto_update_targets: newValue });
+          await onRefreshDashboard();
+          toast.success(newValue ? 'Auto-update targets enabled' : 'Auto-update targets disabled');
+        } catch {
+          toast.error('Failed to update setting');
+        }
+      });
     };
 
     const handleAutoCategorizeChange = async () => {
       const newValue = !(dashboardData?.config.auto_categorize_enabled ?? false);
-      setSavingAutoCategorize(true);
-      try {
-        await client.updateSettings({ auto_categorize_enabled: newValue });
-        await onRefreshDashboard();
-        toast.success(newValue ? 'Auto-categorization enabled' : 'Auto-categorization disabled');
-      } catch {
-        toast.error('Failed to update setting');
-      } finally {
-        setSavingAutoCategorize(false);
-      }
+      await withSaving('autoCategorize', async () => {
+        try {
+          await client.updateSettings({ auto_categorize_enabled: newValue });
+          await onRefreshDashboard();
+          toast.success(newValue ? 'Auto-categorization enabled' : 'Auto-categorization disabled');
+        } catch {
+          toast.error('Failed to update setting');
+        }
+      });
     };
 
     const handleShowCategoryGroupChange = async () => {
       const newValue = !(dashboardData?.config.show_category_group ?? true);
-      setSavingShowCategoryGroup(true);
-      try {
-        await client.updateSettings({ show_category_group: newValue });
-        invalidateDashboard(); // Invalidate React Query cache for other tabs
-        await onRefreshDashboard();
-        toast.success(newValue ? 'Category groups shown' : 'Category groups hidden');
-      } catch {
-        toast.error('Failed to update setting');
-      } finally {
-        setSavingShowCategoryGroup(false);
-      }
+      await withSaving('showCategoryGroup', async () => {
+        try {
+          await client.updateSettings({ show_category_group: newValue });
+          invalidateDashboard(); // Invalidate React Query cache for other tabs
+          await onRefreshDashboard();
+          toast.success(newValue ? 'Category groups shown' : 'Category groups hidden');
+        } catch {
+          toast.error('Failed to update setting');
+        }
+      });
     };
 
     const getCategoryGroupOptions = () => {
@@ -213,7 +204,7 @@ export const RecurringToolSettings = forwardRef<HTMLElement, RecurringToolSettin
                       options={getCategoryGroupOptions()}
                       placeholder="Select a group..."
                       searchPlaceholder="Search groups..."
-                      disabled={savingGroup}
+                      disabled={isSaving('group')}
                       loading={loadingGroups}
                       onOpen={() => {
                         if (categoryGroups.length === 0) {
@@ -229,7 +220,7 @@ export const RecurringToolSettings = forwardRef<HTMLElement, RecurringToolSettin
                     <ToggleSwitch
                       checked={autoSyncEnabled}
                       onChange={handleAutoTrackChange}
-                      disabled={savingAutoTrack}
+                      disabled={isSaving('autoTrack')}
                       ariaLabel={autoSyncEnabled ? 'Disable auto-add' : 'Enable auto-add'}
                     />
                   </SettingsRow>
@@ -242,7 +233,7 @@ export const RecurringToolSettings = forwardRef<HTMLElement, RecurringToolSettin
                     >
                       <ThresholdInput
                         defaultValue={dashboardData?.config.auto_track_threshold}
-                        disabled={savingThreshold}
+                        disabled={isSaving('threshold')}
                         onChange={handleThresholdChange}
                       />
                     </SettingsRow>
@@ -256,7 +247,7 @@ export const RecurringToolSettings = forwardRef<HTMLElement, RecurringToolSettin
                     <ToggleSwitch
                       checked={autoUpdateEnabled}
                       onChange={handleAutoUpdateTargetsChange}
-                      disabled={savingAutoUpdateTargets}
+                      disabled={isSaving('autoUpdateTargets')}
                       ariaLabel={autoUpdateEnabled ? 'Disable auto-update targets' : 'Enable auto-update targets'}
                     />
                   </SettingsRow>
@@ -269,7 +260,7 @@ export const RecurringToolSettings = forwardRef<HTMLElement, RecurringToolSettin
                     <ToggleSwitch
                       checked={autoCategorizeEnabled}
                       onChange={handleAutoCategorizeChange}
-                      disabled={savingAutoCategorize}
+                      disabled={isSaving('autoCategorize')}
                       ariaLabel={autoCategorizeEnabled ? 'Disable auto-categorize' : 'Enable auto-categorize'}
                     />
                   </SettingsRow>
@@ -283,7 +274,7 @@ export const RecurringToolSettings = forwardRef<HTMLElement, RecurringToolSettin
                     <ToggleSwitch
                       checked={showCategoryGroupEnabled}
                       onChange={handleShowCategoryGroupChange}
-                      disabled={savingShowCategoryGroup}
+                      disabled={isSaving('showCategoryGroup')}
                       ariaLabel={showCategoryGroupEnabled ? 'Hide category groups' : 'Show category groups'}
                     />
                   </SettingsRow>

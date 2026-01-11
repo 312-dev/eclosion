@@ -7,6 +7,8 @@ interface SyncButtonProps {
   isSyncing: boolean;
   lastSync: string | null;
   compact?: boolean;
+  /** Whether sync is blocked (e.g., due to auth issues) */
+  syncBlocked?: boolean;
 }
 
 function formatLastSync(timestamp: string | null): string {
@@ -35,7 +37,7 @@ function formatLastSync(timestamp: string | null): string {
   return `${diffYears}y ago`;
 }
 
-export function SyncButton({ onSync, isSyncing, lastSync, compact = false }: SyncButtonProps) {
+export function SyncButton({ onSync, isSyncing, lastSync, compact = false, syncBlocked = false }: SyncButtonProps) {
   const [formattedTime, setFormattedTime] = useState(() => formatLastSync(lastSync));
 
   useEffect(() => {
@@ -54,39 +56,65 @@ export function SyncButton({ onSync, isSyncing, lastSync, compact = false }: Syn
   if (compact) {
     const syncStatus = lastSync ? `Synced ${formattedTime}` : 'Not yet synced';
     return (
-      <button
-        type="button"
-        onClick={onSync}
-        disabled={isSyncing}
-        className="flex items-center gap-1.5 text-xs cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed transition-colors hover:opacity-70"
-        style={{ color: 'var(--monarch-text-muted)' }}
-        aria-label={isSyncing ? 'Syncing data with Monarch' : `Sync now. Last synced: ${syncStatus}`}
-        aria-busy={isSyncing}
-      >
-        {isSyncing ? (
-          <SpinnerIcon size={14} />
-        ) : (
-          <SyncIcon size={14} />
-        )}
-        <span aria-live="polite">
-          {isSyncing ? 'Syncing...' : (
-            lastSync ? (
-              <>
-                <span className="hidden sm:inline">Synced </span>
-                {formattedTime}
-              </>
-            ) : 'Never synced'
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={onSync}
+          disabled={isSyncing}
+          className="flex items-center gap-1.5 text-xs cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed transition-colors hover:opacity-70"
+          style={{ color: syncBlocked ? 'var(--monarch-warning)' : 'var(--monarch-text-muted)' }}
+          aria-label={isSyncing ? 'Syncing data with Monarch' : `Sync now. Last synced: ${syncStatus}`}
+          aria-busy={isSyncing}
+        >
+          {isSyncing ? (
+            <SpinnerIcon size={14} />
+          ) : (
+            <SyncIcon size={14} />
           )}
-        </span>
-      </button>
+          <span aria-live="polite">
+            {isSyncing ? 'Syncing...' : (
+              lastSync ? (
+                <>
+                  <span className="hidden sm:inline">Synced </span>
+                  {formattedTime}
+                </>
+              ) : 'Never synced'
+            )}
+          </span>
+        </button>
+        {syncBlocked && !isSyncing && (
+          <span
+            className="inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium rounded"
+            style={{ backgroundColor: 'var(--monarch-warning-bg)', color: 'var(--monarch-warning)' }}
+            title="Sync is blocked - re-authentication required"
+          >
+            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+            </svg>
+            Stale
+          </span>
+        )}
+      </div>
     );
   }
 
   return (
     <div className="flex items-center gap-3">
-      <span className="text-sm" style={{ color: 'var(--monarch-text-muted)' }}>
+      <span className="text-sm" style={{ color: syncBlocked ? 'var(--monarch-warning)' : 'var(--monarch-text-muted)' }}>
         {formattedTime}
       </span>
+      {syncBlocked && !isSyncing && (
+        <span
+          className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded"
+          style={{ backgroundColor: 'var(--monarch-warning-bg)', color: 'var(--monarch-warning)' }}
+          title="Sync is blocked - re-authentication required"
+        >
+          <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+          </svg>
+          Stale
+        </span>
+      )}
       <button
         type="button"
         onClick={onSync}

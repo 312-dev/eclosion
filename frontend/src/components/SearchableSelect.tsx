@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useId } from 'react';
 import { ChevronDown, Search, Check } from 'lucide-react';
 import { Portal } from './Portal';
-import { useDropdown } from '../hooks/useDropdown';
+import { useDropdown } from '../hooks';
 import { UI } from '../constants';
 
 export interface SelectOption {
@@ -97,6 +97,7 @@ export function SearchableSelect({
 
   // Handle keyboard navigation
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    const len = flatFilteredOptions.length;
     switch (e.key) {
       case 'Escape':
         e.preventDefault();
@@ -105,34 +106,25 @@ export function SearchableSelect({
         break;
       case 'ArrowDown':
         e.preventDefault();
-        setActiveIndex((prev) => {
-          const nextIndex = prev + 1;
-          return nextIndex < flatFilteredOptions.length ? nextIndex : 0;
-        });
+        setActiveIndex((prev) => (prev + 1 < len ? prev + 1 : 0));
         break;
       case 'ArrowUp':
         e.preventDefault();
-        setActiveIndex((prev) => {
-          const nextIndex = prev - 1;
-          return nextIndex >= 0 ? nextIndex : flatFilteredOptions.length - 1;
-        });
+        setActiveIndex((prev) => (prev - 1 >= 0 ? prev - 1 : len - 1));
         break;
-      case 'Enter':
+      case 'Enter': {
         e.preventDefault();
-        if (activeIndex >= 0 && activeIndex < flatFilteredOptions.length) {
-          const opt = flatFilteredOptions[activeIndex];
-          if (opt && !opt.disabled) {
-            handleSelect(opt.value);
-          }
-        }
+        const opt = activeIndex >= 0 && activeIndex < len ? flatFilteredOptions[activeIndex] : null;
+        if (opt && !opt.disabled) handleSelect(opt.value);
         break;
+      }
       case 'Home':
         e.preventDefault();
         setActiveIndex(0);
         break;
       case 'End':
         e.preventDefault();
-        setActiveIndex(flatFilteredOptions.length - 1);
+        setActiveIndex(len - 1);
         break;
     }
   };
@@ -153,38 +145,31 @@ export function SearchableSelect({
     dropdown.triggerRef.current?.focus();
   };
 
-  const renderOption = (opt: SelectOption, flatIndex: number) => {
+  const renderOption = (opt: SelectOption, idx: number) => {
     const isSelected = opt.value === value;
-    const isActive = flatIndex === activeIndex;
-    const optionId = `${listboxId}-option-${flatIndex}`;
+    const isActive = idx === activeIndex;
+    const baseClass = 'w-full text-left px-3 py-2 text-sm flex items-center gap-2 transition-colors';
+    let stateClass = 'hover:bg-(--monarch-bg-hover) text-(--monarch-text-dark)';
+    if (opt.disabled) stateClass = 'opacity-50 cursor-not-allowed bg-(--monarch-bg-page)';
+    else if (isSelected) stateClass = 'bg-(--monarch-orange)/10 text-(--monarch-orange)';
+    const activeClass = isActive && !opt.disabled ? 'ring-2 ring-inset ring-(--monarch-orange)' : '';
 
     return (
       <button
         key={opt.value}
-        id={optionId}
+        id={`${listboxId}-option-${idx}`}
         type="button"
         role="option"
         aria-selected={isSelected}
         aria-disabled={opt.disabled}
         onClick={() => !opt.disabled && handleSelect(opt.value)}
         disabled={opt.disabled}
-        className={`
-          w-full text-left px-3 py-2 text-sm flex items-center gap-2 transition-colors
-          ${opt.disabled
-            ? 'opacity-50 cursor-not-allowed bg-(--monarch-bg-page)'
-            : isSelected
-              ? 'bg-(--monarch-orange)/10 text-(--monarch-orange)'
-              : 'hover:bg-(--monarch-bg-hover) text-(--monarch-text-dark)'
-          }
-          ${isActive && !opt.disabled ? 'ring-2 ring-inset ring-(--monarch-orange)' : ''}
-        `}
+        className={`${baseClass} ${stateClass} ${activeClass}`}
         title={opt.disabled ? opt.disabledReason : undefined}
-        onMouseEnter={() => setActiveIndex(flatIndex)}
+        onMouseEnter={() => setActiveIndex(idx)}
       >
         <span className="flex-1 truncate">{opt.label}</span>
-        {isSelected && (
-          <Check size={16} className="text-(--monarch-orange) shrink-0" aria-hidden="true" />
-        )}
+        {isSelected && <Check size={16} className="text-(--monarch-orange) shrink-0" aria-hidden="true" />}
       </button>
     );
   };

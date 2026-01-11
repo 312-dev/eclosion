@@ -185,9 +185,7 @@ export function LinkCategoryModal({ item, isOpen, onClose, onSuccess, deferSave 
 
           {/* Category List */}
           {loading ? (
-            <div className="text-center py-8 text-monarch-text-muted">
-              Loading categories...
-            </div>
+            <div className="text-center py-8 text-monarch-text-muted">Loading categories...</div>
           ) : filteredGroups.length === 0 ? (
             <div className="text-center py-8 text-monarch-text-muted">
               {searchQuery ? 'No categories match your search' : 'No unmapped categories available'}
@@ -203,7 +201,7 @@ export function LinkCategoryModal({ item, isOpen, onClose, onSuccess, deferSave 
                     {group.categories.map((cat) => {
                       const isSelected = selectedCategory === cat.id;
                       const linkedToItem = reservedCategories.get(cat.id);
-                      const isReserved = !!linkedToItem;
+                      const isReserved = Boolean(linkedToItem);
                       return (
                         <button
                           key={cat.id}
@@ -211,7 +209,7 @@ export function LinkCategoryModal({ item, isOpen, onClose, onSuccess, deferSave 
                           disabled={isReserved}
                           className="w-full text-left px-3 py-2.5 rounded-lg text-sm transition-all flex items-center gap-2"
                           style={{
-                            backgroundColor: isReserved ? 'var(--monarch-bg-page)' : isSelected ? 'rgba(255, 105, 45, 0.1)' : 'var(--monarch-bg-page)',
+                            backgroundColor: isSelected && !isReserved ? 'rgba(255, 105, 45, 0.1)' : 'var(--monarch-bg-page)',
                             color: isReserved ? 'var(--monarch-text-muted)' : 'var(--monarch-text-dark)',
                             borderLeft: isSelected && !isReserved ? '3px solid var(--monarch-orange)' : '3px solid transparent',
                             boxShadow: isSelected && !isReserved ? '0 2px 8px rgba(255, 105, 45, 0.15)' : 'none',
@@ -244,9 +242,7 @@ export function LinkCategoryModal({ item, isOpen, onClose, onSuccess, deferSave 
           {/* Sync Name Option */}
           {selectedCategory && (
             <div className="mt-6 p-4 rounded-lg bg-monarch-bg-page">
-              <div className="text-sm font-medium mb-3 text-monarch-text-dark">
-                Category Name Preference
-              </div>
+              <div className="text-sm font-medium mb-3 text-monarch-text-dark">Category Name Preference</div>
               <div className="space-y-3">
                 <label
                   className={`flex items-start gap-3 cursor-pointer p-3 rounded-lg transition-all ${syncName ? 'bg-monarch-orange/8 border border-monarch-orange' : 'border border-transparent'}`}
@@ -259,9 +255,7 @@ export function LinkCategoryModal({ item, isOpen, onClose, onSuccess, deferSave 
                     className="mt-0.5 focus:outline-none accent-monarch-orange"
                   />
                   <div className="flex-1">
-                    <div className="text-sm font-medium text-monarch-text-dark">
-                      Rename to match recurring item
-                    </div>
+                    <div className="text-sm font-medium text-monarch-text-dark">Rename to match recurring item</div>
                     <div className="text-xs mt-1 text-monarch-text-muted">
                       {selectedCategoryInfo?.icon && <span className="mr-1">{selectedCategoryInfo.icon}</span>}
                       {selectedCategoryInfo?.name}
@@ -281,9 +275,7 @@ export function LinkCategoryModal({ item, isOpen, onClose, onSuccess, deferSave 
                     className="mt-0.5 focus:outline-none accent-monarch-orange"
                   />
                   <div className="flex-1">
-                    <div className="text-sm font-medium text-monarch-text-dark">
-                      Keep existing name
-                    </div>
+                    <div className="text-sm font-medium text-monarch-text-dark">Keep existing name</div>
                     <div className="text-xs mt-1 text-monarch-text-muted">
                       {selectedCategoryInfo?.icon && <span className="mr-1">{selectedCategoryInfo.icon}</span>}
                       <strong>{selectedCategoryInfo?.name}</strong>
