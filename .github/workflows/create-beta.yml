@@ -3,6 +3,10 @@
 # Manually triggered workflow to create a beta pre-release from the develop branch.
 # Beta versions use the format: v{current}-beta.{YYYYMMDD}.{sequence}
 #
+# VERSION SOURCE OF TRUTH: frontend/package.json
+# Beta versions are calculated from this file. The build-desktop workflow
+# sets desktop/package.json at build time (not committed for beta releases).
+#
 # Flow:
 #   1. Validate develop branch
 #   2. Calculate version
@@ -16,8 +20,6 @@ name: "Release: Create Beta"
 
 on:
   workflow_dispatch:
-    branches:
-      - develop
 
 permissions:
   contents: write
@@ -144,6 +146,18 @@ jobs:
           INSTALLEOF
 
           sed -i 's/^          //' /tmp/release-notes.md
+
+      - name: Clean up any existing draft with same tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ needs.calculate-version.outputs.tag }}"
+          # Check if a draft release with this tag already exists (from a failed previous run)
+          EXISTING_DRAFT=$(gh release view "$TAG" --json isDraft --jq '.isDraft' 2>/dev/null || echo "not_found")
+          if [ "$EXISTING_DRAFT" = "true" ]; then
+            echo "Found existing draft release $TAG from a previous failed run - deleting it"
+            gh release delete "$TAG" --yes --cleanup-tag || true
+          fi
 
       - name: Create draft pre-release
         env:

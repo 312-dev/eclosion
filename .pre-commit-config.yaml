@@ -23,6 +23,12 @@ repos:
       - id: check-merge-conflict
       - id: detect-private-key
 
+  # Gitleaks - Secret detection
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.21.2
+    hooks:
+      - id: gitleaks
+
   # Ruff - Python linting and formatting (replaces black, isort, flake8)
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.4.4
