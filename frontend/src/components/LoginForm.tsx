@@ -1,21 +1,30 @@
-import { useState } from 'react';
+/**
+ * Login Form
+ *
+ * Multi-stage login flow for Monarch Money authentication.
+ * Stages: terms → beta warning → credentials → passphrase
+ */
+
+import { useState, useMemo } from 'react';
 import { login } from '../api/client';
-import { PassphrasePrompt } from './PassphrasePrompt';
+import { PassphrasePrompt } from './passphrase';
 import { SecurityInfo } from './SecurityInfo';
-import { TermsModal, hasAcceptedTerms, setTermsAccepted } from './ui/TermsModal';
+import { TermsModal, setTermsAccepted } from './ui/TermsModal';
+import { BetaWarningModal, hasAcknowledgedBetaWarning, setBetaWarningAcknowledged } from './ui/BetaWarningModal';
+import { MfaCodeCaveatsModal } from './MfaCodeCaveatsModal';
+import { MfaInputSection, detectMfaFormat, getInitialStage } from './login';
+import type { LoginStage } from './login';
 import { getErrorMessage } from '../utils';
 import { isDesktopMode } from '../utils/apiBase';
+import { isBetaEnvironment } from '../utils/environment';
 import { ElectronTitleBar } from './ElectronTitleBar';
 
 interface LoginFormProps {
   onSuccess: () => void;
 }
 
-type LoginStage = 'terms' | 'credentials' | 'passphrase';
-
 export function LoginForm({ onSuccess }: LoginFormProps) {
-  // Start at terms stage if not yet accepted, otherwise go straight to credentials
-  const [stage, setStage] = useState<LoginStage>(() => hasAcceptedTerms() ? 'credentials' : 'terms');
+  const [stage, setStage] = useState<LoginStage>(getInitialStage);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [mfaSecret, setMfaSecret] = useState('');
@@ -23,6 +32,10 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showSecurityInfo, setShowSecurityInfo] = useState(false);
+  const [mfaMode, setMfaMode] = useState<'secret' | 'code'>('secret');
+  const [showCodeCaveatsModal, setShowCodeCaveatsModal] = useState(false);
+
+  const mfaFormat = useMemo(() => detectMfaFormat(mfaSecret), [mfaSecret]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,10 +43,9 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
     setError(null);
 
     try {
-      const result = await login(email, password, mfaSecret);
+      const result = await login(email, password, mfaSecret, mfaMode);
       if (result.success) {
         if (result.needs_passphrase) {
-          // Monarch login successful, now need to create encryption passphrase
           setStage('passphrase');
         } else {
           onSuccess();
@@ -44,19 +56,14 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
                           errorLower.includes('multi-factor') ||
                           errorLower.includes('2fa') ||
                           errorLower.includes('two-factor');
-        // Monarch returns 404 for incorrect credentials
         const isCredentialsError = errorLower.includes('404') ||
                                    errorLower.includes('not found');
         if (isMfaError && !showMfa) {
-          // First MFA prompt - show the field and generic message
           setShowMfa(true);
           setError('MFA required. Please enter your TOTP secret key.');
         } else if (isCredentialsError) {
-          // 404 from Monarch means incorrect email/password
           setError('Incorrect email or password. Please check your credentials and try again.');
         } else {
-          // Either not MFA-related, or user already provided MFA and it failed
-          // Show the actual error from the backend
           setError(result.error || 'Login failed');
         }
       }
@@ -67,35 +74,46 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
     }
   };
 
-  // Show terms modal if not yet accepted
+  // Stage: Terms
   if (stage === 'terms') {
     return (
       <TermsModal
         isOpen={true}
-        onClose={() => {
-          // Can't close without accepting - just stay on terms
-        }}
+        onClose={() => {}}
         onAccept={() => {
           setTermsAccepted();
+          if (isBetaEnvironment() && !hasAcknowledgedBetaWarning()) {
+            setStage('betaWarning');
+          } else {
+            setStage('credentials');
+          }
+        }}
+      />
+    );
+  }
+
+  // Stage: Beta Warning
+  if (stage === 'betaWarning') {
+    return (
+      <BetaWarningModal
+        isOpen={true}
+        onClose={() => {}}
+        onAccept={() => {
+          setBetaWarningAcknowledged();
           setStage('credentials');
         }}
       />
     );
   }
 
-  // Show passphrase creation after successful Monarch login
+  // Stage: Passphrase creation
   if (stage === 'passphrase') {
-    return (
-      <PassphrasePrompt
-        mode="create"
-        onSuccess={onSuccess}
-      />
-    );
+    return <PassphrasePrompt mode="create" onSuccess={onSuccess} />;
   }
 
+  // Stage: Credentials
   return (
     <>
-      {/* Draggable title bar for macOS Electron */}
       <ElectronTitleBar />
       <div className="min-h-screen flex items-center justify-center p-4" style={{ backgroundColor: 'var(--monarch-bg-page)' }}>
         <div className="flex flex-col items-center">
@@ -111,152 +129,130 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
             <h1 className="text-2xl font-bold mb-2" style={{ color: 'var(--monarch-text-dark)' }}>
               Connect to Monarch Money
             </h1>
-          <p className="mb-6" style={{ color: 'var(--monarch-text-muted)' }}>
-            Enter your Monarch Money credentials to get started with Eclosion.
-          </p>
+            <p className="mb-6" style={{ color: 'var(--monarch-text-muted)' }}>
+              Enter your Monarch Money credentials to get started with Eclosion.
+            </p>
 
-          {error && (
-            <div
-              className="mb-4 p-3 rounded-lg text-sm error-message"
-              style={{ backgroundColor: 'var(--monarch-error-bg)', color: 'var(--monarch-error)' }}
-              role="alert"
-              aria-live="assertive"
-            >
-              {error}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} aria-label="Login form">
-            <div className="mb-4">
-              <label
-                htmlFor="email"
-                className="block text-sm font-medium mb-1"
-                style={{ color: 'var(--monarch-text-dark)' }}
+            {error && (
+              <div
+                className="mb-4 p-3 rounded-lg text-sm error-message"
+                style={{ backgroundColor: 'var(--monarch-error-bg)', color: 'var(--monarch-error)' }}
+                role="alert"
+                aria-live="assertive"
               >
-                Email
-              </label>
-              <input
-                type="email"
-                id="email"
-                name="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                autoComplete="email"
-                aria-required="true"
-                className="w-full rounded-lg px-3 py-2"
-                style={{ border: '1px solid var(--monarch-border)', backgroundColor: 'var(--monarch-bg-card)' }}
-                placeholder="you@example.com"
-              />
-            </div>
-
-            <div className="mb-4">
-              <label
-                htmlFor="password"
-                className="block text-sm font-medium mb-1"
-                style={{ color: 'var(--monarch-text-dark)' }}
-              >
-                Password
-              </label>
-              <input
-                type="password"
-                id="password"
-                name="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                autoComplete="current-password"
-                aria-required="true"
-                className="w-full rounded-lg px-3 py-2"
-                style={{ border: '1px solid var(--monarch-border)', backgroundColor: 'var(--monarch-bg-card)' }}
-              />
-            </div>
-
-            {showMfa && (
-              <div className="mb-4">
-                <label
-                  htmlFor="mfaSecret"
-                  className="block text-sm font-medium mb-1"
-                  style={{ color: 'var(--monarch-text-dark)' }}
-                >
-                  MFA Secret Key
-                </label>
-                <input
-                  type="text"
-                  id="mfaSecret"
-                  name="mfaSecret"
-                  value={mfaSecret}
-                  onChange={(e) => setMfaSecret(e.target.value)}
-                  autoComplete="one-time-code"
-                  aria-describedby="mfa-help"
-                  className="w-full rounded-lg px-3 py-2 font-mono"
-                  style={{ border: '1px solid var(--monarch-border)', backgroundColor: 'var(--monarch-bg-card)' }}
-                  placeholder="JBSWY3DPEHPK3PXP"
-                />
-                <p id="mfa-help" className="text-xs mt-1" style={{ color: 'var(--monarch-text-muted)' }}>
-                  The base32 secret key from your authenticator app setup.
-                </p>
+                {error}
               </div>
             )}
 
-            <button
-              type="submit"
-              disabled={loading}
-              aria-busy={loading}
-              className="w-full px-4 py-2 text-white rounded-lg transition-colors disabled:cursor-not-allowed btn-hover-lift hover-bg-orange-to-orange-hover"
-              style={{
-                backgroundColor: loading ? 'var(--monarch-orange-disabled)' : 'var(--monarch-orange)',
-              }}
-            >
-              {loading ? 'Connecting...' : 'Connect to Monarch'}
-            </button>
-          </form>
-
-          {/* Unofficial notice */}
-          <aside className="mt-4 p-3 rounded-lg" style={{ backgroundColor: 'var(--monarch-bg-page)', border: '1px solid var(--monarch-border)' }} aria-label="Important notice">
-            <div className="flex items-start gap-2">
-              <svg className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: 'var(--monarch-text-muted)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <div className="text-xs" style={{ color: 'var(--monarch-text-muted)' }}>
-                <p>
-                  <strong>Unofficial third-party tool</strong> — not affiliated with or endorsed by Monarch Money.
-                </p>
+            <form onSubmit={handleSubmit} aria-label="Login form">
+              <div className="mb-4">
+                <label htmlFor="email" className="block text-sm font-medium mb-1" style={{ color: 'var(--monarch-text-dark)' }}>
+                  Email
+                </label>
+                <input
+                  type="email"
+                  id="email"
+                  name="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  autoComplete="email"
+                  aria-required="true"
+                  className="w-full rounded-lg px-3 py-2"
+                  style={{ border: '1px solid var(--monarch-border)', backgroundColor: 'var(--monarch-bg-card)' }}
+                  placeholder="you@example.com"
+                />
               </div>
-            </div>
-          </aside>
 
-          {/* Security notice */}
-          <aside className="mt-3 p-3 rounded-lg" style={{ backgroundColor: 'var(--monarch-bg-elevated)' }} aria-label="Security information">
-            <div className="flex items-start gap-2">
-              <svg className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: 'var(--monarch-orange)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-              </svg>
-              <div className="text-xs" style={{ color: 'var(--monarch-text-muted)' }}>
-                <p className="font-semibold" style={{ color: 'var(--monarch-text-dark)' }}>How Your Data is Protected</p>
-                <ul className="mt-1 space-y-1 list-disc list-inside">
-                  <li>Credentials are <strong>encrypted</strong> with a passphrase only you know</li>
-                  <li>This is a <strong>dedicated single-user instance</strong> — not shared with other accounts</li>
-                  <li>Encrypted credentials are stored {isDesktopMode() ? 'locally within this app' : 'on this server'}</li>
-                </ul>
-                <button
-                  type="button"
-                  onClick={() => setShowSecurityInfo(true)}
-                  className="mt-2 font-medium hover:underline"
-                  style={{ color: 'var(--monarch-orange)' }}
-                >
-                  Full security details
-                </button>
+              <div className="mb-4">
+                <label htmlFor="password" className="block text-sm font-medium mb-1" style={{ color: 'var(--monarch-text-dark)' }}>
+                  Password
+                </label>
+                <input
+                  type="password"
+                  id="password"
+                  name="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  autoComplete="current-password"
+                  aria-required="true"
+                  className="w-full rounded-lg px-3 py-2"
+                  style={{ border: '1px solid var(--monarch-border)', backgroundColor: 'var(--monarch-bg-card)' }}
+                />
               </div>
-            </div>
-          </aside>
-        </div>
+
+              {showMfa && (
+                <MfaInputSection
+                  mfaSecret={mfaSecret}
+                  onMfaSecretChange={setMfaSecret}
+                  mfaMode={mfaMode}
+                  mfaFormat={mfaFormat}
+                  onShowCodeCaveats={() => setShowCodeCaveatsModal(true)}
+                />
+              )}
+
+              <button
+                type="submit"
+                disabled={loading}
+                aria-busy={loading}
+                className="w-full px-4 py-2 text-white rounded-lg transition-colors disabled:cursor-not-allowed btn-hover-lift hover-bg-orange-to-orange-hover"
+                style={{ backgroundColor: loading ? 'var(--monarch-orange-disabled)' : 'var(--monarch-orange)' }}
+              >
+                {loading ? 'Connecting...' : 'Connect to Monarch'}
+              </button>
+            </form>
+
+            {/* Unofficial notice */}
+            <aside className="mt-4 p-3 rounded-lg" style={{ backgroundColor: 'var(--monarch-bg-page)', border: '1px solid var(--monarch-border)' }} aria-label="Important notice">
+              <div className="flex items-start gap-2">
+                <svg className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: 'var(--monarch-text-muted)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div className="text-xs" style={{ color: 'var(--monarch-text-muted)' }}>
+                  <p><strong>Unofficial third-party tool</strong> — not affiliated with or endorsed by Monarch Money.</p>
+                </div>
+              </div>
+            </aside>
+
+            {/* Security notice */}
+            <aside className="mt-3 p-3 rounded-lg" style={{ backgroundColor: 'var(--monarch-bg-elevated)' }} aria-label="Security information">
+              <div className="flex items-start gap-2">
+                <svg className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: 'var(--monarch-orange)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+                <div className="text-xs" style={{ color: 'var(--monarch-text-muted)' }}>
+                  <p className="font-semibold" style={{ color: 'var(--monarch-text-dark)' }}>How Your Data is Protected</p>
+                  <ul className="mt-1 space-y-1 list-disc list-inside">
+                    <li>Credentials are <strong>encrypted</strong> with a passphrase only you know</li>
+                    <li>This is a <strong>dedicated single-user instance</strong> — not shared with other accounts</li>
+                    <li>Encrypted credentials are stored {isDesktopMode() ? 'locally within this app' : 'on this server'}</li>
+                  </ul>
+                  <button
+                    type="button"
+                    onClick={() => setShowSecurityInfo(true)}
+                    className="mt-2 font-medium hover:underline"
+                    style={{ color: 'var(--monarch-orange)' }}
+                  >
+                    Full security details
+                  </button>
+                </div>
+              </div>
+            </aside>
+          </div>
         </div>
       </div>
 
-      <SecurityInfo
-        isOpen={showSecurityInfo}
-        onClose={() => setShowSecurityInfo(false)}
+      <SecurityInfo isOpen={showSecurityInfo} onClose={() => setShowSecurityInfo(false)} />
+
+      <MfaCodeCaveatsModal
+        isOpen={showCodeCaveatsModal}
+        onClose={() => setShowCodeCaveatsModal(false)}
+        onAccept={() => {
+          setShowCodeCaveatsModal(false);
+          setMfaMode('code');
+          setMfaSecret('');
+        }}
       />
 
       {/* GitHub source link */}

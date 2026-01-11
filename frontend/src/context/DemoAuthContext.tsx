@@ -63,6 +63,18 @@ const mockLock = (): void => {
   // No-op in demo mode
 };
 
+const mockReauthenticate = async () => ({
+  success: true,
+});
+
+const mockTriggerReauth = (): void => {
+  // No-op in demo mode
+};
+
+const mockClearSyncBlocked = (): void => {
+  // No-op in demo mode
+};
+
 // ============================================================================
 // Provider
 // ============================================================================
@@ -75,6 +87,9 @@ export function DemoAuthProvider({ children }: Readonly<{ children: ReactNode }>
       needsUnlock: false,
       loading: false,
       error: null as string | null,
+      lockReason: null,
+      needsReauth: false,
+      syncBlocked: false,
       // Actions - all no-ops or return success
       login: mockLogin,
       lock: mockLock,
@@ -86,6 +101,9 @@ export function DemoAuthProvider({ children }: Readonly<{ children: ReactNode }>
       checkAuth: mockCheckAuth,
       setAuthenticated: mockSetAuthenticated,
       setNeedsUnlock: mockSetNeedsUnlock,
+      reauthenticate: mockReauthenticate,
+      triggerReauth: mockTriggerReauth,
+      clearSyncBlocked: mockClearSyncBlocked,
     }),
     []
   );

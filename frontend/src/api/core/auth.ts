@@ -25,11 +25,17 @@ export async function validateAuth(): Promise<AuthStatus> {
 export async function login(
   email: string,
   password: string,
-  mfaSecret?: string
+  mfaSecret?: string,
+  mfaMode: 'secret' | 'code' = 'secret'
 ): Promise<LoginResult> {
   return fetchApi<LoginResult>('/auth/login', {
     method: 'POST',
-    body: JSON.stringify({ email, password, mfa_secret: mfaSecret || '' }),
+    body: JSON.stringify({
+      email,
+      password,
+      mfa_secret: mfaSecret || '',
+      mfa_mode: mfaMode,
+    }),
   });
 }
 
@@ -79,4 +85,16 @@ export async function lockCredentials(): Promise<void> {
 
 export async function logout(): Promise<void> {
   await fetchApi('/auth/logout', { method: 'POST' });
+}
+
+export interface ReauthResult {
+  success: boolean;
+  error?: string;
+}
+
+export async function reauthenticate(mfaCode: string): Promise<ReauthResult> {
+  return fetchApi<ReauthResult>('/auth/reauthenticate', {
+    method: 'POST',
+    body: JSON.stringify({ mfa_code: mfaCode }),
+  });
 }

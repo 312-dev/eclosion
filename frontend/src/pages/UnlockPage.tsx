@@ -9,7 +9,7 @@
 
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { PassphrasePrompt } from '../components/PassphrasePrompt';
+import { PassphrasePrompt } from '../components/passphrase';
 import { CredentialUpdateForm } from '../components/CredentialUpdateForm';
 import { ResetAppModal } from '../components/ResetAppModal';
 import { useState, useEffect } from 'react';

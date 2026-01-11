@@ -17,6 +17,8 @@ import {
   unlockCredentials as apiUnlockCredentials,
   updateCredentials as apiUpdateCredentials,
   resetApp as apiResetApp,
+  reauthenticate as apiReauthenticate,
+  type ReauthResult,
 } from '../api/client';
 import type { LoginResult, SetPassphraseResult, UnlockResult, UpdateCredentialsResult, ResetAppResult } from '../types';
 
@@ -38,6 +40,10 @@ export interface AuthState {
   error: string | null;
   /** Reason the app was locked (null = app startup, not a lock event) */
   lockReason: LockReason;
+  /** Whether re-authentication is needed (for 6-digit code mode users) */
+  needsReauth: boolean;
+  /** Whether sync is blocked due to auth issues */
+  syncBlocked: boolean;
 }
 
 export interface AuthActions {
@@ -61,6 +67,12 @@ export interface AuthActions {
   setAuthenticated: (value: boolean) => void;
   /** Mark as needing unlock */
   setNeedsUnlock: (value: boolean) => void;
+  /** Re-authenticate with a 6-digit MFA code (for code mode users) */
+  reauthenticate: (mfaCode: string) => Promise<ReauthResult>;
+  /** Trigger re-auth flow (sets needsReauth = true) */
+  triggerReauth: () => void;
+  /** Clear sync blocked state */
+  clearSyncBlocked: () => void;
 }
 
 export interface AuthContextValue extends AuthState, AuthActions {}
@@ -82,6 +94,8 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
   const [error, setError] = useState<string | null>(null);
   const [hasPendingSync, setHasPendingSync] = useState(false);
   const [lockReason, setLockReason] = useState<LockReason>(null);
+  const [needsReauth, setNeedsReauth] = useState(false);
+  const [syncBlocked, setSyncBlocked] = useState(false);
 
   const checkAuth = useCallback(async (): Promise<boolean> => {
     try {
@@ -208,6 +222,24 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
     return result;
   }, []);
 
+  const reauthenticate = useCallback(async (mfaCode: string): Promise<ReauthResult> => {
+    const result = await apiReauthenticate(mfaCode);
+    if (result.success) {
+      setNeedsReauth(false);
+      setSyncBlocked(false);
+    }
+    return result;
+  }, []);
+
+  const triggerReauth = useCallback(() => {
+    setNeedsReauth(true);
+    setSyncBlocked(true);
+  }, []);
+
+  const clearSyncBlocked = useCallback(() => {
+    setSyncBlocked(false);
+  }, []);
+
   // Initialize on mount
   useEffect(() => {
     const init = async () => {
@@ -250,6 +282,21 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
     };
   }, []);
 
+  // Listen for re-authentication requests from desktop (session expired)
+  useEffect(() => {
+    if (!globalThis.electron?.reauth?.onNeedsReauth) return;
+
+    const unsubscribe = globalThis.electron.reauth.onNeedsReauth(() => {
+      // Trigger reauth flow - show modal and block sync
+      setNeedsReauth(true);
+      setSyncBlocked(true);
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
   const value: AuthContextValue = {
     // State
     authenticated,
@@ -257,6 +304,8 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
     loading,
     error,
     lockReason,
+    needsReauth,
+    syncBlocked,
     // Actions
     login,
     lock,
@@ -268,6 +317,9 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
     checkAuth,
     setAuthenticated,
     setNeedsUnlock,
+    reauthenticate,
+    triggerReauth,
+    clearSyncBlocked,
   };
 
   return (
