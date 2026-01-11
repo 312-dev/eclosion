@@ -86,11 +86,13 @@ export async function fetchLatestRelease(): Promise<GithubRelease | null> {
  * macOS: Eclosion-{VERSION}-arm64.dmg (ARM64 build)
  * Windows: Eclosion.Setup.{VERSION}.exe
  * Linux: Eclosion-{VERSION}.AppImage
+ *
+ * Version can be stable (1.2.6) or beta (1.2.6-beta.20260111.2)
  */
 const ASSET_PATTERNS: Record<Platform, RegExp> = {
-  macos: /Eclosion-[\d.]+-arm64\.dmg$/,
-  windows: /Eclosion\.Setup\.[\d.]+\.exe$/,
-  linux: /Eclosion-[\d.]+\.AppImage$/,
+  macos: /Eclosion-[\w.-]+-arm64\.dmg$/,
+  windows: /Eclosion\.Setup\.[\w.-]+\.exe$/,
+  linux: /Eclosion-[\w.-]+\.AppImage$/,
   unknown: /^$/, // Never matches
 };
 

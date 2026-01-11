@@ -200,28 +200,14 @@ jobs:
 
           echo "Generating notes from $LAST_TAG to HEAD"
 
-          # Get merged PRs since last release
-          PRS=$(gh pr list --state merged --base main --search "merged:>=$(git log -1 --format=%ci $LAST_TAG | cut -d' ' -f1)" --json number,title,labels --jq '
-            .[] | "- \(.title) (#\(.number))"
-          ' 2>/dev/null || true)
+          # Get commits since last release (clean, linear history now)
+          COMMITS=$(git log "$LAST_TAG"..HEAD --pretty=format:"- %s" --no-merges | grep -v "^- chore: release" | head -30)
 
-          # Fallback to commits if no PRs found
-          if [ -z "$PRS" ]; then
-            COMMITS=$(git log "$LAST_TAG"..HEAD --pretty=format:"- %s" --no-merges | grep -v "^- chore: release" | head -30)
-          else
-            COMMITS=""
-          fi
-
-          # Categorize changes
-          if [ -n "$PRS" ]; then
-            CHANGES="$PRS"
-          else
-            CHANGES="$COMMITS"
-          fi
-
-          FEATURES=$(echo "$CHANGES" | grep -iE "feat|feature|add" || true)
-          FIXES=$(echo "$CHANGES" | grep -iE "fix|bug|patch" || true)
-          OTHER=$(echo "$CHANGES" | grep -viE "feat|feature|add|fix|bug|patch" || true)
+          # Categorize changes using anchored patterns to avoid duplicates
+          # A commit starting with "feat:" goes to Features, "fix:" goes to Fixes
+          FEATURES=$(echo "$COMMITS" | grep -E "^- feat" | sed 's/^- feat[:(]/- /' | sed 's/):/:/') || true
+          FIXES=$(echo "$COMMITS" | grep -E "^- fix" | sed 's/^- fix[:(]/- /' | sed 's/):/:/') || true
+          OTHER=$(echo "$COMMITS" | grep -vE "^- (feat|fix)" | grep -vE "^- (chore|docs|test|ci|build|refactor)" || true)
 
           # Build release notes
           cat > /tmp/release-notes.md << 'NOTESEOF'

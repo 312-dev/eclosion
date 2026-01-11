@@ -11,11 +11,11 @@ name: Security
 
 on:
   pull_request:
-    branches: [main, develop]
+    branches: [main]
     # Note: No paths filter here - we always run to report status
     # Individual jobs use dorny/paths-filter to skip when not needed
   push:
-    branches: [main, develop]
+    branches: [main]
   schedule:
     # Weekly scan on Monday at midnight UTC to catch new CVEs
     - cron: "0 0 * * 1"

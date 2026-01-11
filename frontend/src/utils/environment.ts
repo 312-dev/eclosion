@@ -6,6 +6,7 @@
  */
 
 const BETA_OVERRIDE_KEY = 'eclosion-beta-mode';
+const DESKTOP_BETA_KEY = 'eclosion-desktop-beta';
 
 /**
  * Check if the current site is a beta/preview environment.
@@ -13,6 +14,7 @@ const BETA_OVERRIDE_KEY = 'eclosion-beta-mode';
  * Beta environments include:
  * - beta.eclosion.app (custom beta subdomain)
  * - *.eclosion.pages.dev (Cloudflare Pages previews)
+ * - Desktop app running a beta build (detected via update channel)
  * - Local override via localStorage (for testing)
  */
 export function isBetaEnvironment(): boolean {
@@ -21,6 +23,10 @@ export function isBetaEnvironment(): boolean {
     const override = localStorage.getItem(BETA_OVERRIDE_KEY);
     if (override === 'true') return true;
     if (override === 'false') return false;
+
+    // Check for desktop beta flag (set during app initialization)
+    const desktopBeta = localStorage.getItem(DESKTOP_BETA_KEY);
+    if (desktopBeta === 'true') return true;
   }
 
   const hostname = globalThis.location?.hostname ?? '';
@@ -36,6 +42,35 @@ export function isBetaEnvironment(): boolean {
   }
 
   return false;
+}
+
+/**
+ * Initialize desktop beta detection.
+ * Call this during app startup to detect if the desktop app is a beta build.
+ * Sets a localStorage flag so isBetaEnvironment() can check synchronously.
+ */
+export async function initializeDesktopBetaDetection(): Promise<void> {
+  if (typeof localStorage === 'undefined') return;
+
+  // Check if we're in desktop mode with electron API
+  const electron = (globalThis as { electron?: { getUpdateChannel?: () => Promise<'stable' | 'beta'> } }).electron;
+  if (!electron?.getUpdateChannel) {
+    // Not desktop mode - clear any stale flag
+    localStorage.removeItem(DESKTOP_BETA_KEY);
+    return;
+  }
+
+  try {
+    const channel = await electron.getUpdateChannel();
+    if (channel === 'beta') {
+      localStorage.setItem(DESKTOP_BETA_KEY, 'true');
+    } else {
+      localStorage.removeItem(DESKTOP_BETA_KEY);
+    }
+  } catch {
+    // Failed to get channel - clear flag to be safe
+    localStorage.removeItem(DESKTOP_BETA_KEY);
+  }
 }
 
 /**
