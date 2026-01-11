@@ -5,8 +5,8 @@
 default_language_version:
   python: python3.11
 
-# Tip: Use `pre-commit run --hook-stage manual gitleaks` for full repo scan
-# Normal commits only scan staged changes (much faster)
+# Note: Gitleaks was removed from pre-commit due to hanging issues.
+# Secret scanning is handled by GitHub's secret scanning and CI checks.
 
 repos:
   # General file checks (fast - run first for fail-fast)
@@ -25,14 +25,6 @@ repos:
         exclude: ^frontend/
       - id: end-of-file-fixer
         exclude: ^frontend/
-
-  # Gitleaks - Secret detection
-  # Runs on staged files during commits; full scan happens in CI
-  - repo: https://github.com/gitleaks/gitleaks
-    rev: v8.21.2
-    hooks:
-      - id: gitleaks
-        args: [protect, --staged, --redact]
 
   # Ruff - Python linting and formatting (very fast)
   - repo: https://github.com/astral-sh/ruff-pre-commit
