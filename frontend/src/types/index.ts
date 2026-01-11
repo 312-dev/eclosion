@@ -92,3 +92,25 @@ export type {
   SecurityEventType,
   SecurityEventsQueryOptions,
 } from './security';
+
+// Monthly notes
+export type {
+  MonthKey,
+  CategoryReference,
+  Note,
+  GeneralMonthNote,
+  MonthMetadata,
+  ArchivedNote,
+  EffectiveNote,
+  CategoryGroupWithNotes,
+  CategoryWithNotes,
+  MonthNotesState,
+  NoteVersion,
+  NoteRevisionHistory,
+  SaveCategoryNoteRequest,
+  SaveGeneralNoteRequest,
+  ExportNotesRequest,
+  SaveNoteResponse,
+  GetMonthNotesResponse,
+  GetRevisionHistoryResponse,
+} from './notes';

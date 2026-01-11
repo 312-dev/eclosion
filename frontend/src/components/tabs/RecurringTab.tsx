@@ -9,7 +9,7 @@ import { useState, useMemo } from 'react';
 import { ExternalLink } from 'lucide-react';
 import { RollupZone } from '../RollupZone';
 import { RecurringList } from '../RecurringList';
-import { ReadyToAssign, BurndownChart, calculateBurndownData } from '../ReadyToAssign';
+import { ReadyToAssign, BurndownChart, calculateBurndownData } from '../ready-to-assign';
 import { formatCurrency, formatErrorMessage } from '../../utils';
 import { RecurringSetupWizard } from '../wizards/RecurringSetupWizard';
 import {

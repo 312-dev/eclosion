@@ -6,9 +6,10 @@ export interface VersionBadgeProps {
   version: string;
   channel: string | undefined;
   size?: 'sm' | 'md';
+  className?: string;
 }
 
-export function VersionBadge({ version, channel, size = 'sm' }: VersionBadgeProps) {
+export function VersionBadge({ version, channel, size = 'sm', className = '' }: VersionBadgeProps) {
   // Determine if this is a beta version based on version string or channel
   const isBeta =
     channel === 'beta' ||
@@ -21,7 +22,7 @@ export function VersionBadge({ version, channel, size = 'sm' }: VersionBadgeProp
   if (isBeta) {
     return (
       <span
-        className={`${sizeClasses} rounded font-medium`}
+        className={`${sizeClasses} rounded font-medium ${className}`}
         style={{
           backgroundColor: 'rgba(139, 92, 246, 0.15)',
           color: '#a78bfa',
@@ -34,7 +35,7 @@ export function VersionBadge({ version, channel, size = 'sm' }: VersionBadgeProp
 
   return (
     <span
-      className={`${sizeClasses} rounded font-medium`}
+      className={`${sizeClasses} rounded font-medium ${className}`}
       style={{
         backgroundColor: 'var(--monarch-success-bg)',
         color: 'var(--monarch-success)',
