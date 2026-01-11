@@ -29,10 +29,10 @@ export function MarketingVersionIndicator() {
       <button
         type="button"
         onClick={() => setShowChangelog(true)}
-        className="flex items-center gap-1.5 text-xs px-2 py-1 rounded-md transition-colors hover:bg-[var(--monarch-bg-hover)]"
+        className="flex items-center"
         title="View changelog"
       >
-        <VersionBadge version={version} channel={channel} size="md" />
+        <VersionBadge version={version} channel={channel} size="md" className="hover:brightness-110 transition-all" />
       </button>
 
       <Modal

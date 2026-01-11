@@ -22,7 +22,7 @@ import { UnlockPage } from './pages/UnlockPage';
 import { LandingPage } from './pages/LandingPage';
 import { FeaturesPage } from './pages/FeaturesPage';
 import { FeatureDetailPage } from './pages/FeatureDetailPage';
-import { DownloadPage } from './pages/DownloadPage';
+import { DownloadPage } from './pages/download';
 import { DashboardTab } from './components/tabs/DashboardTab';
 import { RecurringTab } from './components/tabs/RecurringTab';
 import { SettingsTab } from './components/tabs/SettingsTab';

@@ -12,6 +12,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { DocsLayout } from '../../components/marketing';
+import { WindowsIcon, AppleIcon, LinuxIcon } from '../../components/icons';
 import { detectPlatform, type Platform } from '../../utils/platformDetection';
 import {
   fetchLatestRelease,
@@ -27,14 +28,14 @@ import {
 import {
   HeroSection,
   LoadingState,
-  PrimaryDownload,
   ReleaseNotesSectionWrapper,
   InstallationSection,
-  OtherPlatformsSection,
+  FeaturesSection,
+  FAQSection,
   PreviousVersionsSection,
   FooterLinks,
-  type DownloadStatus,
   type DownloadInfo,
+  type DownloadStatus,
 } from './DownloadSections';
 
 /** Platform architecture labels */
@@ -43,6 +44,57 @@ const PLATFORM_ARCHITECTURES: Record<Exclude<Platform, 'unknown'>, string> = {
   windows: 'x64',
   linux: 'x64',
 };
+
+/** Helper to render platform-specific icon */
+function PlatformIcon({ platform, size = 24 }: Readonly<{ platform: Platform; size?: number }>) {
+  switch (platform) {
+    case 'windows':
+      return <WindowsIcon size={size} />;
+    case 'macos':
+      return <AppleIcon size={size} />;
+    case 'linux':
+      return <LinuxIcon size={size} />;
+    default:
+      return null;
+  }
+}
+
+const DOWNLOAD_STORAGE_KEY = 'eclosion-download-timestamps';
+const MAX_AUTO_DOWNLOADS = 2;
+const AUTO_DOWNLOAD_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
+
+/** Check if we should auto-download based on recent download history */
+function shouldAutoDownload(): boolean {
+  try {
+    const stored = localStorage.getItem(DOWNLOAD_STORAGE_KEY);
+    if (!stored) return true;
+
+    const timestamps: number[] = JSON.parse(stored);
+    const now = Date.now();
+    const recentDownloads = timestamps.filter((t) => now - t < AUTO_DOWNLOAD_WINDOW_MS);
+
+    return recentDownloads.length < MAX_AUTO_DOWNLOADS;
+  } catch {
+    return true;
+  }
+}
+
+/** Record a download timestamp */
+function recordDownload(): void {
+  try {
+    const stored = localStorage.getItem(DOWNLOAD_STORAGE_KEY);
+    const timestamps: number[] = stored ? JSON.parse(stored) : [];
+    const now = Date.now();
+
+    // Keep only recent timestamps + new one
+    const recentTimestamps = timestamps.filter((t) => now - t < AUTO_DOWNLOAD_WINDOW_MS);
+    recentTimestamps.push(now);
+
+    localStorage.setItem(DOWNLOAD_STORAGE_KEY, JSON.stringify(recentTimestamps));
+  } catch {
+    // Ignore storage errors
+  }
+}
 
 export function DownloadPage() {
   const [searchParams] = useSearchParams();
@@ -97,20 +149,26 @@ export function DownloadPage() {
     };
   }, []);
 
-  // Auto-start download after brief delay
+  // Auto-start download after brief delay (rate-limited)
   useEffect(() => {
     if (!loading && release && activePlatform !== 'unknown' && !downloadStarted.current) {
       const downloadUrl = getDownloadUrl(release, activePlatform);
       if (downloadUrl) {
         downloadStarted.current = true;
+        const canAutoDownload = shouldAutoDownload();
+
         /* eslint-disable react-hooks/set-state-in-effect -- Syncing download status with download timer */
         setDownloadStatus('starting');
 
         const timer = setTimeout(() => {
           setDownloadStatus('started');
           /* eslint-enable react-hooks/set-state-in-effect */
-          window.location.href = downloadUrl;
-        }, 1500);
+          // Only actually download if under rate limit
+          if (canAutoDownload) {
+            recordDownload();
+            window.location.href = downloadUrl;
+          }
+        }, 5000);
 
         return () => clearTimeout(timer);
       }
@@ -134,22 +192,52 @@ export function DownloadPage() {
 
   return (
     <DocsLayout>
-      <HeroSection activePlatform={activePlatform} {...(version && { version })} />
+      <HeroSection
+        activePlatform={activePlatform}
+        version={version}
+        downloadUrl={primaryDownload.url}
+        fileSize={primaryDownload.size}
+        architecture={primaryDownload.architecture}
+        loading={loading}
+        downloadStatus={downloadStatus}
+      />
 
-      <section className="px-4 sm:px-6 pb-8">
-        <div className="max-w-xl mx-auto">
-          <LoadingState loading={loading} error={error} />
+      {/* Loading/Error State */}
+      {(loading || error) && (
+        <section className="px-4 sm:px-6 pb-8">
+          <div className="max-w-4xl mx-auto">
+            <LoadingState loading={loading} error={error} />
+          </div>
+        </section>
+      )}
 
-          {!loading && !error && version && (
-            <PrimaryDownload
-              platform={activePlatform}
-              version={version}
-              downloadInfo={primaryDownload}
-              downloadStatus={downloadStatus}
-            />
-          )}
-        </div>
-      </section>
+      {/* Other platforms link */}
+      {!loading && !error && (
+        <section className="px-4 sm:px-6 py-6 text-center">
+          <div className="max-w-4xl mx-auto">
+            <p className="text-[var(--monarch-text-muted)] mb-4">
+              Looking for downloads for other operating systems?
+            </p>
+            <div className="flex items-center justify-center gap-4">
+              {(['windows', 'macos', 'linux'] as const)
+                .filter((p) => p !== activePlatform)
+                .map((platform) => (
+                  <a
+                    key={platform}
+                    href={`/download?platform=${platform}`}
+                    className="flex flex-col items-center justify-center gap-2 w-24 h-24 rounded-xl border border-[var(--monarch-border)] bg-[var(--monarch-bg-card)] hover:border-[var(--monarch-orange)] hover:text-[var(--monarch-orange)] transition-colors text-[var(--monarch-text-muted)]"
+                    aria-label={`Download for ${platform === 'macos' ? 'macOS' : platform.charAt(0).toUpperCase() + platform.slice(1)}`}
+                  >
+                    <PlatformIcon platform={platform} size={28} />
+                    <span className="text-sm font-medium">
+                      {platform === 'macos' ? 'macOS' : platform.charAt(0).toUpperCase() + platform.slice(1)}
+                    </span>
+                  </a>
+                ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {!loading && !error && release && version && (
         <ReleaseNotesSectionWrapper release={release} version={version} />
@@ -157,14 +245,8 @@ export function DownloadPage() {
 
       {!loading && !error && <InstallationSection platform={activePlatform} />}
 
-      {!loading && !error && release && version && (
-        <OtherPlatformsSection
-          activePlatform={activePlatform}
-          version={version}
-          getDownloadInfo={getDownloadInfo}
-        />
-      )}
-
+      <FeaturesSection />
+      <FAQSection />
       <PreviousVersionsSection />
       <FooterLinks />
     </DocsLayout>

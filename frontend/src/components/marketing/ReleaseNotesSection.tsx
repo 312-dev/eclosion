@@ -62,14 +62,20 @@ function markdownToText(markdown: string): string {
 function markdownToHtml(markdown: string): string {
   if (!markdown) return '';
 
-  let html = markdown
+  // Normalize list items: remove blank lines between consecutive list items
+  // This ensures they get grouped into a single <ul>
+  let normalized = markdown
+    // Collapse multiple blank lines between list items into single newlines
+    .replace(/^([-*] .+)\n+(?=[-*] )/gm, '$1\n');
+
+  let html = normalized
     // Escape HTML entities first
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     // Headers (## heading)
-    .replace(/^### (.+)$/gm, '<h4 class="font-semibold text-[var(--monarch-text-dark)] mt-4 mb-2">$1</h4>')
-    .replace(/^## (.+)$/gm, '<h3 class="font-semibold text-[var(--monarch-text-dark)] mt-4 mb-2">$1</h3>')
+    .replace(/^### (.+)$/gm, '<h4 class="font-semibold text-[var(--monarch-text-dark)] mt-3 mb-1">$1</h4>')
+    .replace(/^## (.+)$/gm, '<h3 class="font-semibold text-[var(--monarch-text-dark)] mt-3 mb-1">$1</h3>')
     // Bold (**text**)
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     // Italic (*text*)
@@ -80,19 +86,24 @@ function markdownToHtml(markdown: string): string {
     .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-[var(--monarch-orange)] hover:underline">$1</a>')
     // Unordered list items (- item or * item)
     .replace(/^[-*] (.+)$/gm, '<li>$1</li>')
-    // Wrap consecutive li elements in ul
-    .replace(/(<li[^>]*>.*<\/li>\n?)+/g, '<ul class="list-disc pl-5 space-y-0.5 my-1.5">$&</ul>')
+    // Wrap consecutive li elements in ul (now they should be consecutive after normalization)
+    .replace(/(<li>.*<\/li>\n?)+/g, '<ul class="list-disc pl-5 space-y-1 my-2">$&</ul>')
+    // Clean up newlines inside ul tags (between li elements)
+    .replace(/<\/li>\n<li>/g, '</li><li>')
     // Blockquotes (> text)
     .replace(/^&gt; (.+)$/gm, '<blockquote class="border-l-2 border-[var(--monarch-border)] pl-3 italic text-[var(--monarch-text-muted)]">$1</blockquote>')
     // Line breaks - convert double newlines to paragraph breaks
-    .replace(/\n\n/g, '</p><p class="my-2">')
-    // Single newlines within paragraphs
-    .replace(/\n/g, '<br/>');
+    .replace(/\n\n+/g, '</p><p class="my-1">')
+    // Single newlines (not inside lists) - be more selective
+    .replace(/\n/g, ' ');
 
   // Wrap in paragraph if not already wrapped
   if (!html.startsWith('<')) {
-    html = `<p class="my-2">${html}</p>`;
+    html = `<p class="my-1">${html}</p>`;
   }
+
+  // Clean up empty paragraphs
+  html = html.replaceAll(/<p class="my-1">\s*<\/p>/g, '');
 
   return html;
 }
@@ -114,15 +125,15 @@ export function ReleaseNotesSection({
 
   return (
     <div
-      className="p-4 rounded-lg border border-[var(--monarch-border)]"
+      className="p-6 rounded-xl border border-[var(--monarch-border)]"
       style={{ backgroundColor: 'var(--monarch-bg-card)' }}
     >
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="font-semibold text-[var(--monarch-text-dark)]">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-semibold text-lg text-[var(--monarch-text-dark)]">
           What&apos;s New in v{version}
         </h3>
         {publishedAt && (
-          <span className="text-xs text-[var(--monarch-text-muted)]">
+          <span className="text-sm text-[var(--monarch-text-muted)]">
             {new Date(publishedAt).toLocaleDateString('en-US', {
               month: 'short',
               day: 'numeric',
@@ -133,7 +144,7 @@ export function ReleaseNotesSection({
       </div>
 
       {summary && (
-        <p className="text-sm text-[var(--monarch-text)] mb-3">
+        <p className="text-[var(--monarch-text)] mb-4 leading-relaxed">
           {markdownToText(summary)}
         </p>
       )}
@@ -143,27 +154,27 @@ export function ReleaseNotesSection({
           <button
             type="button"
             onClick={() => setIsExpanded(!isExpanded)}
-            className="flex items-center gap-1 text-xs font-medium text-[var(--monarch-orange)] hover:opacity-80 transition-opacity"
+            className="flex items-center gap-1.5 text-sm font-medium text-[var(--monarch-orange)] hover:opacity-80 transition-opacity"
             aria-expanded={isExpanded}
             aria-label={isExpanded ? 'Hide full release notes' : 'Show full release notes'}
           >
             {isExpanded ? (
               <>
-                <ChevronUpIcon size={14} />
+                <ChevronUpIcon size={16} />
                 Hide details
               </>
             ) : (
               <>
-                <ChevronDownIcon size={14} />
+                <ChevronDownIcon size={16} />
                 View full release notes
               </>
             )}
           </button>
 
           {isExpanded && (
-            <div className="mt-3 pt-3 border-t border-[var(--monarch-border)]">
+            <div className="mt-4 pt-4 border-t border-[var(--monarch-border)]">
               <div
-                className="text-sm text-[var(--monarch-text)] prose-sm"
+                className="text-[var(--monarch-text)] leading-relaxed"
                 dangerouslySetInnerHTML={{ __html: markdownToHtml(body) }}
               />
             </div>
@@ -171,15 +182,15 @@ export function ReleaseNotesSection({
         </>
       )}
 
-      <div className="mt-3 pt-3 border-t border-[var(--monarch-border)]">
+      <div className="mt-4 pt-4 border-t border-[var(--monarch-border)]">
         <a
           href={htmlUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 text-xs text-[var(--monarch-orange)] hover:underline"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-[var(--monarch-orange)] hover:underline"
         >
           View on GitHub
-          <ExternalLinkIcon size={12} />
+          <ExternalLinkIcon size={14} />
         </a>
       </div>
     </div>

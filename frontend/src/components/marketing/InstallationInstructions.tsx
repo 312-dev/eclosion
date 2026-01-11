@@ -17,24 +17,24 @@ interface InstallationInstructionsProps {
 function MacOSInstructions({ hideHeader }: { hideHeader?: boolean }) {
   return (
     <div
-      className="p-4 rounded-lg border border-[var(--monarch-border)]"
+      className="p-6 rounded-xl border border-[var(--monarch-border)]"
       style={{ backgroundColor: 'var(--monarch-bg-card)' }}
     >
       {!hideHeader && (
-        <h3 className="font-semibold text-[var(--monarch-text-dark)] mb-2">
+        <h3 className="font-semibold text-lg text-[var(--monarch-text-dark)] mb-3">
           macOS
         </h3>
       )}
-      <p className="text-sm text-[var(--monarch-text)] mb-3">
+      <p className="text-[var(--monarch-text)] mb-4">
         Universal binary - works on both Intel and Apple Silicon Macs.
       </p>
-      <ol className="text-sm text-[var(--monarch-text)] space-y-2 list-decimal list-inside">
+      <ol className="text-[var(--monarch-text)] space-y-3 list-decimal list-inside">
         <li>Open the downloaded .dmg file</li>
         <li>Drag Eclosion to your Applications folder</li>
         <li>Launch Eclosion from Applications</li>
       </ol>
 
-      <p className="text-xs text-[var(--monarch-text-muted)] mt-3">
+      <p className="text-sm text-[var(--monarch-text-muted)] mt-4">
         The app is signed and notarized by Apple for your security.
       </p>
     </div>
@@ -44,15 +44,15 @@ function MacOSInstructions({ hideHeader }: { hideHeader?: boolean }) {
 function WindowsInstructions({ hideHeader }: { hideHeader?: boolean }) {
   return (
     <div
-      className="p-4 rounded-lg border border-[var(--monarch-border)]"
+      className="p-6 rounded-xl border border-[var(--monarch-border)]"
       style={{ backgroundColor: 'var(--monarch-bg-card)' }}
     >
       {!hideHeader && (
-        <h3 className="font-semibold text-[var(--monarch-text-dark)] mb-2">
+        <h3 className="font-semibold text-lg text-[var(--monarch-text-dark)] mb-3">
           Windows
         </h3>
       )}
-      <ol className="text-sm text-[var(--monarch-text)] space-y-2 list-decimal list-inside">
+      <ol className="text-[var(--monarch-text)] space-y-3 list-decimal list-inside">
         <li>Run the downloaded .exe installer</li>
         <li>
           If Windows SmartScreen appears, click "More info" then "Run
@@ -68,24 +68,24 @@ function WindowsInstructions({ hideHeader }: { hideHeader?: boolean }) {
 function LinuxInstructions({ hideHeader }: { hideHeader?: boolean }) {
   return (
     <div
-      className="p-4 rounded-lg border border-[var(--monarch-border)]"
+      className="p-6 rounded-xl border border-[var(--monarch-border)]"
       style={{ backgroundColor: 'var(--monarch-bg-card)' }}
     >
       {!hideHeader && (
-        <h3 className="font-semibold text-[var(--monarch-text-dark)] mb-2">
+        <h3 className="font-semibold text-lg text-[var(--monarch-text-dark)] mb-3">
           Linux
         </h3>
       )}
-      <ol className="text-sm text-[var(--monarch-text)] space-y-2 list-decimal list-inside">
+      <ol className="text-[var(--monarch-text)] space-y-3 list-decimal list-inside">
         <li>
           Make the AppImage executable:{' '}
-          <code className="font-mono text-xs bg-[var(--monarch-bg-hover)] px-1.5 py-0.5 rounded">
+          <code className="font-mono text-sm bg-[var(--monarch-bg-hover)] px-2 py-1 rounded">
             chmod +x Eclosion-*.AppImage
           </code>
         </li>
         <li>
           Run the AppImage:{' '}
-          <code className="font-mono text-xs bg-[var(--monarch-bg-hover)] px-1.5 py-0.5 rounded">
+          <code className="font-mono text-sm bg-[var(--monarch-bg-hover)] px-2 py-1 rounded">
             ./Eclosion-*.AppImage
           </code>
         </li>
