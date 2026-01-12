@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 /**
  * Recurring Tool Settings
  *
@@ -7,12 +8,15 @@
 
 import { useState, forwardRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { EyeOff } from 'lucide-react';
 import { SearchableSelect } from '../SearchableSelect';
 import { useToast } from '../../context/ToastContext';
 import { useDemo } from '../../context/DemoContext';
-import { useApiClient, useSavingStates } from '../../hooks';
+import { useApiClient, useSavingStates, useHiddenCategories } from '../../hooks';
 import { useInvalidateDashboard } from '../../api/queries';
 import { RecurringToolHeader } from './RecurringToolHeader';
+import { NotesToolSettings } from './NotesToolSettings';
+import { HiddenCategoriesModal } from './HiddenCategoriesModal';
 import { SettingsRow } from './SettingsRow';
 import { ToggleSwitch } from './ToggleSwitch';
 import { ThresholdInput } from './ThresholdInput';
@@ -38,6 +42,16 @@ export const RecurringToolSettings = forwardRef<HTMLElement, RecurringToolSettin
 
     const [categoryGroups, setCategoryGroups] = useState<CategoryGroup[]>([]);
     const [loadingGroups, setLoadingGroups] = useState(false);
+    const [showHiddenCategoriesModal, setShowHiddenCategoriesModal] = useState(false);
+
+    // Hidden categories for notes
+    const {
+      hiddenGroups,
+      hiddenCategories,
+      hiddenCount,
+      toggleGroup: toggleHiddenGroup,
+      toggleCategory: toggleHiddenCategory,
+    } = useHiddenCategories();
 
     type SettingKey = 'group' | 'autoTrack' | 'threshold' | 'autoUpdateTargets' | 'autoCategorize' | 'showCategoryGroup';
     const { isSaving, withSaving } = useSavingStates<SettingKey>();
@@ -294,9 +308,44 @@ export const RecurringToolSettings = forwardRef<HTMLElement, RecurringToolSettin
                   </button>
                 </div>
               )}
+
+              {/* Notes Tool Header - separator and header */}
+              <div style={{ borderTop: '1px solid var(--monarch-border-light, rgba(0,0,0,0.06))' }}>
+                <NotesToolSettings />
+
+                {/* Hidden categories setting */}
+                <SettingsRow
+                  label="Hidden categories"
+                  description="Categories hidden from the notes view"
+                  isLast
+                >
+                  <button
+                    type="button"
+                    onClick={() => setShowHiddenCategoriesModal(true)}
+                    className="flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg transition-colors hover:bg-(--monarch-bg-hover)"
+                    style={{
+                      color: 'var(--monarch-text-dark)',
+                      border: '1px solid var(--monarch-border)',
+                    }}
+                  >
+                    <EyeOff size={14} style={{ color: 'var(--monarch-text-muted)' }} />
+                    {hiddenCount > 0 ? `${hiddenCount} hidden` : 'None'}
+                  </button>
+                </SettingsRow>
+              </div>
             </>
           )}
         </div>
+
+        {/* Hidden Categories Modal */}
+        <HiddenCategoriesModal
+          isOpen={showHiddenCategoriesModal}
+          onClose={() => setShowHiddenCategoriesModal(false)}
+          hiddenGroups={hiddenGroups}
+          hiddenCategories={hiddenCategories}
+          onToggleGroup={toggleHiddenGroup}
+          onToggleCategory={toggleHiddenCategory}
+        />
       </section>
     );
   }

@@ -2,7 +2,8 @@
  * RecurringToolHeader - Header section for the Recurring Tool settings card
  */
 
-import { Repeat, ChevronRight } from 'lucide-react';
+import { RecurringIcon } from '../wizards/SetupWizardIcons';
+import { ToolSettingsHeader } from './ToolSettingsHeader';
 
 interface RecurringToolHeaderProps {
   readonly hasAnythingToReset: boolean;
@@ -17,51 +18,40 @@ export function RecurringToolHeader({
   totalItems,
   onNavigate,
 }: RecurringToolHeaderProps) {
+  const description = hasAnythingToReset ? (
+    <span className="flex items-center gap-3">
+      <span>
+        {totalCategories} {totalCategories === 1 ? 'category' : 'categories'}
+      </span>
+      <span style={{ color: 'var(--monarch-border)' }}>|</span>
+      <span>
+        {totalItems} tracked {totalItems === 1 ? 'item' : 'items'}
+      </span>
+    </span>
+  ) : (
+    'Not configured'
+  );
+
+  const statusBadge = hasAnythingToReset ? (
+    <span
+      className="px-2 py-0.5 text-xs font-medium rounded-full"
+      style={{
+        backgroundColor: 'var(--monarch-success-bg)',
+        color: 'var(--monarch-success)',
+      }}
+    >
+      Active
+    </span>
+  ) : undefined;
+
   return (
-    <div className="p-4">
-      <div className="flex items-center gap-4">
-        <div
-          className="p-2.5 rounded-lg shrink-0"
-          style={{ backgroundColor: hasAnythingToReset ? 'var(--monarch-orange-light)' : 'var(--monarch-bg-page)' }}
-        >
-          <Repeat size={20} style={{ color: hasAnythingToReset ? 'var(--monarch-orange)' : 'var(--monarch-text-muted)' }} />
-        </div>
-
-        <div className="flex-1 min-w-0">
-          <div className="font-medium flex items-center gap-2" style={{ color: 'var(--monarch-text-dark)' }}>
-            Recurring Tool
-            {hasAnythingToReset && (
-              <span
-                className="px-2 py-0.5 text-xs font-medium rounded-full"
-                style={{ backgroundColor: 'var(--monarch-success-bg)', color: 'var(--monarch-success)' }}
-              >
-                Active
-              </span>
-            )}
-          </div>
-          <div className="text-sm mt-0.5" style={{ color: 'var(--monarch-text-muted)' }}>
-            {hasAnythingToReset ? (
-              <span className="flex items-center gap-3">
-                <span>{totalCategories} {totalCategories === 1 ? 'category' : 'categories'}</span>
-                <span style={{ color: 'var(--monarch-border)' }}>|</span>
-                <span>{totalItems} tracked {totalItems === 1 ? 'item' : 'items'}</span>
-              </span>
-            ) : (
-              'Not configured'
-            )}
-          </div>
-        </div>
-
-        <button
-          type="button"
-          className="p-2 rounded-lg shrink-0 hover-bg-transparent-to-hover"
-          style={{ background: 'none', border: 'none', cursor: 'pointer' }}
-          onClick={onNavigate}
-          aria-label="Go to Recurring tool"
-        >
-          <ChevronRight size={20} style={{ color: 'var(--monarch-text-muted)' }} />
-        </button>
-      </div>
-    </div>
+    <ToolSettingsHeader
+      icon={<RecurringIcon size={20} />}
+      title="Recurring Tool"
+      description={description}
+      isActive={hasAnythingToReset}
+      statusBadge={statusBadge}
+      onNavigate={onNavigate}
+    />
   );
 }

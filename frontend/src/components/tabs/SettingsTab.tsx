@@ -39,6 +39,7 @@ import {
   DataManagementSection,
   DangerZoneSection,
   CreditsSection,
+  SettingsSidebar,
 } from '../settings';
 
 export function SettingsTab() {
@@ -64,7 +65,8 @@ export function SettingsTab() {
     fetchAutoSyncStatus();
     fetchVersionInfo();
 
-    if (globalThis.location.hash === '#recurring') {
+    // Both #recurring and #notes scroll to Tool Settings section
+    if (globalThis.location.hash === '#recurring' || globalThis.location.hash === '#notes') {
       setTimeout(() => {
         recurringSettingsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }, UI.SCROLL.AFTER_MOUNT);
@@ -126,70 +128,84 @@ export function SettingsTab() {
   const totalItems = dedicatedItems.length + rollupItems.length;
 
   return (
-    <div className="max-w-2xl mx-auto tab-content-enter" data-testid="settings-content">
-      {/* Page Header */}
-      <div className="mb-8">
-        <div className="flex items-center gap-3 mb-2">
-          <div
-            className="p-2.5 rounded-xl"
-            style={{ backgroundColor: 'var(--monarch-orange-light)' }}
-          >
-            <Settings size={22} style={{ color: 'var(--monarch-orange)' }} />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold" style={{ color: 'var(--monarch-text-dark)' }}>
-              Settings
-            </h1>
-            <p className="text-sm" style={{ color: 'var(--monarch-text-muted)' }}>
-              Configure your Eclosion preferences
-            </p>
+    <div className="settings-layout" data-testid="settings-content">
+      {/* Floating sidebar for quick navigation - hidden on mobile */}
+      <SettingsSidebar />
+
+      {/* Main settings content */}
+      <div className="settings-content tab-content-enter">
+        {/* Page Header */}
+        <div className="mb-8">
+          <div className="flex items-center gap-3 mb-2">
+            <div
+              className="p-2.5 rounded-xl"
+              style={{ backgroundColor: 'var(--monarch-orange-light)' }}
+            >
+              <Settings size={22} style={{ color: 'var(--monarch-orange)' }} />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold" style={{ color: 'var(--monarch-text-dark)' }}>
+                Settings
+              </h1>
+              <p className="text-sm" style={{ color: 'var(--monarch-text-muted)' }}>
+                Configure your Eclosion preferences
+              </p>
+            </div>
           </div>
         </div>
+
+        {isDemo && <div id="demo"><DemoModeSection /></div>}
+
+        {/* User-facing settings */}
+        <div id="appearance"><AppearanceSettings /></div>
+
+        <div id="tool-settings">
+          <RecurringToolSettings
+            ref={recurringSettingsRef}
+            dashboardData={dashboardData}
+            loading={loading}
+            onRefreshDashboard={fetchDashboardData}
+            onShowResetModal={() => setShowRecurringResetModal(true)}
+          />
+        </div>
+
+        <div id="account"><AccountSection /></div>
+
+        <div id="updates">
+          <UpdatesSection
+            versionInfo={versionInfo}
+            onShowUpdateModal={() => setShowUpdateModal(true)}
+          />
+        </div>
+
+        <div id="credits"><CreditsSection /></div>
+
+        {/* Technical settings */}
+        <div id="automation">
+          <AutomationSection
+            status={autoSyncStatus}
+            onEnable={handleEnableAutoSync}
+            onDisable={handleDisableAutoSync}
+            onRefresh={fetchAutoSyncStatus}
+          />
+        </div>
+
+        {isDesktop && <div id="desktop"><DesktopSection /></div>}
+
+        {/* Hide security events on desktop - only relevant for web deployments */}
+        {!isDesktop && <div id="security"><SecuritySection /></div>}
+
+        <div id="data"><DataManagementSection onShowImportModal={() => setShowImportModal(true)} /></div>
+
+        {isDesktop && <div id="logs"><LogViewerSection /></div>}
+
+        <div id="danger">
+          <DangerZoneSection
+            onShowResetModal={() => setShowResetModal(true)}
+            onShowUninstallModal={() => setShowUninstallModal(true)}
+          />
+        </div>
       </div>
-
-      {isDemo && <DemoModeSection />}
-
-      {/* User-facing settings */}
-      <AppearanceSettings />
-
-      <RecurringToolSettings
-        ref={recurringSettingsRef}
-        dashboardData={dashboardData}
-        loading={loading}
-        onRefreshDashboard={fetchDashboardData}
-        onShowResetModal={() => setShowRecurringResetModal(true)}
-      />
-
-      <AccountSection />
-
-      <UpdatesSection
-        versionInfo={versionInfo}
-        onShowUpdateModal={() => setShowUpdateModal(true)}
-      />
-
-      <CreditsSection />
-
-      {/* Technical settings */}
-      <AutomationSection
-        status={autoSyncStatus}
-        onEnable={handleEnableAutoSync}
-        onDisable={handleDisableAutoSync}
-        onRefresh={fetchAutoSyncStatus}
-      />
-
-      {isDesktop && <DesktopSection />}
-
-      {/* Hide security events on desktop - only relevant for web deployments */}
-      {!isDesktop && <SecuritySection />}
-
-      <DataManagementSection onShowImportModal={() => setShowImportModal(true)} />
-
-      {isDesktop && <LogViewerSection />}
-
-      <DangerZoneSection
-        onShowResetModal={() => setShowResetModal(true)}
-        onShowUninstallModal={() => setShowUninstallModal(true)}
-      />
 
       {/* Modals */}
       <ResetAppModal
