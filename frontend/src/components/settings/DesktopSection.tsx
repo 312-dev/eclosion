@@ -58,6 +58,22 @@ export function DesktopSection() {
     }
   }, [fetchSettings]);
 
+  // Reset auto-lock to "never" when biometric is disabled
+  // On desktop, auto-lock only makes sense with Touch ID since there's no encryption password
+  useEffect(() => {
+    const resetLockTrigger = async () => {
+      if (!biometric.loading && !biometric.enrolled && lockTrigger !== 'never' && globalThis.electron) {
+        try {
+          await globalThis.electron.lock.setTrigger('never');
+          setLockTrigger('never');
+        } catch {
+          // Ignore errors
+        }
+      }
+    };
+    void resetLockTrigger();
+  }, [biometric.loading, biometric.enrolled, lockTrigger]);
+
   const handleAutoStartChange = async () => {
     if (!window.electron || !settings) return;
     try {
@@ -91,6 +107,11 @@ export function DesktopSection() {
 
   const handleLockTriggerChange = async (newTrigger: LockTrigger) => {
     if (!window.electron) return;
+    // On desktop, only allow auto-lock if biometric (Touch ID) is enrolled
+    // Without biometric, there's no way to unlock (no encryption password on desktop)
+    if (!biometric.enrolled && newTrigger !== 'never') {
+      return;
+    }
     try {
       await window.electron.lock.setTrigger(newTrigger);
       setLockTrigger(newTrigger);
@@ -130,6 +151,17 @@ export function DesktopSection() {
 
   // Don't render if not in desktop mode
   if (!window.electron) return null;
+
+  // Auto-lock requires biometric on desktop (no encryption password)
+  const getAutoLockDescription = (): string => {
+    if (biometric.enrolled) {
+      return `When to require ${biometric.displayName} re-entry`;
+    }
+    if (biometric.available) {
+      return `Enable ${biometric.displayName} below to use auto-lock`;
+    }
+    return 'Requires biometric authentication to be available';
+  };
 
   return (
     <section className="mb-8">
@@ -220,18 +252,19 @@ export function DesktopSection() {
 
         <SettingsRow
           label="Auto-lock"
-          description="When to require passphrase re-entry"
+          description={getAutoLockDescription()}
         >
           <div className="relative">
             <select
               value={lockTrigger}
               onChange={(e) => handleLockTriggerChange(e.target.value as LockTrigger)}
-              disabled={loading}
+              disabled={loading || !biometric.enrolled}
               className="appearance-none pl-3 pr-8 py-1.5 rounded-lg text-sm cursor-pointer hover-bg-page-to-hover"
               style={{
-                color: 'var(--monarch-text-dark)',
+                color: biometric.enrolled ? 'var(--monarch-text-dark)' : 'var(--monarch-text-muted)',
                 border: '1px solid var(--monarch-border)',
                 backgroundColor: 'var(--monarch-bg-card)',
+                opacity: biometric.enrolled ? 1 : 0.6,
               }}
               aria-label="Select auto-lock timing"
             >
