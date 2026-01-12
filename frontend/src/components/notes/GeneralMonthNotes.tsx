@@ -159,6 +159,14 @@ function GeneralMonthNotesInner({ monthKey, effectiveNote }: GeneralMonthNotesPr
     setContent(newContent);
   }, []);
 
+  // Handle immediate save (e.g., after math insertion)
+  const handleCommit = useCallback((newContent: string) => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+    saveNote(newContent);
+  }, [saveNote]);
+
   // Enter edit mode
   const handleStartEdit = useCallback(() => {
     setIsEditing(true);
@@ -171,6 +179,7 @@ function GeneralMonthNotesInner({ monthKey, effectiveNote }: GeneralMonthNotesPr
         <NoteEditorMDX
           value={content}
           onChange={handleContentChange}
+          onCommit={handleCommit}
           placeholder="Write general notes for this month..."
           minHeight={200}
           autoFocus

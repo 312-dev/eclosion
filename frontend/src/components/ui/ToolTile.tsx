@@ -11,24 +11,37 @@ export interface ToolTileProps {
   name: string;
   description: string;
   icon: ReactNode;
-  onClick: () => void;
+  onClick?: () => void;
+  disabled?: boolean;
 }
 
-export function ToolTile({ name, description, icon, onClick }: ToolTileProps) {
+export function ToolTile({
+  name,
+  description,
+  icon,
+  onClick,
+  disabled,
+}: ToolTileProps) {
   return (
     <button
       type="button"
-      onClick={onClick}
-      className="w-full text-left p-5 rounded-xl group hover-tool-tile cursor-pointer"
+      onClick={disabled ? undefined : onClick}
+      disabled={disabled}
+      className={`w-full text-left p-5 rounded-xl group ${disabled ? 'cursor-default' : 'hover-tool-tile cursor-pointer'}`}
       style={{
         backgroundColor: 'var(--monarch-bg-card)',
         border: '1px solid var(--monarch-border)',
+        opacity: disabled ? 0.6 : 1,
       }}
     >
       <div className="flex items-start gap-4">
         <div
           className="shrink-0 p-3 rounded-lg"
-          style={{ backgroundColor: 'var(--monarch-orange-light)' }}
+          style={{
+            backgroundColor: disabled
+              ? 'var(--monarch-bg-page)'
+              : 'var(--monarch-orange-light)',
+          }}
         >
           {icon}
         </div>
@@ -40,11 +53,13 @@ export function ToolTile({ name, description, icon, onClick }: ToolTileProps) {
             >
               {name}
             </h3>
-            <ChevronRight
-              size={20}
-              className="shrink-0 transition-transform group-hover:translate-x-1"
-              style={{ color: 'var(--monarch-text-muted)' }}
-            />
+            {!disabled && (
+              <ChevronRight
+                size={20}
+                className="shrink-0 transition-transform group-hover:translate-x-1"
+                style={{ color: 'var(--monarch-text-muted)' }}
+              />
+            )}
           </div>
           <p
             className="text-sm mt-1"

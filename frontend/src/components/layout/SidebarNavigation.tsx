@@ -8,7 +8,7 @@
 import { useState } from 'react';
 import { NavLink, useNavigate, Link } from 'react-router-dom';
 import { Settings, Lock, Lightbulb, LayoutDashboard } from 'lucide-react';
-import { RecurringIcon, AppIcon } from '../wizards/WizardComponents';
+import { RecurringIcon, NotesIcon, AppIcon } from '../wizards/WizardComponents';
 import { IdeasModal } from '../IdeasModal';
 import { Portal } from '../Portal';
 import { Tooltip } from '../ui/Tooltip';
@@ -35,6 +35,7 @@ function getNavItems(isDemo: boolean): { dashboardItem: NavItem; toolkitItems: N
     dashboardItem: { path: `${prefix}/dashboard`, label: 'Dashboard', icon: <LayoutDashboard size={20} /> },
     toolkitItems: [
       { path: `${prefix}/recurring`, label: 'Recurring', icon: <RecurringIcon size={20} />, settingsHash: '#recurring' },
+      { path: `${prefix}/notes`, label: 'Notes', icon: <NotesIcon size={20} />, settingsHash: '#notes' },
     ],
     otherItems: [
       { path: `${prefix}/settings`, label: 'Settings', icon: <Settings size={20} /> },
@@ -114,8 +115,8 @@ export function SidebarNavigation({ onLock }: Readonly<SidebarNavigationProps>) 
       {/* Tools section - scrollable on mobile */}
       <div className="sidebar-nav-tools">
         <div className="sidebar-nav-sections">
-          {/* Dashboard link */}
-          <div className="sidebar-nav-section">
+          {/* Dashboard link - desktop only (on mobile it's in the scrollable list) */}
+          <div className="sidebar-nav-section sidebar-desktop-only">
             <ul className="sidebar-nav-list">
               <li>
                 <NavItemLink item={dashboardItem} />
@@ -137,16 +138,18 @@ export function SidebarNavigation({ onLock }: Readonly<SidebarNavigationProps>) 
                 <span>Suggest</span>
               </button>
             </div>
-            <ul className="sidebar-nav-list" aria-labelledby="toolkit-heading">
-              {toolkitItems.map((item) => (
-                <li key={item.path}>
-                  <NavItemLink item={item} onSettingsClick={handleSettingsClick} />
+            {/* All nav items - scrollable on mobile */}
+            <div className="sidebar-toolkit-wrapper">
+              <ul className="sidebar-nav-list" aria-labelledby="toolkit-heading">
+                {/* Dashboard in scrollable list - mobile only */}
+                <li className="sidebar-mobile-only">
+                  <NavItemLink item={dashboardItem} />
                 </li>
-              ))}
-            </ul>
-            {/* Coming soon features - scrollable on mobile */}
-            <div className="sidebar-coming-soon-wrapper">
-              <ul className="sidebar-nav-list sidebar-coming-soon-list">
+                {toolkitItems.map((item) => (
+                  <li key={item.path}>
+                    <NavItemLink item={item} onSettingsClick={handleSettingsClick} />
+                  </li>
+                ))}
                 {comingSoonFeatures.map((feature) => {
                   const IconComponent = Icons[feature.icon];
                   return (

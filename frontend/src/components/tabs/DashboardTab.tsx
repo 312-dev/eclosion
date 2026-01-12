@@ -7,10 +7,12 @@
 import { useNavigate } from 'react-router-dom';
 import { Github } from 'lucide-react';
 import { ToolTile } from '../ui/ToolTile';
-import { RecurringIcon } from '../wizards/WizardComponents';
+import { RecurringIcon, NotesIcon } from '../wizards/WizardComponents';
+import { Icons } from '../icons';
 import { useDashboardQuery } from '../../api/queries';
 import { usePageTitle } from '../../hooks';
 import { useDemo } from '../../context/DemoContext';
+import { getComingSoonFeatures } from '../../data/features';
 
 function RedditIcon({ size = 20 }: { size?: number }) {
   return (
@@ -29,6 +31,13 @@ function getTools(isDemo: boolean) {
       description: 'Track and manage recurring expenses with smart category allocation',
       icon: <RecurringIcon size={28} />,
       path: `${prefix}/recurring`,
+    },
+    {
+      id: 'notes',
+      name: 'Notes',
+      description: 'Add notes to categories that carry forward each month',
+      icon: <NotesIcon size={28} />,
+      path: `${prefix}/notes`,
     },
   ];
 }
@@ -75,6 +84,30 @@ export function DashboardTab() {
               onClick={() => navigate(tool.path)}
             />
           ))}
+        </div>
+      </section>
+
+      {/* Coming Soon */}
+      <section className="mb-10">
+        <h2
+          className="text-xs font-semibold uppercase tracking-wider mb-4 px-1"
+          style={{ color: 'var(--monarch-text-muted)' }}
+        >
+          Coming Soon
+        </h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {getComingSoonFeatures().map((feature) => {
+            const IconComponent = Icons[feature.icon];
+            return (
+              <ToolTile
+                key={feature.id}
+                name={feature.name}
+                description={feature.tagline}
+                icon={<IconComponent size={28} />}
+                disabled
+              />
+            );
+          })}
         </div>
       </section>
 

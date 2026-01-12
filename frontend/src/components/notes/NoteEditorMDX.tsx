@@ -36,6 +36,8 @@ interface NoteEditorMDXProps {
   value: string;
   /** Callback when content changes */
   onChange: (value: string) => void;
+  /** Callback when content should be saved immediately (e.g., after math insertion) */
+  onCommit?: (value: string) => void;
   /** Placeholder text */
   placeholder?: string;
   /** Read-only mode */
@@ -53,6 +55,7 @@ interface NoteEditorMDXProps {
 export function NoteEditorMDX({
   value,
   onChange,
+  onCommit,
   placeholder = 'Write your note...',
   readOnly = false,
   autoFocus = false,
@@ -117,8 +120,10 @@ export function NoteEditorMDX({
     const newMarkdown = currentMarkdown + `=${mathSuggestion.result}`;
     editorRef.current.setMarkdown(newMarkdown);
     onChange(newMarkdown);
+    // Signal to parent that this is a commit point (should save immediately)
+    onCommit?.(newMarkdown);
     setMathSuggestion(null);
-  }, [mathSuggestion, onChange]);
+  }, [mathSuggestion, onChange, onCommit]);
 
   // Handle keyboard events for math suggestions
   // Use capture phase to intercept Tab before MDXEditor/Lexical handles it

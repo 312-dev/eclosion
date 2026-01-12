@@ -25,6 +25,7 @@ import { FeatureDetailPage } from './pages/FeatureDetailPage';
 import { DownloadPage } from './pages/download';
 import { DashboardTab } from './components/tabs/DashboardTab';
 import { RecurringTab } from './components/tabs/RecurringTab';
+import { NotesTab } from './components/tabs/NotesTab';
 import { SettingsTab } from './components/tabs/SettingsTab';
 import { RateLimitError, AuthRequiredError } from './api/client';
 import { ErrorPage } from './components/ui/ErrorPage';
@@ -134,6 +135,7 @@ function ProductionRoutes() {
           <Route index element={<DefaultRedirect />} />
           <Route path="/dashboard" element={<DashboardTab />} />
           <Route path="/recurring" element={<RecurringTab />} />
+          <Route path="/notes" element={<NotesTab />} />
           <Route path="/settings" element={<SettingsTab />} />
         </Route>
       </Route>
@@ -156,6 +158,7 @@ function DemoRoutes() {
           <Route path="/demo" element={<DemoDefaultRedirect />} />
           <Route path="/demo/dashboard" element={<DashboardTab />} />
           <Route path="/demo/recurring" element={<RecurringTab />} />
+          <Route path="/demo/notes" element={<NotesTab />} />
           <Route path="/demo/settings" element={<SettingsTab />} />
         </Route>
         {/* Catch-all redirect within demo */}
@@ -168,7 +171,7 @@ function DemoRoutes() {
 /**
  * Global demo routes - entire app runs as demo
  * Used when VITE_DEMO_MODE=true is set at build time
- * Serves demo content at root paths (/, /dashboard, /recurring, /settings)
+ * Serves demo content at root paths (/, /dashboard, /recurring, /settings, /notes)
  */
 function GlobalDemoRoutes() {
   return (
@@ -178,6 +181,7 @@ function GlobalDemoRoutes() {
           <Route index element={<GlobalDemoDefaultRedirect />} />
           <Route path="/dashboard" element={<DashboardTab />} />
           <Route path="/recurring" element={<RecurringTab />} />
+          <Route path="/notes" element={<NotesTab />} />
           <Route path="/settings" element={<SettingsTab />} />
         </Route>
         {/* Catch-all redirect */}

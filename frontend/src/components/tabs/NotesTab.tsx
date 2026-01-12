@@ -2,18 +2,24 @@
  * Notes Tab
  *
  * Main tab for monthly notes feature.
- * Displays category tree with notes, general month notes, and archived notes.
+ * - Category tree with expandable groups
+ * - Notes for each category and group
+ * - General month notes in sidebar
+ * - PDF export capability
  */
 
-import { useState, useMemo } from 'react';
-import { FileDown } from 'lucide-react';
-import { MonthNavigator, CategoryTree, GeneralMonthNotes, ArchivedNotesSection } from '../notes';
-import { ReaderView } from '../notes/ReaderView';
-import { useMonthNotesQuery, useArchivedNotesQuery } from '../../api/queries';
+import { useState, useMemo, useCallback } from 'react';
+import { Download } from 'lucide-react';
+import { CategoryTree, GeneralMonthNotes, MonthYearSelector, ExportNotesModal } from '../notes';
+import {
+  useAllNotesQuery,
+  useMonthNotesQuery,
+  useNotesCategoriesQuery,
+} from '../../api/queries';
+import { usePageTitle, useHiddenCategories } from '../../hooks';
 import { useToast } from '../../context/ToastContext';
-import { usePageTitle } from '../../hooks';
-import { formatDateTime } from '../../utils';
-import type { MonthKey } from '../../types/notes';
+import { buildCategoryGroupsWithNotes, hasAnyNotes } from '../../utils';
+import type { MonthKey, EffectiveGeneralNote, CategoryGroupWithNotes } from '../../types/notes';
 
 /**
  * Get current month key
@@ -25,28 +31,53 @@ function getCurrentMonthKey(): MonthKey {
 
 export function NotesTab() {
   const [currentMonth, setCurrentMonth] = useState<MonthKey>(getCurrentMonthKey());
-  const [activeTab, setActiveTab] = useState<'notes' | 'reader'>('notes');
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [showExportModal, setShowExportModal] = useState(false);
   const toast = useToast();
+
+  // Hidden categories
+  const { hiddenGroups, hiddenCategories } = useHiddenCategories();
 
   // Set page title
   usePageTitle('Notes');
 
-  // Fetch month notes data
-  const { data: monthData, isLoading: isLoadingMonth } = useMonthNotesQuery(currentMonth);
-  const { data: archivedNotes, isLoading: isLoadingArchived } = useArchivedNotesQuery();
+  // Preload all notes data into cache for instant navigation
+  useAllNotesQuery();
 
-  // Initialize expanded groups when data loads
-  useMemo(() => {
-    if (monthData?.groups && expandedGroups.size === 0) {
-      // Expand first 3 groups by default
-      const initial = new Set(monthData.groups.slice(0, 3).map(g => g.id));
-      setExpandedGroups(initial);
-    }
-  }, [monthData?.groups, expandedGroups.size]);
+  // Fetch month notes data (will use cached data from preload)
+  const { data: monthData, isLoading: notesLoading } = useMonthNotesQuery(currentMonth);
 
-  const handleToggleGroup = (groupId: string) => {
-    setExpandedGroups(prev => {
+  // Fetch all Monarch categories for the notes feature
+  const { data: notesCategories, isLoading: categoriesLoading } = useNotesCategoriesQuery();
+
+  const isLoading = notesLoading || categoriesLoading;
+
+  // Extract data from responses
+  const effectiveGeneralNote: EffectiveGeneralNote | null = monthData?.effective_general_note ?? null;
+
+  // Build hierarchical structure from notes categories
+  const allGroups: CategoryGroupWithNotes[] = useMemo(() => {
+    return buildCategoryGroupsWithNotes(monthData, notesCategories ?? []);
+  }, [monthData, notesCategories]);
+
+  // Filter out hidden groups and categories
+  const groups: CategoryGroupWithNotes[] = useMemo(() => {
+    return allGroups
+      .filter((group) => !hiddenGroups.includes(group.id))
+      .map((group) => ({
+        ...group,
+        categories: group.categories.filter(
+          (category) => !hiddenCategories.includes(category.id)
+        ),
+      }));
+  }, [allGroups, hiddenGroups, hiddenCategories]);
+
+  // Check if there are any notes
+  const hasNotes = useMemo(() => hasAnyNotes(groups, effectiveGeneralNote), [groups, effectiveGeneralNote]);
+
+  // Group expansion handlers
+  const handleToggleGroup = useCallback((groupId: string) => {
+    setExpandedGroups((prev) => {
       const next = new Set(prev);
       if (next.has(groupId)) {
         next.delete(groupId);
@@ -55,25 +86,27 @@ export function NotesTab() {
       }
       return next;
     });
-  };
+  }, []);
 
-  const handleExpandAll = () => {
-    if (monthData?.groups) {
-      setExpandedGroups(new Set(monthData.groups.map(g => g.id)));
-    }
-  };
+  const handleExpandAll = useCallback(() => {
+    setExpandedGroups(new Set(groups.map((g) => g.id)));
+  }, [groups]);
 
-  const handleCollapseAll = () => {
+  const handleCollapseAll = useCallback(() => {
     setExpandedGroups(new Set());
-  };
+  }, []);
 
-  const handleExportPdf = () => {
-    // TODO: Implement PDF export modal
-    toast.info('PDF export coming soon');
-  };
+  // Open export modal
+  const handleOpenExportModal = useCallback(() => {
+    if (!hasNotes) {
+      toast.error('No notes to export');
+      return;
+    }
+    setShowExportModal(true);
+  }, [hasNotes, toast]);
 
   // Loading state
-  if (isLoadingMonth) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
         <div style={{ color: 'var(--monarch-text-muted)' }}>Loading notes...</div>
@@ -81,87 +114,66 @@ export function NotesTab() {
     );
   }
 
-  const lastUpdated = monthData?.metadata.lastUpdatedAt;
-  const hasNotes = monthData?.groups.some(g =>
-    g.effectiveNote.note || g.categories.some(c => c.effectiveNote.note)
-  ) || monthData?.generalNote;
-
   return (
-    <div className="notes-tab-layout tab-content-enter">
-      {/* Month Navigator */}
-      <MonthNavigator
-        currentMonth={currentMonth}
-        onMonthChange={setCurrentMonth}
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-      />
+    <div className="max-w-7xl mx-auto px-4 py-6 tab-content-enter">
+      {/* Header with month navigation */}
+      <div className="flex items-center justify-between mb-4 lg:mb-6">
+        <MonthYearSelector
+          currentMonth={currentMonth}
+          onMonthChange={setCurrentMonth}
+        />
 
-      {/* Last updated and export button */}
-      <div className="flex items-center justify-between py-3">
-        <div className="text-sm" style={{ color: 'var(--monarch-text-muted)' }}>
-          {lastUpdated ? (
-            <>Last updated: {formatDateTime(lastUpdated)}</>
-          ) : (
-            <>No notes for this month</>
-          )}
-        </div>
+        {/* Export button */}
         <button
           type="button"
-          onClick={handleExportPdf}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg hover:bg-[var(--monarch-bg-hover)] transition-colors"
+          onClick={handleOpenExportModal}
+          disabled={!hasNotes}
+          className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+            hasNotes
+              ? 'hover:bg-[var(--monarch-bg-hover)]'
+              : 'opacity-50 cursor-not-allowed'
+          }`}
           style={{ color: 'var(--monarch-text-muted)' }}
-          aria-label="Export notes as PDF"
+          title={hasNotes ? 'Export notes' : 'No notes to export'}
+          data-tour="export-notes"
         >
-          <FileDown size={16} />
-          Export PDF
+          <Download size={14} />
+          Export
         </button>
       </div>
 
+      {/* General month notes - mobile only (stacked below navigator) */}
+      <div className="block lg:hidden mb-6">
+        <GeneralMonthNotes monthKey={currentMonth} effectiveNote={effectiveGeneralNote} />
+      </div>
+
       {/* Main content */}
-      {activeTab === 'notes' ? (
-        <div className="notes-content-layout">
-          {/* Left: Category notes */}
-          <div className="notes-main-content">
-            <CategoryTree
-              groups={monthData?.groups ?? []}
-              expandedGroups={expandedGroups}
-              onToggleGroup={handleToggleGroup}
-              onExpandAll={handleExpandAll}
-              onCollapseAll={handleCollapseAll}
-              currentMonth={currentMonth}
-            />
-
-            {/* Archived notes section */}
-            {!isLoadingArchived && archivedNotes && archivedNotes.length > 0 && (
-              <ArchivedNotesSection notes={archivedNotes} />
-            )}
-          </div>
-
-          {/* Right: General month notes sidebar */}
-          <aside className="notes-sidebar hidden lg:block">
-            <GeneralMonthNotes
-              monthKey={currentMonth}
-              note={monthData?.generalNote ?? null}
-            />
-          </aside>
-        </div>
-      ) : (
-        <ReaderView
-          monthKey={currentMonth}
-          groups={monthData?.groups ?? []}
-          generalNote={monthData?.generalNote ?? null}
-          hasNotes={hasNotes ?? false}
-        />
-      )}
-
-      {/* Mobile: General notes shown below (only in notes tab) */}
-      {activeTab === 'notes' && (
-        <div className="lg:hidden mt-6">
-          <GeneralMonthNotes
-            monthKey={currentMonth}
-            note={monthData?.generalNote ?? null}
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* Category tree (2/3 width on desktop, full width on mobile) */}
+        <div className="lg:col-span-2">
+          <CategoryTree
+            groups={groups}
+            expandedGroups={expandedGroups}
+            onToggleGroup={handleToggleGroup}
+            onExpandAll={handleExpandAll}
+            onCollapseAll={handleCollapseAll}
+            currentMonth={currentMonth}
           />
         </div>
+
+        {/* General month notes sidebar - desktop only (1/3 width) */}
+        <div className="hidden lg:block lg:col-span-1">
+          <GeneralMonthNotes monthKey={currentMonth} effectiveNote={effectiveGeneralNote} />
+        </div>
+      </div>
+
+      {/* Export Modal */}
+      {showExportModal && (
+        <ExportNotesModal
+          currentMonth={currentMonth}
+          groups={groups}
+          onClose={() => setShowExportModal(false)}
+        />
       )}
     </div>
   );

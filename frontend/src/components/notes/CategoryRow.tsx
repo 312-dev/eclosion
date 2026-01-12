@@ -139,6 +139,16 @@ export function CategoryRow({ category, groupId, groupName, currentMonth, dataTo
     setContent(newContent);
   }, []);
 
+  // Handle immediate save (e.g., after math insertion)
+  const handleCommit = useCallback((newContent: string) => {
+    // Clear any pending debounced save
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+    // Save immediately
+    saveNote(newContent);
+  }, [saveNote]);
+
   // Enter edit mode
   const handleStartEdit = useCallback(() => {
     setIsEditing(true);
@@ -179,6 +189,7 @@ export function CategoryRow({ category, groupId, groupName, currentMonth, dataTo
             <NoteEditorMDX
               value={content}
               onChange={handleContentChange}
+              onCommit={handleCommit}
               placeholder={`Write a note for ${category.name}...`}
               autoFocus
               minHeight={80}
