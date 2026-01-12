@@ -607,7 +607,7 @@ def print_summary():
         + counts[OpType.DELETE] * 1.0
         + len({op.test_name for op in PLANNED_OPERATIONS}) * 0.5  # Between-test delays
     )
-    print(f"  Estimated time (with rate limiting): ~{estimated_seconds/60:.1f} minutes")
+    print(f"  Estimated time (with rate limiting): ~{estimated_seconds / 60:.1f} minutes")
     print()
 
 
