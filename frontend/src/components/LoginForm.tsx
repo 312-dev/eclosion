@@ -64,8 +64,8 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
           // - Always store email, password, and mfaMode
           // - Only store mfaSecret if using 'secret' mode (TOTP secrets are reusable)
           // - Don't store mfaSecret if using 'code' mode (6-digit codes are ephemeral)
-          // globalThis.window.electron is guaranteed to exist inside isElectronDesktop()
-          const stored = await globalThis.window.electron!.credentials.store({
+          // globalThis.electron is guaranteed to exist inside isElectronDesktop()
+          const stored = await globalThis.electron!.credentials.store({
             email,
             password,
             mfaMode,

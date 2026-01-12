@@ -52,7 +52,7 @@ export function MfaReauthPrompt({
 
     try {
       // Get stored credentials from Electron
-      const credentials = await globalThis.window.electron?.credentials.get();
+      const credentials = await globalThis.electron?.credentials.get();
       if (!credentials) {
         setError('Stored credentials not found. Please log in again.');
         onUseOtherAccount();
@@ -69,7 +69,7 @@ export function MfaReauthPrompt({
 
       if (result.success) {
         // Update stored credentials with new mfaMode (and secret if applicable)
-        await globalThis.window.electron?.credentials.store({
+        await globalThis.electron?.credentials.store({
           email: credentials.email,
           password: credentials.password,
           mfaMode,

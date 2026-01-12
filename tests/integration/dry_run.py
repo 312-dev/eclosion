@@ -16,7 +16,7 @@ Color coding:
     🟢 GREEN  = Read-only (safe, no changes)
     🟡 YELLOW = Additive (creates new data, cleaned up after)
     🟠 ORANGE = Modifying (changes existing test data)
-    🔴 RED    = Destructive (deletes data - only test data!)
+    🔴 RED    = Destructive (deletes ONLY test data with ECLOSION-TEST prefix)
 """
 
 import argparse
