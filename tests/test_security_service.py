@@ -10,10 +10,8 @@ Tests cover:
 - Event cleanup
 """
 
-import sqlite3
-from datetime import datetime, timedelta
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -114,7 +112,7 @@ class TestEventRetrieval:
 
     def test_get_events_with_limit(self, security_service: SecurityService) -> None:
         """Should respect limit parameter."""
-        for i in range(10):
+        for _ in range(10):
             security_service.log_event(event_type="TEST", success=True)
 
         events = security_service.get_events(limit=5)
@@ -198,11 +196,17 @@ class TestSummaryStatistics:
     def test_get_summary_counts(self, security_service: SecurityService) -> None:
         """Should correctly count events by type."""
         # Successful logins
-        security_service.log_event(event_type="LOGIN_ATTEMPT", success=True, ip_address="192.168.1.1")
-        security_service.log_event(event_type="LOGIN_ATTEMPT", success=True, ip_address="192.168.1.2")
+        security_service.log_event(
+            event_type="LOGIN_ATTEMPT", success=True, ip_address="192.168.1.1"
+        )
+        security_service.log_event(
+            event_type="LOGIN_ATTEMPT", success=True, ip_address="192.168.1.2"
+        )
 
         # Failed logins
-        security_service.log_event(event_type="LOGIN_ATTEMPT", success=False, ip_address="192.168.1.1")
+        security_service.log_event(
+            event_type="LOGIN_ATTEMPT", success=False, ip_address="192.168.1.1"
+        )
 
         # Failed unlock
         security_service.log_event(event_type="UNLOCK_ATTEMPT", success=False)
@@ -267,7 +271,7 @@ class TestCSVExport:
         security_service.log_event(
             event_type="TEST",
             success=True,
-            details="=HYPERLINK(\"malicious\")",  # CSV injection attempt
+            details='=HYPERLINK("malicious")',  # CSV injection attempt
         )
 
         csv_content = security_service.export_events_csv()
@@ -322,7 +326,7 @@ class TestClearEvents:
     def test_clear_events(self, security_service: SecurityService) -> None:
         """Should delete all security events."""
         # Add some events
-        for i in range(5):
+        for _ in range(5):
             security_service.log_event(event_type="TEST", success=True)
 
         # Verify events exist

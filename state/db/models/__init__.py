@@ -17,27 +17,23 @@ from .tracker import (
 )
 
 __all__ = [
-    "Base",
-    # Credentials
-    "Credentials",
+    "ArchivedNote",
+    "AutoSyncState",
     "AutomationCredentials",
-    # Tracker
-    "TrackerConfig",
+    "Base",
     "Category",
+    "CheckboxState",
+    "Credentials",
     "EnabledItem",
+    "GeneralNote",
+    "GeolocationCache",
+    "KnownCategory",
+    "Note",
+    "NotesSettings",
+    "RemovedItemNotice",
     "Rollup",
     "RollupItem",
-    "RemovedItemNotice",
-    "AutoSyncState",
-    # Notes
-    "Note",
-    "GeneralNote",
-    "ArchivedNote",
-    "KnownCategory",
-    "CheckboxState",
-    "NotesSettings",
-    # Security
     "SecurityEvent",
-    "GeolocationCache",
     "SecurityPreference",
+    "TrackerConfig",
 ]

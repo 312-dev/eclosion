@@ -73,15 +73,16 @@ def mock_credentials_service():
 @pytest.fixture
 def sync_service(mock_credentials_service):
     """Create a SyncService with mocked dependencies."""
-    with patch("services.sync_service.StateManager", MockStateManager), \
-         patch("services.sync_service.CredentialsService", return_value=mock_credentials_service), \
-         patch("services.sync_service.AutomationCredentialsManager"), \
-         patch("services.sync_service.SyncScheduler") as mock_scheduler, \
-         patch("services.sync_service.RecurringService"), \
-         patch("services.sync_service.SavingsCalculator"), \
-         patch("services.sync_service.CategoryManager"), \
-         patch("services.sync_service.RollupService"):
-
+    with (
+        patch("services.sync_service.StateManager", MockStateManager),
+        patch("services.sync_service.CredentialsService", return_value=mock_credentials_service),
+        patch("services.sync_service.AutomationCredentialsManager"),
+        patch("services.sync_service.SyncScheduler") as mock_scheduler,
+        patch("services.sync_service.RecurringService"),
+        patch("services.sync_service.SavingsCalculator"),
+        patch("services.sync_service.CategoryManager"),
+        patch("services.sync_service.RollupService"),
+    ):
         mock_scheduler.get_instance = MagicMock()
 
         from services.sync_service import SyncService
@@ -166,7 +167,9 @@ class TestCredentialDelegation:
         mock_credentials_service.lock.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_unlock_and_validate_delegates(self, sync_service, mock_credentials_service) -> None:
+    async def test_unlock_and_validate_delegates(
+        self, sync_service, mock_credentials_service
+    ) -> None:
         """Should delegate unlock_and_validate to credentials service."""
         mock_credentials_service.unlock_and_validate.return_value = {"success": True}
 
@@ -176,7 +179,9 @@ class TestCredentialDelegation:
         mock_credentials_service.unlock_and_validate.assert_called_once_with("my-passphrase")
 
     @pytest.mark.asyncio
-    async def test_update_credentials_delegates(self, sync_service, mock_credentials_service) -> None:
+    async def test_update_credentials_delegates(
+        self, sync_service, mock_credentials_service
+    ) -> None:
         """Should delegate update_credentials to credentials service."""
         mock_credentials_service.update_credentials.return_value = {"success": True}
 
@@ -252,20 +257,21 @@ class TestSyncServiceInitialization:
 
     def test_creates_dependencies(self) -> None:
         """Should create all required dependencies on init."""
-        with patch("services.sync_service.StateManager") as MockStateManager, \
-             patch("services.sync_service.CredentialsService") as MockCredService, \
-             patch("services.sync_service.AutomationCredentialsManager") as MockAutoCreds, \
-             patch("services.sync_service.SyncScheduler") as MockScheduler, \
-             patch("services.sync_service.RecurringService") as MockRecurring, \
-             patch("services.sync_service.SavingsCalculator") as MockCalc, \
-             patch("services.sync_service.CategoryManager") as MockCatMgr, \
-             patch("services.sync_service.RollupService") as MockRollup:
-
+        with (
+            patch("services.sync_service.StateManager") as MockStateManager,
+            patch("services.sync_service.CredentialsService") as MockCredService,
+            patch("services.sync_service.AutomationCredentialsManager") as MockAutoCreds,
+            patch("services.sync_service.SyncScheduler") as MockScheduler,
+            patch("services.sync_service.RecurringService") as MockRecurring,
+            patch("services.sync_service.SavingsCalculator") as MockCalc,
+            patch("services.sync_service.CategoryManager") as MockCatMgr,
+            patch("services.sync_service.RollupService") as MockRollup,
+        ):
             MockScheduler.get_instance = MagicMock()
 
             from services.sync_service import SyncService
 
-            service = SyncService()
+            SyncService()  # Instantiate to trigger dependency injection
 
             # Should have created all dependencies
             MockStateManager.assert_called_once()
@@ -280,14 +286,15 @@ class TestSyncServiceInitialization:
         """Should use provided state manager instead of creating new one."""
         mock_state_manager = MagicMock()
 
-        with patch("services.sync_service.CredentialsService"), \
-             patch("services.sync_service.AutomationCredentialsManager"), \
-             patch("services.sync_service.SyncScheduler") as MockScheduler, \
-             patch("services.sync_service.RecurringService"), \
-             patch("services.sync_service.SavingsCalculator"), \
-             patch("services.sync_service.CategoryManager"), \
-             patch("services.sync_service.RollupService"):
-
+        with (
+            patch("services.sync_service.CredentialsService"),
+            patch("services.sync_service.AutomationCredentialsManager"),
+            patch("services.sync_service.SyncScheduler") as MockScheduler,
+            patch("services.sync_service.RecurringService"),
+            patch("services.sync_service.SavingsCalculator"),
+            patch("services.sync_service.CategoryManager"),
+            patch("services.sync_service.RollupService"),
+        ):
             MockScheduler.get_instance = MagicMock()
 
             from services.sync_service import SyncService

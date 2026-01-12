@@ -97,6 +97,7 @@ unfixable = []
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
 "tests/**/*.py" = ["B011", "S101"]
+"sync_cli.py" = ["E402"]  # Imports after sys.path modification
 
 [tool.ruff.lint.isort]
 known-first-party = ["core", "services", "state", "monarch_utils"]

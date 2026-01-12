@@ -27,10 +27,9 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from core.keychain import get_passphrase, SERVICE_NAME
+from core.keychain import SERVICE_NAME, get_passphrase
 from services.credentials_service import CredentialsService
 from services.sync_service import SyncService
-from state.state_manager import StateManager
 
 # Configure logging to file
 LOG_DIR = Path(os.environ.get("STATE_DIR", Path.home() / ".config" / "eclosion")) / "logs"
@@ -132,7 +131,7 @@ def get_failure_count() -> int:
         return 0
     try:
         data = json.loads(state_file.read_text())
-        return data.get("consecutive_failures", 0)
+        return int(data.get("consecutive_failures", 0))
     except (json.JSONDecodeError, OSError):
         return 0
 

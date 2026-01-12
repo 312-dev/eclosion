@@ -72,9 +72,7 @@ class TrackerRepository:
     def is_item_enabled(self, recurring_id: str) -> bool:
         """Check if item is enabled."""
         return (
-            self.session.query(EnabledItem)
-            .filter(EnabledItem.recurring_id == recurring_id)
-            .first()
+            self.session.query(EnabledItem).filter(EnabledItem.recurring_id == recurring_id).first()
             is not None
         )
 
@@ -93,11 +91,7 @@ class TrackerRepository:
 
     def get_category(self, recurring_id: str) -> Category | None:
         """Get category by recurring item ID."""
-        return (
-            self.session.query(Category)
-            .filter(Category.recurring_id == recurring_id)
-            .first()
-        )
+        return self.session.query(Category).filter(Category.recurring_id == recurring_id).first()
 
     def get_all_categories(self) -> dict[str, Category]:
         """Get all categories as dict keyed by recurring_id."""
@@ -140,11 +134,7 @@ class TrackerRepository:
 
     def delete_category(self, recurring_id: str) -> bool:
         """Delete a category."""
-        result = (
-            self.session.query(Category)
-            .filter(Category.recurring_id == recurring_id)
-            .delete()
-        )
+        result = self.session.query(Category).filter(Category.recurring_id == recurring_id).delete()
         return result > 0
 
     def update_category_emoji(self, recurring_id: str, emoji: str) -> Category | None:
@@ -214,9 +204,7 @@ class TrackerRepository:
     def is_in_rollup(self, recurring_id: str) -> bool:
         """Check if item is in rollup."""
         return (
-            self.session.query(RollupItem)
-            .filter(RollupItem.recurring_id == recurring_id)
-            .first()
+            self.session.query(RollupItem).filter(RollupItem.recurring_id == recurring_id).first()
             is not None
         )
 
@@ -231,9 +219,7 @@ class TrackerRepository:
 
     def remove_from_rollup(self, recurring_id: str, monthly_rate: float) -> Rollup:
         """Remove item from rollup."""
-        self.session.query(RollupItem).filter(
-            RollupItem.recurring_id == recurring_id
-        ).delete()
+        self.session.query(RollupItem).filter(RollupItem.recurring_id == recurring_id).delete()
         rollup = self.get_rollup()
         rollup.total_budgeted = max(0, rollup.total_budgeted - monthly_rate)
         rollup.last_updated_at = datetime.utcnow()
@@ -302,16 +288,14 @@ class TrackerRepository:
         """Get all undismissed notices."""
         return (
             self.session.query(RemovedItemNotice)
-            .filter(RemovedItemNotice.dismissed == False)
+            .filter(RemovedItemNotice.dismissed.is_(False))
             .all()
         )
 
     def dismiss_notice(self, notice_id: str) -> bool:
         """Dismiss a notice."""
         notice = (
-            self.session.query(RemovedItemNotice)
-            .filter(RemovedItemNotice.id == notice_id)
-            .first()
+            self.session.query(RemovedItemNotice).filter(RemovedItemNotice.id == notice_id).first()
         )
         if notice:
             notice.dismissed = True

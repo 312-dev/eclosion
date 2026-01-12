@@ -49,7 +49,6 @@ def run_migrations_online() -> None:
     connection with the context.
     """
     # Import here to get the actual database path from config
-    from core import config as app_config
     from state.db.database import DATABASE_PATH
 
     # Override URL with actual database path
