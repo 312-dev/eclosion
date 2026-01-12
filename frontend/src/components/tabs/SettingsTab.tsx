@@ -165,6 +165,8 @@ export function SettingsTab() {
           />
         </div>
 
+        {isDesktop && <div id="desktop"><DesktopSection /></div>}
+
         <div id="account"><AccountSection /></div>
 
         <div id="updates">
@@ -185,8 +187,6 @@ export function SettingsTab() {
             onRefresh={fetchAutoSyncStatus}
           />
         </div>
-
-        {isDesktop && <div id="desktop"><DesktopSection /></div>}
 
         {/* Hide security events on desktop - only relevant for web deployments */}
         {!isDesktop && <div id="security"><SecuritySection /></div>}

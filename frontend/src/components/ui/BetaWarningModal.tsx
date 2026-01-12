@@ -8,7 +8,7 @@
 
 import { useState } from 'react';
 import { Modal } from './Modal';
-import { WarningIcon, ExternalLinkIcon } from '../icons';
+import { WarningIcon } from '../icons';
 
 const BETA_WARNING_ACCEPTED_KEY = 'eclosion-beta-warning-accepted';
 const STABLE_DOWNLOAD_URL = 'https://eclosion.app/download';
@@ -76,11 +76,10 @@ export function BetaWarningModal({ isOpen, onClose, onAccept }: BetaWarningModal
           href={STABLE_DOWNLOAD_URL}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 text-sm font-medium hover:underline"
+          className="text-sm font-medium hover:underline"
           style={{ color: 'var(--monarch-orange)' }}
         >
           Download stable version instead
-          <ExternalLinkIcon size={14} />
         </a>
         <div className="flex gap-3">
           <button
@@ -101,7 +100,7 @@ export function BetaWarningModal({ isOpen, onClose, onAccept }: BetaWarningModal
             disabled={!acknowledged}
             className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             style={{
-              backgroundColor: acknowledged ? 'var(--monarch-warning)' : 'var(--monarch-orange-disabled)',
+              backgroundColor: acknowledged ? 'var(--monarch-orange)' : 'var(--monarch-orange-disabled)',
             }}
           >
             I Understand, Continue

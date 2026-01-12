@@ -24,7 +24,7 @@
     <!-- Ribbon background - diagonal stripe extending to edges -->
     <polygon points="512,200 512,340 340,512 200,512" fill="#3B82F6"/>
     <!-- BETA text - centered on the ribbon diagonal -->
-    <text x="394" y="394"
+    <text x="389" y="389"
           font-family="Unbounded, system-ui, sans-serif"
           font-size="72"
           font-weight="800"
@@ -32,6 +32,6 @@
           text-anchor="middle"
           letter-spacing="4"
           dominant-baseline="middle"
-          transform="rotate(-45 394 394)">BETA</text>
+          transform="rotate(-45 389 389)">BETA</text>
   </g>
 </svg>

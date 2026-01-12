@@ -166,10 +166,14 @@ export function NoteEditorMDX({
       const isInsideMdxDialog = activeElement?.closest('[class*="mdxeditor"]');
 
       if (!isInsideContainer && !isInsideRadixPortal && !isInsideMdxDialog) {
+        // Get the latest markdown directly from the editor before blur completes
+        // This ensures we save the most recent content even if onChange was batched/delayed
+        const currentMarkdown = editorRef.current?.getMarkdown() ?? '';
+        onCommit?.(currentMarkdown);
         setIsFocused(false);
       }
     });
-  }, []);
+  }, [onCommit]);
 
   // Build plugins array
   const plugins = [

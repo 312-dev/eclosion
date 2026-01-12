@@ -95,6 +95,7 @@ export function buildCategoryGroupsWithNotes(
     const groupKey = `group:${group.id}`;
     const groupEffectiveNote = convertEffectiveNote(effectiveNotes[groupKey]);
 
+    // Map categories preserving Monarch's order (budget sheet order)
     const categories: CategoryWithNotes[] = group.categories.map((category) => {
       const categoryKey = `category:${category.id}`;
       const categoryEffectiveNote = convertEffectiveNote(effectiveNotes[categoryKey]);
@@ -107,9 +108,6 @@ export function buildCategoryGroupsWithNotes(
         effectiveNote: categoryEffectiveNote,
       };
     });
-
-    // Sort categories alphabetically
-    categories.sort((a, b) => a.name.localeCompare(b.name));
 
     result.push({
       id: group.id,

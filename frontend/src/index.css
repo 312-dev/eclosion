@@ -484,6 +484,13 @@ input[type="radio"] {
   box-sizing: border-box;
 }
 
+/* Notification banners container - sticky below fixed header */
+.app-notification-banners {
+  position: sticky;
+  top: 0;
+  z-index: 15; /* Below sticky nav (20) but above content */
+}
+
 .app-body {
   display: flex;
   max-width: 1400px;

@@ -231,10 +231,11 @@ class CredentialsService:
                 await get_mm(email=email, password=password, mfa_secret_key=mfa_secret)
 
             # Store directly in session (no encryption, no disk storage)
+            # For code mode, don't store the code (it's one-time use)
             CredentialsService._session_credentials = {
                 "email": email,
                 "password": password,
-                "mfa_secret": mfa_secret,
+                "mfa_secret": mfa_secret if mfa_mode == "secret" else "",
             }
 
             logger.info("[DESKTOP_LOGIN] Credentials validated and session established")
