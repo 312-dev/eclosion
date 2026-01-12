@@ -314,7 +314,10 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
         onAccept={() => {
           setShowCodeCaveatsModal(false);
           setMfaMode('code');
-          setMfaSecret('');
+          // Preserve the value if it's already a 6-digit code
+          if (mfaFormat !== 'six_digit_code') {
+            setMfaSecret('');
+          }
         }}
       />
 

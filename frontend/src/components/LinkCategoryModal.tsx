@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import type { UnmappedCategory, RecurringItem } from '../types';
 import { getUnmappedCategories, linkToCategory } from '../api/client';
 import { useToast } from '../context/ToastContext';
-import { handleApiError } from '../utils';
+import { handleApiError, decodeHtmlEntities } from '../utils';
 import { Portal } from './Portal';
 
 export interface PendingLink {
@@ -195,7 +195,7 @@ export function LinkCategoryModal({ item, isOpen, onClose, onSuccess, deferSave 
               {filteredGroups.map((group) => (
                 <div key={group.groupId}>
                   <div className="text-xs font-medium uppercase tracking-wide mb-2 text-monarch-text-muted">
-                    {group.groupName}
+                    {decodeHtmlEntities(group.groupName)}
                   </div>
                   <div className="space-y-1">
                     {group.categories.map((cat) => {
@@ -219,7 +219,7 @@ export function LinkCategoryModal({ item, isOpen, onClose, onSuccess, deferSave 
                           title={isReserved ? `Already linked to "${linkedToItem}"` : undefined}
                         >
                           {cat.icon && <span className="text-base">{cat.icon}</span>}
-                          <span className="flex-1">{cat.name}</span>
+                          <span className="flex-1">{decodeHtmlEntities(cat.name)}</span>
                           {isReserved && (
                             <span className="text-xs px-1.5 py-0.5 rounded" style={{ backgroundColor: 'var(--monarch-bg-card)', color: 'var(--monarch-text-muted)' }}>
                               Linked
@@ -258,7 +258,7 @@ export function LinkCategoryModal({ item, isOpen, onClose, onSuccess, deferSave 
                     <div className="text-sm font-medium text-monarch-text-dark">Rename to match recurring item</div>
                     <div className="text-xs mt-1 text-monarch-text-muted">
                       {selectedCategoryInfo?.icon && <span className="mr-1">{selectedCategoryInfo.icon}</span>}
-                      {selectedCategoryInfo?.name}
+                      {selectedCategoryInfo?.name && decodeHtmlEntities(selectedCategoryInfo.name)}
                       <span className="mx-2">→</span>
                       <strong className="text-monarch-orange">{item.category_name || item.name}</strong>
                     </div>
@@ -278,7 +278,7 @@ export function LinkCategoryModal({ item, isOpen, onClose, onSuccess, deferSave 
                     <div className="text-sm font-medium text-monarch-text-dark">Keep existing name</div>
                     <div className="text-xs mt-1 text-monarch-text-muted">
                       {selectedCategoryInfo?.icon && <span className="mr-1">{selectedCategoryInfo.icon}</span>}
-                      <strong>{selectedCategoryInfo?.name}</strong>
+                      <strong>{selectedCategoryInfo?.name && decodeHtmlEntities(selectedCategoryInfo.name)}</strong>
                     </div>
                   </div>
                 </label>

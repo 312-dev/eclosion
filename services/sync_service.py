@@ -1248,6 +1248,13 @@ class SyncService:
             # Get any active notices (even when not configured)
             active_notices = self.state_manager.get_active_notices()
 
+            # Always fetch ready to assign - this should show regardless of tool setup
+            try:
+                ready_to_assign_data = await self.category_manager.get_ready_to_assign()
+            except Exception as e:
+                logger.warning(f"Failed to fetch ready to assign during setup: {e}")
+                ready_to_assign_data = None
+
             return {
                 "is_configured": False,
                 "items": unconfigured_items_data,
@@ -1259,7 +1266,7 @@ class SyncService:
                     "user_first_name": state.user_first_name,
                 },
                 "last_sync": state.last_sync,
-                "ready_to_assign": None,
+                "ready_to_assign": ready_to_assign_data,
                 "rollup": {
                     "enabled": False,
                     "items": [],

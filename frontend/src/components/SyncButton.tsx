@@ -9,6 +9,8 @@ interface SyncButtonProps {
   compact?: boolean;
   /** Whether sync is blocked (e.g., due to auth issues) */
   syncBlocked?: boolean;
+  /** Whether data is being fetched/refreshed from Monarch */
+  isFetching?: boolean;
 }
 
 function formatLastSync(timestamp: string | null): string {
@@ -37,8 +39,11 @@ function formatLastSync(timestamp: string | null): string {
   return `${diffYears}y ago`;
 }
 
-export function SyncButton({ onSync, isSyncing, lastSync, compact = false, syncBlocked = false }: SyncButtonProps) {
+export function SyncButton({ onSync, isSyncing, lastSync, compact = false, syncBlocked = false, isFetching = false }: SyncButtonProps) {
   const [formattedTime, setFormattedTime] = useState(() => formatLastSync(lastSync));
+
+  // Combined loading state: either syncing or fetching data
+  const isLoading = isSyncing || isFetching;
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- Sync derived state with prop
@@ -53,33 +58,38 @@ export function SyncButton({ onSync, isSyncing, lastSync, compact = false, syncB
     return () => clearInterval(interval);
   }, [lastSync]);
 
+  // Determine the status text based on current state
+  const getStatusText = () => {
+    if (isSyncing) return 'Syncing...';
+    if (isFetching) return 'Refreshing...';
+    if (lastSync) return formattedTime;
+    return 'Never synced';
+  };
+
   if (compact) {
     const syncStatus = lastSync ? `Synced ${formattedTime}` : 'Not yet synced';
+    const statusText = getStatusText();
+    const showSyncedPrefix = !isLoading && lastSync;
+
     return (
       <div className="flex items-center gap-2">
         <button
           type="button"
           onClick={onSync}
-          disabled={isSyncing}
+          disabled={isLoading}
           className="flex items-center gap-1.5 text-xs cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed transition-colors hover:opacity-70"
           style={{ color: syncBlocked ? 'var(--monarch-warning)' : 'var(--monarch-text-muted)' }}
-          aria-label={isSyncing ? 'Syncing data with Monarch' : `Sync now. Last synced: ${syncStatus}`}
-          aria-busy={isSyncing}
+          aria-label={isLoading ? 'Syncing data with Monarch' : `Sync now. Last synced: ${syncStatus}`}
+          aria-busy={isLoading}
         >
-          {isSyncing ? (
+          {isLoading ? (
             <SpinnerIcon size={14} />
           ) : (
             <SyncIcon size={14} />
           )}
           <span aria-live="polite">
-            {isSyncing ? 'Syncing...' : (
-              lastSync ? (
-                <>
-                  <span className="hidden sm:inline">Synced </span>
-                  {formattedTime}
-                </>
-              ) : 'Never synced'
-            )}
+            {showSyncedPrefix && <span className="hidden sm:inline">Synced </span>}
+            {statusText}
           </span>
         </button>
         {syncBlocked && !isSyncing && (
@@ -98,12 +108,14 @@ export function SyncButton({ onSync, isSyncing, lastSync, compact = false, syncB
     );
   }
 
+  const statusText = getStatusText();
+
   return (
     <div className="flex items-center gap-3">
       <span className="text-sm" style={{ color: syncBlocked ? 'var(--monarch-warning)' : 'var(--monarch-text-muted)' }}>
-        {formattedTime}
+        {statusText}
       </span>
-      {syncBlocked && !isSyncing && (
+      {syncBlocked && !isLoading && (
         <span
           className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded"
           style={{ backgroundColor: 'var(--monarch-warning-bg)', color: 'var(--monarch-warning)' }}
@@ -118,16 +130,16 @@ export function SyncButton({ onSync, isSyncing, lastSync, compact = false, syncB
       <button
         type="button"
         onClick={onSync}
-        disabled={isSyncing}
+        disabled={isLoading}
         className="inline-flex items-center gap-2 px-4 py-2 text-white rounded-lg cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed transition-colors btn-hover-lift hover-bg-orange-to-orange-hover"
-        style={{ backgroundColor: isSyncing ? 'var(--monarch-orange-disabled)' : 'var(--monarch-orange)' }}
-        aria-label={isSyncing ? 'Syncing data' : 'Sync now'}
-        aria-busy={isSyncing}
+        style={{ backgroundColor: isLoading ? 'var(--monarch-orange-disabled)' : 'var(--monarch-orange)' }}
+        aria-label={isLoading ? 'Syncing data' : 'Sync now'}
+        aria-busy={isLoading}
       >
-        {isSyncing ? (
+        {isLoading ? (
           <>
             <SpinnerIcon size={16} />
-            <span>Syncing...</span>
+            <span>{isSyncing ? 'Syncing...' : 'Refreshing...'}</span>
           </>
         ) : (
           <>

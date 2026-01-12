@@ -83,41 +83,41 @@ class CategoryManager:
         ]
 
         Used by the Notes feature to display all Monarch categories.
+        Note: Uses budget API instead of get_transaction_categories because
+        only the budget API returns the icon field for categories.
         """
-        categories = await self._get_categories_cached()
+        # Use budget data which includes icons (get_transaction_categories doesn't)
+        budgets = await self._get_budgets_cached()
 
-        # Build groups with their categories
-        groups_map: dict[str, dict[str, Any]] = {}
-        group_order: list[str] = []
-
-        for cat in categories.get("categories", []):
-            group = cat.get("group", {})
+        result = []
+        for group in budgets.get("categoryGroups", []):
             group_id = group.get("id")
             group_name = group.get("name")
 
             if not group_id:
                 continue
 
-            # Track group order as they appear (preserves budget sheet order)
-            if group_id not in groups_map:
-                groups_map[group_id] = {
+            categories = []
+            for cat in group.get("categories", []):
+                cat_id = cat.get("id")
+                if cat_id:
+                    categories.append(
+                        {
+                            "id": cat_id,
+                            "name": cat.get("name"),
+                            "icon": cat.get("icon"),
+                        }
+                    )
+
+            result.append(
+                {
                     "id": group_id,
                     "name": group_name,
-                    "categories": [],
-                }
-                group_order.append(group_id)
-
-            # Add category to its group
-            groups_map[group_id]["categories"].append(
-                {
-                    "id": cat.get("id"),
-                    "name": cat.get("name"),
-                    "icon": cat.get("icon"),
+                    "categories": categories,
                 }
             )
 
-        # Return groups in order they appeared
-        return [groups_map[gid] for gid in group_order]
+        return result
 
     async def create_category(
         self,

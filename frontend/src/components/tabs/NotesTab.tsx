@@ -148,7 +148,7 @@ export function NotesTab() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6 tab-content-enter">
+    <div className="max-w-7xl mx-auto px-4 tab-content-enter">
       {/* Header with month navigation */}
       <div className="flex items-center justify-between mb-4 lg:mb-6">
         <MonthYearSelector

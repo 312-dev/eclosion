@@ -12,6 +12,7 @@ export interface UseRollupConfigResult {
   selectedRollupCategoryId: string;
   rollupSyncName: boolean;
   loadingRollupCategories: boolean;
+  rollupCategoriesFetched: boolean;
   setRollupMode: (mode: 'new' | 'existing') => void;
   setSelectedRollupCategoryId: (id: string) => void;
   setRollupSyncName: (sync: boolean) => void;
@@ -24,6 +25,7 @@ export function useRollupConfig(): UseRollupConfigResult {
   const [selectedRollupCategoryId, setSelectedRollupCategoryId] = useState('');
   const [rollupSyncName, setRollupSyncName] = useState(true);
   const [loadingRollupCategories, setLoadingRollupCategories] = useState(false);
+  const [rollupCategoriesFetched, setRollupCategoriesFetched] = useState(false);
 
   const fetchRollupCategories = useCallback(async () => {
     setLoadingRollupCategories(true);
@@ -34,6 +36,7 @@ export function useRollupConfig(): UseRollupConfigResult {
       // Silently fail - the dropdown will show empty state
     } finally {
       setLoadingRollupCategories(false);
+      setRollupCategoriesFetched(true);
     }
   }, []);
 
@@ -43,6 +46,7 @@ export function useRollupConfig(): UseRollupConfigResult {
     selectedRollupCategoryId,
     rollupSyncName,
     loadingRollupCategories,
+    rollupCategoriesFetched,
     setRollupMode,
     setSelectedRollupCategoryId,
     setRollupSyncName,

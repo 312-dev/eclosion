@@ -10,7 +10,7 @@ import { Plus, History, ExternalLink } from 'lucide-react';
 import { NoteEditorMDX } from './NoteEditorMDX';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import { RevisionHistoryModal } from './RevisionHistoryModal';
-import { useSaveCategoryNoteMutation } from '../../api/queries';
+import { useSaveCategoryNoteMutation, useDeleteCategoryNoteMutation } from '../../api/queries';
 import { useCheckboxState } from '../../hooks';
 import type { CategoryWithNotes, MonthKey } from '../../types/notes';
 
@@ -41,6 +41,7 @@ export function CategoryRow({ category, groupId, groupName, currentMonth }: Cate
   const containerRef = useRef<HTMLDivElement>(null);
 
   const saveMutation = useSaveCategoryNoteMutation();
+  const deleteMutation = useDeleteCategoryNoteMutation();
 
   // Checkbox state management
   const { checkboxStates, toggleCheckbox } = useCheckboxState({
@@ -61,9 +62,25 @@ export function CategoryRow({ category, groupId, groupName, currentMonth }: Cate
   // Auto-save function
   const saveNote = useCallback(async (newContent: string) => {
     const trimmedContent = newContent.trim();
-    if (trimmedContent === lastSavedRef.current.trim()) return;
-    if (!trimmedContent) return; // Don't save empty notes
 
+    // No changes
+    if (trimmedContent === lastSavedRef.current.trim()) return;
+
+    // If content is empty and there was a note, delete it
+    if (!trimmedContent) {
+      const noteId = effectiveNote.note?.id;
+      if (noteId) {
+        try {
+          await deleteMutation.mutateAsync(noteId);
+          lastSavedRef.current = '';
+        } catch (err) {
+          console.error('Failed to delete note:', err);
+        }
+      }
+      return;
+    }
+
+    // Save the note
     try {
       await saveMutation.mutateAsync({
         categoryType: 'category',
@@ -78,7 +95,7 @@ export function CategoryRow({ category, groupId, groupName, currentMonth }: Cate
     } catch (err) {
       console.error('Failed to save note:', err);
     }
-  }, [saveMutation, category.id, category.name, groupId, groupName, currentMonth]);
+  }, [saveMutation, deleteMutation, effectiveNote.note?.id, category.id, category.name, groupId, groupName, currentMonth]);
 
   // Debounced auto-save on content change
   useEffect(() => {

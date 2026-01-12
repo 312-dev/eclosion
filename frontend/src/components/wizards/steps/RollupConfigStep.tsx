@@ -5,7 +5,7 @@
 import { SearchableSelect, type SelectGroup } from '../../SearchableSelect';
 import type { UnmappedCategory } from '../../../types';
 import { PackageIcon } from '../SetupWizardIcons';
-import { formatCurrency } from '../../../utils';
+import { formatCurrency, decodeHtmlEntities } from '../../../utils';
 
 interface RollupConfigStepProps {
   readonly mode: 'new' | 'existing';
@@ -16,6 +16,7 @@ interface RollupConfigStepProps {
   readonly syncName: boolean;
   readonly onSyncNameChange: (sync: boolean) => void;
   readonly loading: boolean;
+  readonly categoriesFetched: boolean;
   readonly groupName: string;
   readonly autoCategorizeEnabled: boolean;
   readonly onAutoCategorizeChange: (enabled: boolean) => void;
@@ -30,6 +31,7 @@ export function RollupConfigStep({
   syncName,
   onSyncNameChange,
   loading,
+  categoriesFetched,
   groupName,
   autoCategorizeEnabled,
   onAutoCategorizeChange,
@@ -45,14 +47,18 @@ export function RollupConfigStep({
   ).map(([groupLabel, cats]) => ({
     label: groupLabel,
     options: cats.map((cat) => {
-      const icon = cat.icon ? cat.icon + ' ' : '';
+      const icon = cat.icon ? decodeHtmlEntities(cat.icon) + ' ' : '';
+      const name = decodeHtmlEntities(cat.name);
       const budget = formatCurrency(cat.planned_budget || 0, { maximumFractionDigits: 0 });
       return {
         value: cat.id,
-        label: `${icon}${cat.name} - ${budget} budgeted`,
+        label: `${icon}${name} - ${budget} budgeted`,
       };
     }),
   }));
+
+  // Show loading when actively loading OR when fetch hasn't completed yet
+  const showLoading = loading || !categoriesFetched;
 
   return (
     <div className="text-center animate-fade-in">
@@ -130,7 +136,7 @@ export function RollupConfigStep({
             border: '1px solid var(--monarch-border)',
           }}
         >
-          {loading ? (
+          {showLoading ? (
             <div className="text-center py-4" style={{ color: 'var(--monarch-text-muted)' }}>
               Loading categories...
             </div>
@@ -150,7 +156,7 @@ export function RollupConfigStep({
                   groups={categoryGroups}
                   placeholder="Choose a category..."
                   searchPlaceholder="Search categories..."
-                  loading={loading}
+                  loading={showLoading}
                   aria-labelledby="category-select-label"
                 />
               </div>
