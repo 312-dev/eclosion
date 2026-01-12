@@ -24,7 +24,7 @@ async def test_create_and_delete_category(monarch_client, unique_test_name):
 
     # Create
     result = await monarch_client.create_transaction_category(
-        name=unique_test_name,
+        transaction_category_name=unique_test_name,
         group_id=group_id,
     )
     cat_id = result.get("id") if isinstance(result, dict) else result
@@ -82,7 +82,7 @@ async def test_multiple_test_categories(monarch_client, test_category_prefix):
             name = f"{test_category_prefix}-MULTI-{i}-{timestamp}"
 
             result = await monarch_client.create_transaction_category(
-                name=name,
+                transaction_category_name=name,
                 group_id=group_id,
             )
             cat_id = result.get("id") if isinstance(result, dict) else result

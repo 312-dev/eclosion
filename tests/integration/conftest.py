@@ -303,7 +303,7 @@ async def test_category(monarch_client, unique_test_name, default_group_id):
     """
     # Create the test category
     result = await monarch_client.create_transaction_category(
-        name=unique_test_name,
+        transaction_category_name=unique_test_name,
         group_id=default_group_id,
     )
 
@@ -408,7 +408,7 @@ async def create_test_category_with_retry(
     for attempt in range(max_retries):
         try:
             result = await monarch_client.create_transaction_category(
-                name=name,
+                transaction_category_name=name,
                 group_id=group_id,
             )
             cat_id = _extract_category_id(result)

@@ -43,9 +43,9 @@ async def test_get_budgets_returns_valid_structure(monarch_client):
     # Check for expected structure (may vary by Monarch version)
     has_budget_data = "budgetData" in budgets
     has_category_groups = "categoryGroups" in budgets
-    assert has_budget_data or has_category_groups, (
-        "Budget response should have budgetData or categoryGroups"
-    )
+    assert (
+        has_budget_data or has_category_groups
+    ), "Budget response should have budgetData or categoryGroups"
 
     # If categoryGroups exists, verify structure
     if has_category_groups:
@@ -163,7 +163,7 @@ async def test_create_and_delete_category_full_lifecycle(monarch_client, unique_
 
     # CREATE
     result = await monarch_client.create_transaction_category(
-        name=unique_test_name,
+        transaction_category_name=unique_test_name,
         group_id=group_id,
     )
 
@@ -181,9 +181,9 @@ async def test_create_and_delete_category_full_lifecycle(monarch_client, unique_
         # VERIFY CREATION
         categories = await monarch_client.get_transaction_categories()
         cat_names = {c["name"]: c["id"] for c in categories}
-        assert unique_test_name in cat_names or cat_id in [c["id"] for c in categories], (
-            "Created category should appear in category list"
-        )
+        assert unique_test_name in cat_names or cat_id in [
+            c["id"] for c in categories
+        ], "Created category should appear in category list"
 
     finally:
         # DELETE (always cleanup)
@@ -205,7 +205,7 @@ async def test_set_budget_amount_on_test_category(monarch_client, unique_test_na
     group_id = groups[0]["id"] if groups else None
 
     result = await monarch_client.create_transaction_category(
-        name=unique_test_name,
+        transaction_category_name=unique_test_name,
         group_id=group_id,
     )
 
@@ -243,7 +243,7 @@ async def test_multiple_budget_updates(monarch_client, unique_test_name):
     group_id = groups[0]["id"] if groups else None
 
     result = await monarch_client.create_transaction_category(
-        name=unique_test_name,
+        transaction_category_name=unique_test_name,
         group_id=group_id,
     )
 
@@ -293,7 +293,7 @@ async def test_category_appears_in_budget_data(monarch_client, unique_test_name)
     group_id = groups[0]["id"] if groups else None
 
     result = await monarch_client.create_transaction_category(
-        name=unique_test_name,
+        transaction_category_name=unique_test_name,
         group_id=group_id,
     )
 
@@ -384,7 +384,7 @@ async def test_parallel_category_operations(monarch_client, test_category_prefix
             name = f"{test_category_prefix}-PARALLEL-{i}-{timestamp}"
 
             result = await monarch_client.create_transaction_category(
-                name=name,
+                transaction_category_name=name,
                 group_id=group_id,
             )
 

@@ -128,7 +128,7 @@ async def test_category_manager_create_category_uses_correct_api(
         # Use our CategoryManager method (not raw API)
         # This tests our code, not just the API
         cat_id = await category_manager.create_category(
-            name=unique_test_name,
+            transaction_category_name=unique_test_name,
             group_id=group_id,
         )
 
@@ -175,7 +175,7 @@ async def test_category_manager_set_budget_correct_parameters(category_manager, 
     try:
         # Create a test category
         cat_id = await category_manager.create_category(
-            name=unique_test_name,
+            transaction_category_name=unique_test_name,
             group_id=group_id,
         )
 
@@ -224,7 +224,7 @@ async def test_delete_category_only_deletes_specified_category(category_manager,
     try:
         # Create a test category
         cat_id = await category_manager.create_category(
-            name=unique_test_name,
+            transaction_category_name=unique_test_name,
             group_id=group_id,
         )
 
@@ -272,7 +272,7 @@ async def test_set_budget_only_affects_specified_category(category_manager, uniq
     try:
         # Create test category
         cat_id = await category_manager.create_category(
-            name=unique_test_name,
+            transaction_category_name=unique_test_name,
             group_id=group_id,
         )
 
