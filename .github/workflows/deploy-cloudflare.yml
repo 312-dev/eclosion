@@ -30,6 +30,8 @@ on:
         required: false
         type: string
 
+permissions: read-all
+
 jobs:
   deploy:
     runs-on: ubuntu-latest

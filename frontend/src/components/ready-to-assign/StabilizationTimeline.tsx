@@ -1,7 +1,7 @@
-import { useCallback } from 'react';
+import { useCallback, type RefObject } from 'react';
 import { Portal } from '../Portal';
 import { formatCurrency } from '../../utils';
-import { useDropdown } from '../../hooks';
+import type { DropdownPosition } from '../../hooks';
 import { AnchorIcon } from '../icons';
 
 interface StabilizationData {
@@ -20,7 +20,11 @@ interface TimelineMonth {
 
 interface StabilizationPopoverProps {
   popoverId: string;
-  infoDropdown: ReturnType<typeof useDropdown<HTMLDivElement, HTMLButtonElement>>;
+  isOpen: boolean;
+  position: DropdownPosition;
+  onClose: () => void;
+  onFocusTrigger: () => void;
+  dropdownRef: RefObject<HTMLDivElement | null>;
   stabilization: StabilizationData;
   lowestMonthlyCost: number;
   catchUpAmount: number;
@@ -30,7 +34,11 @@ interface StabilizationPopoverProps {
 
 export function StabilizationPopover({
   popoverId,
-  infoDropdown,
+  isOpen,
+  position,
+  onClose,
+  onFocusTrigger,
+  dropdownRef,
   stabilization,
   lowestMonthlyCost,
   catchUpAmount,
@@ -41,27 +49,27 @@ export function StabilizationPopover({
     (e: React.KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
-        infoDropdown.close();
-        infoDropdown.triggerRef.current?.focus();
+        onClose();
+        onFocusTrigger();
       }
     },
-    [infoDropdown]
+    [onClose, onFocusTrigger]
   );
 
-  if (!infoDropdown.isOpen) return null;
+  if (!isOpen) return null;
 
   return (
     <Portal>
-      <div className="fixed inset-0 z-(--z-index-popover)" onClick={infoDropdown.close} aria-hidden="true" />
+      <div className="fixed inset-0 z-(--z-index-popover)" onClick={onClose} aria-hidden="true" />
       <div
         id={popoverId}
-        ref={infoDropdown.dropdownRef}
+        ref={dropdownRef}
         role="dialog"
         aria-labelledby={`${popoverId}-title`}
         aria-modal="true"
         onKeyDown={handlePopoverKeyDown}
         className="fixed z-(--z-index-popover) rounded-xl shadow-lg p-4 text-left w-70 bg-monarch-bg-card border border-monarch-border"
-        style={{ top: infoDropdown.position.top, right: infoDropdown.position.right }}
+        style={{ top: position.top, right: position.right }}
       >
         <div className="flex justify-between items-start mb-3">
           <h3 id={`${popoverId}-title`} className="font-semibold text-sm text-monarch-text-dark">
@@ -69,7 +77,7 @@ export function StabilizationPopover({
           </h3>
           <button
             type="button"
-            onClick={infoDropdown.close}
+            onClick={onClose}
             aria-label="Close dialog"
             className="-mt-1 -mr-1 p-1 transition-colors text-monarch-text-muted"
           >
@@ -133,14 +141,18 @@ export function StabilizationPopover({
 
 interface StabilizationTimelineProps {
   popoverId: string;
-  infoDropdown: ReturnType<typeof useDropdown<HTMLDivElement, HTMLButtonElement>>;
+  isOpen: boolean;
+  onToggle: () => void;
+  triggerRef: RefObject<HTMLButtonElement | null>;
   stabilization: StabilizationData;
   timelineMonths: TimelineMonth[];
 }
 
 export function StabilizationTimeline({
   popoverId,
-  infoDropdown,
+  isOpen,
+  onToggle,
+  triggerRef,
   stabilization,
   timelineMonths,
 }: Readonly<StabilizationTimelineProps>) {
@@ -148,14 +160,14 @@ export function StabilizationTimeline({
 
   return (
     <button
-      ref={infoDropdown.triggerRef}
+      ref={triggerRef}
       type="button"
       aria-label={`View details: Stable rate of ${formatCurrency(stabilization.stableMonthlyRate, { maximumFractionDigits: 0 })} starting ${stabilization.stabilizationDate}`}
-      aria-expanded={infoDropdown.isOpen}
+      aria-expanded={isOpen}
       aria-haspopup="dialog"
-      aria-controls={infoDropdown.isOpen ? popoverId : undefined}
+      aria-controls={isOpen ? popoverId : undefined}
       className="w-full hover:opacity-90 transition-opacity rounded-b-xl border-x border-b border-monarch-border bg-monarch-bg-card overflow-hidden -mt-px"
-      onClick={infoDropdown.toggle}
+      onClick={onToggle}
     >
       {/* Month rows section */}
       <div className="flex px-3 py-2">

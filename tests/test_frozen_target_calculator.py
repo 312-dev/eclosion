@@ -9,15 +9,10 @@ Tests cover:
 - Rate after catch-up calculations
 """
 
-import math
 from dataclasses import dataclass
 from datetime import datetime
-from unittest.mock import MagicMock
-
-import pytest
 
 from services.frozen_target_calculator import (
-    FrozenTargetResult,
     calculate_frozen_target,
     calculate_rate_after_catchup,
 )
@@ -584,7 +579,7 @@ class TestDefaultCurrentMonth:
         """Should use current month when not explicitly provided."""
         state_manager = MockStateManager()
 
-        result = calculate_frozen_target(
+        calculate_frozen_target(
             recurring_id="test-default-month",
             amount=100.0,
             frequency_months=12,
@@ -595,7 +590,7 @@ class TestDefaultCurrentMonth:
             # current_month not specified
         )
 
-        # Should use current month and persist it
+        # Should use current month and persist it (result not needed, checking side effect)
         expected_month = datetime.now().strftime("%Y-%m")
         stored = state_manager.frozen_targets.get("test-default-month")
         assert stored is not None

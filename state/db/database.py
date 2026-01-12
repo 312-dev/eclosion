@@ -2,9 +2,9 @@
 Database engine and session management.
 """
 
+from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Generator
 
 from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
@@ -31,6 +31,7 @@ def get_engine() -> Engine:
             # Echo SQL in debug mode
             echo=config.DEBUG_MODE,
         )
+
         # Enable foreign keys for SQLite
         @event.listens_for(_engine, "connect")
         def set_sqlite_pragma(dbapi_connection, connection_record):

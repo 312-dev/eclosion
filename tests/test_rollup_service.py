@@ -10,7 +10,7 @@ Tests cover:
 """
 
 from datetime import date
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -72,7 +72,9 @@ class MockStateManager:
     def get_frozen_target(self, recurring_id):
         return self.frozen_targets.get(recurring_id)
 
-    def set_frozen_target(self, recurring_id, frozen_target, target_month, balance_at_start, amount, frequency_months):
+    def set_frozen_target(
+        self, recurring_id, frozen_target, target_month, balance_at_start, amount, frequency_months
+    ):
         self.frozen_targets[recurring_id] = {
             "frozen_monthly_target": frozen_target,
             "target_month": target_month,
@@ -129,10 +131,21 @@ class MockRecurringService:
 class MockSavingsCalculator:
     """Mock savings calculator for rollup tests."""
 
-    def calculate(self, target_amount, current_balance, months_until_due, tracked_over_contribution=0, frequency_months=1):
+    def calculate(
+        self,
+        target_amount,
+        current_balance,
+        months_until_due,
+        tracked_over_contribution=0,
+        frequency_months=1,
+    ):
         result = MagicMock()
-        result.ideal_monthly_rate = target_amount / frequency_months if frequency_months > 0 else target_amount
-        result.monthly_contribution = max(0, target_amount - current_balance) / max(1, months_until_due)
+        result.ideal_monthly_rate = (
+            target_amount / frequency_months if frequency_months > 0 else target_amount
+        )
+        result.monthly_contribution = max(0, target_amount - current_balance) / max(
+            1, months_until_due
+        )
         result.status = MagicMock()
         result.status.value = "on_track"
         result.amount_needed_now = max(0, target_amount - current_balance)

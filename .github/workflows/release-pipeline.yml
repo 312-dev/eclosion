@@ -193,6 +193,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write  # Required for Sigstore keyless signing
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -241,6 +242,17 @@ jobs:
             RELEASE_CHANNEL=${{ inputs.release_type }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      # Sign the container image with Sigstore cosign (keyless)
+      - name: Install cosign
+        uses: sigstore/cosign-installer@3454372f43399081ed03b604cb2d021dabca52bb # v3.8.0
+
+      - name: Sign container image
+        run: |
+          cosign sign --yes ${{ steps.image.outputs.tag }}@${{ steps.build.outputs.digest }}
+          echo "## Container Signature" >> $GITHUB_STEP_SUMMARY
+          echo "Image signed with Sigstore (keyless)" >> $GITHUB_STEP_SUMMARY
+          echo "Verify with: \`cosign verify ${{ steps.image.outputs.tag }}@${{ steps.build.outputs.digest }} --certificate-oidc-issuer https://token.actions.githubusercontent.com --certificate-identity-regexp https://github.com/${{ github.repository }}/\`" >> $GITHUB_STEP_SUMMARY
 
   # ===========================================================================
   # STAGE 3: VALIDATION GATE

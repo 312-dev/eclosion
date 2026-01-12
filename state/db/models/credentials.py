@@ -7,7 +7,7 @@ Automation credentials are encrypted with a server-derived key.
 
 from datetime import datetime
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, Integer, String, Text
+from sqlalchemy import Boolean, CheckConstraint, DateTime, Integer, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base
@@ -28,9 +28,7 @@ class Credentials(Base):
     email_encrypted: Mapped[str] = mapped_column(Text, nullable=False)
     password_encrypted: Mapped[str] = mapped_column(Text, nullable=False)
     mfa_secret_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, nullable=False
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
     )
@@ -55,8 +53,6 @@ class AutomationCredentials(Base):
     mfa_secret_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
     consent_acknowledged: Mapped[bool] = mapped_column(Boolean, default=False)
     consent_timestamp: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, nullable=False
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
     __table_args__ = (CheckConstraint("id = 1", name="single_row_automation"),)

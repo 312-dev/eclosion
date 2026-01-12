@@ -1,0 +1,30 @@
+# CODEOWNERS - Defines code ownership for pull request reviews
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owners for everything in the repo
+* @312-dev/maintainers
+
+# Security-sensitive files require explicit review
+/.github/workflows/ @312-dev/maintainers
+/core/encryption.py @312-dev/maintainers
+/SECURITY.md @312-dev/maintainers
+
+# Frontend
+/frontend/ @312-dev/maintainers
+
+# Backend
+/*.py @312-dev/maintainers
+/core/ @312-dev/maintainers
+/services/ @312-dev/maintainers
+/state/ @312-dev/maintainers
+
+# Desktop app
+/desktop/ @312-dev/maintainers
+
+# Documentation
+/docusaurus/ @312-dev/maintainers
+
+# CI/CD and DevOps
+/Dockerfile @312-dev/maintainers
+/docker-compose.yml @312-dev/maintainers
+/.github/ @312-dev/maintainers
