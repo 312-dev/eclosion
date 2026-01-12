@@ -17,6 +17,7 @@ export {
 export {
   AppIcon,
   RecurringIcon,
+  NotesIcon,
   EmptyInboxIcon,
   PackageIcon,
   CheckCircleIcon,

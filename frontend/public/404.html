@@ -2,18 +2,30 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Redirecting...</title>
+    <title>Page Not Found</title>
     <script>
-      // Single Page App Redirect (fallback)
-      // Primary SPA routing is handled by _redirects for Cloudflare Pages.
-      // This script is a fallback for edge cases where a 404 is still returned.
-      // It saves the path and redirects to the root, where the app can restore it.
+      // Handle 404 differently based on the path:
+      // - /docs/* paths: Show 404 or redirect to docs home (not SPA routes)
+      // - Other paths: SPA redirect fallback
 
-      // Store the current path in sessionStorage
-      sessionStorage.setItem('spa-redirect', window.location.pathname + window.location.search + window.location.hash);
+      var path = window.location.pathname;
 
-      // Redirect to the root
-      window.location.replace('/');
+      if (path.startsWith('/docs')) {
+        // Docusaurus paths - don't redirect to SPA, redirect to docs homepage
+        // This prevents infinite loops when a docs version doesn't exist
+        window.location.replace('/docs/');
+      } else {
+        // Single Page App Redirect (fallback)
+        // Primary SPA routing is handled by _redirects for Cloudflare Pages.
+        // This script is a fallback for edge cases where a 404 is still returned.
+        // It saves the path and redirects to the root, where the app can restore it.
+
+        // Store the current path in sessionStorage
+        sessionStorage.setItem('spa-redirect', path + window.location.search + window.location.hash);
+
+        // Redirect to the root
+        window.location.replace('/');
+      }
     </script>
   </head>
   <body>

@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 import { useState } from 'react';
 import { InstallationInstructions } from '../../components/marketing/InstallationInstructions';
 import { ReleaseNotesSection } from '../../components/marketing/ReleaseNotesSection';
@@ -125,15 +126,25 @@ export function HeroSection({
             )}
           </div>
 
-          {/* Product Screenshot - sits at bottom edge, cropped */}
-          <div className="relative px-6 sm:px-12">
-            <div className="max-w-4xl mx-auto">
-              <div className="rounded-t-xl overflow-hidden shadow-2xl border border-b-0 border-[var(--monarch-border)] bg-[var(--monarch-bg-card)]">
-                <img
-                  src="https://github.com/312-dev/eclosion/releases/latest/download/screenshot-recurring.png"
-                  alt="Eclosion - Recurring Expenses Dashboard"
-                  className="w-full h-auto"
-                  loading="eager"
+          {/* Product Screenshot - cropped with fade to background */}
+          <div className="relative">
+            <div className="max-w-4xl mx-auto px-4">
+              <div className="relative rounded-xl overflow-hidden" style={{ boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 12px 24px -8px rgba(0, 0, 0, 0.3)' }}>
+                {/* Container with fixed height to show ~1/4 of image */}
+                <div className="h-[280px] sm:h-[350px] overflow-hidden">
+                  <img
+                    src="https://github.com/312-dev/eclosion/releases/latest/download/screenshot-recurring.png"
+                    alt="Eclosion - Recurring Expenses Dashboard"
+                    className="w-full h-auto"
+                    loading="eager"
+                  />
+                </div>
+                {/* Gradient fade overlay */}
+                <div
+                  className="absolute inset-x-0 bottom-0 h-32 pointer-events-none"
+                  style={{
+                    background: 'linear-gradient(to bottom, transparent, var(--monarch-bg-page))',
+                  }}
                 />
               </div>
             </div>

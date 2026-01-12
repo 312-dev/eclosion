@@ -149,17 +149,21 @@ export function NoteEditorMDX({
     setIsFocused(true);
   }, []);
 
-  const handleBlur = useCallback((e: React.FocusEvent) => {
-    // Only blur if focus is leaving the container entirely
-    // MDXEditor portals toolbar dropdowns outside the container using Radix UI,
-    // so we also need to check if focus moved to a Radix popper element
-    const relatedTarget = e.relatedTarget as HTMLElement | null;
-    const isInsideContainer = containerRef.current?.contains(relatedTarget);
-    const isInsideRadixPortal = relatedTarget?.closest('[data-radix-popper-content-wrapper]');
+  const handleBlur = useCallback(() => {
+    // Use requestAnimationFrame to let focus settle before checking
+    // This handles cases where relatedTarget is null or the portal hasn't rendered yet
+    requestAnimationFrame(() => {
+      const activeElement = document.activeElement as HTMLElement | null;
+      const isInsideContainer = containerRef.current?.contains(activeElement);
+      // MDXEditor portals toolbar dropdowns outside the container using Radix UI
+      const isInsideRadixPortal = activeElement?.closest('[data-radix-popper-content-wrapper]');
+      // Also check for MDXEditor's own dialog portals (e.g., link dialog)
+      const isInsideMdxDialog = activeElement?.closest('[class*="mdxeditor"]');
 
-    if (!isInsideContainer && !isInsideRadixPortal) {
-      setIsFocused(false);
-    }
+      if (!isInsideContainer && !isInsideRadixPortal && !isInsideMdxDialog) {
+        setIsFocused(false);
+      }
+    });
   }, []);
 
   // Build plugins array

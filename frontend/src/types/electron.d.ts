@@ -198,6 +198,64 @@ export interface LockAPI {
   onLocked: (callback: (data: { reason: string }) => void) => () => void;
 }
 
+// Lockout State API (persists failed login attempts)
+
+export interface LockoutState {
+  failedAttempts: number;
+  cooldownUntil: number | null;
+}
+
+export interface LockoutAPI {
+  getState: () => Promise<LockoutState>;
+  setState: (state: LockoutState) => Promise<void>;
+  clear: () => Promise<void>;
+}
+
+// Periodic Sync Types (scheduled sync while app is running)
+
+export interface PeriodicSyncSettings {
+  enabled: boolean;
+  intervalMinutes: number;
+}
+
+export interface PeriodicSyncInterval {
+  value: number;
+  label: string;
+}
+
+export interface PeriodicSyncAPI {
+  getSettings: () => Promise<PeriodicSyncSettings>;
+  getIntervals: () => Promise<PeriodicSyncInterval[]>;
+  setEnabled: (enabled: boolean) => Promise<PeriodicSyncSettings>;
+  setInterval: (intervalMinutes: number) => Promise<PeriodicSyncSettings>;
+}
+
+// Background Sync Types (sync when app is closed, via system scheduler)
+
+export interface BackgroundSyncStatus {
+  installed: boolean;
+  intervalMinutes: number;
+}
+
+export interface BackgroundSyncInterval {
+  value: number;
+  label: string;
+}
+
+export interface BackgroundSyncResult {
+  success: boolean;
+  intervalMinutes?: number;
+  error?: string;
+}
+
+export interface BackgroundSyncAPI {
+  getStatus: () => Promise<BackgroundSyncStatus>;
+  getIntervals: () => Promise<BackgroundSyncInterval[]>;
+  enable: (intervalMinutes: number, passphrase: string) => Promise<BackgroundSyncResult>;
+  disable: () => Promise<BackgroundSyncResult>;
+  setInterval: (intervalMinutes: number) => Promise<BackgroundSyncResult>;
+}
+
 // Pending Sync API (for menu-triggered sync when locked)
 
 export interface PendingSyncAPI {
@@ -309,8 +367,17 @@ export interface ElectronAPI {
   // Lock Management
   lock: LockAPI;
 
+  // Lockout State (failed login attempts)
+  lockout: LockoutAPI;
+
   // Pending Sync (for menu-triggered sync when locked)
   pendingSync: PendingSyncAPI;
+
+  // Periodic Sync (scheduled sync while app is running)
+  periodicSync: PeriodicSyncAPI;
+
+  // Background Sync (sync when app is closed)
+  backgroundSync: BackgroundSyncAPI;
 
   // Re-authentication (for expired MFA sessions)
   reauth: ReauthAPI;

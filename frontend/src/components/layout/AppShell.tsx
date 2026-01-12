@@ -33,7 +33,7 @@ import { useToast } from '../../context/ToastContext';
 import { getErrorMessage, isRateLimitError } from '../../utils';
 import { isDesktopMode } from '../../utils/apiBase';
 import { AppIcon, TourController } from '../wizards/WizardComponents';
-import { useMacOSElectron, useRecurringTour } from '../../hooks';
+import { useMacOSElectron, useRecurringTour, useNotesTour } from '../../hooks';
 
 export function AppShell() {
   const [showSecurityInfo, setShowSecurityInfo] = useState(false);
@@ -51,30 +51,47 @@ export function AppShell() {
   // Get recurring tour steps and state
   const {
     steps: recurringTourSteps,
-    hasSeenTour,
-    markAsSeen,
-    hasTourSteps,
+    hasSeenTour: hasSeenRecurringTour,
+    markAsSeen: markRecurringTourSeen,
+    hasTourSteps: hasRecurringTourSteps,
   } = useRecurringTour(data);
+
+  // Get notes tour steps and state
+  const {
+    steps: notesTourSteps,
+    hasSeenTour: hasSeenNotesTour,
+    markAsSeen: markNotesTourSeen,
+    hasTourSteps: hasNotesTourSteps,
+  } = useNotesTour();
 
   // Demo-aware path prefix
   const pathPrefix = isDemo ? '/demo' : '';
 
-  // Check if current route has a tour available
-  const hasTour = location.pathname === '/recurring' || location.pathname === '/demo/recurring';
+  // Check which tour is available for current route
+  const isRecurringPage = location.pathname === '/recurring' || location.pathname === '/demo/recurring';
+  const isNotesPage = location.pathname === '/notes' || location.pathname === '/demo/notes';
+  const hasTour = isRecurringPage || isNotesPage;
 
-  // Auto-start tour on first visit to recurring page
+  // Get the correct tour state based on current page
+  const currentTourSteps = isNotesPage ? notesTourSteps : recurringTourSteps;
+  const hasSeenCurrentTour = isNotesPage ? hasSeenNotesTour : hasSeenRecurringTour;
+  const hasCurrentTourSteps = isNotesPage ? hasNotesTourSteps : hasRecurringTourSteps;
+
+  // Auto-start tour on first visit to a page with a tour
   useEffect(() => {
-    if (hasTour && hasTourSteps && !hasSeenTour) {
+    if (hasTour && hasCurrentTourSteps && !hasSeenCurrentTour) {
       const timer = setTimeout(() => setShowTour(true), 500);
       return () => clearTimeout(timer);
     }
-  }, [hasTour, hasTourSteps, hasSeenTour]);
+  }, [hasTour, hasCurrentTourSteps, hasSeenCurrentTour]);
 
   // Handle tour close - mark as seen
   const handleTourClose = () => {
     setShowTour(false);
-    if (hasTour) {
-      markAsSeen();
+    if (isNotesPage) {
+      markNotesTourSeen();
+    } else if (isRecurringPage) {
+      markRecurringTourSeen();
     }
   };
 
@@ -128,7 +145,7 @@ export function AppShell() {
 
   return (
     <TourProvider
-      steps={recurringTourSteps}
+      steps={currentTourSteps}
       styles={appTourStyles}
       onClickMask={handleTourClose}
       onClickClose={handleTourClose}

@@ -194,10 +194,10 @@ export function DownloadPage() {
     <DocsLayout>
       <HeroSection
         activePlatform={activePlatform}
-        version={version}
+        {...(version !== undefined && { version })}
         downloadUrl={primaryDownload.url}
-        fileSize={primaryDownload.size}
-        architecture={primaryDownload.architecture}
+        {...(primaryDownload.size !== undefined && { fileSize: primaryDownload.size })}
+        {...(primaryDownload.architecture !== undefined && { architecture: primaryDownload.architecture })}
         loading={loading}
         downloadStatus={downloadStatus}
       />

@@ -116,6 +116,47 @@ export const FEATURES: FeatureDefinition[] = [
     ],
   },
   {
+    id: 'notes',
+    name: 'Monthly Notes',
+    tagline: 'Remember why you set each budget',
+    description:
+      'Add notes to any Monarch category or category group. Write once, and your notes automatically carry forward each month until you change them.',
+    icon: 'Edit',
+    status: 'available',
+    benefits: [
+      {
+        icon: 'Edit',
+        title: 'Category Notes',
+        description:
+          'Attach notes to any category or group to remember why you set certain budgets.',
+      },
+      {
+        icon: 'Calendar',
+        title: 'Carry Forward Monthly',
+        description:
+          'Your notes automatically appear in future months until you change them.',
+      },
+      {
+        icon: 'Clock',
+        title: 'Revision History',
+        description:
+          'See how your notes evolved over time and jump between versions.',
+      },
+      {
+        icon: 'Zap',
+        title: 'Inline Math',
+        description:
+          'Type math expressions and press Tab to evaluate them inline.',
+      },
+    ],
+    demoPath: '/demo/notes',
+    appPath: '/notes',
+    sourcePaths: [
+      'frontend/src/components/tabs/NotesTab.tsx',
+      'frontend/src/components/notes/',
+    ],
+  },
+  {
     id: 'linked-goals',
     name: 'Joint Goals',
     tagline: 'Privacy-first shared goals',

@@ -64,7 +64,7 @@ function markdownToHtml(markdown: string): string {
 
   // Normalize list items: remove blank lines between consecutive list items
   // This ensures they get grouped into a single <ul>
-  let normalized = markdown
+  const normalized = markdown
     // Collapse multiple blank lines between list items into single newlines
     .replace(/^([-*] .+)\n+(?=[-*] )/gm, '$1\n');
 

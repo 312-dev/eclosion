@@ -487,7 +487,7 @@ input[type="radio"] {
 .sidebar-nav {
   width: 220px;
   flex-shrink: 0;
-  padding: 1rem 0.75rem;
+  padding: 1.5rem 0.75rem;
   background-color: transparent;
   display: flex;
   flex-direction: column;
@@ -560,6 +560,9 @@ input[type="radio"] {
 
 .sidebar-nav-section {
   margin-bottom: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
 }
 
 .sidebar-nav-section:last-child {
@@ -715,6 +718,11 @@ input[type="radio"] {
   white-space: nowrap;
 }
 
+/* Mobile-only elements - hidden on desktop */
+.sidebar-mobile-only {
+  display: none;
+}
+
 /* Sidebar nav item with settings cog */
 .sidebar-nav-item-with-settings {
   position: relative;
@@ -746,9 +754,108 @@ input[type="radio"] {
   background-color: rgba(0, 0, 0, 0.05);
 }
 
-/* Coming soon features wrapper - desktop: transparent */
-.sidebar-coming-soon-wrapper {
+/* Toolkit wrapper - desktop: transparent, mobile: scrollable */
+.sidebar-toolkit-wrapper {
   display: contents;
+}
+
+/* Settings Page Layout */
+.settings-layout {
+  display: flex;
+  gap: 1.5rem;
+}
+
+.settings-content {
+  flex: 1;
+  max-width: 640px;
+  min-width: 0;
+}
+
+/* Scroll offset for settings sections to account for fixed header */
+.settings-content > [id] {
+  scroll-margin-top: calc(var(--header-height) + 1.5rem);
+}
+
+/* Settings Sidebar - floating secondary navigation */
+.settings-sidebar {
+  position: sticky;
+  top: calc(var(--header-height) + 1.5rem);
+  align-self: flex-start;
+  width: 160px;
+  flex-shrink: 0;
+  order: -1; /* Put sidebar first (left side) */
+  padding: 0.75rem;
+  background-color: var(--monarch-bg-card);
+  border: 1px solid var(--monarch-border);
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.settings-sidebar-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.settings-sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.5rem 0.625rem;
+  border: none;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: var(--monarch-text-muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: left;
+}
+
+.settings-sidebar-item:hover {
+  background-color: var(--monarch-bg-page);
+  color: var(--monarch-text-dark);
+}
+
+.settings-sidebar-item-active {
+  background-color: var(--monarch-orange-light);
+  color: var(--monarch-orange);
+}
+
+.settings-sidebar-item-active:hover {
+  background-color: var(--monarch-orange-light);
+  color: var(--monarch-orange);
+}
+
+.settings-sidebar-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.settings-sidebar-label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Hide settings sidebar on smaller screens */
+@media (max-width: 1023px) {
+  .settings-sidebar {
+    display: none;
+  }
+
+  .settings-content {
+    max-width: 100%;
+  }
 }
 
 /* App Footer */
@@ -881,6 +988,10 @@ input[type="radio"] {
     display: none !important;
   }
 
+  .sidebar-mobile-only {
+    display: list-item;
+  }
+
   .sidebar-suggest-dropdown {
     display: none !important;
   }
@@ -889,8 +1000,8 @@ input[type="radio"] {
     display: none !important;
   }
 
-  /* Coming soon features - scrollable with vignette fade */
-  .sidebar-coming-soon-wrapper {
+  /* Toolkit items - scrollable with vignette fade */
+  .sidebar-toolkit-wrapper {
     position: relative;
     display: flex;
     flex-shrink: 1;
@@ -898,7 +1009,7 @@ input[type="radio"] {
     overflow: hidden;
   }
 
-  .sidebar-coming-soon-wrapper::after {
+  .sidebar-toolkit-wrapper::after {
     content: '';
     position: absolute;
     top: 0;
@@ -910,8 +1021,8 @@ input[type="radio"] {
     z-index: 1;
   }
 
-  .sidebar-coming-soon-list {
-    flex-shrink: 1; /* Override the general rule - this list can shrink */
+  .sidebar-toolkit-wrapper .sidebar-nav-list {
+    flex-shrink: 1;
     overflow-x: auto;
     overflow-y: hidden;
     scrollbar-width: none;
@@ -920,7 +1031,7 @@ input[type="radio"] {
     padding-right: 16px; /* Space for vignette */
   }
 
-  .sidebar-coming-soon-list::-webkit-scrollbar {
+  .sidebar-toolkit-wrapper .sidebar-nav-list::-webkit-scrollbar {
     display: none;
   }
 
@@ -1570,15 +1681,12 @@ input[type="radio"] {
   background-color: rgba(255, 105, 45, 0.1);
 }
 
-/* Tool tile hover - border and shadow effects */
+/* Tool tile hover - border only, no glow */
 .hover-tool-tile {
-  border-color: var(--monarch-border);
-  box-shadow: none;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition: border-color 0.15s ease;
 }
 .hover-tool-tile:hover {
   border-color: var(--monarch-orange);
-  box-shadow: 0 4px 12px rgba(255, 105, 45, 0.1);
 }
 
 /* Settings icon hover - color and background change */
@@ -2905,4 +3013,317 @@ input[type="radio"] {
     animation: none;
     opacity: 1;
   }
+}
+
+/* ============================================================================
+   MDXEditor Note Editor
+   ============================================================================
+   Styling for the NoteEditorMDX component using @mdxeditor/editor.
+   Provides dark mode compatible theming and Monarch design system integration.
+   ============================================================================ */
+
+.note-editor-mdx {
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.note-editor-mdx .mdxeditor {
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: inherit;
+  background: transparent;
+}
+
+/* Override MDXEditor's default light theme colors */
+.note-editor-mdx .mdxeditor,
+.note-editor-mdx .mdxeditor * {
+  --accentColor: var(--monarch-orange);
+  --accentColorHover: var(--monarch-orange);
+}
+
+/* Toolbar styling - dark mode compatible */
+.note-editor-mdx .mdxeditor-toolbar {
+  background: var(--monarch-bg-hover) !important;
+  border-bottom: 1px solid var(--monarch-border) !important;
+  padding: 6px 8px !important;
+  gap: 4px;
+  flex-wrap: wrap !important;
+  overflow-x: auto !important;
+  scrollbar-width: thin;
+}
+
+.note-editor-mdx .mdxeditor-toolbar::-webkit-scrollbar {
+  height: 4px;
+}
+
+.note-editor-mdx .mdxeditor-toolbar::-webkit-scrollbar-thumb {
+  background: var(--monarch-border);
+  border-radius: 2px;
+}
+
+.note-editor-mdx .mdxeditor-toolbar button,
+.note-editor-mdx .mdxeditor-toolbar [role="button"] {
+  color: var(--monarch-text-dark, #e5e5e5) !important;
+  background: transparent !important;
+  border-radius: 4px;
+  padding: 4px 8px;
+}
+
+.note-editor-mdx .mdxeditor-toolbar button svg,
+.note-editor-mdx .mdxeditor-toolbar [role="button"] svg {
+  color: inherit !important;
+  fill: currentColor !important;
+}
+
+.note-editor-mdx .mdxeditor-toolbar button:hover,
+.note-editor-mdx .mdxeditor-toolbar [role="button"]:hover {
+  background: var(--monarch-bg-card, #2a2a2a) !important;
+  color: var(--monarch-orange, #e07f4f) !important;
+}
+
+.note-editor-mdx .mdxeditor-toolbar button[data-state="on"],
+.note-editor-mdx .mdxeditor-toolbar [data-state="on"] {
+  background: var(--monarch-orange, #e07f4f) !important;
+  color: white !important;
+}
+
+/* Select/dropdown trigger styling */
+.note-editor-mdx .mdxeditor-toolbar select,
+.note-editor-mdx .mdxeditor-toolbar [role="combobox"],
+.note-editor-mdx .mdxeditor-toolbar button[aria-haspopup="listbox"],
+.note-editor-mdx ._selectTrigger_uazmk_182,
+.note-editor-mdx [class*="selectTrigger"] {
+  background: var(--monarch-bg-card) !important;
+  color: var(--monarch-text-dark) !important;
+  border: 1px solid var(--monarch-border) !important;
+  border-radius: 4px !important;
+  padding: 4px 12px !important;
+  font-size: 13px !important;
+}
+
+/* Dropdown content - global since MDXEditor portals outside the component */
+[data-radix-popper-content-wrapper] {
+  z-index: 99999 !important;
+}
+
+[data-radix-popper-content-wrapper] > div,
+[data-radix-popper-content-wrapper] [role="listbox"] {
+  background: var(--monarch-bg-card, #1a1a1a) !important;
+  border: 1px solid var(--monarch-border, #333) !important;
+  border-radius: 6px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+  overflow: hidden;
+}
+
+[data-radix-popper-content-wrapper] [role="option"],
+[data-radix-popper-content-wrapper] button,
+[data-radix-popper-content-wrapper] [class*="Item"] {
+  color: var(--monarch-text-dark, #e5e5e5) !important;
+  background: transparent !important;
+  padding: 8px 12px !important;
+  cursor: pointer;
+}
+
+[data-radix-popper-content-wrapper] [role="option"]:hover,
+[data-radix-popper-content-wrapper] [data-highlighted="true"],
+[data-radix-popper-content-wrapper] [data-state="checked"],
+[data-radix-popper-content-wrapper] button:hover {
+  background: var(--monarch-bg-hover, #2a2a2a) !important;
+}
+
+/* Editor content area - uses CSS custom property for dynamic min-height */
+.note-editor-mdx .mdxeditor [data-lexical-editor="true"] {
+  min-height: var(--note-editor-min-height, 120px);
+  padding: 12px;
+  outline: none;
+}
+
+.note-editor-mdx .mdx-editor-content {
+  color: var(--monarch-text-dark);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.note-editor-mdx .mdx-editor-content h1,
+.note-editor-mdx .mdx-editor-content h2,
+.note-editor-mdx .mdx-editor-content h3,
+.note-editor-mdx .mdx-editor-content h4,
+.note-editor-mdx .mdx-editor-content h5,
+.note-editor-mdx .mdx-editor-content h6 {
+  color: var(--monarch-text-dark);
+  font-weight: 600;
+  margin-top: 1em;
+  margin-bottom: 0.5em;
+}
+
+.note-editor-mdx .mdx-editor-content > h1:first-child,
+.note-editor-mdx .mdx-editor-content > h2:first-child,
+.note-editor-mdx .mdx-editor-content > h3:first-child,
+.note-editor-mdx .mdx-editor-content > h4:first-child,
+.note-editor-mdx .mdx-editor-content > h5:first-child,
+.note-editor-mdx .mdx-editor-content > h6:first-child {
+  margin-top: 0;
+}
+
+.note-editor-mdx .mdx-editor-content h1 { font-size: 1.5em; }
+.note-editor-mdx .mdx-editor-content h2 { font-size: 1.3em; }
+.note-editor-mdx .mdx-editor-content h3 { font-size: 1.1em; }
+
+.note-editor-mdx .mdx-editor-content p {
+  margin: 0.5em 0;
+}
+
+.note-editor-mdx .mdx-editor-content ul,
+.note-editor-mdx .mdx-editor-content ol {
+  padding-left: 1.5em;
+  margin: 0.5em 0;
+}
+
+.note-editor-mdx .mdx-editor-content ul {
+  list-style-type: disc;
+}
+
+.note-editor-mdx .mdx-editor-content ol {
+  list-style-type: decimal;
+}
+
+.note-editor-mdx .mdx-editor-content li {
+  margin: 0.25em 0;
+}
+
+/* Task list / checkbox styling */
+.note-editor-mdx .mdx-editor-content li[data-checked="true"],
+.note-editor-mdx .mdx-editor-content li[data-checked="false"] {
+  list-style: none;
+  margin-left: -1.5em;
+  padding-left: 0;
+}
+
+.note-editor-mdx .mdx-editor-content li[data-checked] input[type="checkbox"] {
+  margin-right: 0.5em;
+  accent-color: var(--monarch-orange);
+  width: 16px;
+  height: 16px;
+  vertical-align: middle;
+  cursor: pointer;
+}
+
+.note-editor-mdx .mdx-editor-content li[data-checked="true"] {
+  color: var(--monarch-text-muted);
+  text-decoration: line-through;
+}
+
+.note-editor-mdx .mdx-editor-content blockquote {
+  border-left: 3px solid var(--monarch-orange);
+  margin: 0.5em 0;
+  padding-left: 1em;
+  color: var(--monarch-text-muted);
+}
+
+.note-editor-mdx .mdx-editor-content code {
+  background: var(--monarch-bg-hover);
+  padding: 0.15em 0.4em;
+  border-radius: 3px;
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+}
+
+.note-editor-mdx .mdx-editor-content a {
+  color: var(--monarch-orange);
+  text-decoration: none;
+}
+
+.note-editor-mdx .mdx-editor-content a:hover {
+  text-decoration: underline;
+}
+
+.note-editor-mdx .mdx-editor-content hr {
+  border: none;
+  border-top: 1px solid var(--monarch-border);
+  margin: 1em 0;
+}
+
+.note-editor-mdx .mdx-editor-content strong {
+  font-weight: 600;
+}
+
+.note-editor-mdx .mdx-editor-content em {
+  font-style: italic;
+}
+
+/* Placeholder styling */
+.note-editor-mdx .mdxeditor [data-lexical-editor="true"]:empty::before {
+  content: attr(data-placeholder);
+  color: var(--monarch-text-muted);
+  pointer-events: none;
+  position: absolute;
+}
+
+/* Read-only mode */
+.note-editor-mdx[data-readonly="true"] .mdxeditor [data-lexical-editor="true"] {
+  cursor: default;
+}
+
+/* Link dialog styling */
+.note-editor-mdx .mdxeditor-popup-container,
+.mdxeditor-popup-container {
+  background: var(--monarch-bg-card) !important;
+  border: 1px solid var(--monarch-border) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+}
+
+.note-editor-mdx .mdxeditor-popup-container input,
+.mdxeditor-popup-container input {
+  background: var(--monarch-bg-hover) !important;
+  border: 1px solid var(--monarch-border) !important;
+  border-radius: 4px !important;
+  color: var(--monarch-text-dark) !important;
+  padding: 6px 10px !important;
+}
+
+.note-editor-mdx .mdxeditor-popup-container button,
+.mdxeditor-popup-container button {
+  background: var(--monarch-orange) !important;
+  color: white !important;
+  border-radius: 4px !important;
+  padding: 6px 12px !important;
+}
+
+/* Tooltip styling */
+.mdxeditor-toolbar [data-state="delayed-open"] + [role="tooltip"],
+[role="tooltip"] {
+  background: var(--monarch-bg-card) !important;
+  color: var(--monarch-text-dark) !important;
+  border: 1px solid var(--monarch-border) !important;
+  border-radius: 4px !important;
+  padding: 4px 8px !important;
+  font-size: 12px !important;
+}
+
+/* Math suggestion tooltip */
+.note-editor-math-suggestion {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: var(--monarch-bg-hover);
+  color: var(--monarch-text-muted);
+  z-index: var(--z-index-dropdown);
+}
+
+.note-editor-math-suggestion strong {
+  color: var(--monarch-orange);
+}
+
+.note-editor-math-suggestion kbd {
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-size: 12px;
+  background-color: var(--monarch-bg-card);
+  border: 1px solid var(--monarch-border);
 }
