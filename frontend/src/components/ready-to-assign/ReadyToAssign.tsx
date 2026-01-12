@@ -35,6 +35,10 @@ export function ReadyToAssign({ data, summary, items, rollup, variant = 'sidebar
     offset: { y: 8 },
   });
 
+  const handleFocusTrigger = () => {
+    infoDropdown.triggerRef.current?.focus();
+  };
+
   const currentMonthlyCost = summary.total_monthly_contribution;
   const lowestMonthlyCost = items.filter((i) => i.is_enabled).reduce((sum, item) => sum + item.ideal_monthly_rate, 0);
 
@@ -157,7 +161,11 @@ export function ReadyToAssign({ data, summary, items, rollup, variant = 'sidebar
         {/* Stable Rate Info Popover */}
         <StabilizationPopover
           popoverId={popoverId}
-          infoDropdown={infoDropdown}
+          isOpen={infoDropdown.isOpen}
+          position={infoDropdown.position}
+          onClose={infoDropdown.close}
+          onFocusTrigger={handleFocusTrigger}
+          dropdownRef={infoDropdown.dropdownRef}
           stabilization={stabilization}
           lowestMonthlyCost={lowestMonthlyCost}
           catchUpAmount={catchUpAmount}
@@ -167,7 +175,14 @@ export function ReadyToAssign({ data, summary, items, rollup, variant = 'sidebar
       </div>
 
       {/* Stabilization Timeline + Card */}
-      <StabilizationTimeline popoverId={popoverId} infoDropdown={infoDropdown} stabilization={stabilization} timelineMonths={timelineMonths} />
+      <StabilizationTimeline
+        popoverId={popoverId}
+        isOpen={infoDropdown.isOpen}
+        onToggle={infoDropdown.toggle}
+        triggerRef={infoDropdown.triggerRef}
+        stabilization={stabilization}
+        timelineMonths={timelineMonths}
+      />
     </div>
   );
 }
