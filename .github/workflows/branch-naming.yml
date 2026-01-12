@@ -16,8 +16,9 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Validate branch name
+        env:
+          BRANCH: ${{ github.head_ref }}
         run: |
-          BRANCH="${{ github.head_ref }}"
 
           # Allow these prefixes
           if [[ "$BRANCH" =~ ^(feature|update)/ ]]; then
