@@ -9,6 +9,8 @@ from datetime import datetime
 
 import pytest
 
+from .helpers import extract_categories
+
 
 @pytest.mark.integration
 @pytest.mark.asyncio
@@ -20,18 +22,20 @@ async def test_can_fetch_budgets(monarch_client):
 
     assert budgets is not None, "Budgets response should not be None"
     assert isinstance(budgets, dict), "Budgets should be a dictionary"
-    assert "budgetData" in budgets or "categoryGroups" in budgets, (
-        "Budget response should have expected structure"
-    )
+    assert (
+        "budgetData" in budgets or "categoryGroups" in budgets
+    ), "Budget response should have expected structure"
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_can_fetch_categories(monarch_client):
     """Test that category fetching works."""
-    categories = await monarch_client.get_transaction_categories()
+    result = await monarch_client.get_transaction_categories()
 
-    assert categories is not None, "Categories response should not be None"
+    assert result is not None, "Categories response should not be None"
+    assert isinstance(result, dict), "Response should be a dict"
+    categories = extract_categories(result)
     assert isinstance(categories, list), "Categories should be a list"
     # Most accounts will have at least some default categories
     assert len(categories) > 0, "Should have at least one category"
@@ -83,7 +87,8 @@ async def test_budget_data_structure(monarch_client):
 @pytest.mark.asyncio
 async def test_category_data_structure(monarch_client):
     """Test that category data has expected structure for our app."""
-    categories = await monarch_client.get_transaction_categories()
+    result = await monarch_client.get_transaction_categories()
+    categories = extract_categories(result)
 
     if len(categories) > 0:
         cat = categories[0]

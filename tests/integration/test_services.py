@@ -19,6 +19,7 @@ IMPORTANT: These tests are non-destructive. They:
 
 import os
 import sys
+from unittest.mock import patch
 
 import pytest
 
@@ -30,9 +31,19 @@ from services.category_manager import CategoryManager
 
 
 @pytest.fixture
-def category_manager():
-    """Get a CategoryManager instance."""
-    return CategoryManager()
+def category_manager(_raw_monarch_client):
+    """Get a CategoryManager instance that uses the authenticated test client."""
+
+    # Create async mock that returns the authenticated client
+    # Use _raw_monarch_client (not monarch_client) because CategoryManager
+    # expects the raw MonarchMoney instance, not the rate-limited wrapper
+    async def mock_get_mm(*args, **kwargs):
+        return _raw_monarch_client
+
+    # Patch get_mm in the services module where it's imported
+    with patch("services.category_manager.get_mm", mock_get_mm):
+        manager = CategoryManager()
+        yield manager
 
 
 @pytest.fixture(autouse=True)

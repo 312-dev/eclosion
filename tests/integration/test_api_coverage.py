@@ -23,6 +23,8 @@ from datetime import datetime, timedelta
 
 import pytest
 
+from .helpers import extract_categories, extract_category_id
+
 # =============================================================================
 # READ-ONLY API TESTS (Safe to run any time)
 # =============================================================================
@@ -171,19 +173,13 @@ async def test_create_and_delete_category_full_lifecycle(monarch_client, unique_
         group_id=group_id,
     )
 
-    # Handle different response formats
-    if isinstance(result, dict):
-        cat_id = result.get("id")
-        if not cat_id and "createCategory" in result:
-            cat_id = result["createCategory"].get("category", {}).get("id")
-    else:
-        cat_id = result
-
+    cat_id = extract_category_id(result)
     assert cat_id is not None, "create_transaction_category should return an ID"
 
     try:
         # VERIFY CREATION
-        categories = await monarch_client.get_transaction_categories()
+        result = await monarch_client.get_transaction_categories()
+        categories = extract_categories(result)
         cat_names = {c["name"]: c["id"] for c in categories}
         assert unique_test_name in cat_names or cat_id in [
             c["id"] for c in categories
@@ -194,7 +190,8 @@ async def test_create_and_delete_category_full_lifecycle(monarch_client, unique_
         await monarch_client.delete_transaction_category(cat_id)
 
     # VERIFY DELETION
-    categories_after = await monarch_client.get_transaction_categories()
+    result = await monarch_client.get_transaction_categories()
+    categories_after = extract_categories(result)
     remaining_ids = [c["id"] for c in categories_after]
     assert cat_id not in remaining_ids, "Deleted category should not appear in list"
 
@@ -392,20 +389,15 @@ async def test_parallel_category_operations(monarch_client, test_category_prefix
                 group_id=group_id,
             )
 
-            if isinstance(result, dict):
-                cat_id = result.get("id")
-                if not cat_id and "createCategory" in result:
-                    cat_id = result["createCategory"].get("category", {}).get("id")
-            else:
-                cat_id = result
-
+            cat_id = extract_category_id(result)
             if cat_id:
                 created_ids.append(cat_id)
 
         # Verify all were created
         assert len(created_ids) == 3, "Should create 3 categories"
 
-        categories = await monarch_client.get_transaction_categories()
+        result = await monarch_client.get_transaction_categories()
+        categories = extract_categories(result)
         existing_ids = {c["id"] for c in categories}
 
         for cat_id in created_ids:
