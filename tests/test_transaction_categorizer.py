@@ -209,7 +209,7 @@ class TestNoTrackedItems:
         )
         # Category exists but without monarch_category_id (None)
         state.categories["recurring-001"] = CategoryState(
-            monarch_category_id=None,  # type: ignore[arg-type]
+            monarch_category_id=None,
             name="Netflix",
             target_amount=15.99,
         )
