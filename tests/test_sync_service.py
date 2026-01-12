@@ -133,7 +133,7 @@ class TestCredentialDelegation:
 
         assert result["success"] is True
         mock_credentials_service.login.assert_called_once_with(
-            "test@example.com", "password", "mfa"
+            "test@example.com", "password", "mfa", "secret"
         )
 
     def test_set_passphrase_delegates(self, sync_service, mock_credentials_service) -> None:
