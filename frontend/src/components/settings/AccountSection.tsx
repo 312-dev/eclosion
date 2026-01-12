@@ -25,7 +25,8 @@ export function AccountSection() {
   useEffect(() => {
     // In desktop mode, only show lock button if Touch ID is required
     if (isElectronDesktop()) {
-      window.electron.credentials.getRequireTouchId().then((required: boolean) => {
+      // window.electron is guaranteed to exist inside isElectronDesktop()
+      window.electron!.credentials.getRequireTouchId().then((required: boolean) => {
         setShowLockButton(required);
       });
     }

@@ -59,10 +59,11 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
 
         if (result.success) {
           // Store credentials in Electron's safeStorage
-          const stored = await window.electron.credentials.store({
+          // window.electron is guaranteed to exist inside isElectronDesktop()
+          const stored = await window.electron!.credentials.store({
             email,
             password,
-            mfaSecret: mfaSecret || undefined,
+            ...(mfaSecret && { mfaSecret }),
           });
 
           if (!stored) {
