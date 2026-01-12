@@ -66,6 +66,9 @@ const MESSAGE_INTERVAL = 10000;
 /** Progress bar animation - estimate based on typical startup times */
 const ESTIMATED_STARTUP_TIME = 10000; // 10 seconds typical
 
+/** Error message shown when startup times out */
+const TIMEOUT_ERROR_MESSAGE = 'Please restart the application or check the logs for errors.';
+
 interface StartupLoadingScreenProps {
   /** Callback when timeout (3 minutes) is reached */
   onTimeout?: () => void;
@@ -262,7 +265,7 @@ export function StartupLoadingScreen({
             style={{ color: 'var(--monarch-text-muted)' }}
           >
             {isTimedOut
-              ? 'Please restart the application or check the logs for errors.'
+              ? TIMEOUT_ERROR_MESSAGE
               : `"${currentMessage}"`}
           </p>
         </div>

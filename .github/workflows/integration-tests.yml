@@ -24,6 +24,16 @@ on:
         description: 'Commit SHA to test'
         required: true
         type: string
+      max_wait_minutes:
+        description: 'Maximum time to wait for integration tests (minutes)'
+        required: false
+        type: number
+        default: 15
+      poll_interval_seconds:
+        description: 'Interval between status checks (seconds)'
+        required: false
+        type: number
+        default: 10
     secrets:
       INTEGRATION_DISPATCH_TOKEN:
         description: 'PAT to trigger private repo workflow'
@@ -63,11 +73,13 @@ jobs:
         with:
           script: |
             const sha = '${{ inputs.sha }}';
-            const maxAttempts = 90; // 15 minutes max (90 * 10s)
-            const delay = 10000; // 10 seconds
+            const maxWaitMinutes = ${{ inputs.max_wait_minutes }};
+            const pollIntervalSeconds = ${{ inputs.poll_interval_seconds }};
+            const delay = pollIntervalSeconds * 1000; // Convert to milliseconds
+            const maxAttempts = Math.ceil((maxWaitMinutes * 60) / pollIntervalSeconds);
 
             console.log(`Waiting for integration test results on SHA: ${sha}`);
-            console.log(`Will check every ${delay/1000}s for up to ${maxAttempts * delay / 60000} minutes`);
+            console.log(`Will check every ${pollIntervalSeconds}s for up to ${maxWaitMinutes} minutes`);
 
             // Give the private repo a moment to start
             await new Promise(r => setTimeout(r, 5000));
@@ -112,4 +124,4 @@ jobs:
               }
             }
 
-            core.setFailed('Integration tests timed out after 15 minutes. Check private repo for status.');
+            core.setFailed(`Integration tests timed out after ${maxWaitMinutes} minutes. Check private repo for status.`);

@@ -12,6 +12,7 @@ import { useState, useEffect, useCallback, type ReactNode } from 'react';
 import { StartupLoadingScreen } from './ui/StartupLoadingScreen';
 import { initializeApi } from '../api/core/fetchApi';
 import { initializeDesktopBetaDetection } from '../utils/environment';
+import { isDesktopMode } from '../utils/apiBase';
 
 interface DesktopStartupWrapperProps {
   children: ReactNode;
@@ -27,7 +28,7 @@ interface StartupStatus {
 }
 
 // Check if we're in desktop mode (outside component to avoid re-renders)
-const isDesktopEnvironment = typeof window !== 'undefined' && window.electron !== undefined;
+const isDesktopEnvironment = isDesktopMode();
 
 export function DesktopStartupWrapper({ children }: DesktopStartupWrapperProps) {
   // For non-desktop mode, start as ready immediately

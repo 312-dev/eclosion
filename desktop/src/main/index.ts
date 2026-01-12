@@ -120,6 +120,12 @@ let backendManager: BackendManager;
 let updateCheckInterval: NodeJS.Timeout | null = null;
 
 /**
+ * Port value passed to createWindow() when the backend is not yet ready.
+ * The frontend uses this to know it should show the loading screen.
+ */
+const BACKEND_NOT_READY_PORT = 0;
+
+/**
  * Format an ISO timestamp as a relative time string.
  */
 function formatRelativeTime(timestamp: string): string {
@@ -184,7 +190,7 @@ async function initialize(): Promise<void> {
     // Create main window IMMEDIATELY (before backend starts)
     // The frontend will show a loading screen while backend initializes
     console.log('Creating main window...');
-    await createWindow(0); // Port 0 signals backend not ready yet
+    await createWindow(BACKEND_NOT_READY_PORT);
     recordMilestone('windowCreated');
 
     // Create application menu (adds Settings, Sync, Lock to menu bar)

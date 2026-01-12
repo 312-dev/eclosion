@@ -24,6 +24,12 @@ export interface BackendStartupStatus {
   error?: string;
 }
 
+/**
+ * Maximum time to wait for the backend to become healthy (3 minutes).
+ * This matches the loading screen timeout in StartupLoadingScreen.tsx.
+ */
+const BACKEND_HEALTH_TIMEOUT_MS = 180000;
+
 // Wrapper to add [Backend] prefix to all log messages
 function debugLog(msg: string): void {
   log(msg, '[Backend]');
@@ -261,7 +267,7 @@ export class BackendManager extends EventEmitter {
    * Wait for the backend health endpoint to respond.
    * Emits progress updates during the wait.
    */
-  private async waitForHealth(timeout = 180000): Promise<void> {
+  private async waitForHealth(timeout = BACKEND_HEALTH_TIMEOUT_MS): Promise<void> {
     const startTime = Date.now();
     const healthUrl = `http://127.0.0.1:${this.port}/health`;
     let lastProgressEmit = 0;

@@ -6,6 +6,14 @@ on:
     types: [opened, synchronize, reopened, labeled, unlabeled]
   pull_request_review:
     types: [submitted]
+  pull_request_review_comment:
+    types: [created, deleted]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to check'
+        required: true
+        type: number
 
 permissions:
   contents: read
@@ -18,14 +26,36 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     # Skip for bot PRs (any account ending in [bot])
-    if: ${{ !endsWith(github.actor, '[bot]') }}
+    # Also skip for pull_request_review_comment events from non-Copilot users
+    if: >-
+      ${{ !endsWith(github.actor, '[bot]') &&
+          (github.event_name != 'pull_request_review_comment' ||
+           contains(github.event.comment.user.login, 'copilot')) }}
     steps:
+      - name: Determine PR number
+        id: pr
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "number=${{ github.event.inputs.pr_number }}" >> $GITHUB_OUTPUT
+          else
+            echo "number=${{ github.event.pull_request.number }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Get PR info for workflow_dispatch
+        id: pr_info
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          pr_data=$(gh api repos/${{ github.repository }}/pulls/${{ steps.pr.outputs.number }})
+          echo "head_sha=$(echo "$pr_data" | jq -r '.head.sha')" >> $GITHUB_OUTPUT
+
       - name: Check for admin bypass
         id: bypass
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          labels=$(gh api repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/labels --jq '.[].name')
+          labels=$(gh api repos/${{ github.repository }}/issues/${{ steps.pr.outputs.number }}/labels --jq '.[].name')
           if echo "$labels" | grep -q "skip-copilot-review"; then
             echo "Admin bypass label found"
             echo "bypass=true" >> $GITHUB_OUTPUT
@@ -39,17 +69,27 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          PR_NUMBER=${{ github.event.pull_request.number }}
-          HEAD_SHA=${{ github.event.pull_request.head.sha }}
+          PR_NUMBER=${{ steps.pr.outputs.number }}
+          # Use workflow_dispatch SHA if available, otherwise use PR event SHA
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            HEAD_SHA=${{ steps.pr_info.outputs.head_sha }}
+          else
+            HEAD_SHA=${{ github.event.pull_request.head.sha }}
+          fi
 
           echo "Checking Copilot review for PR #$PR_NUMBER (commit: $HEAD_SHA)"
 
           # Get all reviews on the PR
           reviews=$(gh api repos/${{ github.repository }}/pulls/$PR_NUMBER/reviews)
 
-          # Find Copilot's most recent review
+          # Find Copilot's most recent review (handle various Copilot user names)
           copilot_review=$(echo "$reviews" | jq -r '
-            [.[] | select(.user.login == "copilot-pull-request-reviewer[bot]" or .user.login == "github-copilot[bot]" or .user.type == "Bot" and (.user.login | contains("copilot")))]
+            [.[] | select(
+              .user.login == "copilot-pull-request-reviewer[bot]" or
+              .user.login == "copilot-pull-request-reviewer" or
+              .user.login == "github-copilot[bot]" or
+              (.user.type == "Bot" and (.user.login | contains("copilot")))
+            )]
             | sort_by(.submitted_at)
             | last
           ')
@@ -73,10 +113,17 @@ jobs:
               echo "reviewed_latest=false" >> $GITHUB_OUTPUT
             fi
 
-            # Check for review comments (issues found)
-            review_id=$(echo "$copilot_review" | jq -r '.id')
-            comments=$(gh api repos/${{ github.repository }}/pulls/$PR_NUMBER/reviews/$review_id/comments)
-            comment_count=$(echo "$comments" | jq 'length')
+            # Check ALL PR review comments from Copilot (not just from the specific review)
+            # This catches inline comments that may be posted separately from the review
+            all_comments=$(gh api repos/${{ github.repository }}/pulls/$PR_NUMBER/comments)
+            copilot_comments=$(echo "$all_comments" | jq '[.[] | select(
+              .user.login == "copilot-pull-request-reviewer[bot]" or
+              .user.login == "copilot-pull-request-reviewer" or
+              .user.login == "github-copilot[bot]" or
+              .user.login == "Copilot" or
+              (.user.type == "Bot" and (.user.login | contains("copilot")))
+            )]')
+            comment_count=$(echo "$copilot_comments" | jq 'length')
 
             if [ "$comment_count" -gt 0 ]; then
               echo "Copilot found $comment_count issue(s)"
@@ -94,7 +141,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          PR_NUMBER=${{ github.event.pull_request.number }}
+          PR_NUMBER=${{ steps.pr.outputs.number }}
           REVIEWED_LATEST="${{ steps.copilot.outputs.reviewed_latest }}"
 
           # Get current labels
@@ -122,7 +169,12 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          HEAD_SHA=${{ github.event.pull_request.head.sha }}
+          # Use workflow_dispatch SHA if available, otherwise use PR event SHA
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            HEAD_SHA=${{ steps.pr_info.outputs.head_sha }}
+          else
+            HEAD_SHA=${{ github.event.pull_request.head.sha }}
+          fi
           BYPASS="${{ steps.bypass.outputs.bypass }}"
           REVIEWED_LATEST="${{ steps.copilot.outputs.reviewed_latest }}"
           HAS_ISSUES="${{ steps.copilot.outputs.has_issues }}"
