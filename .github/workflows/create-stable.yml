@@ -38,6 +38,7 @@ permissions:
   packages: write
   security-events: write
   deployments: write
+  id-token: write  # Required for Sigstore keyless container signing
 
 jobs:
   # ===========================================================================
