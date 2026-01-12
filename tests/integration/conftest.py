@@ -28,6 +28,26 @@ import pytest_asyncio
 from monarchmoney import MonarchMoney
 
 # =============================================================================
+# API RESPONSE HELPERS
+# =============================================================================
+
+
+def extract_categories(result: dict) -> list:
+    """Extract categories list from get_transaction_categories response."""
+    if isinstance(result, dict):
+        return result.get("categories", [])
+    return result if isinstance(result, list) else []
+
+
+def extract_category_id(result: dict) -> str | None:
+    """Extract category ID from create_transaction_category response.
+
+    Public alias for _extract_category_id for use in test files.
+    """
+    return _extract_category_id(result)
+
+
+# =============================================================================
 # RATE LIMITING CONFIGURATION
 # =============================================================================
 
@@ -307,8 +327,7 @@ async def test_category(monarch_client, unique_test_name, default_group_id):
         group_id=default_group_id,
     )
 
-    # The API returns different structures, handle both cases
-    cat_id = result.get("id") if isinstance(result, dict) else result
+    cat_id = extract_category_id(result)
 
     yield cat_id
 

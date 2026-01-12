@@ -61,9 +61,13 @@ async def test_get_budgets_returns_valid_structure(monarch_client):
 @pytest.mark.asyncio
 async def test_get_transaction_categories_returns_list(monarch_client):
     """Test get_transaction_categories() returns expected structure."""
-    categories = await monarch_client.get_transaction_categories()
+    result = await monarch_client.get_transaction_categories()
 
-    assert categories is not None, "get_transaction_categories should return data"
+    assert result is not None, "get_transaction_categories should return data"
+    assert isinstance(result, dict), "Result should be a dict"
+    assert "categories" in result, "Result should have categories key"
+
+    categories = result["categories"]
     assert isinstance(categories, list), "Categories should be a list"
 
     # Most accounts have default categories

@@ -8,6 +8,7 @@ All tests use temporary categories that are cleaned up after each test.
 from datetime import datetime
 
 import pytest
+from conftest import extract_categories, extract_category_id
 
 
 @pytest.mark.integration
@@ -15,7 +16,8 @@ import pytest
 async def test_create_and_delete_category(monarch_client, unique_test_name):
     """Test that we can create and delete a category."""
     # Get a group to add category to
-    categories = await monarch_client.get_transaction_categories()
+    result = await monarch_client.get_transaction_categories()
+    categories = extract_categories(result)
     group_id = None
     for cat in categories:
         if cat.get("group") and cat["group"].get("id"):
@@ -23,15 +25,16 @@ async def test_create_and_delete_category(monarch_client, unique_test_name):
             break
 
     # Create
-    result = await monarch_client.create_transaction_category(
+    create_result = await monarch_client.create_transaction_category(
         transaction_category_name=unique_test_name,
         group_id=group_id,
     )
-    cat_id = result.get("id") if isinstance(result, dict) else result
+    cat_id = extract_category_id(create_result)
     assert cat_id is not None, "Category creation should return an ID"
 
     # Verify exists
-    categories = await monarch_client.get_transaction_categories()
+    result = await monarch_client.get_transaction_categories()
+    categories = extract_categories(result)
     cat_ids = [c["id"] for c in categories]
     assert cat_id in cat_ids, "Created category should appear in category list"
 
@@ -39,7 +42,8 @@ async def test_create_and_delete_category(monarch_client, unique_test_name):
     await monarch_client.delete_transaction_category(cat_id)
 
     # Verify deleted
-    categories = await monarch_client.get_transaction_categories()
+    result = await monarch_client.get_transaction_categories()
+    categories = extract_categories(result)
     cat_ids = [c["id"] for c in categories]
     assert cat_id not in cat_ids, "Deleted category should not appear in category list"
 
@@ -48,7 +52,8 @@ async def test_create_and_delete_category(monarch_client, unique_test_name):
 @pytest.mark.asyncio
 async def test_category_appears_in_list(monarch_client, test_category, unique_test_name):
     """Test that a created category appears in the category list."""
-    categories = await monarch_client.get_transaction_categories()
+    result = await monarch_client.get_transaction_categories()
+    categories = extract_categories(result)
 
     # Find our test category
     found = False
@@ -68,7 +73,8 @@ async def test_multiple_test_categories(monarch_client, test_category_prefix):
     created_ids = []
 
     # Get a group
-    categories = await monarch_client.get_transaction_categories()
+    result = await monarch_client.get_transaction_categories()
+    categories = extract_categories(result)
     group_id = None
     for cat in categories:
         if cat.get("group") and cat["group"].get("id"):
@@ -85,11 +91,12 @@ async def test_multiple_test_categories(monarch_client, test_category_prefix):
                 transaction_category_name=name,
                 group_id=group_id,
             )
-            cat_id = result.get("id") if isinstance(result, dict) else result
+            cat_id = extract_category_id(result)
             created_ids.append(cat_id)
 
         # Verify all exist
-        categories = await monarch_client.get_transaction_categories()
+        result = await monarch_client.get_transaction_categories()
+        categories = extract_categories(result)
         existing_ids = {c["id"] for c in categories}
 
         for cat_id in created_ids:
