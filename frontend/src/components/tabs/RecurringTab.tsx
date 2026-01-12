@@ -43,10 +43,21 @@ export function RecurringTab() {
   const isConfigured = data?.config.target_group_id != null;
 
   // Calculate burndown data for the chart (must be before early returns)
-  const currentMonthlyCost = data?.summary.total_monthly_contribution ?? 0;
-  const lowestMonthlyCost = data?.items
-    .filter(i => i.is_enabled)
-    .reduce((sum, item) => sum + item.ideal_monthly_rate, 0) ?? 0;
+  // Use frontend calculation to ensure chart matches panel (avoids stale backend cache issues)
+  const currentMonthlyCost = useMemo(() => {
+    if (!data) return 0;
+    const enabledItems = data.items.filter(i => i.is_enabled && !i.is_in_rollup);
+    const itemsTotal = enabledItems.reduce((sum, item) => sum + item.frozen_monthly_target, 0);
+    const rollupTotal = data.rollup.enabled ? data.rollup.total_frozen_monthly : 0;
+    return itemsTotal + rollupTotal;
+  }, [data]);
+  const lowestMonthlyCost = useMemo(() => {
+    if (!data) return 0;
+    const enabledItems = data.items.filter(i => i.is_enabled && !i.is_in_rollup);
+    const itemsTotal = enabledItems.reduce((sum, item) => sum + item.ideal_monthly_rate, 0);
+    const rollupTotal = data.rollup.enabled ? data.rollup.total_ideal_rate : 0;
+    return itemsTotal + rollupTotal;
+  }, [data]);
   const burndownData = useMemo(
     () => data ? calculateBurndownData(data.items, currentMonthlyCost, lowestMonthlyCost) : [],
     [data, currentMonthlyCost, lowestMonthlyCost]

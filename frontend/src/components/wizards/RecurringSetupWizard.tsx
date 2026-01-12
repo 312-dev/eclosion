@@ -80,6 +80,7 @@ export function RecurringSetupWizard({ onComplete }: RecurringSetupWizardProps) 
             syncName={wizard.rollupSyncName}
             onSyncNameChange={wizard.setRollupSyncName}
             loading={wizard.loadingRollupCategories}
+            categoriesFetched={wizard.rollupCategoriesFetched}
             groupName={wizard.selectedGroupName}
             autoCategorizeEnabled={wizard.autoCategorizeEnabled}
             onAutoCategorizeChange={wizard.setAutoCategorizeEnabled}

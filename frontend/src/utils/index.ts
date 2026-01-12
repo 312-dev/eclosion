@@ -17,6 +17,7 @@ export {
   formatDate,
   formatInterval,
   formatDateTime,
+  decodeHtmlEntities,
   FREQUENCY_LABELS,
   FREQUENCY_SHORT_LABELS,
   FREQUENCY_ORDER,

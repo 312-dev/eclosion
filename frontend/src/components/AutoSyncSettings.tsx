@@ -1,8 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { AutoSyncStatus } from '../types';
 import { formatInterval, formatDateTime } from '../utils';
 import { isDesktopMode } from '../utils/apiBase';
-import { useBiometric } from '../hooks';
 import { AutoSyncSecurityModal } from './AutoSyncSecurityModal';
 import { SpinnerIcon, ClockIcon, XIcon, CheckSimpleIcon, AlertCircleIcon } from './icons';
 
@@ -15,13 +14,25 @@ interface AutoSyncSettingsProps {
 
 /**
  * Desktop-specific auto-sync display.
- * On desktop, auto-sync works when passphrase is stored in OS keychain.
- * The passphrase is stored automatically on successful login.
+ * On desktop, auto-sync works when credentials are stored in OS keychain.
+ * Credentials are stored automatically on successful login.
  */
 function DesktopAutoSyncSettings({ status }: { status: AutoSyncStatus | null }) {
-  const biometric = useBiometric();
+  const [credentialsStored, setCredentialsStored] = useState<boolean | null>(null);
 
-  if (!status || biometric.loading) {
+  useEffect(() => {
+    const checkCredentials = async () => {
+      if (globalThis.electron?.credentials) {
+        const hasCredentials = await globalThis.electron.credentials.has();
+        setCredentialsStored(hasCredentials);
+      } else {
+        setCredentialsStored(false);
+      }
+    };
+    void checkCredentials();
+  }, []);
+
+  if (!status || credentialsStored === null) {
     return (
       <div
         className="rounded-lg p-4"
@@ -38,9 +49,9 @@ function DesktopAutoSyncSettings({ status }: { status: AutoSyncStatus | null }) 
     );
   }
 
-  // Desktop auto-sync is active when passphrase is stored in keychain
+  // Desktop auto-sync is active when credentials are stored in keychain
   // This happens automatically on login - no extra setup needed
-  const isActive = biometric.passphraseStored;
+  const isActive = credentialsStored;
 
   return (
     <div

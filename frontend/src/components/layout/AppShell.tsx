@@ -44,7 +44,7 @@ export function AppShell() {
   const isDemo = useDemo();
   const isDesktop = isDesktopMode();
   const toast = useToast();
-  const { data, isLoading, error, refetch } = useDashboardQuery();
+  const { data, isLoading, isFetching, error, refetch } = useDashboardQuery();
   const syncMutation = useSyncMutation();
   const isMacOSElectron = useMacOSElectron();
 
@@ -86,10 +86,30 @@ export function AppShell() {
     if (isRecurringPage && !isRecurringConfigured) return;
 
     if (hasTour && hasCurrentTourSteps && !hasSeenCurrentTour) {
-      const timer = setTimeout(() => setShowTour(true), 500);
-      return () => clearTimeout(timer);
+      // Get the first step's selector to wait for it to exist
+      const firstStepSelector = currentTourSteps[0]?.selector;
+      if (!firstStepSelector) return;
+
+      // Poll for the target element to exist before starting tour
+      // This handles cases where the element hasn't rendered yet (e.g., first login in Electron)
+      let attempts = 0;
+      const maxAttempts = 50; // 5 seconds max wait
+      const pollInterval = 100;
+
+      const checkElement = () => {
+        attempts++;
+        const element = document.querySelector(firstStepSelector);
+        if (element) {
+          setShowTour(true);
+        } else if (attempts < maxAttempts) {
+          timerId = setTimeout(checkElement, pollInterval);
+        }
+      };
+
+      let timerId = setTimeout(checkElement, pollInterval);
+      return () => clearTimeout(timerId);
     }
-  }, [hasTour, hasCurrentTourSteps, hasSeenCurrentTour, isRecurringPage, isNotesPage, isRecurringConfigured]);
+  }, [hasTour, hasCurrentTourSteps, hasSeenCurrentTour, isRecurringPage, isNotesPage, isRecurringConfigured, currentTourSteps]);
 
   // Handle tour close - mark as seen
   const handleTourClose = () => {
@@ -211,6 +231,7 @@ export function AppShell() {
               <SyncButton
                 onSync={handleSync}
                 isSyncing={syncMutation.isPending}
+                isFetching={isFetching}
                 lastSync={data.last_sync}
                 compact
               />
@@ -219,11 +240,13 @@ export function AppShell() {
           </div>
         </header>
 
-        {/* Update notification banners - below header to avoid traffic light overlap */}
-        <UpdateBanner />
-        <UpdateReadyBanner />
-        <UpdateErrorBanner />
-        <OfflineIndicator />
+        {/* Update notification banners - sticky below header for visibility on all pages */}
+        <div className="app-notification-banners">
+          <UpdateBanner />
+          <UpdateReadyBanner />
+          <UpdateErrorBanner />
+          <OfflineIndicator />
+        </div>
 
         <SecurityInfo
           isOpen={showSecurityInfo}

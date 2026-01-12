@@ -118,7 +118,8 @@ export interface BurndownPoint {
 }
 
 export function calculateBurndownData(items: RecurringItem[], currentMonthlyCost: number, lowestMonthlyCost: number): BurndownPoint[] {
-  const enabledItems = items.filter(i => i.is_enabled && i.progress_percent < 100);
+  // Include all enabled items - catch-up completion is based on due date, not current progress
+  const enabledItems = items.filter(i => i.is_enabled);
 
   if (enabledItems.length === 0) return [];
 

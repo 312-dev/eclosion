@@ -231,3 +231,19 @@ export function formatDateTime(isoString: string | null): string {
     minute: '2-digit',
   });
 }
+
+/**
+ * Decode HTML entities in a string.
+ *
+ * Handles common entities like &#39; (apostrophe), &amp;, &lt;, &gt;, &quot;
+ * Uses a textarea element to handle all HTML entity types including numeric.
+ *
+ * @param text - String potentially containing HTML entities
+ * @returns Decoded string with entities replaced by actual characters
+ */
+export function decodeHtmlEntities(text: string): string {
+  if (!text?.includes('&')) return text;
+  const textarea = document.createElement('textarea');
+  textarea.innerHTML = text;
+  return textarea.value;
+}
