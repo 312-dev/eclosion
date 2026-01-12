@@ -194,6 +194,7 @@ export function useSetupWizard({ onComplete }: UseSetupWizardOptions) {
     rollupSyncName: rollupConfig.rollupSyncName,
     setRollupSyncName: rollupConfig.setRollupSyncName,
     loadingRollupCategories: rollupConfig.loadingRollupCategories,
+    rollupCategoriesFetched: rollupConfig.rollupCategoriesFetched,
 
     // Auto-categorize
     autoCategorizeEnabled,
