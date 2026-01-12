@@ -8,7 +8,7 @@ ARG RELEASE_CHANNEL=dev
 
 # Stage 1: Build frontend
 # Pin to digest for reproducible builds (Dependabot will update this)
-FROM node:20-alpine@sha256:fcbb8f7d018707c656a4da2eea8a15f2893d2258093fea9ff2ea5ea1cba82112 AS frontend-builder
+FROM node:24-alpine@sha256:c921b97d4b74f51744057454b306b418cf693865e73b8100559189605f6955b8 AS frontend-builder
 
 WORKDIR /app/frontend
 
