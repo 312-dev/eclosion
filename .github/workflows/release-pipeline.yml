@@ -399,14 +399,14 @@ jobs:
           for file in *.dmg *.zip *.exe *.AppImage *.deb *.rpm; do
             if [ -f "$file" ]; then
               echo "Signing: $file"
-              cosign sign-blob --yes "$file" --output-signature "${file}.sig" --output-certificate "${file}.pem"
+              cosign sign-blob --yes "$file" --bundle "${file}.bundle"
             fi
           done
 
           # Sign the checksums file
           if [ -f "SHA256SUMS.txt" ]; then
             echo "Signing: SHA256SUMS.txt"
-            cosign sign-blob --yes "SHA256SUMS.txt" --output-signature "SHA256SUMS.txt.sig" --output-certificate "SHA256SUMS.txt.pem"
+            cosign sign-blob --yes "SHA256SUMS.txt" --bundle "SHA256SUMS.txt.bundle"
           fi
 
           echo "## Release Artifact Signatures" >> $GITHUB_STEP_SUMMARY
@@ -414,7 +414,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Verify with:" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-          echo "cosign verify-blob --signature <file>.sig --certificate <file>.pem \\" >> $GITHUB_STEP_SUMMARY
+          echo "cosign verify-blob --bundle <file>.bundle \\" >> $GITHUB_STEP_SUMMARY
           echo "  --certificate-oidc-issuer https://token.actions.githubusercontent.com \\" >> $GITHUB_STEP_SUMMARY
           echo "  --certificate-identity-regexp 'https://github.com/${{ github.repository }}/' <file>" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
