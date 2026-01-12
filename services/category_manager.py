@@ -65,6 +65,60 @@ class CategoryManager:
         cache[cache_key] = result
         return result
 
+    async def get_all_categories_grouped(self) -> list[dict[str, Any]]:
+        """
+        Get all categories from Monarch, organized by group.
+
+        Returns a list of groups, each containing their categories:
+        [
+            {
+                "id": "group-id",
+                "name": "Group Name",
+                "categories": [
+                    {"id": "cat-id", "name": "Category Name", "icon": "emoji"},
+                    ...
+                ]
+            },
+            ...
+        ]
+
+        Used by the Notes feature to display all Monarch categories.
+        """
+        categories = await self._get_categories_cached()
+
+        # Build groups with their categories
+        groups_map: dict[str, dict[str, Any]] = {}
+        group_order: list[str] = []
+
+        for cat in categories.get("categories", []):
+            group = cat.get("group", {})
+            group_id = group.get("id")
+            group_name = group.get("name")
+
+            if not group_id:
+                continue
+
+            # Track group order as they appear (preserves budget sheet order)
+            if group_id not in groups_map:
+                groups_map[group_id] = {
+                    "id": group_id,
+                    "name": group_name,
+                    "categories": [],
+                }
+                group_order.append(group_id)
+
+            # Add category to its group
+            groups_map[group_id]["categories"].append(
+                {
+                    "id": cat.get("id"),
+                    "name": cat.get("name"),
+                    "icon": cat.get("icon"),
+                }
+            )
+
+        # Return groups in order they appeared
+        return [groups_map[gid] for gid in group_order]
+
     async def create_category(
         self,
         group_id: str,

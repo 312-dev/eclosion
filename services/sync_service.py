@@ -119,6 +119,10 @@ class SyncService:
         """Get available category groups for configuration."""
         return await self.category_manager.get_category_groups()
 
+    async def get_all_categories_grouped(self) -> list[dict[str, Any]]:
+        """Get all categories from Monarch, organized by group."""
+        return await self.category_manager.get_all_categories_grouped()
+
     async def configure(self, group_id: str, group_name: str) -> dict[str, Any]:
         """Configure the tracker with a target category group."""
         self.state_manager.update_config(group_id, group_name)
@@ -947,9 +951,7 @@ class SyncService:
                         "category_id": cat_state.monarch_category_id,
                         "name": cat_info.get("name", cat_state.name),
                         "group_name": cat_info.get("group_name"),
-                        "planned_budget": all_planned_budgets.get(
-                            cat_state.monarch_category_id, 0
-                        ),
+                        "planned_budget": all_planned_budgets.get(cat_state.monarch_category_id, 0),
                     }
                 )
 

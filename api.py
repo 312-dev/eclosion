@@ -28,6 +28,8 @@ from core import (
 from services.credentials_service import CredentialsService
 from services.security_service import SecurityService
 from services.sync_service import SyncService
+from state.db import init_db
+from state.state_manager import NotesStateManager
 
 load_dotenv()
 
@@ -92,6 +94,10 @@ limiter = Limiter(
 
 # Session timeout tracking
 _last_activity: datetime | None = None
+
+# Initialize SQLite database (runs Alembic migrations)
+init_db()
+logger.info("Database initialized")
 
 # Initialize sync service
 sync_service = SyncService()
@@ -573,15 +579,12 @@ async def auth_login():
         mfa_secret = data.get("mfa_secret", "")
         mfa_mode = data.get("mfa_mode", "secret")  # 'secret' or 'code'
 
-        # Mask email for audit log
-        masked_email = email[:3] + "***" if email and len(email) > 3 else "***"
-
         if not email or not password:
-            _audit_log("LOGIN_ATTEMPT", False, f"Missing credentials for {masked_email}")
+            _audit_log("LOGIN_ATTEMPT", False, "Missing credentials")
             return jsonify({"success": False, "error": "Email and password are required"}), 400
 
         result = await sync_service.login(email, password, mfa_secret, mfa_mode)
-        _audit_log("LOGIN_ATTEMPT", result.get("success", False), f"User: {masked_email}, MFA mode: {mfa_mode}")
+        _audit_log("LOGIN_ATTEMPT", result.get("success", False), f"MFA mode: {mfa_mode}")
 
         if result.get("success"):
             _update_activity()  # Start session timeout tracking
@@ -1687,8 +1690,6 @@ def dismiss_security_alerts():
 
 # ---- MONTHLY NOTES ENDPOINTS ----
 
-from state.state_manager import NotesStateManager
-
 notes_manager = NotesStateManager()
 
 
@@ -1707,6 +1708,31 @@ def get_month_notes(month_key: str):
         raise ValidationError("Invalid month_key format. Expected YYYY-MM.")
 
     return notes_manager.get_all_notes_for_month(month_key)
+
+
+@app.route("/notes/all", methods=["GET"])
+@api_handler(handle_mfa=False)
+def get_all_notes():
+    """
+    Get all notes data for bulk loading.
+
+    Returns all raw notes and general notes so the frontend can compute
+    effective notes for any month instantly without additional API calls.
+    This enables immediate page navigation in the notes feature.
+    """
+    return notes_manager.get_all_notes()
+
+
+@app.route("/notes/categories", methods=["GET"])
+@api_handler(handle_mfa=True, success_wrapper="groups")
+async def get_notes_categories():
+    """
+    Get all Monarch categories organized by group for the Notes feature.
+
+    Returns all category groups with their categories, not filtered by
+    recurring expenses or any other criteria.
+    """
+    return await sync_service.get_all_categories_grouped()
 
 
 @app.route("/notes/category", methods=["POST"])
@@ -1759,11 +1785,12 @@ def save_category_note():
 @api_handler(handle_mfa=False)
 def delete_category_note(note_id: str):
     """Delete a category note by ID."""
-    note_id = sanitize_id(note_id)
-    if not note_id:
+    safe_note_id = sanitize_id(note_id)
+    if not safe_note_id:
         from core.exceptions import ValidationError
 
         raise ValidationError("Invalid note_id.")
+    note_id = safe_note_id
 
     deleted = notes_manager.delete_note(note_id)
     return {"success": deleted}
@@ -1823,20 +1850,19 @@ def delete_general_note(month_key: str):
 def get_archived_notes():
     """Get all archived notes."""
     archived = notes_manager.get_archived_notes()
-    return {
-        "archived_notes": [notes_manager._serialize_archived(n) for n in archived]
-    }
+    return {"archived_notes": [notes_manager._serialize_archived(n) for n in archived]}
 
 
 @app.route("/notes/archived/<note_id>", methods=["DELETE"])
 @api_handler(handle_mfa=False)
 def delete_archived_note(note_id: str):
     """Permanently delete an archived note."""
-    note_id = sanitize_id(note_id)
-    if not note_id:
+    safe_note_id = sanitize_id(note_id)
+    if not safe_note_id:
         from core.exceptions import ValidationError
 
         raise ValidationError("Invalid note_id.")
+    note_id = safe_note_id
 
     deleted = notes_manager.delete_archived_note(note_id)
     return {"success": deleted}
@@ -1850,17 +1876,20 @@ async def sync_notes_categories():
 
     Detects deleted categories and archives their notes.
     """
-    # Get current categories from Monarch
-    groups = await sync_service.get_category_groups()
+    # Get current categories from Monarch (with nested categories)
+    groups = await sync_service.get_all_categories_grouped()
 
     # Extract all category IDs (both groups and categories)
-    current_ids = set()
+    current_ids: set[str] = set()
     for group in groups:
-        current_ids.add(group["id"])
-        # If the group has categories, add those too
-        if "categories" in group:
-            for cat in group["categories"]:
-                current_ids.add(cat["id"])
+        group_id = group.get("id")
+        if group_id:
+            current_ids.add(group_id)
+        # Add category IDs from this group
+        for cat in group.get("categories", []):
+            cat_id = cat.get("id")
+            if cat_id:
+                current_ids.add(cat_id)
 
     result = notes_manager.sync_categories(current_ids)
     return {"success": True, **result}
@@ -1875,14 +1904,185 @@ def get_note_history(category_type: str, category_id: str):
 
         raise ValidationError("Invalid category_type. Must be 'group' or 'category'.")
 
-    category_id = sanitize_id(category_id)
-    if not category_id:
+    safe_category_id = sanitize_id(category_id)
+    if not safe_category_id:
         from core.exceptions import ValidationError
 
         raise ValidationError("Invalid category_id.")
+    category_id = safe_category_id
 
     history = notes_manager.get_revision_history(category_type, category_id)
     return {"history": history}
+
+
+# ---- CHECKBOX STATE ENDPOINTS ----
+
+
+@app.route("/notes/checkboxes/<note_id>", methods=["GET"])
+@api_handler(handle_mfa=False)
+def get_checkbox_states(note_id: str):
+    """
+    Get checkbox states for a category note.
+
+    Query params:
+    - viewing_month: YYYY-MM (required) - the month the user is viewing
+    """
+    safe_note_id = sanitize_id(note_id)
+    if not safe_note_id:
+        from core.exceptions import ValidationError
+
+        raise ValidationError("Invalid note_id.")
+    note_id = safe_note_id
+
+    viewing_month = request.args.get("viewing_month")
+    if not viewing_month or not re.match(r"^\d{4}-\d{2}$", viewing_month):
+        from core.exceptions import ValidationError
+
+        raise ValidationError("Invalid viewing_month format. Expected YYYY-MM.")
+
+    states = notes_manager.get_checkbox_states(
+        note_id=note_id,
+        general_note_month_key=None,
+        viewing_month=viewing_month,
+    )
+    return {"states": states}
+
+
+@app.route("/notes/checkboxes/general/<month_key>", methods=["GET"])
+@api_handler(handle_mfa=False)
+def get_general_checkbox_states(month_key: str):
+    """
+    Get checkbox states for a general note.
+
+    Query params:
+    - viewing_month: YYYY-MM (required) - the month the user is viewing
+    """
+    if not re.match(r"^\d{4}-\d{2}$", month_key):
+        from core.exceptions import ValidationError
+
+        raise ValidationError("Invalid month_key format. Expected YYYY-MM.")
+
+    viewing_month = request.args.get("viewing_month", month_key)
+    if not re.match(r"^\d{4}-\d{2}$", viewing_month):
+        from core.exceptions import ValidationError
+
+        raise ValidationError("Invalid viewing_month format. Expected YYYY-MM.")
+
+    states = notes_manager.get_checkbox_states(
+        note_id=None,
+        general_note_month_key=month_key,
+        viewing_month=viewing_month,
+    )
+    return {"states": states}
+
+
+@app.route("/notes/checkboxes", methods=["POST"])
+@api_handler(handle_mfa=False)
+def update_checkbox_state():
+    """
+    Update a checkbox state.
+
+    Body: {
+        "note_id": "uuid",  // For category notes (mutually exclusive with general_note_month_key)
+        "general_note_month_key": "2025-01",  // For general notes
+        "viewing_month": "2025-01",
+        "checkbox_index": 0,
+        "is_checked": true
+    }
+    """
+    data = request.get_json()
+
+    note_id = sanitize_id(data.get("note_id")) if data.get("note_id") else None
+    general_note_month_key = data.get("general_note_month_key")
+    viewing_month = data.get("viewing_month")
+    checkbox_index = data.get("checkbox_index")
+    is_checked = data.get("is_checked")
+
+    # Validate viewing_month
+    if not viewing_month or not re.match(r"^\d{4}-\d{2}$", viewing_month):
+        from core.exceptions import ValidationError
+
+        raise ValidationError("Invalid viewing_month format. Expected YYYY-MM.")
+
+    # Validate general_note_month_key if provided
+    if general_note_month_key and not re.match(r"^\d{4}-\d{2}$", general_note_month_key):
+        from core.exceptions import ValidationError
+
+        raise ValidationError("Invalid general_note_month_key format. Expected YYYY-MM.")
+
+    # Must have either note_id or general_note_month_key
+    if not note_id and not general_note_month_key:
+        from core.exceptions import ValidationError
+
+        raise ValidationError("Must provide either note_id or general_note_month_key.")
+
+    # Validate checkbox_index
+    if checkbox_index is None or not isinstance(checkbox_index, int) or checkbox_index < 0:
+        from core.exceptions import ValidationError
+
+        raise ValidationError("Invalid checkbox_index. Must be a non-negative integer.")
+
+    # Validate is_checked
+    if is_checked is None or not isinstance(is_checked, bool):
+        from core.exceptions import ValidationError
+
+        raise ValidationError("Invalid is_checked. Must be a boolean.")
+
+    states = notes_manager.set_checkbox_state(
+        note_id=note_id,
+        general_note_month_key=general_note_month_key,
+        viewing_month=viewing_month,
+        checkbox_index=checkbox_index,
+        is_checked=is_checked,
+    )
+    return {"success": True, "states": states}
+
+
+@app.route("/notes/checkboxes/month/<month_key>", methods=["GET"])
+@api_handler(handle_mfa=False)
+def get_month_checkbox_states(month_key: str):
+    """
+    Get all checkbox states for a given month.
+
+    More efficient than fetching per-note.
+    """
+    if not re.match(r"^\d{4}-\d{2}$", month_key):
+        from core.exceptions import ValidationError
+
+        raise ValidationError("Invalid month_key format. Expected YYYY-MM.")
+
+    states = notes_manager.get_all_checkbox_states_for_month(month_key)
+    return {"states": states}
+
+
+@app.route("/notes/settings", methods=["GET"])
+@api_handler(handle_mfa=False)
+def get_notes_settings():
+    """Get notes settings including checkbox mode."""
+    settings = notes_manager.get_notes_settings()
+    return {"settings": settings}
+
+
+@app.route("/notes/settings", methods=["POST"])
+@api_handler(handle_mfa=False)
+def update_notes_settings():
+    """
+    Update notes settings.
+
+    Body: {
+        "checkbox_mode": "persist" | "reset"
+    }
+    """
+    data = request.get_json()
+
+    checkbox_mode = data.get("checkbox_mode")
+    if checkbox_mode and checkbox_mode not in ("persist", "reset"):
+        from core.exceptions import ValidationError
+
+        raise ValidationError("Invalid checkbox_mode. Must be 'persist' or 'reset'.")
+
+    settings = notes_manager.update_notes_settings(checkbox_mode=checkbox_mode)
+    return {"success": True, "settings": settings}
 
 
 # ---- UTILITY ENDPOINTS ----
