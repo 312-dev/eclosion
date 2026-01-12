@@ -55,7 +55,7 @@ def get_passphrase() -> str | None:
         The stored passphrase, or None if not found
     """
     try:
-        passphrase = keyring.get_password(SERVICE_NAME, ACCOUNT_NAME)
+        passphrase: str | None = keyring.get_password(SERVICE_NAME, ACCOUNT_NAME)
         if passphrase:
             logger.debug("Passphrase retrieved from OS keychain")
         else:
@@ -105,4 +105,4 @@ def get_keychain_backend() -> str:
     Returns:
         Name of the active keyring backend
     """
-    return keyring.get_keyring().name
+    return str(keyring.get_keyring().name)

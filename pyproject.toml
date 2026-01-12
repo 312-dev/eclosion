@@ -136,6 +136,7 @@ exclude = [
 [[tool.mypy.overrides]]
 module = "tests.*"
 disallow_untyped_defs = false
+disable_error_code = ["attr-defined", "index", "arg-type"]  # More permissive for test mocks
 
 [[tool.mypy.overrides]]
 module = "monarchmoney.*"
