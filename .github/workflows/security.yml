@@ -44,7 +44,10 @@ concurrency:
   group: security-${{ github.ref }}
   cancel-in-progress: true
 
-permissions: read-all
+# Note: When called as a reusable workflow (workflow_call), permissions
+# are inherited from the calling workflow. When run standalone, the
+# default token permissions apply (usually read access to most resources).
+# Individual jobs specify additional write permissions where needed.
 
 jobs:
   # ============================================================================
