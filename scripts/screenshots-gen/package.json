@@ -9,10 +9,10 @@
   },
   "dependencies": {
     "playwright": "^1.40.0",
-    "sharp": "^0.33.0"
+    "sharp": "^0.34.5"
   },
   "devDependencies": {
-    "@types/node": "^20.0.0",
+    "@types/node": "^25.0.6",
     "tsx": "^4.0.0",
     "typescript": "^5.0.0"
   }
