@@ -47,9 +47,9 @@ async def test_set_budget_amount(monarch_client, test_category):
                 if monthly.get("month", "").startswith(current_month):
                     planned = monthly.get("plannedCashFlowAmount", 0)
                     # Budget might be stored as negative (expense) or positive
-                    assert (
-                        abs(planned) == 100 or planned == -100 or planned == 100
-                    ), f"Budget should be set to 100, got {planned}"
+                    assert abs(planned) == 100 or planned == -100 or planned == 100, (
+                        f"Budget should be set to 100, got {planned}"
+                    )
                     found = True
                     break
             break
