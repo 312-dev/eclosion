@@ -12,7 +12,7 @@ Extracted from SyncService to improve separation of concerns.
 
 import logging
 import os
-from typing import Any
+from typing import Any, Literal
 
 from core.error_detection import format_auth_response, is_rate_limit_error
 from monarch_utils import get_mm, get_mm_with_code
@@ -160,7 +160,8 @@ class CredentialsService:
         )
 
         # Save MFA mode to state
-        mfa_mode = CredentialsService._pending_credentials.get("mfa_mode", "secret")
+        mfa_mode_raw = CredentialsService._pending_credentials.get("mfa_mode", "secret")
+        mfa_mode: Literal["secret", "code"] = "secret" if mfa_mode_raw != "code" else "code"
         state_manager = StateManager()
         state = state_manager.load()
         state.mfa_mode = mfa_mode

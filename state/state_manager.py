@@ -162,7 +162,9 @@ class TrackerState:
     last_read_changelog_version: str | None = None  # Last changelog version user has read
     auto_sync: AutoSyncState = field(default_factory=AutoSyncState)  # Background sync settings
     user_first_name: str | None = None  # User's first name from Monarch profile
-    mfa_mode: Literal["secret", "code"] = "secret"  # MFA auth mode: 'secret' for auto-gen, 'code' for one-time
+    mfa_mode: Literal["secret", "code"] = (
+        "secret"  # MFA auth mode: 'secret' for auto-gen, 'code' for one-time
+    )
     sync_blocked_reason: str | None = None  # Why sync is blocked (e.g., 'auth_required')
 
     def is_configured(self) -> bool:
@@ -1135,6 +1137,12 @@ class NotesState:
     # Track known category IDs for deletion detection: category_id -> name
     known_category_ids: dict[str, str] = field(default_factory=dict)
     # Track when each month was last updated: month_key -> ISO timestamp
+    # Checkbox states: key -> list[bool]
+    # Key format: "{note_id}:{scope}" where scope is "global" or viewing month (YYYY-MM)
+    # For general notes: "general:{month_key}:{scope}"
+    checkbox_states: dict[str, list[bool]] = field(default_factory=dict)
+    # Checkbox persistence mode: 'persist' or 'reset'
+    checkbox_mode: str = "persist"
     month_last_updated: dict[str, str] = field(default_factory=dict)
 
 
@@ -1171,12 +1179,13 @@ class NotesStateManager:
         return {
             "notes": {k: self._serialize_note(v) for k, v in state.notes.items()},
             "general_notes": {
-                k: self._serialize_general_note(v)
-                for k, v in state.general_notes.items()
+                k: self._serialize_general_note(v) for k, v in state.general_notes.items()
             },
             "archived_notes": [self._serialize_archived(n) for n in state.archived_notes],
             "known_category_ids": state.known_category_ids,
             "month_last_updated": state.month_last_updated,
+            "checkbox_states": state.checkbox_states,
+            "checkbox_mode": state.checkbox_mode,
         }
 
     def _serialize_note(self, note: NoteEntry) -> dict:
@@ -1227,6 +1236,8 @@ class NotesStateManager:
         state = NotesState(
             known_category_ids=data.get("known_category_ids", {}),
             month_last_updated=data.get("month_last_updated", {}),
+            checkbox_states=data.get("checkbox_states", {}),
+            checkbox_mode=data.get("checkbox_mode", "persist"),
         )
 
         # Deserialize notes
@@ -1366,9 +1377,7 @@ class NotesStateManager:
         self.save(state)
         return True
 
-    def get_notes_for_category(
-        self, category_type: str, category_id: str
-    ) -> list[NoteEntry]:
+    def get_notes_for_category(self, category_type: str, category_id: str) -> list[NoteEntry]:
         """Get all notes for a category or group, sorted by month."""
         state = self.load()
         notes = [
@@ -1553,6 +1562,57 @@ class NotesStateManager:
             ),
         }
 
+    def get_all_notes(self) -> dict:
+        """
+        Get all notes data for bulk loading.
+
+        Returns all raw notes and general notes so the frontend can compute
+        effective notes for any month instantly without additional API calls.
+        """
+        state = self.load()
+
+        # Serialize all notes with categoryRef format (matching frontend Note type)
+        all_notes = [self._serialize_note_with_category_ref(note) for note in state.notes.values()]
+
+        # Serialize all general notes with camelCase keys for frontend
+        general_notes = {
+            month_key: self._serialize_general_note_camel(note)
+            for month_key, note in state.general_notes.items()
+        }
+
+        return {
+            "notes": all_notes,
+            "general_notes": general_notes,
+            "month_last_updated": state.month_last_updated,
+        }
+
+    def _serialize_note_with_category_ref(self, note: NoteEntry) -> dict:
+        """Convert NoteEntry to dict with categoryRef format for frontend."""
+        return {
+            "id": note.id,
+            "categoryRef": {
+                "type": note.category_type,
+                "id": note.category_id,
+                "name": note.category_name,
+                "groupId": note.group_id,
+                "groupName": note.group_name,
+            },
+            "monthKey": note.month_key,
+            "content": note.content,
+            "createdAt": note.created_at,
+            "updatedAt": note.updated_at,
+        }
+
+    def _serialize_general_note_camel(self, note: GeneralMonthNoteEntry) -> dict:
+        """Convert GeneralMonthNoteEntry to dict with camelCase keys for frontend."""
+        return {
+            "id": note.id,
+            "monthKey": note.month_key,
+            "content": note.content,
+            "createdAt": note.created_at,
+            "updatedAt": note.updated_at,
+        }
+
     # =========================================================================
     # Category Sync Operations
     # =========================================================================
@@ -1580,9 +1640,7 @@ class NotesStateManager:
     # Revision History
     # =========================================================================
 
-    def get_revision_history(
-        self, category_type: str, category_id: str
-    ) -> list[dict]:
+    def get_revision_history(self, category_type: str, category_id: str) -> list[dict]:
         """
         Get revision history for a category or group.
 
@@ -1592,12 +1650,134 @@ class NotesStateManager:
 
         versions = []
         for note in notes:
-            versions.append({
-                "month_key": note.month_key,
-                "content": note.content,
-                "content_preview": note.content[:100] + "..." if len(note.content) > 100 else note.content,
-                "created_at": note.created_at,
-                "updated_at": note.updated_at,
-            })
+            versions.append(
+                {
+                    "month_key": note.month_key,
+                    "content": note.content,
+                    "content_preview": note.content[:100] + "..."
+                    if len(note.content) > 100
+                    else note.content,
+                    "created_at": note.created_at,
+                    "updated_at": note.updated_at,
+                }
+            )
 
         return versions
+
+    # =========================================================================
+    # Checkbox State Operations
+    # =========================================================================
+
+    def _get_checkbox_key(
+        self,
+        note_id: str | None,
+        general_note_month_key: str | None,
+        viewing_month: str,
+        mode: str,
+    ) -> str:
+        """
+        Generate the storage key for checkbox states.
+
+        Key format:
+        - Category notes: "{note_id}:{scope}" where scope is "global" or viewing month
+        - General notes: "general:{month_key}:{scope}"
+        """
+        scope = "global" if mode == "persist" else viewing_month
+
+        if note_id:
+            return f"{note_id}:{scope}"
+        else:
+            return f"general:{general_note_month_key}:{scope}"
+
+    def get_checkbox_states(
+        self,
+        note_id: str | None,
+        general_note_month_key: str | None,
+        viewing_month: str,
+    ) -> list[bool]:
+        """
+        Get checkbox states for a note.
+
+        Returns list of booleans indexed by checkbox position.
+        """
+        state = self.load()
+        key = self._get_checkbox_key(
+            note_id, general_note_month_key, viewing_month, state.checkbox_mode
+        )
+        return state.checkbox_states.get(key, [])
+
+    def set_checkbox_state(
+        self,
+        note_id: str | None,
+        general_note_month_key: str | None,
+        viewing_month: str,
+        checkbox_index: int,
+        is_checked: bool,
+    ) -> list[bool]:
+        """
+        Set a single checkbox state.
+
+        Returns updated list of checkbox states.
+        """
+        state = self.load()
+        key = self._get_checkbox_key(
+            note_id, general_note_month_key, viewing_month, state.checkbox_mode
+        )
+
+        # Get or create the states list
+        states = state.checkbox_states.get(key, [])
+
+        # Extend list if needed
+        while len(states) <= checkbox_index:
+            states.append(False)
+
+        states[checkbox_index] = is_checked
+        state.checkbox_states[key] = states
+
+        self.save(state)
+        return states
+
+    def get_all_checkbox_states_for_month(self, month_key: str) -> dict[str, list[bool]]:
+        """
+        Get all checkbox states relevant for a given month.
+
+        Returns dict keyed by note_id or "general:{month_key}".
+        """
+        state = self.load()
+        result: dict[str, list[bool]] = {}
+
+        for key, states in state.checkbox_states.items():
+            # Check if this key is relevant for the month
+            # Key format: "{note_id}:{scope}" or "general:{month_key}:{scope}"
+            parts = key.split(":")
+
+            if parts[0] == "general":
+                # General note: "general:{month_key}:{scope}"
+                if len(parts) >= 2 and parts[1] == month_key:
+                    result[key] = states
+            else:
+                # Category note: "{note_id}:{scope}"
+                if len(parts) >= 2:
+                    scope = parts[1]
+                    # Include if global scope or matching month scope
+                    if scope == "global" or scope == month_key:
+                        result[parts[0]] = states
+
+        return result
+
+    def get_notes_settings(self) -> dict:
+        """Get notes settings including checkbox mode."""
+        state = self.load()
+        return {"checkbox_mode": state.checkbox_mode}
+
+    def update_notes_settings(self, checkbox_mode: str | None = None) -> dict:
+        """Update notes settings."""
+        state = self.load()
+
+        if checkbox_mode is not None:
+            if checkbox_mode not in ("persist", "reset"):
+                raise ValueError("checkbox_mode must be 'persist' or 'reset'")
+            state.checkbox_mode = checkbox_mode
+
+        self.save(state)
+        return {"checkbox_mode": state.checkbox_mode}

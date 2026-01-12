@@ -6,7 +6,7 @@ Notes are encrypted with the user's passphrase for privacy.
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, Index, String, Text
+from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base
@@ -99,3 +99,66 @@ class KnownCategory(Base):
 
     category_id: Mapped[str] = mapped_column(String(100), primary_key=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
+
+
+class CheckboxState(Base):
+    """
+    Stores checkbox state separately from note content.
+
+    Allows checkbox states to persist or reset per month independently
+    of the note content itself.
+
+    Keying strategy:
+    - For category notes: note_id + viewing_month (null for persist mode)
+    - For general notes: general_note_month_key + viewing_month (null for persist mode)
+    """
+
+    __tablename__ = "checkbox_states"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+
+    # For category/group notes - foreign key to notes table
+    note_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("notes.id", ondelete="CASCADE"),
+        nullable=True,
+    )
+
+    # For general notes - use month_key since they're per-month
+    general_note_month_key: Mapped[str | None] = mapped_column(String(10), nullable=True)
+
+    # Viewing month - NULL for persist mode, set for reset mode
+    viewing_month: Mapped[str | None] = mapped_column(String(10), nullable=True)
+
+    # Checkbox position in markdown (0-indexed)
+    checkbox_index: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    # Checked state
+    is_checked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+    # Timestamp
+    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+
+    __table_args__ = (
+        Index("idx_checkbox_note", "note_id", "viewing_month", "checkbox_index"),
+        Index("idx_checkbox_general", "general_note_month_key", "viewing_month", "checkbox_index"),
+    )
+
+
+class NotesSettings(Base):
+    """
+    Global settings for the Notes feature.
+
+    Single-row table (enforced by constraint).
+    """
+
+    __tablename__ = "notes_settings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+
+    # Checkbox persistence mode: 'persist' or 'reset'
+    # 'persist': Checkbox state follows the note, shared across all viewing months
+    # 'reset': Each viewing month gets fresh checkbox state
+    checkbox_mode: Mapped[str] = mapped_column(String(20), default="persist", nullable=False)
+
+    __table_args__ = (CheckConstraint("id = 1", name="single_row_notes_settings"),)

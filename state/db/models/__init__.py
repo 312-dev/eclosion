@@ -4,7 +4,7 @@ SQLAlchemy models for Eclosion.
 
 from .base import Base
 from .credentials import AutomationCredentials, Credentials
-from .notes import ArchivedNote, GeneralNote, KnownCategory, Note
+from .notes import ArchivedNote, CheckboxState, GeneralNote, KnownCategory, Note, NotesSettings
 from .security import GeolocationCache, SecurityEvent, SecurityPreference
 from .tracker import (
     AutoSyncState,
@@ -34,6 +34,8 @@ __all__ = [
     "GeneralNote",
     "ArchivedNote",
     "KnownCategory",
+    "CheckboxState",
+    "NotesSettings",
     # Security
     "SecurityEvent",
     "GeolocationCache",
