@@ -20,32 +20,6 @@ logger = logging.getLogger(__name__)
 admin_bp = Blueprint("admin", __name__)
 
 
-def _safe_join_path(base_dir: Path, filename: str) -> Path | None:
-    """
-    Safely join a filename to a base directory, preventing path traversal.
-
-    Returns the resolved path if safe, None if the path would escape base_dir.
-    Uses Path.name to extract only the filename component, which is a CodeQL-recognized
-    sanitization that prevents directory traversal.
-    """
-    # Extract only the filename component - this removes any path traversal attempts
-    # Path(filename).name returns only the final component (e.g., "../../etc/passwd" -> "passwd")
-    safe_filename = Path(filename).name
-
-    # Additional validation: reject if the extracted name differs from input
-    # This catches cases where path components were stripped
-    if safe_filename != filename:
-        return None
-
-    # Reject empty filenames
-    if not safe_filename:
-        return None
-
-    # Construct path using the sanitized filename
-    result = base_dir / safe_filename
-    return result.resolve()
-
-
 # ---- HEALTH ENDPOINTS ----
 
 
@@ -463,16 +437,21 @@ def _create_db_backup(reason: str = "manual") -> Path | None:
 
     config.BACKUP_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Sanitize reason to prevent path injection (defense in depth)
+    # Sanitize reason to prevent path injection - only allow alphanumeric, underscore, hyphen
     safe_reason = re.sub(r"[^a-zA-Z0-9_-]", "", reason)[:20] or "backup"
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    # Filename is constructed from safe components only (timestamp + sanitized reason)
     backup_filename = f"eclosion_{timestamp}_{safe_reason}.db"
 
-    # Use safe path joining to construct backup path
-    backup_path = _safe_join_path(config.BACKUP_DIR, backup_filename)
-    if backup_path is None:
+    # Construct path using os.path functions for CodeQL recognition
+    backup_dir_str = str(config.BACKUP_DIR.resolve())
+    backup_path_str = os.path.normpath(os.path.join(backup_dir_str, backup_filename))
+
+    # Verify path is within backup directory (defense in depth)
+    if os.path.commonprefix([backup_path_str, backup_dir_str]) != backup_dir_str:
         return None
 
+    backup_path = Path(backup_path_str)
     shutil.copy2(db_path, backup_path)
 
     # Clean up old backups
@@ -588,9 +567,21 @@ def restore_backup():
             }
         ), 400
 
-    # Construct path - filename is now validated to contain only safe characters
-    backup_dir = config.BACKUP_DIR.resolve()
-    backup_path = backup_dir / filename_str
+    # Construct and normalize path, then verify it's within backup directory
+    # Using os.path.normpath and os.path.commonprefix which CodeQL recognizes as sanitizers
+    backup_dir_str = str(config.BACKUP_DIR.resolve())
+    candidate_path = os.path.normpath(os.path.join(backup_dir_str, filename_str))
+
+    # Verify the normalized path is within the backup directory
+    if os.path.commonprefix([candidate_path, backup_dir_str]) != backup_dir_str:
+        return jsonify(
+            {
+                "success": False,
+                "error": "Invalid backup filename format.",
+            }
+        ), 400
+
+    backup_path = Path(candidate_path)
 
     if not backup_path.exists():
         return jsonify(
