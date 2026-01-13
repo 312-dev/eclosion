@@ -533,7 +533,7 @@ jobs:
     steps:
       - name: Generate app token
         id: app-token
-        if: inputs.release_type == 'production' && secrets.RELEASE_APP_ID != ''
+        if: inputs.release_type == 'production'
         uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2
         with:
           app-id: ${{ secrets.RELEASE_APP_ID }}
