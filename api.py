@@ -89,7 +89,7 @@ logger.info("Database initialized")
 # Initialize services
 sync_service = SyncService()
 security_service = SecurityService()
-notes_manager = NotesStateManager(sync_service.state_manager)
+notes_manager = NotesStateManager()
 
 # Create services container and register blueprints
 services = Services(
