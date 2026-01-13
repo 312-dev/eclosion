@@ -324,8 +324,8 @@ The following secrets are required for CI/CD workflows:
 
 | Secret | Purpose | Required Scopes |
 |--------|---------|-----------------|
-| `CI_TRIGGER_PAT` | Allow automated PRs to trigger CI workflows | `repo` (classic) or `contents:write` + `pull_requests:write` (fine-grained) |
-| `DISCUSSIONS_PAT` | Create GitHub Discussions from ProductBoard sync | `discussions:write` |
+| `CI_TRIGGER_PAT` | Automated PRs, GitHub Discussions, trigger CI workflows | `contents:write` + `pull_requests:write` + `discussions:write` (fine-grained) |
+| `INTEGRATION_DISPATCH_TOKEN` | Trigger integration test workflows | `actions:write` (fine-grained) |
 | `MODELS_TOKEN` | Access GitHub Models API for AI features | GitHub Models access |
 | `CLOUDFLARE_API_TOKEN` | Deploy to Cloudflare Pages | Cloudflare API token |
 | `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account identifier | — |

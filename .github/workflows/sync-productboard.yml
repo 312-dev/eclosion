@@ -62,7 +62,7 @@ jobs:
         if: ${{ !inputs.dry_run }}
         working-directory: scripts/productboard-sync
         env:
-          GH_TOKEN: ${{ secrets.DISCUSSIONS_PAT }}
+          GH_TOKEN: ${{ secrets.CI_TRIGGER_PAT }}
         run: npx tsx index.ts sync
 
       - name: Export ideas JSON for frontend
