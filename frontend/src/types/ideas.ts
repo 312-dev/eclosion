@@ -18,20 +18,18 @@ export interface PublicIdea {
   description: string;
   votes: number;
   category: string;
-  productboardUrl: string | null;
   discussionUrl: string | null;
   discussionNumber: number | null;
   status: 'open' | 'closed';
-  closedReason: 'monarch-committed' | 'eclosion-shipped' | null;
+  closedReason: 'eclosion-shipped' | null;
   closedAt: string | null;
-  source: 'productboard' | 'github';
+  source: 'github';
   author: IdeaAuthor | null;
 }
 
 /** Full ideas data response from the API */
 export interface IdeasData {
   generatedAt: string;
-  votesThreshold: number;
   totalIdeas: number;
   openCount: number;
   closedCount: number;

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ThumbsUp, ExternalLink, Search, X, AtSign } from 'lucide-react';
+import { ThumbsUp, ExternalLink, Search, X } from 'lucide-react';
 import { IdeatorAvatar } from './ui/IdeatorAvatar';
 import { getUsernameForIdea, getAvatarUrlForIdea } from './marketing/IdeasBoard/useIdeasAnimation';
 import type { PublicIdea, IdeasData } from '../types/ideas';
@@ -81,16 +81,7 @@ export function IdeasModal({ isOpen, onClose }: IdeasModalProps) {
                   rel="noopener noreferrer"
                   className="text-monarch-text-dark hover:underline"
                 >
-                  Eclosion's GitHub
-                </a>
-                {' '}and{' '}
-                <a
-                  href="https://portal.productboard.com/3qsdvcsy5aq69hhkycf4dtpi"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-monarch-text-dark hover:underline"
-                >
-                  Monarch Money's roadmap
+                  Eclosion's GitHub Discussions
                 </a>
               </p>
             </div>
@@ -235,15 +226,9 @@ function IdeaCard({ idea }: { idea: PublicIdea }) {
             </h3>
 
             {/* Status badge for closed */}
-            {idea.status === 'closed' && idea.closedReason && (
-              <span
-                className={`shrink-0 text-xs px-2 py-0.5 rounded font-medium ${
-                  idea.closedReason === 'eclosion-shipped'
-                    ? 'bg-green-100 text-green-700'
-                    : 'bg-blue-100 text-blue-700'
-                }`}
-              >
-                {idea.closedReason === 'eclosion-shipped' ? 'Shipped' : 'Monarch building'}
+            {idea.status === 'closed' && idea.closedReason === 'eclosion-shipped' && (
+              <span className="shrink-0 text-xs px-2 py-0.5 rounded font-medium bg-green-100 text-green-700">
+                Shipped
               </span>
             )}
           </div>
@@ -251,31 +236,9 @@ function IdeaCard({ idea }: { idea: PublicIdea }) {
           <p className="text-xs text-monarch-text-muted mt-1 line-clamp-2">{idea.description}</p>
 
           <div className="flex items-center gap-2 mt-2 flex-wrap">
-            {/* Source badge */}
-            <span
-              className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded font-medium ${
-                idea.source === 'github'
-                  ? 'bg-monarch-orange/10 text-monarch-orange'
-                  : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
-              }`}
-            >
-              <AtSign className="w-3 h-3" />
-              {idea.source === 'github' ? 'Eclosion' : 'Monarch'}
-            </span>
             <span className="text-xs px-2 py-0.5 rounded font-medium bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300">
               {idea.category}
             </span>
-            {idea.productboardUrl && (
-              <a
-                href={idea.productboardUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-monarch-text-muted hover:text-monarch-orange transition-colors flex items-center gap-1"
-              >
-                View on Monarch
-                <ExternalLink className="w-3 h-3" />
-              </a>
-            )}
           </div>
         </div>
       </div>

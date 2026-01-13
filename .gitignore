@@ -57,11 +57,6 @@ docusaurus/build
 docusaurus/.docusaurus
 docusaurus/.cache-loader
 
-# Scripts
-scripts/productboard-sync/scraped-ideas.json
-scripts/productboard-sync/filtered-ideas.json
-scripts/productboard-sync/debug*.png
-
 # Static build output (copied from frontend/dist in Docker)
 /static/
 
