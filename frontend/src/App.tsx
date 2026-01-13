@@ -228,7 +228,8 @@ function AppRouter() {
 
   const isDemo = location.pathname.startsWith('/demo');
   const isLanding = location.pathname === '/';
-  const isDownload = location.pathname === '/download';
+  const isDownload =
+    location.pathname === '/download' || location.pathname === '/download/';
   const isFeatures =
     location.pathname === '/features' ||
     location.pathname.startsWith('/features/');
