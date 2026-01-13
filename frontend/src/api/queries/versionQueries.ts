@@ -11,7 +11,10 @@ import * as demoApi from '../demoClient';
 import { getChangelogResponse } from '../../data/changelog';
 import { queryKeys, getQueryKey } from './keys';
 import { isBetaEnvironment } from '../../utils/environment';
-import { fetchBetaReleasesAsChangelog } from '../../utils/githubRelease';
+import {
+  fetchBetaReleasesAsChangelog,
+  fetchStableReleasesAsChangelog,
+} from '../../utils/githubRelease';
 import type { ChangelogEntry, ChangelogResponse } from '../../types';
 
 /**
@@ -27,50 +30,57 @@ export function useVersionQuery() {
 }
 
 /**
- * Fetches changelog with beta releases merged in (for beta environments).
+ * Fetches changelog from GitHub releases.
+ * Beta environments get beta releases, stable environments get stable releases.
  */
-async function getChangelogWithBetaReleases(limit?: number): Promise<ChangelogResponse> {
+async function getChangelogFromGitHub(limit?: number): Promise<ChangelogResponse> {
   const baseResponse = getChangelogResponse(limit);
-
-  // Only fetch beta releases on beta environments
-  if (!isBetaEnvironment()) {
-    return baseResponse;
-  }
+  const isBeta = isBetaEnvironment();
 
   try {
-    const betaReleases = await fetchBetaReleasesAsChangelog();
+    // Fetch appropriate releases based on environment
+    const releases = isBeta
+      ? await fetchBetaReleasesAsChangelog()
+      : await fetchStableReleasesAsChangelog();
 
-    if (betaReleases.length === 0) {
+    if (releases.length === 0) {
       return baseResponse;
     }
 
-    // Convert beta releases to ChangelogEntry format
-    const betaEntries: ChangelogEntry[] = betaReleases.map((release) => ({
+    // Convert releases to ChangelogEntry format
+    const releaseEntries: ChangelogEntry[] = releases.map((release) => ({
       version: release.version,
       date: release.date,
       summary: release.summary,
       sections: release.sections,
     }));
 
-    // Merge and sort all entries by date (descending)
-    const allEntries = [...baseResponse.entries, ...betaEntries].sort((a, b) => {
-      // Parse dates for comparison (handles various formats)
+    // Merge with any baked-in entries and sort by date (descending)
+    const allEntries = [...baseResponse.entries, ...releaseEntries].sort((a, b) => {
       const dateA = new Date(a.date);
       const dateB = new Date(b.date);
       return dateB.getTime() - dateA.getTime();
     });
 
+    // Dedupe by version (prefer GitHub release if duplicate)
+    const seen = new Set<string>();
+    const dedupedEntries = allEntries.filter((entry) => {
+      if (seen.has(entry.version)) return false;
+      seen.add(entry.version);
+      return true;
+    });
+
     // Apply limit if specified
-    const entries = limit ? allEntries.slice(0, limit) : allEntries;
+    const entries = limit ? dedupedEntries.slice(0, limit) : dedupedEntries;
 
     return {
       current_version: baseResponse.current_version,
       entries,
-      total_entries: allEntries.length,
+      total_entries: dedupedEntries.length,
     };
   } catch (error) {
-    // If fetching beta releases fails, return base changelog
-    console.error('Failed to fetch beta releases for changelog:', error);
+    // If fetching releases fails, return base changelog
+    console.error('Failed to fetch releases for changelog:', error);
     return baseResponse;
   }
 }
@@ -78,16 +88,16 @@ async function getChangelogWithBetaReleases(limit?: number): Promise<ChangelogRe
 /**
  * Get changelog entries
  *
- * Changelog is baked into the build from CHANGELOG.md.
- * In beta environments, also fetches beta releases from GitHub and merges them.
+ * Fetches release notes from GitHub and merges with any baked-in CHANGELOG.md entries.
+ * Beta environments get beta releases, stable environments get stable releases.
  */
 export function useChangelogQuery(limit?: number) {
   const isBeta = isBetaEnvironment();
 
   return useQuery({
     queryKey: [...queryKeys.changelog, limit, isBeta],
-    queryFn: () => getChangelogWithBetaReleases(limit),
-    staleTime: isBeta ? 5 * 60 * 1000 : Infinity, // Beta fetches from GitHub, stable is baked-in
+    queryFn: () => getChangelogFromGitHub(limit),
+    staleTime: 5 * 60 * 1000, // 5 minutes - both environments fetch from GitHub
   });
 }
 

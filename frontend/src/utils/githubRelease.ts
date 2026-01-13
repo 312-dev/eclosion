@@ -224,22 +224,25 @@ export function getRelativeTime(publishedAt: string): string {
 }
 
 /**
- * Fetches beta releases from GitHub and transforms them to ChangelogEntry format.
- * Used to intersperse beta releases with stable changelog entries.
+ * Changelog entry structure returned by release fetching functions.
  */
-export async function fetchBetaReleasesAsChangelog(): Promise<
-  Array<{
-    version: string;
-    date: string;
-    summary: string;
-    sections: {
-      added?: string[];
-      changed?: string[];
-      fixed?: string[];
-    };
-    isBeta: true;
-  }>
-> {
+export interface ReleaseChangelogEntry {
+  version: string;
+  date: string;
+  summary: string;
+  sections: {
+    added?: string[];
+    changed?: string[];
+    fixed?: string[];
+  };
+  isBeta: boolean;
+}
+
+/**
+ * Fetches releases from GitHub and transforms them to ChangelogEntry format.
+ * @param prereleaseOnly - If true, only fetches prereleases (beta). If false, only fetches stable releases.
+ */
+async function fetchReleasesAsChangelog(prereleaseOnly: boolean): Promise<ReleaseChangelogEntry[]> {
   try {
     // Fetch recent releases (includes prereleases)
     const response = await fetch(
@@ -258,10 +261,12 @@ export async function fetchBetaReleasesAsChangelog(): Promise<
 
     const releases: (GithubRelease & { draft: boolean })[] = await response.json();
 
-    // Filter to only beta prereleases (non-draft)
-    const betaReleases = releases.filter((r) => r.prerelease && !r.draft);
+    // Filter based on prerelease flag (non-draft only)
+    const filteredReleases = releases.filter(
+      (r) => !r.draft && r.prerelease === prereleaseOnly
+    );
 
-    return betaReleases.map((release) => {
+    return filteredReleases.map((release) => {
       const version = getVersionFromTag(release.tag_name);
       const date = new Date(release.published_at).toLocaleDateString('en-US', {
         year: 'numeric',
@@ -280,12 +285,28 @@ export async function fetchBetaReleasesAsChangelog(): Promise<
         date,
         summary,
         sections,
-        isBeta: true as const,
+        isBeta: prereleaseOnly,
       };
     });
   } catch (error) {
-    console.error('Error fetching beta releases:', error);
+    console.error('Error fetching releases:', error);
     return [];
   }
+}
+
+/**
+ * Fetches beta releases from GitHub and transforms them to ChangelogEntry format.
+ * Used to intersperse beta releases with stable changelog entries.
+ */
+export async function fetchBetaReleasesAsChangelog(): Promise<ReleaseChangelogEntry[]> {
+  return fetchReleasesAsChangelog(true);
+}
+
+/**
+ * Fetches stable releases from GitHub and transforms them to ChangelogEntry format.
+ * Used to populate the changelog on stable environments.
+ */
+export async function fetchStableReleasesAsChangelog(): Promise<ReleaseChangelogEntry[]> {
+  return fetchReleasesAsChangelog(false);
 }
 
