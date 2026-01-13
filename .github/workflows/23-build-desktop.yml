@@ -134,9 +134,10 @@ jobs:
 
       - name: Install Python dependencies
         run: |
-          pip install --require-hashes -r requirements-build.txt
           pip install --require-hashes -r requirements.txt
           pip install --no-deps -r requirements-vcs.txt
+          pip install --require-hashes -r requirements-build.txt --no-deps
+          pip install pefile==2023.2.7
 
       - name: Build backend with PyInstaller
         working-directory: desktop
