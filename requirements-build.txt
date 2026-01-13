@@ -13,6 +13,10 @@
 pip==24.3.1 \
     --hash=sha256:3790624780082365f47549d032f3770eeb2b1e8bd1f7b2e02dace1afa361b4ed
 
+# setuptools - required by pyinstaller (platform-independent wheel)
+setuptools==80.9.0 \
+    --hash=sha256:062d34222ad13e0cc312a4c02d73f059e86a4acbfbdea8f8f76b28c99f306922
+
 # pyinstaller - application bundler (platform-specific wheels)
 pyinstaller==6.11.1 \
     --hash=sha256:44e36172de326af6d4e7663b12f71dbd34e2e3e02233e181e457394423daaf03 \
