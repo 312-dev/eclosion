@@ -41,7 +41,7 @@ Describe how you tested these changes:
 
 ## New Tool/Feature Checklist
 
-If adding a new tool or major feature, complete this section:
+If adding a new tool or major feature, complete this section. See the [Adding Features wiki](https://github.com/312-dev/eclosion/wiki/Adding-Features) for detailed guidance.
 
 ### Demo Mode
 - [ ] Demo mode implementation exists in `frontend/src/api/demoClient.ts`
