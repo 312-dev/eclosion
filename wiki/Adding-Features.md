@@ -17,7 +17,8 @@ Use this when implementing a feature. Details for each step are below.
 
 ### Backend
 - [ ] Service: `services/{feature}_service.py`
-- [ ] Endpoints in `api.py`
+- [ ] Blueprint: `blueprints/{feature}.py`
+- [ ] Register blueprint in `blueprints/__init__.py`
 - [ ] Integration tests (if calling Monarch API)
 
 ---
@@ -46,7 +47,7 @@ Re-export from `types/index.ts`:
 export * from './goals';
 ```
 
-## Step 2: Backend Service
+## Step 2: Backend Service & Blueprint
 
 Services contain business logic with injected dependencies.
 
@@ -65,13 +66,62 @@ class GoalsService:
         return goal
 ```
 
-Add routes in `api.py`:
+Create a blueprint for your feature in `blueprints/goals.py`:
+
 ```python
-@app.route("/goals", methods=["GET"])
-@api_handler
-async def get_goals() -> Response:
-    return jsonify(await goals_service.get_goals())
+# blueprints/goals.py
+from flask import Blueprint, request
+
+from core import api_handler, sanitize_id, sanitize_name
+from core.exceptions import ValidationError
+from core.rate_limit import limiter
+
+from . import get_services
+
+goals_bp = Blueprint("goals", __name__, url_prefix="/goals")
+
+
+@goals_bp.route("/", methods=["GET"])
+@api_handler(handle_mfa=False)
+async def get_goals():
+    """Get all goals."""
+    services = get_services()
+    return await services.goals_service.get_goals()
+
+
+@goals_bp.route("/", methods=["POST"])
+@limiter.limit("10 per minute")  # Rate limit write operations
+@api_handler(handle_mfa=False)
+async def create_goal():
+    """Create a new goal."""
+    services = get_services()
+    data = request.get_json()
+
+    # Sanitize user inputs
+    name = sanitize_name(data.get("name"))
+    target = data.get("target_amount")
+
+    if not name:
+        raise ValidationError("Goal name is required")
+
+    return await services.goals_service.create_goal(name, target)
 ```
+
+Register the blueprint in `blueprints/__init__.py`:
+
+```python
+def register_blueprints(app: Flask) -> None:
+    # ... existing blueprints ...
+    from .goals import goals_bp
+    app.register_blueprint(goals_bp)
+```
+
+**Key patterns:**
+- `@api_handler` handles async execution, error handling, and XSS sanitization automatically
+- Use `@limiter.limit()` on write operations to prevent abuse
+- Use `sanitize_id()`, `sanitize_name()` from `core` for user inputs
+- Access services via `get_services()` helper
+- Raise `ValidationError` for invalid inputs (returns 400)
 
 ## Step 3: API Clients
 
@@ -238,7 +288,7 @@ async def test_goal_balance(monarch_client, unique_test_name):
 | Query key not found | Add key to `queries/keys.ts` |
 | Demo mode not updating | Check `saveDemoState()` is called |
 | Rate limit not disabling buttons | Add `useIsRateLimited()` check |
-| Backend service not available | Initialize service in `api.py` |
+| Backend service not available | Register blueprint in `blueprints/__init__.py` and add service to `Services` container |
 
 ---
 

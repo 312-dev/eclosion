@@ -28,8 +28,9 @@ Please be respectful and constructive in all interactions. Contributors of all e
    python -m venv venv
    source venv/bin/activate  # On Windows: venv\Scripts\activate
 
-   # Install dependencies
-   pip install -r requirements-dev.txt
+   # Install dependencies (with hash verification for security)
+   pip install --require-hashes -r requirements-dev.txt
+   pip install --no-deps -r requirements-vcs.txt
 
    # Install pre-commit hooks
    pre-commit install
@@ -122,7 +123,7 @@ This repository uses GitHub Flow. All changes go directly to `main`:
 
 | Target Branch | CI Checks | Security Scans | Code Review |
 |---------------|-----------|----------------|-------------|
-| `main` | Must pass | Must pass | 1 approval |
+| `main` | Must pass | Must pass | 2 approvals |
 
 For full CI/CD documentation including workflow standards, see [CONTRIBUTING.md](https://github.com/312-dev/eclosion/blob/main/CONTRIBUTING.md#github-actions-workflow-standards).
 
@@ -133,15 +134,26 @@ For full CI/CD documentation including workflow standards, see [CONTRIBUTING.md]
 - Follow PEP 8 with Ruff for linting and formatting
 - Use type hints for function parameters and return values
 - Keep functions focused and under 50 lines when possible
+- Define routes in `blueprints/` directory, not `api.py`
 
 ```python
-@app.route("/api/example", methods=["POST"])
-@async_flask
-async def example_route() -> Response:
+# blueprints/example.py
+from flask import Blueprint, request
+from core import api_handler, sanitize_name
+from core.rate_limit import limiter
+from . import get_services
+
+example_bp = Blueprint("example", __name__, url_prefix="/example")
+
+@example_bp.route("/", methods=["POST"])
+@limiter.limit("10 per minute")
+@api_handler(handle_mfa=False)
+async def example_route():
     """Brief description of what this route does."""
+    services = get_services()
     data = request.get_json()
-    result = await service.process(data)
-    return jsonify(result)
+    name = sanitize_name(data.get("name"))  # Sanitize user inputs
+    return await services.example_service.process(name, data)
 ```
 
 ### TypeScript (Frontend)
@@ -208,14 +220,27 @@ npm run test:coverage
 ### Backend Structure
 
 ```
-api.py              # Flask routes and app configuration
+api.py              # Flask app setup and middleware
 app.py              # Application entry point
-core/               # Core utilities (logging, encryption, config)
+blueprints/         # Flask blueprints (organized by domain)
+  __init__.py       # Services container and registration
+  auth.py           # Authentication endpoints
+  recurring.py      # Recurring expense tracking
+  notes.py          # Category notes management
+  security.py       # Security status and audit
+  settings.py       # Export/import settings
+  admin.py          # Health, version, migrations
+core/               # Core utilities
+  __init__.py       # Logging, encryption, config, decorators
+  middleware.py     # Security middleware functions
+  rate_limit.py     # Rate limiter instance
+  sanitization.py   # Input sanitization functions
 services/           # Business logic services
   sync_service.py   # Main sync orchestration
   credentials_service.py  # Auth and encryption
 state/              # State management and persistence
-  state_manager.py  # JSON-based state persistence
+  db/               # SQLite database (SQLAlchemy ORM)
+  state_manager.py  # Legacy state manager (being migrated)
 tests/              # Backend tests
 ```
 
@@ -236,7 +261,7 @@ frontend/src/
 
 ### Key Patterns
 
-1. **State Management**: Use `StateManager` for persistence, never modify JSON directly
+1. **State Management**: Use repository classes in `state/db/` for persistence
 2. **API Calls**: Use typed functions from `frontend/src/api/client.ts`
 3. **Error Handling**: Return proper HTTP status codes with JSON error messages
 4. **Types**: Import from `../types` - types are organized by domain

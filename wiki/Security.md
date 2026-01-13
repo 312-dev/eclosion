@@ -7,11 +7,22 @@ How Eclosion protects your Monarch Money credentials.
 Eclosion requires your Monarch Money email and password to access your financial data. Since Monarch Money does not offer OAuth or API tokens for third-party integrations, direct credential storage is necessary.
 
 To protect your credentials, Eclosion uses **user-controlled encryption**:
-- Your credentials are encrypted with a passphrase that **only you know**
-- The server cannot decrypt your credentials without your passphrase
+- Your credentials are encrypted locally before storage
+- The encryption key is derived from a passphrase (server) or stored in the OS keychain (desktop)
 - You can self-host the application for maximum control
 
-## Encryption Details
+## Desktop vs Server
+
+|  | Desktop | Server/Docker |
+|--|---------|---------------|
+| **Data location** | Local machine only | Server filesystem |
+| **Access control** | None needed (localhost) | Instance secret required |
+| **Encryption key** | OS keychain (Touch ID / Keychain) | User-entered passphrase |
+| **Network exposure** | None | Requires HTTPS in production |
+
+The sections below describe the **server/self-hosted** security model. Desktop users authenticate via OS-level biometrics (Touch ID on macOS) instead of a passphrase.
+
+## Encryption Details (Server/Docker)
 
 ### Algorithm
 
@@ -25,7 +36,7 @@ To protect your credentials, Eclosion uses **user-controlled encryption**:
 2. Your passphrase is used to derive an encryption key using PBKDF2 (a standard key derivation function)
 3. Your Monarch email, password, and MFA secret (if applicable) are encrypted with this key
 4. The encrypted data and a random salt are stored on the server
-5. Your passphrase is **never stored** — it exists only in memory during your session
+5. Your passphrase is **never stored**: it exists only in memory during your session
 
 ### Passphrase Requirements
 
@@ -55,7 +66,7 @@ Even if the server is compromised, your Monarch credentials remain encrypted. An
 If you forget your passphrase:
 - Your encrypted credentials cannot be recovered
 - You'll need to re-enter your Monarch credentials and create a new passphrase
-- This is by design — it ensures only you can access your credentials
+- This is by design : it ensures only you can access your credentials
 
 ### Session Security
 
@@ -85,23 +96,25 @@ Direct credential authentication is the only available method. Eclosion uses str
 ## Reporting Security Issues
 
 If you discover a security vulnerability, please report it responsibly:
-1. Do not disclose publicly until addressed
-2. Email details to the project maintainers
+
+1. **Report privately** via [GitHub Security Advisories](https://github.com/312-dev/eclosion/security/advisories/new)
+2. Do not disclose publicly until addressed
 3. Allow reasonable time for a fix
 
 ## Technical Implementation
 
 ### Relevant Files
 
-- `core/encryption.py` — Encryption utilities
-- `state/state_manager.py` — CredentialsManager class
-- `api.py` — Authentication endpoints
+- `core/encryption.py` : Encryption utilities
+- `state/state_manager.py` : CredentialsManager class
+- `blueprints/auth.py` : Authentication endpoints
+- `blueprints/security.py` : Security status endpoints
 
 ### API Endpoints
 
-- `POST /auth/login` — Validate Monarch credentials (does not store)
-- `POST /auth/set-passphrase` — Encrypt and save credentials with passphrase
-- `POST /auth/unlock` — Decrypt credentials with passphrase
-- `POST /auth/lock` — Clear session (keeps encrypted credentials)
-- `POST /auth/logout` — Clear both session and stored credentials
-- `GET /security/status` — Get security configuration info
+- `POST /auth/login` : Validate Monarch credentials (does not store)
+- `POST /auth/set-passphrase` : Encrypt and save credentials with passphrase
+- `POST /auth/unlock` : Decrypt credentials with passphrase
+- `POST /auth/lock` : Clear session (keeps encrypted credentials)
+- `POST /auth/logout` : Clear both session and stored credentials
+- `GET /security/status` : Get security configuration info

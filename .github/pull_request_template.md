@@ -57,9 +57,11 @@ If adding a new tool or major feature, complete this section. See the [Adding Fe
 - [ ] No `console.log` or `any` types
 
 ### Backend (if applicable)
-- [ ] Routes defined in `api.py` with `@async_flask` decorator
+- [ ] Routes defined in `blueprints/{feature}.py` with `@api_handler` decorator
+- [ ] Blueprint registered in `blueprints/__init__.py`
 - [ ] Business logic in `services/` directory
 - [ ] State changes use `StateManager` methods
+- [ ] User inputs sanitized with `sanitize_id()`, `sanitize_name()` from `core`
 
 ## Screenshots (if applicable)
 
