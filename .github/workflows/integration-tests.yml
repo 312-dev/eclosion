@@ -17,6 +17,9 @@
 
 name: Integration Tests
 
+# Minimal permissions at workflow level - jobs request specific permissions as needed
+permissions: {}
+
 on:
   workflow_call:
     inputs:

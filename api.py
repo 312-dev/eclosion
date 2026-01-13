@@ -23,6 +23,7 @@ from core import (
     sanitize_emoji,
     sanitize_id,
     sanitize_name,
+    sanitize_response,
 )
 from services.credentials_service import CredentialsService
 from services.security_service import SecurityService
@@ -1056,7 +1057,8 @@ def preview_import():
         return {"success": False, "valid": False, "errors": errors}, 400
 
     preview = export_service.get_export_preview(export_data)
-    return {"success": True, "valid": True, "preview": preview}
+    # Explicit sanitization for CodeQL - prevents reflected XSS
+    return {"success": True, "valid": True, "preview": sanitize_response(preview)}
 
 
 @app.route("/settings/export-encrypted", methods=["POST"])
@@ -1459,7 +1461,8 @@ async def update_category_name():
         raise ValidationError("Missing 'recurring_id' or 'name'")
 
     result = await sync_service.update_category_name(recurring_id, name)
-    return result
+    # Explicit sanitization for CodeQL - prevents reflected XSS
+    return sanitize_response(result)
 
 
 # ---- UNINSTALL ENDPOINTS ----
