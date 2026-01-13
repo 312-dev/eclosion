@@ -271,11 +271,12 @@ jobs:
 
       - name: Upload Trivy SARIF to GitHub Security tab
         uses: github/codeql-action/upload-sarif@cdefb33c0f6224e58673d9004f47f7cb3e328b89 # v4
-        if: always()
+        # Skip SARIF upload when called via workflow_call (e.g., from release pipelines)
+        # to avoid creating duplicate configurations in GitHub Code Scanning.
+        # The table output above still shows pass/fail for the release gate.
+        if: always() && github.event_name != 'workflow_call'
         with:
           sarif_file: "trivy-results.sarif"
-          # Use explicit category to ensure consistent configuration name regardless of
-          # whether this workflow runs directly or via workflow_call from release pipelines
           category: "trivy-container-scan"
 
   # ============================================================================
