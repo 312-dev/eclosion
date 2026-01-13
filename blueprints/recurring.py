@@ -118,7 +118,9 @@ async def toggle_item():
     if not recurring_id:
         raise ValidationError("Missing 'recurring_id'")
 
-    result = await services.sync_service.toggle_item(recurring_id, enabled, item_data, initial_budget)
+    result = await services.sync_service.toggle_item(
+        recurring_id, enabled, item_data, initial_budget
+    )
     return result
 
 
@@ -163,7 +165,8 @@ async def run_auto_categorize():
     services = get_services()
     categorizer = TransactionCategorizerService(services.sync_service.state_manager)
     result = await categorizer.auto_categorize_new_transactions(force=True)
-    return result
+    # Sanitize to prevent stack trace exposure in error messages
+    return sanitize_api_result(result, "Auto-categorization failed. Please try again.")
 
 
 # ---- AUTO-SYNC ENDPOINTS ----
@@ -200,7 +203,12 @@ async def enable_auto_sync():
         return {"success": False, "error": "Passphrase required"}
 
     result = await services.sync_service.enable_auto_sync(interval, passphrase, consent)
-    audit_log(services.security_service, "AUTO_SYNC_ENABLE", result.get("success", False), f"interval={interval}")
+    audit_log(
+        services.security_service,
+        "AUTO_SYNC_ENABLE",
+        result.get("success", False),
+        f"interval={interval}",
+    )
     return sanitize_api_result(result, "Failed to enable auto-sync.")
 
 
@@ -317,7 +325,9 @@ async def change_category_group():
     if not recurring_id or not new_group_id:
         raise ValidationError("Missing 'recurring_id' or 'group_id'")
 
-    result = await services.sync_service.change_category_group(recurring_id, new_group_id, new_group_name)
+    result = await services.sync_service.change_category_group(
+        recurring_id, new_group_id, new_group_name
+    )
     return result
 
 
@@ -418,7 +428,9 @@ async def link_rollup_to_category():
     if not category_id:
         raise ValidationError("Missing 'category_id'")
 
-    return await services.sync_service.rollup_service.link_rollup_to_category(category_id, sync_name)
+    return await services.sync_service.rollup_service.link_rollup_to_category(
+        category_id, sync_name
+    )
 
 
 @recurring_bp.route("/rollup/create", methods=["POST"])

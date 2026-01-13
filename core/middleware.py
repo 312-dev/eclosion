@@ -6,7 +6,9 @@ import re
 from typing import TYPE_CHECKING
 from urllib.parse import quote, urlparse
 
-from flask import Response, jsonify, redirect, request, session
+from flask import jsonify, make_response, redirect, request, session
+from flask.wrappers import Response
+from werkzeug.wrappers import Response as WerkzeugResponse
 
 from core import config
 from core.session import SessionManager
@@ -137,7 +139,7 @@ def get_access_denied_page() -> str:
 </html>"""
 
 
-def enforce_https(app_debug: bool) -> Response | None:
+def enforce_https(app_debug: bool) -> WerkzeugResponse | None:
     """Redirect HTTP to HTTPS in production.
 
     Returns redirect response or None if no redirect needed.
@@ -197,10 +199,12 @@ def enforce_instance_secret(services: "Services") -> tuple[Response, int] | None
         return None
     if check_instance_secret():
         return None
-    audit_log(services.security_service, "INSTANCE_ACCESS", False, "Invalid or missing instance secret")
+    audit_log(
+        services.security_service, "INSTANCE_ACCESS", False, "Invalid or missing instance secret"
+    )
     if is_api_request():
         return jsonify({"error": "Instance secret required", "instance_locked": True}), 403
-    return get_access_denied_page(), 403
+    return make_response(get_access_denied_page()), 403
 
 
 def enforce_desktop_secret(services: "Services") -> tuple[Response, int] | None:
@@ -229,8 +233,12 @@ def enforce_desktop_secret(services: "Services") -> tuple[Response, int] | None:
     provided_secret = request.headers.get("X-Desktop-Secret")
 
     # Use constant-time comparison to prevent timing attacks
-    if not provided_secret or not secrets_module.compare_digest(provided_secret, config.DESKTOP_SECRET):
-        audit_log(services.security_service, "DESKTOP_AUTH", False, "Invalid or missing desktop secret")
+    if not provided_secret or not secrets_module.compare_digest(
+        provided_secret, config.DESKTOP_SECRET
+    ):
+        audit_log(
+            services.security_service, "DESKTOP_AUTH", False, "Invalid or missing desktop secret"
+        )
         return jsonify({"error": "Unauthorized", "code": "DESKTOP_AUTH_REQUIRED"}), 403
 
     return None
@@ -260,13 +268,20 @@ def restore_session_credentials(services: "Services") -> None:
     if passphrase and services.sync_service.has_stored_credentials():
         result = services.sync_service.unlock(passphrase)
         if result.get("success"):
-            audit_log(services.security_service, "SESSION_RESTORE", True, "Credentials restored from session")
+            audit_log(
+                services.security_service,
+                "SESSION_RESTORE",
+                True,
+                "Credentials restored from session",
+            )
             SessionManager.update_activity()
         else:
             # Passphrase no longer valid, clear session
             session.pop("auth_unlocked", None)
             session.pop("session_passphrase", None)
-            audit_log(services.security_service, "SESSION_RESTORE", False, "Failed to restore credentials")
+            audit_log(
+                services.security_service, "SESSION_RESTORE", False, "Failed to restore credentials"
+            )
 
 
 def check_and_handle_session_timeout(services: "Services") -> None:
@@ -277,7 +292,9 @@ def check_and_handle_session_timeout(services: "Services") -> None:
     if not request.endpoint or request.endpoint.startswith(("auth_", "serve")):
         return
     if SessionManager.check_timeout() and CredentialsService._session_credentials:
-        audit_log(services.security_service, "SESSION_TIMEOUT", True, "Auto-locked due to inactivity")
+        audit_log(
+            services.security_service, "SESSION_TIMEOUT", True, "Auto-locked due to inactivity"
+        )
         services.sync_service.lock()
         session.pop("auth_unlocked", None)
 

@@ -31,7 +31,7 @@ def get_services() -> Services:
     Only call within route handlers, never at import time.
     Raises RuntimeError if called outside request context.
     """
-    services = getattr(g, "services", None)
+    services: Services | None = getattr(g, "services", None)
     if services is None:
         raise RuntimeError("Services not initialized. Call only within request context.")
     return services

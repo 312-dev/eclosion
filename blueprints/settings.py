@@ -88,7 +88,8 @@ def preview_import():
     # Validate first
     is_valid, errors = export_service.validate_import(export_data)
     if not is_valid:
-        return {"success": False, "valid": False, "errors": errors}, 400
+        # Sanitize error messages to prevent reflected XSS
+        return {"success": False, "valid": False, "errors": sanitize_response(errors)}, 400
 
     preview = export_service.get_export_preview(export_data)
     # Explicit sanitization for CodeQL - prevents reflected XSS
