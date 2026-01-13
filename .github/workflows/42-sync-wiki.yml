@@ -1,4 +1,4 @@
-name: "Sync: Wiki"
+name: "42 Sync: Wiki"
 
 on:
   push:

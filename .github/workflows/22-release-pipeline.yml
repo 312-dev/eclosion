@@ -12,7 +12,7 @@
 #   - Called by create-beta.yml for beta releases
 #   - Called by create-stable.yml for production releases
 
-name: Release Pipeline
+name: "22 Release: Pipeline"
 
 on:
   workflow_call:
@@ -65,7 +65,7 @@ jobs:
   security:
     name: "Stage 1: Security Scan"
     if: ${{ !inputs.skip_security }}
-    uses: ./.github/workflows/security.yml
+    uses: ./.github/workflows/10-security.yml
     with:
       severity: high
       skip_dast: true
@@ -174,7 +174,7 @@ jobs:
     name: "Stage 2: Build Desktop Apps"
     needs: [security]
     if: always() && (needs.security.result == 'success' || needs.security.result == 'skipped')
-    uses: ./.github/workflows/build-desktop.yml
+    uses: ./.github/workflows/23-build-desktop.yml
     with:
       version: ${{ inputs.version }}
       upload_to_release: false  # We'll upload after validation

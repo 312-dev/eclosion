@@ -1,4 +1,4 @@
-name: CI
+name: "01 CI"
 
 on:
   push:
@@ -6,15 +6,15 @@ on:
     paths-ignore:
       - '*.md'
       - 'docusaurus/**'
-      - '.github/workflows/generate-docs.yml'
-      - '.github/workflows/sync-wiki.yml'
+      - '.github/workflows/41-gen-docs.yml'
+      - '.github/workflows/42-sync-wiki.yml'
   pull_request:
     branches: [main]
     paths-ignore:
       - '*.md'
       - 'docusaurus/**'
-      - '.github/workflows/generate-docs.yml'
-      - '.github/workflows/sync-wiki.yml'
+      - '.github/workflows/41-gen-docs.yml'
+      - '.github/workflows/42-sync-wiki.yml'
   # Allow manual trigger
   workflow_dispatch:
     inputs:

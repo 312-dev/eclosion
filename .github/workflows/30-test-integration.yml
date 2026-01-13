@@ -15,7 +15,7 @@
 # - Contributors cannot manually run integration tests
 # - Integration tests gate releases but don't slow down PR CI
 
-name: Integration Tests
+name: "30 Test: Integration"
 
 # Minimal permissions at workflow level - jobs request specific permissions as needed
 permissions: {}

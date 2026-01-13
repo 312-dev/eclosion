@@ -12,7 +12,7 @@
 # - create-beta.yml (beta releases)
 # - release.yml (production releases)
 
-name: "Deploy: Cloudflare (Manual)"
+name: "24 Deploy: Cloudflare"
 
 on:
   workflow_dispatch:

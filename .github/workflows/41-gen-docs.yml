@@ -1,4 +1,4 @@
-name: "Docs: Generate"
+name: "41 Generate: Docs"
 
 on:
   workflow_dispatch:

@@ -1,4 +1,4 @@
-name: Build Desktop App
+name: "23 Build: Desktop"
 
 on:
   workflow_call:

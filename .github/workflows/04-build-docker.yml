@@ -12,7 +12,7 @@
 # - create-beta.yml (beta releases)
 # - release.yml (production releases)
 
-name: "Build: Docker"
+name: "04 Build: Docker"
 
 on:
   pull_request:
@@ -26,7 +26,7 @@ on:
       - "services/**"
       - "state/**"
       - "requirements*.txt"
-      - ".github/workflows/docker-publish.yml"
+      - ".github/workflows/04-build-docker.yml"
 
   workflow_dispatch:
     inputs:

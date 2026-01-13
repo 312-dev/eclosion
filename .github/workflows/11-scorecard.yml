@@ -6,7 +6,7 @@
 # because Scorecard's publish_results feature requires version tags for
 # workflow verification. See: https://github.com/ossf/scorecard-action#workflow-restrictions
 
-name: Scorecard
+name: "11 Security: Scorecard"
 
 on:
   push:

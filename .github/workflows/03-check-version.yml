@@ -5,7 +5,7 @@
 #
 # Runs on all PRs to prevent version drift.
 
-name: Version Check
+name: "03 Check: Version"
 
 on:
   pull_request:
@@ -14,7 +14,7 @@ on:
       - 'desktop/package.json'
       - 'docusaurus/package.json'
       - 'pyproject.toml'
-      - '.release-please-manifest.json'
+      - 'version.txt'
 
 permissions: read-all
 
@@ -40,12 +40,12 @@ jobs:
           DESKTOP=$(jq -r '.version' desktop/package.json)
           DOCUSAURUS=$(jq -r '.version' docusaurus/package.json)
           PYPROJECT=$(grep '^version = ' pyproject.toml | sed 's/version = "\(.*\)"/\1/')
-          MANIFEST=$(jq -r '.[]' .release-please-manifest.json 2>/dev/null || echo "missing")
+          VERSION_TXT=$(cat version.txt | tr -d '[:space:]')
 
           echo "desktop/package.json: $DESKTOP"
           echo "docusaurus/package.json: $DOCUSAURUS"
           echo "pyproject.toml: $PYPROJECT"
-          echo ".release-please-manifest.json: $MANIFEST"
+          echo "version.txt: $VERSION_TXT"
           echo ""
 
           # Check for mismatches
@@ -66,8 +66,8 @@ jobs:
             ERRORS=$((ERRORS + 1))
           fi
 
-          if [ "$MANIFEST" != "$FRONTEND" ] && [ "$MANIFEST" != "missing" ]; then
-            echo "::error::.release-please-manifest.json version ($MANIFEST) does not match frontend ($FRONTEND)"
+          if [ "$VERSION_TXT" != "$FRONTEND" ]; then
+            echo "::error::version.txt ($VERSION_TXT) does not match frontend ($FRONTEND)"
             ERRORS=$((ERRORS + 1))
           fi
 
