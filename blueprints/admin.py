@@ -563,12 +563,23 @@ def restore_backup():
             }
         ), 400
 
-    # Construct path - filename is validated by regex to only contain safe characters
-    # The regex ensures no path separators or traversal sequences can be present
+    # Defense-in-depth: Construct and verify path stays within backup directory
+    # Even though regex validation prevents traversal, we also verify via resolve()
     backup_dir = config.BACKUP_DIR.resolve()
-    backup_path = backup_dir / filename_str  # lgtm[py/path-injection]
+    backup_path = (backup_dir / filename_str).resolve()
 
-    if not backup_path.exists():  # lgtm[py/path-injection]
+    # Verify the resolved path is within the backup directory (defense-in-depth)
+    try:
+        backup_path.relative_to(backup_dir)
+    except ValueError:
+        return jsonify(
+            {
+                "success": False,
+                "error": "Invalid backup path",
+            }
+        ), 400
+
+    if not backup_path.exists():
         return jsonify(
             {
                 "success": False,
@@ -589,9 +600,9 @@ def restore_backup():
             db_module._engine = None
             db_module._SessionLocal = None
 
-        # Restore the backup - path is safe as filename was regex-validated
+        # Restore the backup - path verified via relative_to() above
         db_path = _get_database_path()
-        shutil.copy2(backup_path, db_path)  # lgtm[py/path-injection]
+        shutil.copy2(backup_path, db_path)
 
         return jsonify(
             {
