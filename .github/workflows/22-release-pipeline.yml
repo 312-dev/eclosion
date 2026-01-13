@@ -493,7 +493,6 @@ jobs:
           # Save React app's key files
           cp frontend/dist/index.html /tmp/react-index.html
           cp frontend/dist/_redirects /tmp/react-redirects
-          cp frontend/dist/404.html /tmp/react-404.html
 
           # Copy Docusaurus build
           cp -r docusaurus/build/* frontend/dist/
@@ -501,7 +500,12 @@ jobs:
           # Restore React app files
           cp /tmp/react-index.html frontend/dist/index.html
           cp /tmp/react-redirects frontend/dist/_redirects
-          cp /tmp/react-404.html frontend/dist/404.html
+
+          # IMPORTANT: Remove 404.html to enable Cloudflare Pages native SPA routing
+          # Without 404.html, Cloudflare serves index.html for unknown paths,
+          # allowing React Router to handle client-side routing.
+          # See: https://developers.cloudflare.com/pages/configuration/serving-pages/
+          rm -f frontend/dist/404.html
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@da0e0dfe58b7a431659754fdf3f186c529afbe65 # v3

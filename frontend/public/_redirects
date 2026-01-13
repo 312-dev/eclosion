@@ -1,36 +1,11 @@
 # Cloudflare Pages redirects
 #
-# Static files are served automatically by Cloudflare Pages before these rules apply.
-# These rules only match when no static file exists for the requested path.
+# IMPORTANT: This project does NOT include a 404.html file, which enables
+# Cloudflare Pages' native SPA mode. Unknown paths automatically serve index.html.
+# See: https://developers.cloudflare.com/pages/configuration/serving-pages/
 #
-# Rule order matters: first match wins.
+# Static files (including /docs/* from Docusaurus) are served automatically.
+# These rules only apply when no static file exists.
 
-# React SPA routes - explicitly serve index.html
-# These rules ensure direct URL access works for all SPA paths
-# Note: Both with and without trailing slash are needed for consistent behavior
-/demo/* /index.html 200
-/demo/ /index.html 200
-/demo /index.html 200
-/download/ /index.html 200
-/download /index.html 200
-/login/ /index.html 200
-/login /index.html 200
-/unlock/ /index.html 200
-/unlock /index.html 200
-/dashboard/ /index.html 200
-/dashboard /index.html 200
-/recurring/ /index.html 200
-/recurring /index.html 200
-/notes/ /index.html 200
-/notes /index.html 200
-/settings/ /index.html 200
-/settings /index.html 200
-/features/* /index.html 200
-/features/ /index.html 200
-/features /index.html 200
-
-# For missing /docs paths, show Docusaurus 404 page (not the React SPA)
-/docs/* /404.html 404
-
-# SPA fallback for all other routes (React app landing page, etc.)
-/* /index.html 200
+# No explicit rules needed - Cloudflare's native SPA mode handles everything.
+# The React app's router handles 404s for unknown paths.
