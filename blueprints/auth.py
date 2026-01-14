@@ -102,6 +102,9 @@ async def auth_desktop_login():
     Credentials are stored in Electron's safeStorage, not on the Python side.
     The backend only keeps them in memory for the session.
 
+    The notes_key parameter is used for encrypting Notes feature content.
+    It's generated and stored by Electron's safeStorage.
+
     Only available in desktop mode (ECLOSION_DESKTOP=1).
     """
     services = get_services()
@@ -115,6 +118,7 @@ async def auth_desktop_login():
         password = data.get("password")
         mfa_secret = data.get("mfa_secret", "")
         mfa_mode = data.get("mfa_mode", "secret")  # 'secret' or 'code'
+        notes_key = data.get("notes_key", "")  # Encryption key for Notes feature
 
         if not email or not password:
             audit_log(services.security_service, "DESKTOP_LOGIN", False, "Missing credentials")
@@ -132,6 +136,11 @@ async def auth_desktop_login():
 
         if result.get("success"):
             SessionManager.update_activity()
+            # Store notes encryption key in session for Notes feature
+            # This enables note content encryption in desktop mode
+            if notes_key:
+                session.permanent = True
+                session["session_passphrase"] = notes_key
 
         return jsonify(result)
     except Exception as e:

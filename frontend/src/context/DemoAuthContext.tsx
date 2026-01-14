@@ -79,6 +79,10 @@ const mockClearMfaRequired = (): void => {
   // No-op in demo mode
 };
 
+const mockDismissSessionExpiredOverlay = (): void => {
+  // No-op in demo mode
+};
+
 // ============================================================================
 // Provider
 // ============================================================================
@@ -95,6 +99,7 @@ export function DemoAuthProvider({ children }: Readonly<{ children: ReactNode }>
       needsReauth: false,
       syncBlocked: false,
       mfaRequiredData: null,
+      showSessionExpiredOverlay: false,
       // Actions - all no-ops or return success
       login: mockLogin,
       lock: mockLock,
@@ -110,6 +115,7 @@ export function DemoAuthProvider({ children }: Readonly<{ children: ReactNode }>
       triggerReauth: mockTriggerReauth,
       clearSyncBlocked: mockClearSyncBlocked,
       clearMfaRequired: mockClearMfaRequired,
+      dismissSessionExpiredOverlay: mockDismissSessionExpiredOverlay,
     }),
     []
   );

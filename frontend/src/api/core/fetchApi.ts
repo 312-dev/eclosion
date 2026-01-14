@@ -52,6 +52,29 @@ const inFlightRequests = new Map<string, Promise<unknown>>();
 // Track rate limit state per endpoint
 const rateLimitState = new Map<string, { until: number }>();
 
+// Cache the notes key for desktop mode (avoids async call on every request)
+let cachedNotesKey: string | null = null;
+
+/**
+ * Get the notes encryption key for desktop mode.
+ * Caches the key after first retrieval.
+ */
+async function getNotesKey(): Promise<string | null> {
+  if (!isDesktopMode()) return null;
+  if (cachedNotesKey !== null) return cachedNotesKey;
+
+  try {
+    const key = await globalThis.electron?.credentials.getNotesKey();
+    if (key) {
+      cachedNotesKey = key;
+      return key;
+    }
+  } catch {
+    // Ignore errors - notes key is optional
+  }
+  return null;
+}
+
 /**
  * Core fetch wrapper with error handling, deduplication, and rate limiting.
  */
@@ -88,6 +111,15 @@ export async function fetchApi<T>(
       const desktopSecret = getDesktopSecret();
       if (desktopSecret) {
         headers['X-Desktop-Secret'] = desktopSecret;
+      }
+
+      // Add notes key header for /notes/* endpoints in desktop mode
+      // This works around cookie issues between file:// and http://localhost
+      if (endpoint.startsWith('/notes/')) {
+        const notesKey = await getNotesKey();
+        if (notesKey) {
+          headers['X-Notes-Key'] = notesKey;
+        }
       }
 
       const response = await fetch(`${getApiBase()}${endpoint}`, {

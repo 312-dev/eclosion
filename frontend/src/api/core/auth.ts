@@ -111,6 +111,7 @@ export interface DesktopLoginResult {
 /**
  * Desktop mode login: validate credentials and establish session directly.
  * No passphrase required - credentials stored in Electron's safeStorage.
+ * Automatically includes the notes encryption key for Notes feature support.
  */
 export async function desktopLogin(
   email: string,
@@ -118,6 +119,10 @@ export async function desktopLogin(
   mfaSecret?: string,
   mfaMode: 'secret' | 'code' = 'secret'
 ): Promise<DesktopLoginResult> {
+  // Get or create the notes encryption key from Electron's secure storage
+  // This is needed for the Notes feature to encrypt note content
+  const notesKey = await globalThis.electron?.credentials.getNotesKey();
+
   return fetchApi<DesktopLoginResult>('/auth/desktop-login', {
     method: 'POST',
     body: JSON.stringify({
@@ -125,6 +130,7 @@ export async function desktopLogin(
       password,
       mfa_secret: mfaSecret || '',
       mfa_mode: mfaMode,
+      notes_key: notesKey || '',
     }),
   });
 }
