@@ -12,9 +12,30 @@ from . import get_services
 
 notes_bp = Blueprint("notes", __name__, url_prefix="/notes")
 
+# Constants for validation
+MONTH_KEY_PATTERN = r"^\d{4}-\d{2}$"
+ERR_INVALID_MONTH_KEY = "Invalid month_key format. Expected YYYY-MM."
+ERR_INVALID_VIEWING_MONTH = "Invalid viewing_month. Expected YYYY-MM."
+ERR_INVALID_CATEGORY_TYPE = "Invalid category_type. Must be 'group' or 'category'."
+ERR_INVALID_NOTE_ID = "Invalid note_id."
+ERR_INVALID_CATEGORY_ID = "Invalid category_id."
+
 
 def _get_passphrase() -> str:
-    """Get passphrase from session. Raises if not available."""
+    """Get passphrase from session or header. Raises if not available.
+
+    In desktop mode, cookies don't work reliably between file:// and http://localhost,
+    so we also accept the notes key via X-Notes-Key header.
+    """
+    from core import config
+
+    # First try the header (desktop mode workaround for cookie issues)
+    if config.is_desktop_environment():
+        header_key = request.headers.get("X-Notes-Key")
+        if header_key:
+            return header_key
+
+    # Fall back to session (web mode)
     passphrase: str | None = session.get("session_passphrase")
     if not passphrase:
         raise ValidationError("Session expired. Please unlock again.")
@@ -30,8 +51,8 @@ def get_month_notes(month_key: str):
     Returns notes, general month note, and metadata.
     """
     # Validate month_key format (YYYY-MM)
-    if not re.match(r"^\d{4}-\d{2}$", month_key):
-        raise ValidationError("Invalid month_key format. Expected YYYY-MM.")
+    if not re.match(MONTH_KEY_PATTERN, month_key):
+        raise ValidationError(ERR_INVALID_MONTH_KEY)
 
     services = get_services()
     passphrase = _get_passphrase()
@@ -82,13 +103,13 @@ def save_category_note():
 
     # Validate required fields
     if not category_type or category_type not in ("group", "category"):
-        raise ValidationError("Invalid category_type. Must be 'group' or 'category'.")
+        raise ValidationError(ERR_INVALID_CATEGORY_TYPE)
 
     if not category_id or not category_name:
         raise ValidationError("Missing category_id or category_name.")
 
-    if not month_key or not re.match(r"^\d{4}-\d{2}$", month_key):
-        raise ValidationError("Invalid month_key format. Expected YYYY-MM.")
+    if not month_key or not re.match(MONTH_KEY_PATTERN, month_key):
+        raise ValidationError(ERR_INVALID_MONTH_KEY)
 
     services = get_services()
     passphrase = _get_passphrase()
@@ -115,7 +136,7 @@ def delete_category_note(note_id: str):
     """Delete a category note by ID."""
     safe_note_id = sanitize_id(note_id)
     if not safe_note_id:
-        raise ValidationError("Invalid note_id.")
+        raise ValidationError(ERR_INVALID_NOTE_ID)
     note_id = safe_note_id
 
     services = get_services()
@@ -127,8 +148,8 @@ def delete_category_note(note_id: str):
 @api_handler(handle_mfa=False)
 def get_general_note(month_key: str):
     """Get general note for a specific month."""
-    if not re.match(r"^\d{4}-\d{2}$", month_key):
-        raise ValidationError("Invalid month_key format. Expected YYYY-MM.")
+    if not re.match(MONTH_KEY_PATTERN, month_key):
+        raise ValidationError(ERR_INVALID_MONTH_KEY)
 
     services = get_services()
     passphrase = _get_passphrase()
@@ -145,8 +166,8 @@ def save_general_note():
     month_key = data.get("month_key")
     content = data.get("content", "")
 
-    if not month_key or not re.match(r"^\d{4}-\d{2}$", month_key):
-        raise ValidationError("Invalid month_key format. Expected YYYY-MM.")
+    if not month_key or not re.match(MONTH_KEY_PATTERN, month_key):
+        raise ValidationError(ERR_INVALID_MONTH_KEY)
 
     services = get_services()
     passphrase = _get_passphrase()
@@ -161,8 +182,8 @@ def save_general_note():
 @api_handler(handle_mfa=False)
 def delete_general_note(month_key: str):
     """Delete general note for a month."""
-    if not re.match(r"^\d{4}-\d{2}$", month_key):
-        raise ValidationError("Invalid month_key format. Expected YYYY-MM.")
+    if not re.match(MONTH_KEY_PATTERN, month_key):
+        raise ValidationError(ERR_INVALID_MONTH_KEY)
 
     services = get_services()
     deleted = services.notes_manager.delete_general_note(month_key)
@@ -185,7 +206,7 @@ def delete_archived_note(note_id: str):
     """Permanently delete an archived note."""
     safe_note_id = sanitize_id(note_id)
     if not safe_note_id:
-        raise ValidationError("Invalid note_id.")
+        raise ValidationError(ERR_INVALID_NOTE_ID)
     note_id = safe_note_id
 
     services = get_services()
@@ -228,14 +249,157 @@ async def sync_notes_categories():
 def get_note_history(category_type: str, category_id: str):
     """Get revision history for a category or group's notes."""
     if category_type not in ("group", "category"):
-        raise ValidationError("Invalid category_type. Must be 'group' or 'category'.")
+        raise ValidationError(ERR_INVALID_CATEGORY_TYPE)
 
     safe_category_id = sanitize_id(category_id)
     if not safe_category_id:
-        raise ValidationError("Invalid category_id.")
+        raise ValidationError(ERR_INVALID_CATEGORY_ID)
     category_id = safe_category_id
 
     services = get_services()
     passphrase = _get_passphrase()
     history = services.notes_manager.get_revision_history(category_type, category_id, passphrase)
     return {"history": history}
+
+
+# ============================================================================
+# Checkbox States
+# ============================================================================
+
+
+@notes_bp.route("/checkboxes/<note_id>", methods=["GET"])
+@api_handler(handle_mfa=False)
+def get_checkbox_states(note_id: str):
+    """Get checkbox states for a category/group note."""
+    safe_note_id = sanitize_id(note_id)
+    if not safe_note_id:
+        raise ValidationError(ERR_INVALID_NOTE_ID)
+
+    viewing_month = request.args.get("viewing_month")
+    if not viewing_month or not re.match(MONTH_KEY_PATTERN, viewing_month):
+        raise ValidationError(ERR_INVALID_VIEWING_MONTH)
+
+    services = get_services()
+    _get_passphrase()  # Verify session is valid
+    states = services.notes_manager.get_checkbox_states(safe_note_id, viewing_month)
+    return {"states": states}
+
+
+@notes_bp.route("/checkboxes/general/<source_month>", methods=["GET"])
+@api_handler(handle_mfa=False)
+def get_general_checkbox_states(source_month: str):
+    """Get checkbox states for a general note."""
+    if not re.match(MONTH_KEY_PATTERN, source_month):
+        raise ValidationError("Invalid source_month. Expected YYYY-MM.")
+
+    viewing_month = request.args.get("viewing_month")
+    if not viewing_month or not re.match(MONTH_KEY_PATTERN, viewing_month):
+        raise ValidationError(ERR_INVALID_VIEWING_MONTH)
+
+    services = get_services()
+    _get_passphrase()  # Verify session is valid
+    states = services.notes_manager.get_general_checkbox_states(source_month, viewing_month)
+    return {"states": states}
+
+
+@notes_bp.route("/checkboxes", methods=["POST"])
+@api_handler(handle_mfa=False)
+def update_checkbox_state():
+    """Update a checkbox state."""
+    data = request.get_json()
+
+    note_id = data.get("note_id")
+    general_note_month_key = data.get("general_note_month_key")
+    viewing_month = data.get("viewing_month")
+    checkbox_index = data.get("checkbox_index")
+    is_checked = data.get("is_checked")
+
+    # Validate inputs
+    if not viewing_month or not re.match(MONTH_KEY_PATTERN, viewing_month):
+        raise ValidationError(ERR_INVALID_VIEWING_MONTH)
+
+    if checkbox_index is None or not isinstance(checkbox_index, int) or checkbox_index < 0:
+        raise ValidationError("Invalid checkbox_index. Must be a non-negative integer.")
+
+    if is_checked is None or not isinstance(is_checked, bool):
+        raise ValidationError("Invalid is_checked. Must be a boolean.")
+
+    if not note_id and not general_note_month_key:
+        raise ValidationError("Must provide either note_id or general_note_month_key.")
+
+    if note_id and general_note_month_key:
+        raise ValidationError("Provide only one of note_id or general_note_month_key.")
+
+    if note_id:
+        safe_note_id = sanitize_id(note_id)
+        if not safe_note_id:
+            raise ValidationError(ERR_INVALID_NOTE_ID)
+        note_id = safe_note_id
+
+    if general_note_month_key and not re.match(MONTH_KEY_PATTERN, general_note_month_key):
+        raise ValidationError("Invalid general_note_month_key. Expected YYYY-MM.")
+
+    services = get_services()
+    _get_passphrase()  # Verify session is valid
+    states = services.notes_manager.update_checkbox_state(
+        viewing_month=viewing_month,
+        checkbox_index=checkbox_index,
+        is_checked=is_checked,
+        note_id=note_id,
+        general_note_month_key=general_note_month_key,
+    )
+    return {"success": True, "states": states}
+
+
+@notes_bp.route("/checkboxes/month/<viewing_month>", methods=["GET"])
+@api_handler(handle_mfa=False)
+def get_month_checkbox_states(viewing_month: str):
+    """Get all checkbox states for a viewing month (for export)."""
+    if not re.match(MONTH_KEY_PATTERN, viewing_month):
+        raise ValidationError(ERR_INVALID_VIEWING_MONTH)
+
+    services = get_services()
+    _get_passphrase()  # Verify session is valid
+    states = services.notes_manager.get_all_checkbox_states_for_month(viewing_month)
+    return {"states": states}
+
+
+# ============================================================================
+# Inheritance Impact
+# ============================================================================
+
+
+@notes_bp.route("/inheritance-impact", methods=["GET"])
+@api_handler(handle_mfa=False)
+def get_inheritance_impact():
+    """
+    Get the impact of creating a new note (breaking inheritance).
+
+    Returns affected months and which have checkbox states that will be cleared.
+    """
+    category_type = request.args.get("category_type")
+    category_id = request.args.get("category_id")
+    month_key = request.args.get("month_key")
+    is_general = request.args.get("is_general", "false").lower() == "true"
+
+    if not month_key or not re.match(MONTH_KEY_PATTERN, month_key):
+        raise ValidationError("Invalid month_key. Expected YYYY-MM.")
+
+    services = get_services()
+    passphrase = _get_passphrase()
+
+    if is_general:
+        impact = services.notes_manager.get_general_inheritance_impact(month_key, passphrase)
+    else:
+        if not category_type or category_type not in ("group", "category"):
+            raise ValidationError(ERR_INVALID_CATEGORY_TYPE)
+
+        safe_category_id = sanitize_id(category_id)
+        if not safe_category_id:
+            raise ValidationError(ERR_INVALID_CATEGORY_ID)
+
+        impact = services.notes_manager.get_inheritance_impact(
+            category_type, safe_category_id, month_key, passphrase
+        )
+
+    return impact

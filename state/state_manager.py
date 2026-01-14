@@ -147,7 +147,7 @@ class StateManager:
                 schema_version=config.schema_version,
                 target_group_id=config.target_group_id,
                 target_group_name=config.target_group_name,
-                last_sync=config.last_sync.isoformat() if config.last_sync else None,
+                last_sync=f"{config.last_sync.isoformat()}Z" if config.last_sync else None,
                 auto_sync_new=config.auto_sync_new,
                 auto_track_threshold=config.auto_track_threshold,
                 auto_update_targets=config.auto_update_targets,
@@ -856,3 +856,81 @@ class NotesStateManager:
         with db_session() as session:
             repo = NotesRepository(session)
             return repo.get_all_notes(passphrase)
+
+    # === Checkbox State Methods ===
+
+    def get_checkbox_states(self, note_id: str, viewing_month: str) -> list[bool]:
+        """Get checkbox states for a category/group note."""
+        with db_session() as session:
+            repo = NotesRepository(session)
+            return repo.get_checkbox_states(note_id, viewing_month)
+
+    def get_general_checkbox_states(self, source_month: str, viewing_month: str) -> list[bool]:
+        """Get checkbox states for a general note."""
+        with db_session() as session:
+            repo = NotesRepository(session)
+            return repo.get_general_checkbox_states(source_month, viewing_month)
+
+    def update_checkbox_state(
+        self,
+        viewing_month: str,
+        checkbox_index: int,
+        is_checked: bool,
+        note_id: str | None = None,
+        general_note_month_key: str | None = None,
+    ) -> list[bool]:
+        """Update a checkbox state."""
+        with db_session() as session:
+            repo = NotesRepository(session)
+            return repo.update_checkbox_state(
+                viewing_month=viewing_month,
+                checkbox_index=checkbox_index,
+                is_checked=is_checked,
+                note_id=note_id,
+                general_note_month_key=general_note_month_key,
+            )
+
+    def get_all_checkbox_states_for_month(self, viewing_month: str) -> dict[str, list[bool]]:
+        """Get all checkbox states for a viewing month (for export)."""
+        with db_session() as session:
+            repo = NotesRepository(session)
+            return repo.get_all_checkbox_states_for_month(viewing_month)
+
+    def clear_checkbox_states_for_note(self, note_id: str) -> int:
+        """Clear all checkbox states for a note."""
+        with db_session() as session:
+            repo = NotesRepository(session)
+            return repo.clear_checkbox_states_for_note(note_id)
+
+    def clear_checkbox_states_for_viewing_months(
+        self,
+        viewing_months: list[str],
+        note_id: str | None = None,
+        general_note_month_key: str | None = None,
+    ) -> int:
+        """Clear checkbox states for specific viewing months."""
+        with db_session() as session:
+            repo = NotesRepository(session)
+            return repo.clear_checkbox_states_for_viewing_months(
+                viewing_months, note_id, general_note_month_key
+            )
+
+    # === Inheritance Impact Methods ===
+
+    def get_inheritance_impact(
+        self,
+        category_type: str,
+        category_id: str,
+        month_key: str,
+        passphrase: str,
+    ) -> dict:
+        """Get the impact of creating a new note (breaking inheritance)."""
+        with db_session() as session:
+            repo = NotesRepository(session)
+            return repo.get_inheritance_impact(category_type, category_id, month_key, passphrase)
+
+    def get_general_inheritance_impact(self, month_key: str, passphrase: str) -> dict:
+        """Get the impact of creating a new general note."""
+        with db_session() as session:
+            repo = NotesRepository(session)
+            return repo.get_general_inheritance_impact(month_key, passphrase)
