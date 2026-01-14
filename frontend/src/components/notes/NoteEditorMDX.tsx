@@ -7,7 +7,7 @@
  */
 
 import { useRef, useCallback, useEffect, useState, useMemo } from 'react';
-import { Check } from 'lucide-react';
+import { Check, X } from 'lucide-react';
 import {
   MDXEditor,
   headingsPlugin,
@@ -26,6 +26,7 @@ import {
 } from '@mdxeditor/editor';
 import '@mdxeditor/editor/style.css';
 import { evaluateMathExpression } from '../../utils/mathEvaluator';
+import { decodeHtmlEntities } from '../../utils';
 
 interface MathSuggestion {
   expression: string;
@@ -39,6 +40,8 @@ interface NoteEditorMDXProps {
   onChange: (value: string) => void;
   /** Callback to save and close the editor */
   onSave: () => void;
+  /** Optional callback to cancel and close without saving */
+  onCancel?: () => void;
   /** Whether save is in progress */
   isSaving?: boolean;
   /** Placeholder text */
@@ -59,6 +62,7 @@ export function NoteEditorMDX({
   value,
   onChange,
   onSave,
+  onCancel,
   isSaving = false,
   placeholder = 'Write your note...',
   readOnly = false,
@@ -108,10 +112,13 @@ export function NoteEditorMDX({
   }, [autoFocus]);
 
   // Handle content changes
+  // MDXEditor's serializer may encode special characters as HTML entities (e.g., tab as &#x9;)
+  // Decode them to preserve the original characters
   const handleChange = useCallback(
     (markdown: string) => {
-      onChange(markdown);
-      checkForMath(markdown);
+      const decoded = decodeHtmlEntities(markdown);
+      onChange(decoded);
+      checkForMath(decoded);
     },
     [onChange, checkForMath]
   );
@@ -245,9 +252,23 @@ export function NoteEditorMDX({
         )}
       </div>
 
-      {/* Save button */}
+      {/* Action buttons */}
       {!readOnly && (
-        <div className="flex justify-end mt-2">
+        <div className="flex justify-end gap-2 mt-2">
+          {onCancel && (
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={isSaving}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors hover:bg-[var(--monarch-bg-hover)] disabled:opacity-50"
+              style={{ color: 'var(--monarch-text-muted)' }}
+              aria-label="Cancel editing"
+              title="Cancel (Escape)"
+            >
+              <X size={14} />
+              Cancel
+            </button>
+          )}
           <button
             type="button"
             onClick={onSave}

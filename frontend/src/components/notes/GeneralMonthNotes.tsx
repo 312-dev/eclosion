@@ -6,14 +6,14 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, X } from 'lucide-react';
 import { NoteEditorMDX } from './NoteEditorMDX';
 import { MarkdownRenderer } from './MarkdownRenderer';
+import { InheritanceWarningInline } from './InheritanceWarningInline';
 import { useSaveGeneralNoteMutation, useDeleteGeneralNoteMutation } from '../../api/queries';
-import { useCheckboxState } from '../../hooks';
+import { useCheckboxState, useInheritanceWarning } from '../../hooks';
 import { handleApiError } from '../../utils';
 import { useToast } from '../../context/ToastContext';
-import { useIsRateLimited } from '../../context/RateLimitContext';
 import { useNotesEditorOptional } from '../../context/NotesEditorContext';
 import type { MonthKey, EffectiveGeneralNote } from '../../types/notes';
 
@@ -52,7 +52,6 @@ function GeneralMonthNotesInner({ monthKey, effectiveNote, dataTourId }: General
   const lastSavedRef = useRef(noteContent);
   const prevIsEditingRef = useRef(isEditing);
   const toast = useToast();
-  const isRateLimited = useIsRateLimited();
   const notesEditor = useNotesEditorOptional();
 
   const saveMutation = useSaveGeneralNoteMutation();
@@ -71,6 +70,24 @@ function GeneralMonthNotesInner({ monthKey, effectiveNote, dataTourId }: General
     enabled: !!note || !!content.trim(),
   });
 
+  // Determine if this is a source note (exists for this exact month, not inherited)
+  const hasExistingNote = !!note && !isInherited;
+
+  // Inheritance warning for breaking inheritance OR modifying source note
+  const {
+    showWarning: showInheritanceWarning,
+    impact: inheritanceImpact,
+    isChecking: isCheckingInheritance,
+    checkBeforeSave,
+    confirmSave: confirmInheritanceSave,
+    cancelWarning: cancelInheritanceWarning,
+  } = useInheritanceWarning({
+    isInherited,
+    hasExistingNote,
+    monthKey,
+    isGeneral: true,
+  });
+
   // Sync content when note changes externally
   useEffect(() => {
     const justExitedEditing = prevIsEditingRef.current && !isEditing;
@@ -82,16 +99,9 @@ function GeneralMonthNotesInner({ monthKey, effectiveNote, dataTourId }: General
     }
   }, [noteContent, isEditing]);
 
-  // Save function
-  const saveNote = useCallback(async () => {
+  // Perform the actual save
+  const performSave = useCallback(async () => {
     const trimmedContent = content.trim();
-
-    // No changes
-    if (trimmedContent === lastSavedRef.current.trim()) {
-      setIsEditing(false);
-      notesEditor?.closeEditor();
-      return;
-    }
 
     setIsSaving(true);
 
@@ -116,6 +126,30 @@ function GeneralMonthNotesInner({ monthKey, effectiveNote, dataTourId }: General
     }
   }, [content, note, monthKey, saveMutation, deleteMutation, toast, notesEditor]);
 
+  // Save function - checks inheritance impact first
+  const saveNote = useCallback(async () => {
+    const trimmedContent = content.trim();
+
+    // No changes
+    if (trimmedContent === lastSavedRef.current.trim()) {
+      setIsEditing(false);
+      notesEditor?.closeEditor();
+      return;
+    }
+
+    // Check inheritance impact before saving
+    const canProceed = await checkBeforeSave();
+    if (canProceed) {
+      await performSave();
+    }
+  }, [content, notesEditor, checkBeforeSave, performSave]);
+
+  // Confirm save after inheritance warning
+  const handleConfirmInheritanceSave = useCallback(async () => {
+    confirmInheritanceSave();
+    await performSave();
+  }, [confirmInheritanceSave, performSave]);
+
   // Keep ref updated so context always calls latest save function
   useEffect(() => {
     saveNoteRef.current = saveNote;
@@ -126,10 +160,17 @@ function GeneralMonthNotesInner({ monthKey, effectiveNote, dataTourId }: General
     setContent(newContent);
   }, []);
 
-  // Enter edit mode (blocked when rate limited)
-  const handleStartEdit = useCallback(async () => {
-    if (isRateLimited) return;
+  // Cancel editing - discard changes
+  const handleCancel = useCallback(() => {
+    // Restore the original content (inherited or saved)
+    setContent(noteContent);
+    lastSavedRef.current = noteContent;
+    setIsEditing(false);
+    notesEditor?.closeEditor();
+  }, [notesEditor, noteContent]);
 
+  // Enter edit mode
+  const handleStartEdit = useCallback(async () => {
     // If using context, request to open (auto-saves other editors)
     // Pass a stable wrapper that calls the ref to ensure latest content is saved
     if (notesEditor) {
@@ -137,8 +178,15 @@ function GeneralMonthNotesInner({ monthKey, effectiveNote, dataTourId }: General
       if (!canOpen) return;
     }
 
+    // If editing an inherited note, start with empty content
+    // (user is creating a new note for this month, not editing the source)
+    if (isInherited) {
+      setContent('');
+      lastSavedRef.current = '';
+    }
+
     setIsEditing(true);
-  }, [isRateLimited, notesEditor, editorId]);
+  }, [notesEditor, editorId, isInherited]);
 
   // Render content area
   const displayContent = content.trim();
@@ -152,18 +200,27 @@ function GeneralMonthNotesInner({ monthKey, effectiveNote, dataTourId }: General
             value={content}
             onChange={handleContentChange}
             onSave={saveNote}
-            isSaving={isSaving}
+            onCancel={handleCancel}
+            isSaving={isSaving || isCheckingInheritance}
             placeholder="Write general notes for this month..."
             minHeight={200}
             autoFocus
           />
+          {showInheritanceWarning && inheritanceImpact && (
+            <InheritanceWarningInline
+              monthsWithCheckboxStates={inheritanceImpact.monthsWithCheckboxStates}
+              isSourceNoteEdit={inheritanceImpact.isSourceNoteEdit}
+              onCancel={cancelInheritanceWarning}
+              onConfirm={handleConfirmInheritanceSave}
+            />
+          )}
         </div>
       );
     }
 
     if (hasContent) {
       return (
-        <div className="p-4">
+        <div className="p-4 relative group">
           {isInherited && sourceMonth && (
             <div
               className="text-xs mb-2 italic"
@@ -179,6 +236,19 @@ function GeneralMonthNotesInner({ monthKey, effectiveNote, dataTourId }: General
             onDoubleClick={handleStartEdit}
             checkboxesDisabled={checkboxesLoading}
           />
+          {/* Clear inheritance button - only for inherited notes */}
+          {isInherited && (
+            <button
+              type="button"
+              onClick={handleStartEdit}
+              className="absolute top-4 right-4 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-(--monarch-bg-hover) transition-opacity icon-btn-hover"
+              style={{ color: 'var(--monarch-text-muted)' }}
+              aria-label="Create new note for this month"
+              title="Clear inheritance (start fresh)"
+            >
+              <X size={14} />
+            </button>
+          )}
         </div>
       );
     }

@@ -284,14 +284,11 @@ export function useSaveGeneralNoteMutation() {
   return useMutation({
     mutationFn: ({ monthKey, content }: { monthKey: MonthKey; content: string }) =>
       isDemo ? demoApi.saveGeneralNote(monthKey, content) : api.saveGeneralNote(monthKey, content),
-    onSuccess: (_data, variables) => {
-      // Invalidate the bulk query so it refetches fresh data
+    onSuccess: () => {
+      // Invalidate all month notes queries since notes inherit forward
+      // This ensures future months show updated inherited content
       queryClient.invalidateQueries({
-        queryKey: [...getQueryKey(queryKeys.monthNotes, isDemo), '__all__'],
-      });
-      // Invalidate the specific month
-      queryClient.invalidateQueries({
-        queryKey: [...getQueryKey(queryKeys.monthNotes, isDemo), variables.monthKey],
+        queryKey: getQueryKey(queryKeys.monthNotes, isDemo),
       });
     },
   });
@@ -307,13 +304,11 @@ export function useDeleteGeneralNoteMutation() {
   return useMutation({
     mutationFn: (monthKey: MonthKey) =>
       isDemo ? demoApi.deleteGeneralNote(monthKey) : api.deleteGeneralNote(monthKey),
-    onSuccess: (_data, monthKey) => {
-      // Invalidate the bulk query so it refetches fresh data
+    onSuccess: () => {
+      // Invalidate all month notes queries since notes inherit forward
+      // This ensures future months show updated inherited content
       queryClient.invalidateQueries({
-        queryKey: [...getQueryKey(queryKeys.monthNotes, isDemo), '__all__'],
-      });
-      queryClient.invalidateQueries({
-        queryKey: [...getQueryKey(queryKeys.monthNotes, isDemo), monthKey],
+        queryKey: getQueryKey(queryKeys.monthNotes, isDemo),
       });
     },
   });
