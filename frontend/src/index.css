@@ -476,10 +476,11 @@ input[type="radio"] {
 
 /* App Layout - Fixed header/footer with scrolling content */
 .app-layout {
-  /* Base header height: 52px min-height + 1px border.
+  /* Base header height: 52px min-height + 10px padding + 1px border + 2px buffer.
+     The buffer prevents notification banners from being clipped by box-shadow.
      This may be overridden for macOS Electron (73px) to account for traffic lights.
      See AppShell.tsx for platform-specific adjustments. */
-  --header-height: 53px;
+  --header-height: 55px;
   --footer-height: 45px; /* Match .app-footer height */
   min-height: 100vh;
   padding-top: var(--header-height);
