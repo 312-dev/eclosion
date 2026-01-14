@@ -115,6 +115,8 @@ nsis:
   installerIcon: assets/icon-beta.ico
   uninstallerIcon: assets/icon-beta.ico
   differentialPackage: true
+  # Allow NSIS warnings (unreferenced functions) without failing the build
+  warningsAsErrors: false
   # Include custom NSIS scripts (combined installer + uninstaller macros)
   include: installer/custom.nsh
 
