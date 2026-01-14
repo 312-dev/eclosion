@@ -4,7 +4,7 @@
  * Handles BrowserWindow creation, state persistence, and lifecycle.
  */
 
-import { BrowserWindow, shell, app, session } from 'electron';
+import { BrowserWindow, shell, app, session, screen } from 'electron';
 import path from 'node:path';
 import Store from 'electron-store';
 
@@ -14,6 +14,39 @@ function getStore(): Store {
   store ??= new Store();
   return store;
 }
+
+/**
+ * Compact window dimensions for loading/login screens.
+ * These screens don't need full app width, so we show a smaller, centered window.
+ * Height can be dynamically adjusted via setCompactSize() based on content.
+ */
+const COMPACT_WINDOW = {
+  /** Default/initial width */
+  width: 550,
+  /** Default/initial height (used for loading screen) */
+  height: 700,
+  /** Minimum width allowed */
+  minWidth: 450,
+  /** Minimum height allowed */
+  minHeight: 500,
+  /** Maximum height allowed (content shouldn't need more than this) */
+  maxHeight: 1000,
+};
+
+/**
+ * Default full window dimensions for the main app.
+ */
+const DEFAULT_FULL_WINDOW = {
+  width: 1200,
+  height: 800,
+  minWidth: 515,
+  minHeight: 600,
+};
+
+/**
+ * Track the current window mode to avoid unnecessary resizes.
+ */
+let currentWindowMode: 'compact' | 'full' = 'compact';
 
 /**
  * Setup Content Security Policy headers for renderer security.
@@ -61,21 +94,31 @@ export function getIsQuitting(): boolean {
 
 /**
  * Create the main application window.
+ * Starts in compact mode (centered, smaller size) for loading/login screens.
+ * Call setWindowMode('full') when the main app is ready.
  */
 export async function createWindow(backendPort: number): Promise<BrowserWindow> {
   // Setup Content Security Policy
   setupCSP();
 
-  // Restore window bounds from previous session
-  const bounds = getStore().get('windowBounds', {
-    width: 1200,
-    height: 800,
-  }) as WindowBounds;
+  // Start in compact mode - centered on screen
+  // Full bounds will be restored when setWindowMode('full') is called
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize;
+
+  // Center the compact window on screen
+  const x = Math.round((screenWidth - COMPACT_WINDOW.width) / 2);
+  const y = Math.round((screenHeight - COMPACT_WINDOW.height) / 2);
+
+  currentWindowMode = 'compact';
 
   mainWindow = new BrowserWindow({
-    ...bounds,
-    minWidth: 515,
-    minHeight: 600,
+    x,
+    y,
+    width: COMPACT_WINDOW.width,
+    height: COMPACT_WINDOW.height,
+    minWidth: COMPACT_WINDOW.minWidth,
+    minHeight: COMPACT_WINDOW.minHeight,
     title: 'Eclosion',
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),
@@ -228,4 +271,113 @@ export function toggleWindow(): void {
  */
 export function navigateTo(routePath: string): void {
   mainWindow?.webContents.send('navigate', routePath);
+}
+
+/**
+ * Set the window mode (compact or full).
+ *
+ * - 'compact': Small, centered window for loading/login screens
+ * - 'full': Restores previous window bounds (or defaults) for main app
+ *
+ * This enables a better UX where the app opens as a small centered window
+ * during startup, then expands to full size once the main content is ready.
+ */
+export function setWindowMode(mode: 'compact' | 'full'): void {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (currentWindowMode === mode) return;
+
+  currentWindowMode = mode;
+
+  if (mode === 'compact') {
+    // Switch to compact mode - center on screen
+    const primaryDisplay = screen.getPrimaryDisplay();
+    const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize;
+    const x = Math.round((screenWidth - COMPACT_WINDOW.width) / 2);
+    const y = Math.round((screenHeight - COMPACT_WINDOW.height) / 2);
+
+    mainWindow.setMinimumSize(COMPACT_WINDOW.minWidth, COMPACT_WINDOW.minHeight);
+    mainWindow.setBounds({
+      x,
+      y,
+      width: COMPACT_WINDOW.width,
+      height: COMPACT_WINDOW.height,
+    });
+  } else {
+    // Switch to full mode - restore saved bounds or use defaults
+    const savedBounds = getStore().get('windowBounds') as WindowBounds | undefined;
+    const bounds = savedBounds ?? {
+      width: DEFAULT_FULL_WINDOW.width,
+      height: DEFAULT_FULL_WINDOW.height,
+    };
+
+    // Update minimum size first
+    mainWindow.setMinimumSize(DEFAULT_FULL_WINDOW.minWidth, DEFAULT_FULL_WINDOW.minHeight);
+
+    if (savedBounds?.x !== undefined && savedBounds?.y !== undefined) {
+      // Restore exact position if we have it
+      mainWindow.setBounds({
+        x: savedBounds.x,
+        y: savedBounds.y,
+        width: bounds.width,
+        height: bounds.height,
+      });
+    } else {
+      // No saved position - resize and center
+      mainWindow.setSize(bounds.width, bounds.height);
+      mainWindow.center();
+    }
+  }
+}
+
+/**
+ * Get the current window mode.
+ */
+export function getWindowMode(): 'compact' | 'full' {
+  return currentWindowMode;
+}
+
+/**
+ * Dynamically resize the compact window based on content height.
+ * Only works when in compact mode. The height is clamped to:
+ * - Minimum: COMPACT_WINDOW.minHeight
+ * - Maximum: min(COMPACT_WINDOW.maxHeight, screenWorkAreaHeight - padding)
+ *
+ * This allows screens to request their optimal height (e.g., login form with MFA
+ * needs more height than the loading screen) while respecting the user's display.
+ *
+ * @param height - The desired content height in pixels
+ * @returns The actual height applied (after clamping)
+ */
+export function setCompactSize(height: number): number {
+  if (!mainWindow || mainWindow.isDestroyed()) return 0;
+  if (currentWindowMode !== 'compact') return 0;
+
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize;
+
+  // Leave some padding from screen edges (40px top + bottom)
+  const maxScreenHeight = screenHeight - 80;
+
+  // Clamp height to bounds, respecting both our max and the user's screen
+  const clampedHeight = Math.max(
+    COMPACT_WINDOW.minHeight,
+    Math.min(height, COMPACT_WINDOW.maxHeight, maxScreenHeight)
+  );
+
+  // Get current width (maintain it)
+  const currentBounds = mainWindow.getBounds();
+  const width = currentBounds.width;
+
+  // Center the window with the new height
+  const x = Math.round((screenWidth - width) / 2);
+  const y = Math.round((screenHeight - clampedHeight) / 2);
+
+  mainWindow.setBounds({
+    x,
+    y,
+    width,
+    height: clampedHeight,
+  });
+
+  return clampedHeight;
 }

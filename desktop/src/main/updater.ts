@@ -5,14 +5,18 @@
  * Uses electron-updater with GitHub Releases as the update source.
  *
  * Channel is determined at build time - no runtime switching.
- * Beta builds see all releases (prereleases + stable).
+ * Beta builds see only beta prereleases (versions with '-beta' suffix).
  * Stable builds see only stable releases.
  */
 
 import { autoUpdater, UpdateInfo } from 'electron-updater';
-import { app } from 'electron';
+import { app, dialog } from 'electron';
 import { showNotification } from './tray';
 import { getMainWindow } from './window';
+import { getStore } from './store';
+import { debugLog } from './logger';
+
+const LOG_PREFIX = '[Updater]';
 
 // Update channels
 type UpdateChannel = 'stable' | 'beta';
@@ -70,59 +74,73 @@ function getCleanErrorMessage(err: Error): string {
 
 /**
  * Get the build-time release channel.
- * Defaults to 'stable' if not defined (dev builds).
+ * - 'beta' if RELEASE_CHANNEL=beta at build time
+ * - 'beta' if RELEASE_CHANNEL=dev (development builds see beta releases)
+ * - 'stable' otherwise (explicit RELEASE_CHANNEL=stable or undefined)
  */
 function getBuildTimeChannel(): UpdateChannel {
-  if (typeof __RELEASE_CHANNEL__ !== 'undefined' && __RELEASE_CHANNEL__ === 'beta') {
-    return 'beta';
+  if (typeof __RELEASE_CHANNEL__ !== 'undefined') {
+    // Beta and dev builds both use beta channel
+    // Dev builds should see beta releases since developers want to test prereleases
+    if (__RELEASE_CHANNEL__ === 'beta' || __RELEASE_CHANNEL__ === 'dev') {
+      return 'beta';
+    }
   }
   return 'stable';
 }
 
 /**
  * Initialize the auto-updater.
- * Channel is determined at build time - beta builds see prereleases.
+ * Channel is determined at build time - beta builds see only prereleases.
  */
 export function initializeUpdater(): void {
   // Use build-time channel - no runtime switching
   const channel = getBuildTimeChannel();
   const isBeta = channel === 'beta';
 
-  // Beta builds can see prereleases, stable builds cannot
+  // Beta builds should only see beta releases, not stable releases
+  // Setting allowPrerelease=true alone would include ALL releases (stable + beta)
+  // Setting channel='beta' filters to only versions containing '-beta'
   autoUpdater.allowPrerelease = isBeta;
+  if (isBeta) {
+    autoUpdater.channel = 'beta';
+  }
   autoUpdater.allowDowngrade = false;
 
   // Configure auto-updater
-  autoUpdater.autoDownload = true;
-  autoUpdater.autoInstallOnAppQuit = true;
+  // Auto-download is disabled by default - user must opt-in via settings
+  const autoUpdateEnabled = getStore().get('autoUpdateEnabled', false);
+  autoUpdater.autoDownload = autoUpdateEnabled;
+  autoUpdater.autoInstallOnAppQuit = autoUpdateEnabled;
 
-  console.log(`Update channel: ${channel} (allowPrerelease: ${isBeta})`);
+  debugLog(`Update channel: ${channel} (allowPrerelease: ${isBeta}, channel: ${autoUpdater.channel || 'latest'})`, LOG_PREFIX);
+  debugLog(`Auto-download: ${autoUpdateEnabled ? 'enabled' : 'disabled'}`, LOG_PREFIX);
 
   // Event handlers
   autoUpdater.on('checking-for-update', () => {
-    console.log('Checking for updates...');
+    debugLog('Checking for updates...', LOG_PREFIX);
   });
 
   autoUpdater.on('update-available', (info: UpdateInfo) => {
-    console.log('Update available:', info.version);
+    debugLog(`Update available: ${info.version} (auto-download: ${autoUpdater.autoDownload})`, LOG_PREFIX);
     updateAvailable = true;
     updateInfo = info;
     notifyRenderer('update-available', info);
   });
 
   autoUpdater.on('update-not-available', (info: UpdateInfo) => {
-    console.log('No update available. Current version:', info.version);
+    debugLog(`No update available. Current version: ${info.version}`, LOG_PREFIX);
     updateAvailable = false;
     updateInfo = null;
   });
 
   autoUpdater.on('download-progress', (progress) => {
-    console.log(`Download progress: ${progress.percent.toFixed(1)}%`);
+    debugLog(`Download progress: ${progress.percent.toFixed(1)}%`, LOG_PREFIX);
     notifyRenderer('update-progress', progress);
   });
 
   autoUpdater.on('update-downloaded', (info: UpdateInfo) => {
-    console.log('Update downloaded:', info.version);
+    debugLog(`Update downloaded: ${info.version}`, LOG_PREFIX);
     updateDownloaded = true;
     updateInfo = info;
 
@@ -139,7 +157,7 @@ export function initializeUpdater(): void {
     // Extract a clean, user-friendly error message
     // electron-updater errors can contain huge HTTP response bodies
     const cleanMessage = getCleanErrorMessage(err);
-    console.error('Update error:', cleanMessage);
+    debugLog(`Update error: ${cleanMessage}`, LOG_PREFIX);
     notifyRenderer('update-error', { message: cleanMessage });
   });
 }
@@ -150,6 +168,49 @@ export function initializeUpdater(): void {
  */
 export function getUpdateChannel(): UpdateChannel {
   return getBuildTimeChannel();
+}
+
+/**
+ * Check if auto-update is enabled.
+ * When disabled, updates are still checked for and displayed, but not auto-downloaded.
+ */
+export function isAutoUpdateEnabled(): boolean {
+  return getStore().get('autoUpdateEnabled', false);
+}
+
+/**
+ * Enable or disable auto-update.
+ * When enabled, updates are automatically downloaded and installed on quit.
+ * When disabled, updates are shown but must be manually downloaded.
+ */
+export function setAutoUpdateEnabled(enabled: boolean): void {
+  getStore().set('autoUpdateEnabled', enabled);
+  autoUpdater.autoDownload = enabled;
+  autoUpdater.autoInstallOnAppQuit = enabled;
+  debugLog(`Auto-update ${enabled ? 'enabled' : 'disabled'}`, LOG_PREFIX);
+}
+
+/**
+ * Manually download an available update.
+ * Use this when auto-update is disabled but the user wants to update.
+ */
+export async function downloadUpdate(): Promise<{ success: boolean; error?: string }> {
+  if (!updateAvailable || !updateInfo) {
+    return { success: false, error: 'No update available' };
+  }
+
+  if (updateDownloaded) {
+    return { success: true }; // Already downloaded
+  }
+
+  try {
+    await autoUpdater.downloadUpdate();
+    return { success: true };
+  } catch (err) {
+    const cleanMessage = getCleanErrorMessage(err as Error);
+    debugLog(`Failed to download update: ${cleanMessage}`, LOG_PREFIX);
+    return { success: false, error: cleanMessage };
+  }
 }
 
 /**
@@ -175,7 +236,7 @@ export async function checkForUpdates(): Promise<{ updateAvailable: boolean; ver
     return { updateAvailable: false };
   } catch (err) {
     const cleanMessage = getCleanErrorMessage(err as Error);
-    console.error('Failed to check for updates:', cleanMessage);
+    debugLog(`Failed to check for updates: ${cleanMessage}`, LOG_PREFIX);
     return { updateAvailable: false, error: cleanMessage };
   }
 }
@@ -186,7 +247,7 @@ export async function checkForUpdates(): Promise<{ updateAvailable: boolean; ver
  */
 export function quitAndInstall(): void {
   if (updateDownloaded) {
-    console.log('Installing update...');
+    debugLog('Installing update...', LOG_PREFIX);
     autoUpdater.quitAndInstall(false, true);
   }
 }
@@ -221,6 +282,43 @@ function notifyRenderer(event: string, data: unknown): void {
 }
 
 /**
+ * Check if there's a pending update and offer to install it.
+ * Used when startup fails - gives user a way to potentially fix the issue.
+ *
+ * @returns true if user chose to install update (app will quit), false otherwise
+ */
+export async function offerUpdateOnStartupFailure(): Promise<boolean> {
+  if (!updateDownloaded || !updateInfo) {
+    return false;
+  }
+
+  const result = await dialog.showMessageBox({
+    type: 'question',
+    buttons: ['Restart & Update', 'Cancel'],
+    defaultId: 0,
+    cancelId: 1,
+    title: 'Update Available',
+    message: `Startup failed, but an update is available (v${updateInfo.version})`,
+    detail: 'This update may fix the startup issue. Would you like to install it now?',
+  });
+
+  if (result.response === 0) {
+    debugLog('User chose to install update after startup failure', LOG_PREFIX);
+    autoUpdater.quitAndInstall(false, true);
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Check if an update has been downloaded and is ready to install.
+ */
+export function hasDownloadedUpdate(): boolean {
+  return updateDownloaded;
+}
+
+/**
  * Schedule periodic update checks.
  * Checks every 6 hours by default.
  * Only works in packaged builds (dev mode has no app-update.yml).
@@ -228,7 +326,7 @@ function notifyRenderer(event: string, data: unknown): void {
 export function scheduleUpdateChecks(intervalHours = 6): NodeJS.Timeout | null {
   // Don't schedule updates in dev mode
   if (!app.isPackaged) {
-    console.log('Skipping update check scheduling (development mode)');
+    debugLog('Skipping update check scheduling (development mode)', LOG_PREFIX);
     return null;
   }
 

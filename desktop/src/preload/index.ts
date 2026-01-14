@@ -136,6 +136,26 @@ const electronAPI = {
   quitAndInstall: (): Promise<void> => ipcRenderer.invoke('quit-and-install'),
 
   /**
+   * Check if auto-update is enabled.
+   * When disabled, updates are shown but not auto-downloaded.
+   */
+  getAutoUpdateEnabled: (): Promise<boolean> => ipcRenderer.invoke('get-auto-update-enabled'),
+
+  /**
+   * Enable or disable auto-update.
+   * When enabled, updates are automatically downloaded and installed on quit.
+   */
+  setAutoUpdateEnabled: (enabled: boolean): Promise<boolean> =>
+    ipcRenderer.invoke('set-auto-update-enabled', enabled),
+
+  /**
+   * Manually download an available update.
+   * Use when auto-update is disabled but user wants to update.
+   */
+  downloadUpdate: (): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke('download-update'),
+
+  /**
    * Listen for update events.
    */
   onUpdateAvailable: (callback: (info: unknown) => void): (() => void) => {
@@ -580,6 +600,12 @@ const electronAPI = {
      * Clear all auth data (both desktop and legacy modes).
      */
     clearAll: (): Promise<void> => ipcRenderer.invoke('credentials:clear-all'),
+
+    /**
+     * Get or create the notes encryption key.
+     * Used to encrypt notes content on the backend in desktop mode.
+     */
+    getNotesKey: (): Promise<string> => ipcRenderer.invoke('credentials:get-notes-key'),
   },
 
   // =========================================================================
@@ -854,6 +880,7 @@ const electronAPI = {
       folderPath: string | null;
       retentionDays: number;
       lastBackupDate: string | null;
+      scheduledTime: string;
     }> => ipcRenderer.invoke('auto-backup:get-settings'),
 
     /**
@@ -879,6 +906,12 @@ const electronAPI = {
      */
     setRetention: (days: number): Promise<void> =>
       ipcRenderer.invoke('auto-backup:set-retention', days),
+
+    /**
+     * Set scheduled backup time (HH:MM format, 24-hour).
+     */
+    setScheduledTime: (time: string): Promise<void> =>
+      ipcRenderer.invoke('auto-backup:set-scheduled-time', time),
 
     /**
      * Get available retention options.
@@ -927,6 +960,39 @@ const electronAPI = {
       warnings?: string[];
       error?: string;
     }> => ipcRenderer.invoke('auto-backup:restore', filePath, passphrase),
+  },
+
+  // =========================================================================
+  // Window Mode (compact/full)
+  // =========================================================================
+
+  /**
+   * Window mode API for switching between compact and full window sizes.
+   * - 'compact': Small, centered window for loading/login screens
+   * - 'full': Restores previous window bounds for main app
+   */
+  windowMode: {
+    /**
+     * Set the window mode.
+     * Call setMode('full') when the main app content is ready.
+     */
+    setMode: (mode: 'compact' | 'full'): Promise<void> =>
+      ipcRenderer.invoke('window:set-mode', mode),
+
+    /**
+     * Get the current window mode.
+     */
+    getMode: (): Promise<'compact' | 'full'> => ipcRenderer.invoke('window:get-mode'),
+
+    /**
+     * Dynamically resize the compact window based on content height.
+     * Only works in compact mode. The height is clamped to min/max bounds
+     * and respects the user's screen size.
+     * @param height - The desired content height in pixels
+     * @returns The actual height applied (after clamping)
+     */
+    setCompactSize: (height: number): Promise<number> =>
+      ipcRenderer.invoke('window:set-compact-size', height),
   },
 };
 

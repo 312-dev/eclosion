@@ -66,6 +66,7 @@ export interface StoreSchema {
 
   // Desktop settings
   menuBarMode: boolean;
+  autoUpdateEnabled: boolean;
 
   // Security settings
   'security.encryptedPassphrase': string;

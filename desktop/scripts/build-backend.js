@@ -156,7 +156,7 @@ if (isCI) {
   // Install build tools (PyInstaller)
   console.log('\nInstalling build tools (PyInstaller)...');
   try {
-    execSync(`"${venvPip}" install pyinstaller>=6.0`, {
+    execSync(`"${venvPip}" install "pyinstaller>=6.0"`, {
       cwd: projectRoot,
       stdio: 'inherit',
     });

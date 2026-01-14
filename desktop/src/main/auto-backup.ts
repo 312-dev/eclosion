@@ -30,6 +30,10 @@ const AUTO_BACKUP_ENABLED_KEY = 'autoBackup.enabled';
 const AUTO_BACKUP_FOLDER_KEY = 'autoBackup.folderPath';
 const AUTO_BACKUP_RETENTION_KEY = 'autoBackup.retentionDays';
 const AUTO_BACKUP_LAST_DATE_KEY = 'autoBackup.lastBackupDate';
+const AUTO_BACKUP_SCHEDULED_TIME_KEY = 'autoBackup.scheduledTime';
+
+// Default scheduled time: 3:00 AM
+const DEFAULT_SCHEDULED_TIME = '03:00';
 
 // Backup file naming pattern
 const BACKUP_FILE_PREFIX = 'eclosion-backup-';
@@ -64,6 +68,7 @@ export interface AutoBackupSettings {
   folderPath: string | null;
   retentionDays: number;
   lastBackupDate: string | null; // ISO date (YYYY-MM-DD)
+  scheduledTime: string; // HH:MM format (24-hour)
 }
 
 /**
@@ -124,6 +129,7 @@ export function getAutoBackupSettings(): AutoBackupSettings {
     folderPath: store.get(AUTO_BACKUP_FOLDER_KEY, null) as string | null,
     retentionDays: store.get(AUTO_BACKUP_RETENTION_KEY, DEFAULT_RETENTION_DAYS) as number,
     lastBackupDate: store.get(AUTO_BACKUP_LAST_DATE_KEY, null) as string | null,
+    scheduledTime: store.get(AUTO_BACKUP_SCHEDULED_TIME_KEY, DEFAULT_SCHEDULED_TIME) as string,
   };
 }
 
@@ -166,6 +172,21 @@ export function setAutoBackupRetention(days: number): void {
 
   getStore().set(AUTO_BACKUP_RETENTION_KEY, days);
   debugLog(`Retention set: ${days} days`);
+}
+
+/**
+ * Set scheduled backup time (HH:MM format, 24-hour).
+ */
+export function setAutoBackupScheduledTime(time: string): void {
+  // Validate time format (HH:MM)
+  const timePattern = /^([01]\d|2[0-3]):([0-5]\d)$/;
+  if (!timePattern.test(time)) {
+    debugLog(`Invalid time format: ${time}, using default`);
+    time = DEFAULT_SCHEDULED_TIME;
+  }
+
+  getStore().set(AUTO_BACKUP_SCHEDULED_TIME_KEY, time);
+  debugLog(`Scheduled time set: ${time}`);
 }
 
 /**
@@ -533,7 +554,24 @@ export function getBackupInfo(filePath: string): {
 }
 
 /**
+ * Check if the scheduled time has passed for today.
+ * @param scheduledTime Time in HH:MM format
+ */
+function hasScheduledTimePassed(scheduledTime: string): boolean {
+  const now = new Date();
+  const [hours, minutes] = scheduledTime.split(':').map(Number);
+
+  const scheduledDate = new Date();
+  scheduledDate.setHours(hours, minutes, 0, 0);
+
+  return now >= scheduledDate;
+}
+
+/**
  * Check if a daily backup is needed and run it if so.
+ * Backs up if:
+ * 1. Haven't backed up today yet AND
+ * 2. The scheduled time has passed (or app opened after scheduled time)
  */
 export async function checkAndRunDailyBackup(): Promise<void> {
   const settings = getAutoBackupSettings();
@@ -547,6 +585,12 @@ export async function checkAndRunDailyBackup(): Promise<void> {
 
   if (settings.lastBackupDate === today) {
     debugLog('Daily check: already backed up today');
+    return;
+  }
+
+  // Check if scheduled time has passed today
+  if (!hasScheduledTimePassed(settings.scheduledTime)) {
+    debugLog(`Daily check: scheduled time ${settings.scheduledTime} has not passed yet`);
     return;
   }
 

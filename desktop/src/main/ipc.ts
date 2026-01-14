@@ -6,7 +6,7 @@
 
 import { ipcMain, dialog, app, shell, clipboard } from 'electron';
 import { BackendManager, type BackendStartupStatus } from './backend';
-import { getMainWindow } from './window';
+import { getMainWindow, setWindowMode, getWindowMode, setCompactSize } from './window';
 import {
   isAutoStartEnabled,
   setAutoStart,
@@ -15,6 +15,7 @@ import {
   getAutoBackupSettings,
   setAutoBackupEnabled,
   setAutoBackupRetention,
+  setAutoBackupScheduledTime,
   selectBackupFolder,
   executeAutoBackup,
   listBackups,
@@ -31,6 +32,9 @@ import {
   quitAndInstall,
   getUpdateStatus,
   getUpdateChannel,
+  isAutoUpdateEnabled,
+  setAutoUpdateEnabled,
+  downloadUpdate,
 } from './updater';
 import { exportDiagnostics, getQuickDebugInfo } from './diagnostics';
 import { createBackup, restoreBackup, getBackupWarning, getRestoreWarning } from './backup';
@@ -69,6 +73,7 @@ import {
   clearAllAuthData,
   promptTouchIdForSetup,
   validateCredentialsFallback,
+  getOrCreateNotesKey,
   type MonarchCredentials,
 } from './biometric';
 import {
@@ -211,6 +216,29 @@ export function setupIpcHandlers(backendManager: BackendManager): void {
    */
   ipcMain.handle('quit-and-install', () => {
     quitAndInstall();
+  });
+
+  /**
+   * Check if auto-update is enabled.
+   */
+  ipcMain.handle('get-auto-update-enabled', () => {
+    return isAutoUpdateEnabled();
+  });
+
+  /**
+   * Enable or disable auto-update.
+   */
+  ipcMain.handle('set-auto-update-enabled', (_event, enabled: boolean) => {
+    setAutoUpdateEnabled(enabled);
+    return enabled;
+  });
+
+  /**
+   * Manually download an available update.
+   * Use when auto-update is disabled but user wants to update.
+   */
+  ipcMain.handle('download-update', async () => {
+    return downloadUpdate();
   });
 
   // =========================================================================
@@ -736,6 +764,14 @@ export function setupIpcHandlers(backendManager: BackendManager): void {
     clearAllAuthData();
   });
 
+  /**
+   * Get or create the notes encryption key (desktop mode).
+   * Used to encrypt notes content on the backend.
+   */
+  ipcMain.handle('credentials:get-notes-key', () => {
+    return getOrCreateNotesKey();
+  });
+
   // =========================================================================
   // Lock Management
   // =========================================================================
@@ -908,6 +944,13 @@ export function setupIpcHandlers(backendManager: BackendManager): void {
   });
 
   /**
+   * Set scheduled backup time (HH:MM format, 24-hour).
+   */
+  ipcMain.handle('auto-backup:set-scheduled-time', (_event, time: string): void => {
+    setAutoBackupScheduledTime(time);
+  });
+
+  /**
    * Get available retention options.
    */
   ipcMain.handle('auto-backup:get-retention-options', (): Array<{ value: number; label: string }> => {
@@ -958,4 +1001,32 @@ export function setupIpcHandlers(backendManager: BackendManager): void {
       return restoreFromBackup(filePath, passphrase);
     }
   );
+
+  // =========================================================================
+  // Window Mode (compact/full)
+  // =========================================================================
+
+  /**
+   * Set the window mode (compact or full).
+   * - 'compact': Small, centered window for loading/login screens
+   * - 'full': Restores previous window bounds for main app
+   */
+  ipcMain.handle('window:set-mode', (_event, mode: 'compact' | 'full') => {
+    setWindowMode(mode);
+  });
+
+  /**
+   * Get the current window mode.
+   */
+  ipcMain.handle('window:get-mode', () => {
+    return getWindowMode();
+  });
+
+  /**
+   * Dynamically resize the compact window based on content height.
+   * Only works in compact mode. Returns the actual height applied (after clamping).
+   */
+  ipcMain.handle('window:set-compact-size', (_event, height: number) => {
+    return setCompactSize(height);
+  });
 }

@@ -15,6 +15,7 @@ import { EventEmitter } from 'node:events';
 import { debugLog as log, getLogDir } from './logger';
 import { updateHealthStatus } from './tray';
 import { getStateDir } from './paths';
+import { getOrCreateNotesKey } from './biometric';
 
 /** Filename for the persistent session secret */
 const SESSION_SECRET_FILE = '.session_secret';
@@ -519,6 +520,9 @@ export class BackendManager extends EventEmitter {
     mfaMode?: 'secret' | 'code';
   }): Promise<{ success: boolean; error?: string; mfaRequired?: boolean }> {
     try {
+      // Get or create the notes encryption key for the Notes feature
+      const notesKey = getOrCreateNotesKey();
+
       const response = await fetch(`http://127.0.0.1:${this.port}/auth/desktop-login`, {
         method: 'POST',
         headers: {
@@ -530,6 +534,7 @@ export class BackendManager extends EventEmitter {
           password: credentials.password,
           mfa_secret: credentials.mfaSecret || '',
           mfa_mode: credentials.mfaMode || 'secret',
+          notes_key: notesKey,
         }),
       });
 

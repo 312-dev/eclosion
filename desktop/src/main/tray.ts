@@ -27,6 +27,10 @@ let lastSyncIsoTimestamp: string | null = null;
 // Timer for periodic tray menu refresh
 let trayRefreshTimer: ReturnType<typeof setInterval> | null = null;
 
+// Debounce timer for tray menu updates (prevents excessive menu rebuilds)
+let trayMenuDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+const TRAY_MENU_DEBOUNCE_MS = 500;
+
 // Track current health status for tooltip updates
 interface HealthStatus {
   backendRunning: boolean;
@@ -170,8 +174,9 @@ export function createTray(onSyncClick: () => Promise<void>): void {
   tray = new Tray(icon);
   tray.setToolTip('Eclosion');
 
-  // Build and set context menu
-  updateTrayMenu(onSyncClick);
+  // Build and set context menu immediately (no debounce for initial creation)
+  pendingMenuUpdate = { onSyncClick };
+  buildTrayMenu();
 
   /**
    * Tray Click Behavior - Platform Differences
@@ -203,15 +208,16 @@ export function createTray(onSyncClick: () => Promise<void>): void {
   }
 }
 
-/**
- * Update the tray context menu.
- */
-export function updateTrayMenu(
-  onSyncClick: () => Promise<void>,
-  syncStatus?: string
-): void {
-  if (!tray) return;
+// Store pending menu update args for debounced rebuild
+let pendingMenuUpdate: { onSyncClick: () => Promise<void>; syncStatus?: string } | null = null;
 
+/**
+ * Actually build and set the tray menu (called after debounce).
+ */
+function buildTrayMenu(): void {
+  if (!tray || !pendingMenuUpdate) return;
+
+  const { onSyncClick, syncStatus } = pendingMenuUpdate;
   const menuBarMode = getStore().get('menuBarMode', false) as boolean;
 
   const contextMenu = Menu.buildFromTemplate([
@@ -263,6 +269,29 @@ export function updateTrayMenu(
   ]);
 
   tray.setContextMenu(contextMenu);
+  pendingMenuUpdate = null;
+}
+
+/**
+ * Update the tray context menu (debounced to prevent excessive rebuilds).
+ * Multiple rapid calls will only trigger one menu rebuild after the debounce period.
+ */
+export function updateTrayMenu(
+  onSyncClick: () => Promise<void>,
+  syncStatus?: string
+): void {
+  if (!tray) return;
+
+  // Store the latest args for when debounce fires
+  pendingMenuUpdate = { onSyncClick, syncStatus };
+
+  // Clear any pending debounce timer
+  if (trayMenuDebounceTimer) {
+    clearTimeout(trayMenuDebounceTimer);
+  }
+
+  // Debounce the actual menu rebuild
+  trayMenuDebounceTimer = setTimeout(buildTrayMenu, TRAY_MENU_DEBOUNCE_MS);
 }
 
 /**
@@ -417,6 +446,12 @@ export function destroyTray(): void {
   if (trayRefreshTimer) {
     clearInterval(trayRefreshTimer);
     trayRefreshTimer = null;
+  }
+
+  // Clean up the debounce timer
+  if (trayMenuDebounceTimer) {
+    clearTimeout(trayMenuDebounceTimer);
+    trayMenuDebounceTimer = null;
   }
 
   tray?.destroy();
