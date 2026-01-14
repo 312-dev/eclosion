@@ -22,9 +22,9 @@ on:
           - linux-x64
           - linux-arm64
       version:
-        description: 'Version label (for display only)'
+        description: 'Version (must be valid semver, e.g., 0.0.0-dev)'
         required: false
-        default: 'dev'
+        default: '0.0.0-dev'
 
 permissions:
   contents: read
