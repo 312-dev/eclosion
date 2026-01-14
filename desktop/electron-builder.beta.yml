@@ -41,11 +41,13 @@ extraResources:
       - "**/*"
 
 # Publish to GitHub Releases (prereleases for beta)
+# channel: beta ensures beta builds only see beta releases, not stable ones
 publish:
   provider: github
   owner: 312-dev
   repo: eclosion
   releaseType: prerelease
+  channel: beta
 
 # Protocol handler (deep links)
 # Using same scheme - users typically won't have both versions installed

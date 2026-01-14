@@ -1,13 +1,5 @@
-/**
- * Auth Context
- *
- * Manages authentication state including:
- * - Login/logout flow
- * - Passphrase unlock for encrypted credentials
- * - Auth validation with Monarch API
- */
-
-import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
+/** Auth Context - manages authentication state including login, unlock, and validation. */
+import { createContext, useState, useCallback, useEffect, useRef, type ReactNode } from 'react';
 import {
   checkAuthStatus,
   validateAuth,
@@ -18,84 +10,21 @@ import {
   updateCredentials as apiUpdateCredentials,
   resetApp as apiResetApp,
   reauthenticate as apiReauthenticate,
-  type ReauthResult,
 } from '../api/client';
-import type { LoginResult, SetPassphraseResult, UnlockResult, UpdateCredentialsResult, ResetAppResult } from '../types';
+import type { LockReason, MfaRequiredData, AuthContextValue } from './authTypes';
+import type {
+  LoginResult,
+  SetPassphraseResult,
+  UnlockResult,
+  UpdateCredentialsResult,
+  ResetAppResult,
+} from '../types';
+import type { ReauthResult } from '../api/client';
 
-// ============================================================================
-// Types
-// ============================================================================
-
-/** Reason why the app was locked */
-export type LockReason = 'manual' | 'system-lock' | 'idle' | null;
-
-/** Data for MFA re-authentication prompt (desktop mode) */
-export interface MfaRequiredData {
-  email: string;
-  mfaMode: 'secret' | 'code';
-}
-
-export interface AuthState {
-  /** Whether user is authenticated (null = loading) */
-  authenticated: boolean | null;
-  /** Whether encrypted credentials exist but need passphrase */
-  needsUnlock: boolean;
-  /** Whether initial auth check is in progress */
-  loading: boolean;
-  /** Connection/API error if auth check failed */
-  error: string | null;
-  /** Reason the app was locked (null = app startup, not a lock event) */
-  lockReason: LockReason;
-  /** Whether re-authentication is needed (for 6-digit code mode users) */
-  needsReauth: boolean;
-  /** Whether sync is blocked due to auth issues */
-  syncBlocked: boolean;
-  /** MFA required data for desktop mode (email and mode) */
-  mfaRequiredData: MfaRequiredData | null;
-}
-
-export interface AuthActions {
-  /** Login with email/password/mfa */
-  login: (email: string, password: string, mfaSecret?: string) => Promise<LoginResult>;
-  /** Lock app and return to unlock screen (preserves credentials) */
-  lock: () => void;
-  /** Logout and clear credentials */
-  logout: () => Promise<void>;
-  /** Set passphrase to encrypt credentials */
-  setPassphrase: (passphrase: string) => Promise<SetPassphraseResult>;
-  /** Unlock encrypted credentials with passphrase (validates against Monarch by default) */
-  unlockCredentials: (passphrase: string) => Promise<UnlockResult>;
-  /** Update Monarch credentials with same passphrase (used when existing creds are invalid) */
-  updateCredentials: (email: string, password: string, passphrase: string, mfaSecret?: string) => Promise<UpdateCredentialsResult>;
-  /** Reset app - clear credentials only, preserve preferences */
-  resetApp: () => Promise<ResetAppResult>;
-  /** Re-check auth status */
-  checkAuth: () => Promise<boolean>;
-  /** Mark as authenticated (after successful login flow) */
-  setAuthenticated: (value: boolean) => void;
-  /** Mark as needing unlock */
-  setNeedsUnlock: (value: boolean) => void;
-  /** Re-authenticate with a 6-digit MFA code (for code mode users) */
-  reauthenticate: (mfaCode: string) => Promise<ReauthResult>;
-  /** Trigger re-auth flow (sets needsReauth = true) */
-  triggerReauth: () => void;
-  /** Clear sync blocked state */
-  clearSyncBlocked: () => void;
-  /** Clear MFA required state (after successful re-auth or user cancels) */
-  clearMfaRequired: () => void;
-}
-
-export interface AuthContextValue extends AuthState, AuthActions {}
-
-// ============================================================================
-// Context
-// ============================================================================
+// Re-export types for consumers
+export type { LockReason, MfaRequiredData, AuthState, AuthActions, AuthContextValue } from './authTypes';
 
 export const AuthContext = createContext<AuthContextValue | null>(null);
-
-// ============================================================================
-// Provider
-// ============================================================================
 
 export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
@@ -107,6 +36,9 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
   const [needsReauth, setNeedsReauth] = useState(false);
   const [syncBlocked, setSyncBlocked] = useState(false);
   const [mfaRequiredData, setMfaRequiredData] = useState<MfaRequiredData | null>(null);
+  const [showSessionExpiredOverlay, setShowSessionExpiredOverlay] = useState(false);
+  // Track if user was previously authenticated (for distinguishing session expiry from initial login)
+  const wasAuthenticated = useRef(false);
 
   const checkAuth = useCallback(async (): Promise<boolean> => {
     try {
@@ -351,10 +283,24 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
     };
   }, []);
 
+  // Track when user becomes authenticated so we can detect session expiry
+  useEffect(() => {
+    if (authenticated === true) {
+      wasAuthenticated.current = true;
+    }
+  }, [authenticated]);
+
   // Listen for auth-required events from API calls (e.g., 401 responses)
   // This handles the case where local auth succeeds but Monarch token is expired
   useEffect(() => {
     const handleAuthRequired = () => {
+      // If user was previously authenticated, show the session expired overlay
+      // instead of redirecting to login page (better UX - preserves current state)
+      if (wasAuthenticated.current) {
+        setShowSessionExpiredOverlay(true);
+        return;
+      }
+
       // Mark as not authenticated to trigger redirect to login/unlock
       setAuthenticated(false);
       // If we're in desktop mode with stored credentials, go to unlock screen
@@ -370,6 +316,10 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
     };
   }, []);
 
+  const dismissSessionExpiredOverlay = useCallback(() => {
+    setShowSessionExpiredOverlay(false);
+  }, []);
+
   const value: AuthContextValue = {
     // State
     authenticated,
@@ -380,6 +330,7 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
     needsReauth,
     syncBlocked,
     mfaRequiredData,
+    showSessionExpiredOverlay,
     // Actions
     login,
     lock,
@@ -395,6 +346,7 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
     triggerReauth,
     clearSyncBlocked,
     clearMfaRequired,
+    dismissSessionExpiredOverlay,
   };
 
   return (
@@ -404,34 +356,5 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
   );
 }
 
-// ============================================================================
-// Hooks
-// ============================================================================
-
-/**
- * Access auth state and actions.
- * Must be used within an AuthProvider.
- */
-export function useAuth(): AuthContextValue {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-}
-
-/**
- * Check if user is authenticated (convenience hook)
- */
-export function useIsAuthenticated(): boolean {
-  const { authenticated } = useAuth();
-  return authenticated === true;
-}
-
-/**
- * Check if auth is still loading
- */
-export function useAuthLoading(): boolean {
-  const { loading } = useAuth();
-  return loading;
-}
+// Re-export hooks
+export { useAuth, useIsAuthenticated, useAuthLoading } from './useAuthHooks';

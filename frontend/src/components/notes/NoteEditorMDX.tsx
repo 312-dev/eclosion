@@ -6,8 +6,8 @@
  * Toolbar shows only when focused. Explicit save button instead of blur-based saving.
  */
 
-import { useRef, useCallback, useEffect, useState } from 'react';
-import { Check } from 'lucide-react';
+import { useRef, useCallback, useEffect, useState, useMemo } from 'react';
+import { Check, X } from 'lucide-react';
 import {
   MDXEditor,
   headingsPlugin,
@@ -26,6 +26,7 @@ import {
 } from '@mdxeditor/editor';
 import '@mdxeditor/editor/style.css';
 import { evaluateMathExpression } from '../../utils/mathEvaluator';
+import { decodeHtmlEntities } from '../../utils';
 
 interface MathSuggestion {
   expression: string;
@@ -39,6 +40,8 @@ interface NoteEditorMDXProps {
   onChange: (value: string) => void;
   /** Callback to save and close the editor */
   onSave: () => void;
+  /** Optional callback to cancel and close without saving */
+  onCancel?: () => void;
   /** Whether save is in progress */
   isSaving?: boolean;
   /** Placeholder text */
@@ -59,6 +62,7 @@ export function NoteEditorMDX({
   value,
   onChange,
   onSave,
+  onCancel,
   isSaving = false,
   placeholder = 'Write your note...',
   readOnly = false,
@@ -108,10 +112,13 @@ export function NoteEditorMDX({
   }, [autoFocus]);
 
   // Handle content changes
+  // MDXEditor's serializer may encode special characters as HTML entities (e.g., tab as &#x9;)
+  // Decode them to preserve the original characters
   const handleChange = useCallback(
     (markdown: string) => {
-      onChange(markdown);
-      checkForMath(markdown);
+      const decoded = decodeHtmlEntities(markdown);
+      onChange(decoded);
+      checkForMath(decoded);
     },
     [onChange, checkForMath]
   );
@@ -163,33 +170,51 @@ export function NoteEditorMDX({
     setIsFocused(true);
   }, []);
 
-  // Build plugins array
-  const plugins = [
-    headingsPlugin(),
-    listsPlugin(),
-    quotePlugin(),
-    thematicBreakPlugin(),
-    markdownShortcutPlugin(),
-    linkPlugin(),
-    linkDialogPlugin(),
-  ];
+  // Handle blur - only unfocus if focus leaves the container entirely
+  const handleBlur = useCallback((e: React.FocusEvent) => {
+    const relatedTarget = e.relatedTarget as HTMLElement | null;
+    const isInsideContainer = containerRef.current?.contains(relatedTarget);
+    // Check for Radix UI portals (dropdowns, popovers)
+    const isInsideRadixPortal = relatedTarget?.closest('[data-radix-popper-content-wrapper]');
 
-  // Add toolbar if not hidden, not read-only, and focused
-  const showToolbar = !hideToolbar && !readOnly && isFocused;
-  if (showToolbar) {
-    plugins.unshift(
-      toolbarPlugin({
-        toolbarContents: () => (
-          <>
-            <BlockTypeSelect />
-            <BoldItalicUnderlineToggles />
-            <ListsToggle />
-            <CreateLink />
-          </>
-        ),
-      })
-    );
-  }
+    if (!isInsideContainer && !isInsideRadixPortal) {
+      setIsFocused(false);
+    }
+  }, []);
+
+  // Whether to show toolbar (used for CSS class, not for conditional rendering)
+  const showToolbar = !hideToolbar && !readOnly;
+
+  // Memoize plugins array to prevent MDXEditor re-initialization
+  // Always include toolbar plugin - visibility controlled via CSS
+  const plugins = useMemo(() => {
+    const basePlugins = [
+      headingsPlugin(),
+      listsPlugin(),
+      quotePlugin(),
+      thematicBreakPlugin(),
+      markdownShortcutPlugin(),
+      linkPlugin(),
+      linkDialogPlugin(),
+    ];
+
+    if (showToolbar) {
+      basePlugins.unshift(
+        toolbarPlugin({
+          toolbarContents: () => (
+            <>
+              <BlockTypeSelect />
+              <BoldItalicUnderlineToggles />
+              <ListsToggle />
+              <CreateLink />
+            </>
+          ),
+        })
+      );
+    }
+
+    return basePlugins;
+  }, [showToolbar]);
 
   // Set CSS custom property for dynamic min-height
   const containerStyle = {
@@ -202,11 +227,11 @@ export function NoteEditorMDX({
       className={`note-editor-mdx ${className} ${isFocused ? 'is-focused' : ''}`}
       data-readonly={readOnly}
       onFocus={handleFocus}
+      onBlur={handleBlur}
       style={containerStyle}
     >
       <div className="relative">
         <MDXEditor
-          key={showToolbar ? 'with-toolbar' : 'without-toolbar'}
           ref={editorRef}
           markdown={value}
           onChange={handleChange}
@@ -227,9 +252,23 @@ export function NoteEditorMDX({
         )}
       </div>
 
-      {/* Save button */}
+      {/* Action buttons */}
       {!readOnly && (
-        <div className="flex justify-end mt-2">
+        <div className="flex justify-end gap-2 mt-2">
+          {onCancel && (
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={isSaving}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors hover:bg-[var(--monarch-bg-hover)] disabled:opacity-50"
+              style={{ color: 'var(--monarch-text-muted)' }}
+              aria-label="Cancel editing"
+              title="Cancel (Escape)"
+            >
+              <X size={14} />
+              Cancel
+            </button>
+          )}
           <button
             type="button"
             onClick={onSave}

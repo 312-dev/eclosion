@@ -13,9 +13,17 @@
 /**
  * Check if this is a beta build.
  * Determined at build time via RELEASE_CHANNEL environment variable.
+ *
+ * Both 'beta' and 'dev' builds are treated as beta:
+ * - 'beta': Official beta releases (dist:beta:* scripts)
+ * - 'dev': Local development builds (npm run dev, no RELEASE_CHANNEL set)
+ * - 'stable': Production releases (dist:* scripts)
  */
 export function isBetaBuild(): boolean {
-  return typeof __RELEASE_CHANNEL__ !== 'undefined' && __RELEASE_CHANNEL__ === 'beta';
+  if (typeof __RELEASE_CHANNEL__ !== 'undefined') {
+    return __RELEASE_CHANNEL__ === 'beta' || __RELEASE_CHANNEL__ === 'dev';
+  }
+  return false;
 }
 
 /**

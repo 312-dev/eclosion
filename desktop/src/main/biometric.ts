@@ -21,6 +21,7 @@
  */
 
 import { safeStorage, systemPreferences } from 'electron';
+import { randomBytes } from 'node:crypto';
 import { getStore } from './store';
 import { debugLog } from './logger';
 
@@ -44,6 +45,13 @@ const BIOMETRIC_ENABLED_KEY = 'security.biometricEnabled' as const;
  * Stores a JSON object with email, password, and optional mfaSecret.
  */
 const MONARCH_CREDENTIALS_KEY = 'security.monarchCredentials' as const;
+
+/**
+ * Storage key for the notes encryption key in desktop mode.
+ * This key is used to encrypt notes content on the backend.
+ * Generated once and persisted separately from credentials.
+ */
+const NOTES_KEY_STORAGE_KEY = 'security.notesEncryptionKey' as const;
 
 /**
  * Storage key for "Require Touch ID to unlock" setting.
@@ -372,6 +380,45 @@ export interface MonarchCredentials {
   mfaSecret?: string;
   /** MFA mode: 'secret' for TOTP secrets, 'code' for ephemeral 6-digit codes */
   mfaMode?: 'secret' | 'code';
+}
+
+/**
+ * Get or generate the notes encryption key for desktop mode.
+ * This key is used to encrypt notes content on the backend.
+ * Generated once per installation and stored in safeStorage.
+ *
+ * @returns The notes encryption key (32-byte hex string, 64 chars)
+ */
+export function getOrCreateNotesKey(): string {
+  // Check if key already exists
+  const existingBase64 = getStore().get(NOTES_KEY_STORAGE_KEY) as string | undefined;
+  if (existingBase64) {
+    try {
+      const encrypted = Buffer.from(existingBase64, 'base64');
+      const key = safeStorage.decryptString(encrypted);
+      debugLog('NotesKey: Retrieved existing key');
+      return key;
+    } catch (error) {
+      debugLog(`NotesKey: Failed to decrypt existing key, generating new: ${error}`);
+    }
+  }
+
+  // Generate new key (32 bytes = 64 hex chars, strong enough for encryption)
+  const newKey = randomBytes(32).toString('hex');
+
+  // Store encrypted
+  if (safeStorage.isEncryptionAvailable()) {
+    try {
+      const encrypted = safeStorage.encryptString(newKey);
+      const base64 = encrypted.toString('base64');
+      getStore().set(NOTES_KEY_STORAGE_KEY, base64);
+      debugLog('NotesKey: Generated and stored new key');
+    } catch (error) {
+      debugLog(`NotesKey: Failed to store key: ${error}`);
+    }
+  }
+
+  return newKey;
 }
 
 /**

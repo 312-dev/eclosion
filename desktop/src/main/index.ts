@@ -66,7 +66,7 @@ import {
   showReauthNotification,
 } from './tray';
 import { setupIpcHandlers } from './ipc';
-import { initializeUpdater, scheduleUpdateChecks } from './updater';
+import { initializeUpdater, scheduleUpdateChecks, offerUpdateOnStartupFailure } from './updater';
 import { createAppMenu } from './menu';
 import { initializeHotkeys, unregisterAllHotkeys } from './hotkeys';
 import {
@@ -171,6 +171,7 @@ function formatRelativeTime(timestamp: string): string {
   const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
+  // Handle negative values (clock skew or future timestamps) gracefully
   if (diffMins < 1) return 'Just now';
   if (diffMins < 60) return `${diffMins}m ago`;
   if (diffHours < 24) return `${diffHours}h ago`;
@@ -264,10 +265,17 @@ async function initialize(): Promise<void> {
     // Start Python backend in background (doesn't block window display)
     debugLog('Starting backend in background...');
     recordMilestone('backendStarting');
-    startBackendAndInitialize().catch((error) => {
+    startBackendAndInitialize().catch(async (error) => {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       debugLog(`Backend startup failed: ${errorMessage}`);
-      // Error is handled by the backend manager's event emission
+
+      // If startup failed and there's a pending update, offer to install it
+      // This gives users a way to recover from startup bugs via updates
+      const installingUpdate = await offerUpdateOnStartupFailure();
+      if (installingUpdate) {
+        debugLog('Installing update to attempt recovery from startup failure');
+      }
+      // Otherwise error is handled by the backend manager's event emission
     });
 
     addBreadcrumb({ category: 'lifecycle', message: 'Window created, backend starting in background' });

@@ -6,14 +6,14 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Plus, History, ExternalLink } from 'lucide-react';
+import { Plus, History, ExternalLink, X } from 'lucide-react';
 import { NoteEditorMDX } from './NoteEditorMDX';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import { RevisionHistoryModal } from './RevisionHistoryModal';
+import { InheritanceWarningInline } from './InheritanceWarningInline';
 import { useSaveCategoryNoteMutation, useDeleteCategoryNoteMutation } from '../../api/queries';
-import { useCheckboxState } from '../../hooks';
+import { useCheckboxState, useInheritanceWarning } from '../../hooks';
 import { decodeHtmlEntities, spacifyEmoji } from '../../utils';
-import { useIsRateLimited } from '../../context/RateLimitContext';
 import { useNotesEditorOptional } from '../../context/NotesEditorContext';
 import type { CategoryWithNotes, MonthKey } from '../../types/notes';
 
@@ -38,7 +38,6 @@ export function CategoryRow({ category, groupId, groupName, currentMonth }: Cate
   const [isSaving, setIsSaving] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const lastSavedRef = useRef(noteContent);
-  const isRateLimited = useIsRateLimited();
   const notesEditor = useNotesEditorOptional();
 
   const saveMutation = useSaveCategoryNoteMutation();
@@ -57,6 +56,25 @@ export function CategoryRow({ category, groupId, groupName, currentMonth }: Cate
     enabled: !!note || !!content.trim(),
   });
 
+  // Determine if this is a source note (exists for this exact month, not inherited)
+  const hasExistingNote = !!note && !effectiveNote.isInherited;
+
+  // Inheritance warning for breaking inheritance OR modifying source note
+  const {
+    showWarning: showInheritanceWarning,
+    impact: inheritanceImpact,
+    isChecking: isCheckingInheritance,
+    checkBeforeSave,
+    confirmSave: confirmInheritanceSave,
+    cancelWarning: cancelInheritanceWarning,
+  } = useInheritanceWarning({
+    isInherited: effectiveNote.isInherited,
+    hasExistingNote,
+    categoryType: 'category',
+    categoryId: category.id,
+    monthKey: currentMonth,
+  });
+
   // Sync content when note changes externally (but not while editing)
   useEffect(() => {
     if (!isEditing) {
@@ -65,16 +83,9 @@ export function CategoryRow({ category, groupId, groupName, currentMonth }: Cate
     }
   }, [noteContent, isEditing]);
 
-  // Save function
-  const saveNote = useCallback(async () => {
+  // Perform the actual save
+  const performSave = useCallback(async () => {
     const trimmedContent = content.trim();
-
-    // No changes
-    if (trimmedContent === lastSavedRef.current.trim()) {
-      setIsEditing(false);
-      notesEditor?.closeEditor();
-      return;
-    }
 
     setIsSaving(true);
 
@@ -108,6 +119,30 @@ export function CategoryRow({ category, groupId, groupName, currentMonth }: Cate
     }
   }, [content, effectiveNote.note?.id, category.id, category.name, groupId, groupName, currentMonth, saveMutation, deleteMutation, notesEditor]);
 
+  // Save function - checks inheritance impact first
+  const saveNote = useCallback(async () => {
+    const trimmedContent = content.trim();
+
+    // No changes
+    if (trimmedContent === lastSavedRef.current.trim()) {
+      setIsEditing(false);
+      notesEditor?.closeEditor();
+      return;
+    }
+
+    // Check inheritance impact before saving
+    const canProceed = await checkBeforeSave();
+    if (canProceed) {
+      await performSave();
+    }
+  }, [content, notesEditor, checkBeforeSave, performSave]);
+
+  // Confirm save after inheritance warning
+  const handleConfirmInheritanceSave = useCallback(async () => {
+    confirmInheritanceSave();
+    await performSave();
+  }, [confirmInheritanceSave, performSave]);
+
   // Keep ref updated so context always calls latest save function
   useEffect(() => {
     saveNoteRef.current = saveNote;
@@ -118,10 +153,17 @@ export function CategoryRow({ category, groupId, groupName, currentMonth }: Cate
     setContent(newContent);
   }, []);
 
-  // Enter edit mode (blocked when rate limited)
-  const handleStartEdit = useCallback(async () => {
-    if (isRateLimited) return;
+  // Cancel editing - discard changes
+  const handleCancel = useCallback(() => {
+    // Restore the original content (inherited or saved)
+    setContent(noteContent);
+    lastSavedRef.current = noteContent;
+    setIsEditing(false);
+    notesEditor?.closeEditor();
+  }, [notesEditor, noteContent]);
 
+  // Enter edit mode
+  const handleStartEdit = useCallback(async () => {
     // If using context, request to open (auto-saves other editors)
     // Pass a stable wrapper that calls the ref to ensure latest content is saved
     if (notesEditor) {
@@ -129,8 +171,15 @@ export function CategoryRow({ category, groupId, groupName, currentMonth }: Cate
       if (!canOpen) return;
     }
 
+    // If editing an inherited note, start with empty content
+    // (user is creating a new note for this month, not editing the source)
+    if (effectiveNote.isInherited) {
+      setContent('');
+      lastSavedRef.current = '';
+    }
+
     setIsEditing(true);
-  }, [isRateLimited, notesEditor, editorId]);
+  }, [notesEditor, editorId, effectiveNote.isInherited]);
 
   // Render note content area
   const displayContent = content.trim();
@@ -139,15 +188,26 @@ export function CategoryRow({ category, groupId, groupName, currentMonth }: Cate
   const renderNoteContent = () => {
     if (isEditing) {
       return (
-        <NoteEditorMDX
-          value={content}
-          onChange={handleContentChange}
-          onSave={saveNote}
-          isSaving={isSaving}
-          placeholder={`Write a note for ${decodeHtmlEntities(category.name)}...`}
-          autoFocus
-          minHeight={80}
-        />
+        <>
+          <NoteEditorMDX
+            value={content}
+            onChange={handleContentChange}
+            onSave={saveNote}
+            onCancel={handleCancel}
+            isSaving={isSaving || isCheckingInheritance}
+            placeholder={`Write a note for ${decodeHtmlEntities(category.name)}...`}
+            autoFocus
+            minHeight={80}
+          />
+          {showInheritanceWarning && inheritanceImpact && (
+            <InheritanceWarningInline
+              monthsWithCheckboxStates={inheritanceImpact.monthsWithCheckboxStates}
+              isSourceNoteEdit={inheritanceImpact.isSourceNoteEdit}
+              onCancel={cancelInheritanceWarning}
+              onConfirm={handleConfirmInheritanceSave}
+            />
+          )}
+        </>
       );
     }
 
@@ -170,17 +230,33 @@ export function CategoryRow({ category, groupId, groupName, currentMonth }: Cate
             onDoubleClick={handleStartEdit}
             checkboxesDisabled={checkboxesLoading}
           />
-          {/* History button - shows on hover */}
-          <button
-            type="button"
-            onClick={() => setShowHistory(true)}
-            className="absolute top-0 right-0 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-[var(--monarch-bg-card)] transition-opacity icon-btn-hover"
-            style={{ color: 'var(--monarch-text-muted)' }}
-            aria-label="View revision history"
-            title="History"
-          >
-            <History size={14} />
-          </button>
+          {/* Action buttons - show on hover */}
+          <div className="absolute top-0 right-0 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            {/* Clear inheritance button - only for inherited notes */}
+            {effectiveNote.isInherited && (
+              <button
+                type="button"
+                onClick={handleStartEdit}
+                className="p-1 rounded hover:bg-(--monarch-bg-card) icon-btn-hover"
+                style={{ color: 'var(--monarch-text-muted)' }}
+                aria-label="Create new note for this month"
+                title="Clear inheritance (start fresh)"
+              >
+                <X size={14} />
+              </button>
+            )}
+            {/* History button */}
+            <button
+              type="button"
+              onClick={() => setShowHistory(true)}
+              className="p-1 rounded hover:bg-(--monarch-bg-card) icon-btn-hover"
+              style={{ color: 'var(--monarch-text-muted)' }}
+              aria-label="View revision history"
+              title="History"
+            >
+              <History size={14} />
+            </button>
+          </div>
         </div>
       );
     }
