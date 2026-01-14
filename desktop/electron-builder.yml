@@ -102,9 +102,7 @@ nsis:
   installerIcon: assets/icon.ico
   uninstallerIcon: assets/icon.ico
   differentialPackage: true
-  # Allow NSIS warnings (unreferenced functions) without failing the build
-  warningsAsErrors: false
-  # Include custom NSIS scripts (combined installer + uninstaller macros)
+  # Include custom NSIS scripts for uninstall prompts
   include: installer/custom.nsh
 
 # Linux configuration
