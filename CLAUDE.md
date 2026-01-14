@@ -493,6 +493,60 @@ frontend/src/
 
 All checks must pass before committing.
 
+## Dev Builds (Quick Platform Testing)
+
+For testing platform-specific issues without running the full 18-minute release pipeline, use the dev build workflow.
+
+### Usage
+
+```bash
+# Windows
+gh workflow run "25 Dev: Build Desktop" -f platform=windows
+
+# macOS ARM (M1/M2/M3)
+gh workflow run "25 Dev: Build Desktop" -f platform=macos-arm64
+
+# macOS Intel
+gh workflow run "25 Dev: Build Desktop" -f platform=macos-x64
+
+# Linux x64
+gh workflow run "25 Dev: Build Desktop" -f platform=linux-x64
+
+# Linux ARM
+gh workflow run "25 Dev: Build Desktop" -f platform=linux-arm64
+
+# With custom version label
+gh workflow run "25 Dev: Build Desktop" -f platform=windows -f version=test-fix-123
+```
+
+Or use the GitHub UI: **Actions → "25 Dev: Build Desktop" → Run workflow**
+
+### What It Does
+
+| Feature | Dev Build | Full Pipeline |
+|---------|-----------|---------------|
+| Build time | ~5-8 min | ~18 min |
+| Platforms | Single (your choice) | All platforms |
+| Security scan | Skipped | Required |
+| Code signing | Skipped (unsigned) | Full signing + notarization |
+| Docker/Cloudflare | Skipped | Included |
+| Artifacts | Private (repo members only) | Published to release |
+| Retention | 7 days | 30 days |
+
+### When to Use
+
+- Testing platform-specific bugs
+- Verifying a fix before creating a full release
+- Quick iteration on desktop issues
+- Testing on a specific branch before merging
+
+### Downloading Artifacts
+
+After the workflow completes, download from:
+1. Go to the workflow run page
+2. Scroll to "Artifacts" section
+3. Download `dev-build-{platform}-{run_number}.zip`
+
 ## Troubleshooting Local Builds
 
 When troubleshooting issues with local desktop builds, logs are stored in platform-specific locations.
