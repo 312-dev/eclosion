@@ -515,8 +515,8 @@ gh workflow run "25 Dev: Build Desktop" -f platform=linux-x64
 # Linux ARM
 gh workflow run "25 Dev: Build Desktop" -f platform=linux-arm64
 
-# With custom version label
-gh workflow run "25 Dev: Build Desktop" -f platform=windows -f version=test-fix-123
+# With custom version (must be valid semver)
+gh workflow run "25 Dev: Build Desktop" -f platform=windows -f version=1.2.3-test
 ```
 
 Or use the GitHub UI: **Actions → "25 Dev: Build Desktop" → Run workflow**
