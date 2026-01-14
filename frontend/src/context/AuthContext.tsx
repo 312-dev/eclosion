@@ -12,6 +12,14 @@ import {
   reauthenticate as apiReauthenticate,
 } from '../api/client';
 import type { LockReason, MfaRequiredData, AuthContextValue } from './authTypes';
+import type {
+  LoginResult,
+  SetPassphraseResult,
+  UnlockResult,
+  UpdateCredentialsResult,
+  ResetAppResult,
+} from '../types';
+import type { ReauthResult } from '../api/client';
 
 // Re-export types for consumers
 export type { LockReason, MfaRequiredData, AuthState, AuthActions, AuthContextValue } from './authTypes';

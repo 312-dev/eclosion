@@ -35,6 +35,7 @@ import { useIsMarketingSite } from './hooks/useIsMarketingSite';
 import { useElectronNavigation } from './hooks/useElectronNavigation';
 import { BetaBanner } from './components/ui/BetaBanner';
 import { MfaReauthPrompt } from './components/MfaReauthPrompt';
+import { SessionExpiredOverlay } from './components/SessionExpiredOverlay';
 
 const LANDING_PAGE_KEY = 'eclosion-landing-page';
 
@@ -149,25 +150,30 @@ function ProductionRoutes() {
   }
 
   return (
-    <Routes>
-      {/* Public routes */}
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/unlock" element={<UnlockPage />} />
+    <>
+      <Routes>
+        {/* Public routes */}
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/unlock" element={<UnlockPage />} />
 
-      {/* Protected routes */}
-      <Route element={<ProtectedRoute />}>
-        <Route element={<AppShell />}>
-          <Route index element={<DefaultRedirect />} />
-          <Route path="/dashboard" element={<DashboardTab />} />
-          <Route path="/recurring" element={<RecurringTab />} />
-          <Route path="/notes" element={<NotesTab />} />
-          <Route path="/settings" element={<SettingsTab />} />
+        {/* Protected routes */}
+        <Route element={<ProtectedRoute />}>
+          <Route element={<AppShell />}>
+            <Route index element={<DefaultRedirect />} />
+            <Route path="/dashboard" element={<DashboardTab />} />
+            <Route path="/recurring" element={<RecurringTab />} />
+            <Route path="/notes" element={<NotesTab />} />
+            <Route path="/settings" element={<SettingsTab />} />
+          </Route>
         </Route>
-      </Route>
 
-      {/* Catch-all redirect */}
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+        {/* Catch-all redirect */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+
+      {/* Session expired overlay - shows when session expires during normal use */}
+      <SessionExpiredOverlay />
+    </>
   );
 }
 
