@@ -1137,7 +1137,7 @@ export function setupIpcHandlers(backendManager: BackendManager): void {
   ipcMain.handle('menu:set-full', async () => {
     // Import dynamically to avoid circular dependency
     const { createAppMenu, getSyncCallback } = await import('./menu');
-    createAppMenu(getSyncCallback());
+    createAppMenu(getSyncCallback() ?? undefined);
   });
 
   /**
