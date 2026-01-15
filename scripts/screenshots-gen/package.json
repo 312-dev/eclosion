@@ -1,6 +1,6 @@
 {
   "name": "screenshots-gen",
-  "version": "1.0.0",
+  "version": "0.9.9",
   "type": "module",
   "description": "Automated screenshot generator with macOS window chrome for README",
   "scripts": {

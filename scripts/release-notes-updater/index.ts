@@ -13,6 +13,9 @@
  */
 
 import { execSync } from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { generateSummary, buildUpdatedReleaseBody } from './generator.js';
 
 interface ReleaseInfo {
@@ -49,10 +52,6 @@ function updateRelease(tag: string, newBody: string): void {
   console.log(`Updating release ${tag}...`);
 
   // Write body to temp file to avoid shell escaping issues
-  const fs = require('node:fs');
-  const os = require('node:os');
-  const path = require('node:path');
-
   const tempFile = path.join(os.tmpdir(), `release-notes-${Date.now()}.md`);
   fs.writeFileSync(tempFile, newBody);
 

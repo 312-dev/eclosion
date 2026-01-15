@@ -1,6 +1,6 @@
 {
   "name": "release-notes-updater",
-  "version": "1.0.0",
+  "version": "0.9.9",
   "type": "module",
   "description": "AI-powered release notes summarizer for human-friendly updates",
   "scripts": {

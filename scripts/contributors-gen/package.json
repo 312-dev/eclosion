@@ -1,6 +1,6 @@
 {
   "name": "contributors-gen",
-  "version": "1.0.0",
+  "version": "0.9.9",
   "type": "module",
   "description": "Generate contributor attribution data from GitHub",
   "scripts": {
