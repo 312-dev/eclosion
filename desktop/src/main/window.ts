@@ -6,20 +6,13 @@
 
 import { BrowserWindow, shell, app, session, screen } from 'electron';
 import path from 'node:path';
-import Store from 'electron-store';
+import { getStore } from './store';
 
 // Window creation timing for debugging installer launch delays
 let windowCreateStart = 0;
 function logWindowTiming(event: string): void {
   const elapsed = windowCreateStart > 0 ? Date.now() - windowCreateStart : 0;
   console.log(`[WINDOW +${elapsed}ms] ${event}`);
-}
-
-// Lazy store initialization to ensure app.setPath('userData') is called first
-let store: Store | null = null;
-function getStore(): Store {
-  store ??= new Store();
-  return store;
 }
 
 /**
@@ -80,29 +73,6 @@ function setupCSP(): void {
 }
 
 let mainWindow: BrowserWindow | null = null;
-
-/**
- * Force window to foreground on Windows.
- * Windows prevents apps from stealing focus, so we use the setAlwaysOnTop
- * workaround combined with restore/show/focus to ensure visibility.
- * This is especially important when launched from the installer.
- */
-function forceWindowFocus(win: BrowserWindow | null): void {
-  if (!win || win.isDestroyed()) return;
-  // Restore if minimized
-  if (win.isMinimized()) {
-    win.restore();
-  }
-  // Ensure visible
-  if (!win.isVisible()) {
-    win.show();
-  }
-  // setAlwaysOnTop trick to bring to front
-  win.setAlwaysOnTop(true);
-  win.setAlwaysOnTop(false);
-  // Request focus
-  win.focus();
-}
 
 interface WindowBounds {
   x?: number;
@@ -184,7 +154,7 @@ export async function createWindow(backendPort: number): Promise<BrowserWindow> 
      */
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     backgroundColor: '#1a1a2e',
-    show: false, // Don't show until ready
+    // show: true is the default - window appears immediately for native focus behavior
   });
   logWindowTiming('BrowserWindow created');
 
@@ -205,6 +175,16 @@ export async function createWindow(backendPort: number): Promise<BrowserWindow> 
   // Must be registered BEFORE loadFile to catch the initial title update
   mainWindow.webContents.on('page-title-updated', (event) => {
     event.preventDefault();
+  });
+
+  // Register ready-to-show handler for logging and potential future "start minimized" feature.
+  // Since show:true is default, the window is already visible by the time this fires.
+  mainWindow.once('ready-to-show', () => {
+    logWindowTiming('ready-to-show event fired');
+    // Window is already visible due to show:true default.
+    // This handler is kept for potential future startMinimized support:
+    // const startMinimized = getStore().get('desktop.startMinimized', false);
+    // if (startMinimized) mainWindow?.hide();
   });
 
   /**
@@ -235,54 +215,41 @@ export async function createWindow(backendPort: number): Promise<BrowserWindow> 
   });
   logWindowTiming('loadFile completed');
 
-  // Show window when ready (async - don't block createWindow return)
-  mainWindow.once('ready-to-show', () => {
-    logWindowTiming('ready-to-show event fired');
-    mainWindow?.show();
-    logWindowTiming('window.show() called');
-    // Windows prevents apps from stealing focus. Use setAlwaysOnTop workaround
-    // to ensure window is visible when launched from installer or startup.
-    // We need to do this multiple times with delays because the installer may
-    // still have focus when the app first becomes ready.
-    if (process.platform === 'win32') {
-      logWindowTiming('Windows: starting focus sequence');
-      // Initial focus attempt
-      forceWindowFocus(mainWindow);
-      logWindowTiming('Windows: first forceWindowFocus called');
-      // Retry after short delay (installer might still be closing)
-      setTimeout(() => {
-        forceWindowFocus(mainWindow);
-        logWindowTiming('Windows: second forceWindowFocus called (300ms)');
-      }, 300);
-      // Final retry after installer is likely gone
-      setTimeout(() => {
-        forceWindowFocus(mainWindow);
-        logWindowTiming('Windows: third forceWindowFocus called (1000ms)');
-      }, 1000);
-    } else {
-      mainWindow?.focus();
-    }
-  });
-
-  logWindowTiming('createWindow() returning (ready-to-show pending)');
-
-  // Handle close - behavior depends on menuBarMode setting
+  // Handle close - behavior depends on desktop.closeToTray setting
   mainWindow.on('close', (event) => {
-    // Save window bounds regardless of close behavior
+    // Always save window bounds regardless of close behavior
     const currentBounds = mainWindow?.getBounds();
     if (currentBounds) {
       getStore().set('windowBounds', currentBounds);
     }
 
     if (!isQuitting) {
-      const menuBarMode = getStore().get('menuBarMode', false) as boolean;
-      if (menuBarMode) {
+      const closeToTray = getStore().get('desktop.closeToTray', true);
+      if (closeToTray) {
         // Hide to tray instead of quitting
         event.preventDefault();
         mainWindow?.hide();
+
+        // macOS: Hide dock icon if showInDock setting is disabled
+        if (process.platform === 'darwin' && app.dock) {
+          const showInDock = getStore().get('desktop.showInDock', true);
+          if (!showInDock) {
+            app.dock.hide();
+          }
+        }
       }
-      // If menuBarMode is false, allow the window to close normally
+      // If closeToTray is false, allow the window to close normally
       // which will trigger app quit via window-all-closed handler
+    }
+  });
+
+  // Handle minimize - behavior depends on desktop.minimizeToTray setting
+  // Note: The minimize event doesn't support preventDefault(), so we hide after minimizing
+  mainWindow.on('minimize', () => {
+    const minimizeToTray = getStore().get('desktop.minimizeToTray', true);
+    if (minimizeToTray) {
+      // Hide the window to tray instead of showing minimized in taskbar
+      mainWindow?.hide();
     }
   });
 
@@ -301,16 +268,31 @@ export function getMainWindow(): BrowserWindow | null {
 }
 
 /**
+ * Bring window to foreground when re-activating (tray click, hotkey, dock click, etc.)
+ * Uses native Electron APIs for cross-platform focus handling.
+ */
+export function bringToForeground(): void {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+
+  // Restore if minimized
+  if (mainWindow.isMinimized()) {
+    mainWindow.restore();
+  }
+
+  // Use app.focus() with steal:true for reliable cross-platform focus
+  // This is the recommended approach for re-activation scenarios
+  app.focus({ steal: true });
+
+  // Ensure window is visible and focused
+  mainWindow.show();
+  mainWindow.focus();
+}
+
+/**
  * Show the main window and focus it.
  */
 export function showWindow(): void {
-  if (mainWindow) {
-    if (mainWindow.isMinimized()) {
-      mainWindow.restore();
-    }
-    mainWindow.show();
-    mainWindow.focus();
-  }
+  bringToForeground();
 }
 
 /**

@@ -433,7 +433,7 @@ jobs:
 
           for file in artifacts/*; do
             if [ -f "$file" ]; then
-              echo "Uploading: $(basename $file)"
+              echo "Uploading: $(basename "$file")"
               gh release upload "$TAG" "$file" --clobber || echo "::warning::Failed to upload $file"
             fi
           done
@@ -441,7 +441,7 @@ jobs:
           echo "Uploading screenshots to release $TAG..."
           for file in screenshots/*.png; do
             if [ -f "$file" ]; then
-              echo "Uploading: $(basename $file)"
+              echo "Uploading: $(basename "$file")"
               gh release upload "$TAG" "$file" --clobber || echo "::warning::Failed to upload $file"
             fi
           done

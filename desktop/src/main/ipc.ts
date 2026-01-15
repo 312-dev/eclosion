@@ -97,16 +97,62 @@ import {
   getCleanupInstructions,
 } from './cleanup';
 import { getStateDir } from './paths';
-import { getAllLogFiles, getLogDir } from './logger';
+import { getAllLogFiles, getLogDir, debugLog } from './logger';
 import { getHealthStatus, updateTrayMenuSyncStatus } from './tray';
 import { getStore } from './store';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
+// =========================================================================
+// Loading Screen Ready Signal
+// =========================================================================
+
+let loadingReadyResolve: (() => void) | null = null;
+let loadingReadyPromise: Promise<void> | null = null;
+
+/**
+ * Create a promise that resolves when the loading screen signals it's ready.
+ * Call this BEFORE creating the window, then await the returned promise
+ * after the window is created to ensure the loading screen is visible
+ * before starting heavy background work.
+ */
+export function createLoadingReadyPromise(): Promise<void> {
+  if (!loadingReadyPromise) {
+    loadingReadyPromise = new Promise((resolve) => {
+      loadingReadyResolve = resolve;
+    });
+  }
+  return loadingReadyPromise;
+}
+
+/**
+ * Reset the loading ready promise (e.g., after app restart).
+ */
+export function resetLoadingReadyPromise(): void {
+  loadingReadyPromise = null;
+  loadingReadyResolve = null;
+}
+
 /**
  * Setup all IPC handlers.
  */
 export function setupIpcHandlers(backendManager: BackendManager): void {
+  // =========================================================================
+  // Loading Screen Ready Signal
+  // =========================================================================
+
+  /**
+   * Handle loading screen ready signal from renderer.
+   * Resolves the promise created by createLoadingReadyPromise().
+   */
+  ipcMain.on('loading-screen-ready', () => {
+    debugLog('Loading screen ready signal received');
+    if (loadingReadyResolve) {
+      loadingReadyResolve();
+      loadingReadyResolve = null;
+    }
+  });
+
   // =========================================================================
   // Backend Communication
   // =========================================================================
@@ -327,38 +373,88 @@ export function setupIpcHandlers(backendManager: BackendManager): void {
    * Get desktop-specific settings.
    */
   ipcMain.handle('get-desktop-settings', () => {
-    const autoStart = isAutoStartEnabled();
+    const store = getStore();
+
     return {
-      menuBarMode: getStore().get('menuBarMode', false),
-      autoStart,
+      launchAtLogin: store.get('desktop.launchAtLogin', false),
+      startMinimized: store.get('desktop.startMinimized', false),
+      minimizeToTray: store.get('desktop.minimizeToTray', true),
+      closeToTray: store.get('desktop.closeToTray', true),
+      showInDock: store.get('desktop.showInDock', true),
+      showInTaskbar: store.get('desktop.showInTaskbar', true),
+      globalShortcut: store.get('desktop.globalShortcut', 'CommandOrControl+Shift+E'),
     };
   });
 
   /**
-   * Set menu bar mode (macOS: run in background + hide from dock).
+   * Set a single desktop setting.
    *
-   * When enabled:
-   * - App stays running in system tray when window is closed
-   * - On macOS, hides from the Dock (menu bar only app)
-   *
-   * When disabled:
-   * - App quits when window is closed
-   * - On macOS, shows in the Dock
+   * Handles side effects for settings that require immediate action:
+   * - launchAtLogin: Updates OS login items
+   * - showInDock: Shows/hides dock icon (macOS)
+   * - globalShortcut: Re-registers the toggle-window hotkey
    */
-  ipcMain.handle('set-menu-bar-mode', (_event, enabled: boolean) => {
-    getStore().set('menuBarMode', enabled);
-    // On macOS, also control dock visibility
-    if (process.platform === 'darwin' && app.dock) {
-      if (enabled) {
-        app.dock.hide();
-        // Re-focus window after dock hide (macOS loses focus as side effect)
-        getMainWindow()?.focus();
-      } else {
-        app.dock.show();
+  ipcMain.handle(
+    'set-desktop-setting',
+    (_event, key: string, value: boolean | string): boolean => {
+      const store = getStore();
+
+      // Validate key is a known desktop setting
+      const validKeys = [
+        'launchAtLogin',
+        'startMinimized',
+        'minimizeToTray',
+        'closeToTray',
+        'showInDock',
+        'showInTaskbar',
+        'globalShortcut',
+      ];
+      if (!validKeys.includes(key)) {
+        debugLog(`Invalid desktop setting key: ${key}`);
+        return false;
       }
+
+      // Update the store
+      const storeKey = `desktop.${key}` as keyof import('./store').StoreSchema;
+      store.set(storeKey, value);
+      debugLog(`Set desktop setting: ${key} = ${value}`);
+
+      // Handle side effects
+      switch (key) {
+        case 'launchAtLogin':
+          // Update OS login items
+          app.setLoginItemSettings({ openAtLogin: value as boolean });
+          debugLog(`Updated login item settings: openAtLogin = ${value}`);
+          break;
+
+        case 'showInDock':
+          // macOS: Show/hide dock icon
+          if (process.platform === 'darwin' && app.dock) {
+            if (value) {
+              app.dock.show();
+            } else {
+              app.dock.hide();
+              // Re-focus window after dock hide (macOS loses focus as side effect)
+              getMainWindow()?.focus();
+            }
+            debugLog(`Updated dock visibility: ${value}`);
+          }
+          break;
+
+        case 'globalShortcut':
+          // Re-register the toggle-window hotkey with new shortcut
+          // The globalShortcut setting is specifically for the toggle-window action
+          setHotkeyConfig('toggle-window', {
+            enabled: true,
+            accelerator: value as string,
+          });
+          debugLog(`Updated globalShortcut to: ${value}`);
+          break;
+      }
+
+      return true;
     }
-    return enabled;
-  });
+  );
 
   /**
    * Get the state directory path.

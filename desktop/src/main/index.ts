@@ -84,7 +84,7 @@ import {
   isRateLimitError,
   showReauthNotification,
 } from './tray';
-import { setupIpcHandlers } from './ipc';
+import { setupIpcHandlers, createLoadingReadyPromise } from './ipc';
 import { initializeUpdater, scheduleUpdateChecks, offerUpdateOnStartupFailure } from './updater';
 import { createAppMenu } from './menu';
 import { initializeHotkeys, unregisterAllHotkeys } from './hotkeys';
@@ -110,6 +110,7 @@ import {
   checkAndRunDailyBackup,
   cleanupAutoBackup,
 } from './auto-backup';
+import { migrateSettings } from './settings-migration';
 
 /**
  * Check if the app is running from a macOS DMG volume mount.
@@ -213,6 +214,10 @@ async function initialize(): Promise<void> {
   addBreadcrumb({ category: 'lifecycle', message: 'App initializing' });
 
   try {
+    // Run settings migrations early, before any settings are read
+    logStartupTiming('Running settings migrations');
+    migrateSettings();
+
     // Register deep link protocol (eclosion://)
     logStartupTiming('Registering deep link protocol');
     registerDeepLinkProtocol();
@@ -232,6 +237,10 @@ async function initialize(): Promise<void> {
     logStartupTiming('IPC handlers ready');
     debugLog('IPC handlers set up');
 
+    // Create the loading ready promise BEFORE creating the window
+    // This allows us to wait for the loading screen to render before starting heavy work
+    const loadingReady = createLoadingReadyPromise();
+
     // Create main window IMMEDIATELY after IPC is ready
     // This ensures the loading screen appears as fast as possible
     // Other initialization (tray, hotkeys, etc.) happens in parallel below
@@ -240,6 +249,13 @@ async function initialize(): Promise<void> {
     await createWindow(BACKEND_NOT_READY_PORT);
     logStartupTiming('Main window created and shown');
     recordMilestone('windowCreated');
+
+    // Wait for loading screen to signal it's rendered (with 5s timeout fallback)
+    // This guarantees the user sees the loading UI before any potential freeze from heavy work
+    logStartupTiming('Waiting for loading screen ready signal');
+    const loadingTimeout = new Promise<void>((resolve) => setTimeout(resolve, 5000));
+    await Promise.race([loadingReady, loadingTimeout]);
+    logStartupTiming('Loading screen ready (or timeout)');
 
     // --- Everything below runs while the loading screen is visible ---
 

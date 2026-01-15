@@ -34,7 +34,6 @@ export function DesktopStartupWrapper({ children }: DesktopStartupWrapperProps) 
   // For non-desktop mode, start as ready immediately
   const [isReady, setIsReady] = useState(!isDesktopEnvironment);
   const [hasTimedOut, setHasTimedOut] = useState(false);
-  const [isInitializing, setIsInitializing] = useState(isDesktopEnvironment);
 
   // Initialize API and render app once backend is ready
   const handleBackendReady = useCallback(async () => {
@@ -89,12 +88,8 @@ export function DesktopStartupWrapper({ children }: DesktopStartupWrapperProps) 
       }
     });
 
-    // Check if already ready, otherwise wait for events
-    checkIfAlreadyReady().then((alreadyReady) => {
-      if (!alreadyReady) {
-        setIsInitializing(false);
-      }
-    });
+    // Check if already ready on mount
+    checkIfAlreadyReady();
 
     return () => {
       unsubscribe();
@@ -102,12 +97,8 @@ export function DesktopStartupWrapper({ children }: DesktopStartupWrapperProps) 
   }, [handleBackendReady]);
 
   // Show loading screen while waiting for backend
+  // Always show immediately in desktop mode to ensure window has content for ready-to-show
   if (!isReady) {
-    // Don't show loading screen during initial check (prevents flash)
-    if (isInitializing) {
-      return null;
-    }
-
     return (
       <StartupLoadingScreen
         onTimeout={handleTimeout}

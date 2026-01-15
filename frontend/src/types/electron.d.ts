@@ -63,9 +63,36 @@ export interface UpdateCheckResult {
   version?: string;
 }
 
+/**
+ * Keys for individual desktop settings.
+ */
+export type DesktopSettingKey =
+  | 'launchAtLogin'
+  | 'startMinimized'
+  | 'minimizeToTray'
+  | 'closeToTray'
+  | 'showInDock'
+  | 'showInTaskbar'
+  | 'globalShortcut';
+
+/**
+ * Desktop settings structure.
+ */
 export interface DesktopSettings {
-  menuBarMode: boolean;
-  autoStart: boolean;
+  // Startup
+  launchAtLogin: boolean;
+  startMinimized: boolean;
+
+  // Window behavior
+  minimizeToTray: boolean;
+  closeToTray: boolean;
+
+  // Visibility
+  showInDock: boolean;      // macOS only
+  showInTaskbar: boolean;   // Windows only (future)
+
+  // Shortcut
+  globalShortcut: string;
 }
 
 export interface LogFileInfo {
@@ -450,7 +477,8 @@ export interface ElectronAPI {
 
   // Desktop Settings
   getDesktopSettings: () => Promise<DesktopSettings>;
-  setMenuBarMode: (enabled: boolean) => Promise<boolean>;
+  /** Set a single desktop setting with side effects */
+  setDesktopSetting: (key: DesktopSettingKey, value: boolean | string) => Promise<boolean>;
   getStateDir: () => Promise<string>;
   revealDataFolder: () => Promise<void>;
 
@@ -515,6 +543,10 @@ export interface ElectronAPI {
 
   // Window Mode (compact for loading/login, full for main app)
   windowMode: WindowModeAPI;
+
+  // Loading Screen Signal
+  /** Signal to main process that the loading screen is visible and rendered */
+  signalLoadingReady: () => void;
 }
 
 /** Rate Limit API for handling Monarch API 429 responses */

@@ -7,14 +7,7 @@
 import { Tray, Menu, nativeImage, app, Notification } from 'electron';
 import path from 'path';
 import { getMainWindow, showWindow, toggleWindow, setIsQuitting } from './window';
-import Store from 'electron-store';
-
-// Lazy store initialization to ensure app.setPath('userData') is called first
-let store: Store | null = null;
-function getStore(): Store {
-  store ??= new Store();
-  return store;
-}
+import { getStore } from './store';
 
 let tray: Tray | null = null;
 
@@ -218,7 +211,8 @@ function buildTrayMenu(): void {
   if (!tray || !pendingMenuUpdate) return;
 
   const { onSyncClick, syncStatus } = pendingMenuUpdate;
-  const menuBarMode = getStore().get('menuBarMode', false) as boolean;
+  const store = getStore();
+  const closeToTray = store.get('desktop.closeToTray', true);
 
   const contextMenu = Menu.buildFromTemplate([
     {
@@ -247,14 +241,17 @@ function buildTrayMenu(): void {
     },
     { type: 'separator' },
     {
-      label: process.platform === 'darwin' ? 'Menu Bar Mode' : 'Run in Background',
+      label: 'Close to Tray',
       type: 'checkbox' as const,
-      checked: menuBarMode,
+      checked: closeToTray,
       click: (menuItem: Electron.MenuItem): void => {
-        getStore().set('menuBarMode', menuItem.checked);
-        // On macOS, also update dock visibility
+        store.set('desktop.closeToTray', menuItem.checked);
+        // On macOS, also toggle dock visibility to match
+        // When close-to-tray is enabled, hide dock; when disabled, show dock
         if (process.platform === 'darwin') {
-          updateDockVisibility(menuItem.checked);
+          const newShowInDock = !menuItem.checked;
+          store.set('desktop.showInDock', newShowInDock);
+          updateDockVisibility(newShowInDock);
         }
       },
     },
@@ -339,14 +336,14 @@ export function updateTrayMenuSyncStatus(isoTimestamp: string): void {
 }
 
 /**
- * Update dock visibility on macOS based on menu bar mode.
+ * Update dock visibility on macOS based on showInDock setting.
  */
-function updateDockVisibility(menuBarMode: boolean): void {
+function updateDockVisibility(showInDock: boolean): void {
   if (process.platform === 'darwin' && app.dock) {
-    if (menuBarMode) {
-      app.dock.hide();
-    } else {
+    if (showInDock) {
       app.dock.show();
+    } else {
+      app.dock.hide();
     }
   }
 }
@@ -356,9 +353,8 @@ function updateDockVisibility(menuBarMode: boolean): void {
  */
 export function initializeDockVisibility(): void {
   if (process.platform === 'darwin') {
-    // Use menuBarMode setting (default false = show in dock)
-    const menuBarMode = getStore().get('menuBarMode', false) as boolean;
-    updateDockVisibility(menuBarMode);
+    const showInDock = getStore().get('desktop.showInDock', true);
+    updateDockVisibility(showInDock);
   }
 }
 

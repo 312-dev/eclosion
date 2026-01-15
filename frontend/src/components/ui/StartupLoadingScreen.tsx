@@ -52,6 +52,14 @@ export function StartupLoadingScreen({
     });
   }, []);
 
+  // Signal to main process that loading screen is visible and rendered.
+  // This allows heavy backend work to start only after the user sees the loading UI.
+  useEffect(() => {
+    if (globalThis.electron?.signalLoadingReady) {
+      globalThis.electron.signalLoadingReady();
+    }
+  }, []);
+
   // Derive current message from rotation count and elapsed time
   const currentMessage = useMemo(() => {
     const pool = getMessagePool(elapsedSeconds);

@@ -243,18 +243,24 @@ const electronAPI = {
   // =========================================================================
 
   /**
-   * Get desktop-specific settings (menu bar mode, auto-start).
+   * Get desktop-specific settings.
    */
   getDesktopSettings: (): Promise<{
-    menuBarMode: boolean;
-    autoStart: boolean;
+    launchAtLogin: boolean;
+    startMinimized: boolean;
+    minimizeToTray: boolean;
+    closeToTray: boolean;
+    showInDock: boolean;
+    showInTaskbar: boolean;
+    globalShortcut: string;
   }> => ipcRenderer.invoke('get-desktop-settings'),
 
   /**
-   * Set menu bar mode (run in background + hide from dock on macOS).
+   * Set a single desktop setting.
+   * Handles side effects for launchAtLogin, showInDock, and globalShortcut.
    */
-  setMenuBarMode: (enabled: boolean): Promise<boolean> =>
-    ipcRenderer.invoke('set-menu-bar-mode', enabled),
+  setDesktopSetting: (key: string, value: boolean | string): Promise<boolean> =>
+    ipcRenderer.invoke('set-desktop-setting', key, value),
 
   /**
    * Get the state directory path.
@@ -961,6 +967,17 @@ const electronAPI = {
       error?: string;
     }> => ipcRenderer.invoke('auto-backup:restore', filePath, passphrase),
   },
+
+  // =========================================================================
+  // Loading Screen Signal
+  // =========================================================================
+
+  /**
+   * Signal to main process that the loading screen is visible and rendered.
+   * This allows the main process to wait for the UI to be ready before starting
+   * heavy background work (backend, migrations, etc.).
+   */
+  signalLoadingReady: (): void => ipcRenderer.send('loading-screen-ready'),
 
   // =========================================================================
   // Window Mode (compact/full)

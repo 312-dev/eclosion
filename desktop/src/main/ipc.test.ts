@@ -8,10 +8,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Mock Electron modules
 const mockHandle = vi.fn();
+const mockOn = vi.fn();
 
 vi.mock('electron', () => ({
   ipcMain: {
     handle: mockHandle,
+    on: mockOn,
   },
   dialog: {
     showMessageBox: vi.fn().mockResolvedValue({ response: 0 }),

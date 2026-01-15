@@ -7,7 +7,6 @@
 import { Link } from 'react-router-dom';
 import { SyncButton } from '../SyncButton';
 import { HelpDropdown } from './HelpDropdown';
-import { VersionIndicator } from '../VersionIndicator';
 import { LeftToBudgetBadge } from '../LeftToBudgetBadge';
 import { AppIcon } from '../wizards/WizardComponents';
 import type { ReadyToAssign } from '../../types';
@@ -70,7 +69,7 @@ export function AppHeader({
                 Eclosion
               </h1>
             </Link>
-            {isDemo ? (
+            {isDemo && (
               <span
                 className="app-slogan hidden lg:block"
                 style={{
@@ -85,17 +84,6 @@ export function AppHeader({
               >
                 Your budgeting, evolved.
               </span>
-            ) : (
-              <div
-                className="hidden md:block"
-                style={{
-                  marginLeft: '12px',
-                  paddingLeft: '12px',
-                  borderLeft: '1px solid var(--monarch-border)',
-                }}
-              >
-                <VersionIndicator />
-              </div>
             )}
           </div>
         )}

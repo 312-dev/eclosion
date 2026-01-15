@@ -11,7 +11,7 @@ export { NotesToolSettings } from './NotesToolSettings';
 export { ToolSettingsHeader } from './ToolSettingsHeader';
 export { AutomationSection } from './AutomationSection';
 export { UpdatesSection } from './UpdatesSection';
-export { DesktopSection } from './DesktopSection';
+export { DesktopSection } from './desktop/DesktopSection';
 export { AccountSection } from './AccountSection';
 export { SecuritySection } from './SecuritySection';
 export { DemoModeSection } from './DemoModeSection';

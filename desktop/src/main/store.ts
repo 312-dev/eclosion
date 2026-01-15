@@ -64,7 +64,17 @@ export interface StoreSchema {
   // Index signature for compatibility with Record<string, unknown>
   [key: string]: unknown;
 
-  // Desktop settings
+  // Desktop settings (NEW - granular settings)
+  'desktop.launchAtLogin': boolean;
+  'desktop.startMinimized': boolean;
+  'desktop.minimizeToTray': boolean;
+  'desktop.closeToTray': boolean;
+  'desktop.showInDock': boolean;
+  'desktop.showInTaskbar': boolean;
+  'desktop.globalShortcut': string;
+
+  // Legacy desktop settings
+  /** @deprecated Use desktop.closeToTray and desktop.showInDock instead */
   menuBarMode: boolean;
   autoUpdateEnabled: boolean;
 

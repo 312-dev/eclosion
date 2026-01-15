@@ -2,9 +2,8 @@
  * Desktop Section
  *
  * Desktop app-specific settings including:
- * - Start on Login
- * - Run in Background
- * - Show in Dock (macOS only)
+ * - Startup (launch at login, start minimized)
+ * - Window Behavior (minimize to tray, close to tray, show in dock)
  * - Reveal Data Folder
  * - Security & Locking (auto-lock, biometric)
  */
@@ -12,8 +11,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Monitor } from 'lucide-react';
 import { useBiometric } from '../../../hooks';
-import type { DesktopSettings, LockTrigger, LockOption, PeriodicSyncSettings, PeriodicSyncInterval, BackgroundSyncStatus, BackgroundSyncInterval } from '../../../types/electron';
-import { StartupSection, SyncScheduleSection, SecuritySection, DataFolderSection, BackgroundSyncSection } from './DesktopSectionGroups';
+import type { DesktopSettings, DesktopSettingKey, LockTrigger, LockOption, PeriodicSyncSettings, PeriodicSyncInterval, BackgroundSyncStatus, BackgroundSyncInterval, HotkeyConfig } from '../../../types/electron';
+import { StartupSection, WindowBehaviorSection, KeyboardShortcutSection, SyncScheduleSection, SecuritySection, DataFolderSection, BackgroundSyncSection } from './DesktopSectionGroups';
 
 export function DesktopSection() {
   const [settings, setSettings] = useState<DesktopSettings | null>(null);
@@ -32,6 +31,9 @@ export function DesktopSection() {
   const [backgroundSyncStatus, setBackgroundSyncStatus] = useState<BackgroundSyncStatus | null>(null);
   const [backgroundSyncIntervals, setBackgroundSyncIntervals] = useState<BackgroundSyncInterval[]>([]);
   const [backgroundSyncEnabling, setBackgroundSyncEnabling] = useState(false);
+
+  // Hotkey settings
+  const [toggleWindowHotkey, setToggleWindowHotkey] = useState<HotkeyConfig | null>(null);
 
   // Biometric settings
   const biometric = useBiometric();
@@ -58,6 +60,10 @@ export function DesktopSection() {
       const [bgStatus, bgIntervals] = await Promise.all([window.electron.backgroundSync.getStatus(), window.electron.backgroundSync.getIntervals()]);
       setBackgroundSyncStatus(bgStatus);
       setBackgroundSyncIntervals(bgIntervals);
+
+      // Fetch hotkey settings
+      const hotkeyConfigs = await window.electron.getHotkeyConfigs();
+      setToggleWindowHotkey(hotkeyConfigs['toggle-window'] ?? null);
     } catch {
       // Non-critical if this fails
     } finally {
@@ -73,32 +79,43 @@ export function DesktopSection() {
     }
   }, [fetchSettings]);
 
-  const handleAutoStartChange = async () => {
-    if (!window.electron || !settings) return;
-    try {
-      const newValue = !settings.autoStart;
-      await window.electron.setAutoStart(newValue);
-      setSettings((prev) => (prev ? { ...prev, autoStart: newValue } : null));
-    } catch {
-      // Ignore errors
-    }
-  };
-
-  const handleMenuBarModeChange = async () => {
-    if (!window.electron || !settings) return;
-    try {
-      const newValue = !settings.menuBarMode;
-      await window.electron.setMenuBarMode(newValue);
-      setSettings((prev) => (prev ? { ...prev, menuBarMode: newValue } : null));
-    } catch {
-      // Ignore errors
-    }
-  };
+  /**
+   * Generic handler for toggling desktop settings via the new setDesktopSetting API.
+   */
+  const handleSettingToggle = useCallback(
+    async (key: DesktopSettingKey) => {
+      if (!window.electron || !settings) return;
+      try {
+        const currentValue = settings[key];
+        if (typeof currentValue !== 'boolean') return;
+        const newValue = !currentValue;
+        await window.electron.setDesktopSetting(key, newValue);
+        setSettings((prev) => (prev ? { ...prev, [key]: newValue } : null));
+      } catch {
+        // Ignore errors
+      }
+    },
+    [settings]
+  );
 
   const handleRevealDataFolder = async () => {
     if (!window.electron) return;
     try {
       await window.electron.revealDataFolder();
+    } catch {
+      // Ignore errors
+    }
+  };
+
+  const handleHotkeyToggle = async () => {
+    if (!window.electron || !toggleWindowHotkey) return;
+    try {
+      const newEnabled = !toggleWindowHotkey.enabled;
+      await window.electron.setHotkeyConfig('toggle-window', {
+        ...toggleWindowHotkey,
+        enabled: newEnabled,
+      });
+      setToggleWindowHotkey((prev) => (prev ? { ...prev, enabled: newEnabled } : null));
     } catch {
       // Ignore errors
     }
@@ -249,9 +266,21 @@ export function DesktopSection() {
         <StartupSection
           settings={settings}
           loading={loading}
+          onSettingToggle={handleSettingToggle}
+        />
+
+        <WindowBehaviorSection
+          settings={settings}
+          loading={loading}
           isMac={isMac}
-          onAutoStartChange={handleAutoStartChange}
-          onMenuBarModeChange={handleMenuBarModeChange}
+          onSettingToggle={handleSettingToggle}
+        />
+
+        <KeyboardShortcutSection
+          hotkeyConfig={toggleWindowHotkey}
+          loading={loading}
+          isMac={isMac}
+          onToggle={handleHotkeyToggle}
         />
 
         <SyncScheduleSection

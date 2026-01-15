@@ -51,7 +51,7 @@ export function AppFooter({ isDesktop, onShowSecurityInfo }: AppFooterProps) {
           </a>
         </span>
       </div>
-      {/* Right side: security info (web only) and version (desktop only) */}
+      {/* Right side: security info (web only) and version (all platforms) */}
       <div className="ml-auto flex items-center gap-3">
         {/* Security info button - only relevant for web deployments */}
         {!isDesktop && (
@@ -66,8 +66,8 @@ export function AppFooter({ isDesktop, onShowSecurityInfo }: AppFooterProps) {
             Secured
           </button>
         )}
-        {/* Version indicator - desktop app only */}
-        {isDesktop && <VersionIndicator />}
+        {/* Version indicator - shown on all platforms */}
+        <VersionIndicator />
       </div>
     </footer>
   );
