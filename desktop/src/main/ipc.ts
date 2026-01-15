@@ -1134,9 +1134,9 @@ export function setupIpcHandlers(backendManager: BackendManager): void {
    * Switch to the full application menu (after login).
    * On Windows/Linux this is a no-op since menu bar is hidden.
    */
-  ipcMain.handle('menu:set-full', () => {
+  ipcMain.handle('menu:set-full', async () => {
     // Import dynamically to avoid circular dependency
-    const { createAppMenu, getSyncCallback } = require('./menu');
+    const { createAppMenu, getSyncCallback } = await import('./menu');
     createAppMenu(getSyncCallback());
   });
 
@@ -1144,8 +1144,8 @@ export function setupIpcHandlers(backendManager: BackendManager): void {
    * Switch to the minimal application menu (after logout/lock).
    * On Windows/Linux this is a no-op since menu bar is hidden.
    */
-  ipcMain.handle('menu:set-minimal', () => {
-    const { createMinimalMenu } = require('./menu');
+  ipcMain.handle('menu:set-minimal', async () => {
+    const { createMinimalMenu } = await import('./menu');
     createMinimalMenu();
   });
 }

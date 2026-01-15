@@ -20,3 +20,9 @@ scan:
 vulnerability:
   # Ignore vulnerabilities older than this (optional, commented out)
   # ignore-published-before: 2020-01-01
+
+  # Temporarily ignored until Chainguard updates their Python base image
+  # CVE-2024-3220: Windows-only mimetype handling issue (not applicable to Linux containers)
+  # Fixed in python 3.14.2-r3, waiting for Chainguard image update
+  ignore-cves:
+    - CVE-2024-3220
