@@ -78,7 +78,6 @@ import {
   updateTrayMenu,
   destroyTray,
   initializeDockVisibility,
-  showNotification,
   updateHealthStatus,
   isAuthError,
   isRateLimitError,
@@ -441,16 +440,12 @@ async function startBackendAndInitialize(): Promise<void> {
   if (!mfaRequired && !rateLimited) {
     const passphrase = sessionRestored ? undefined : getStoredPassphrase();
     const syncResult = await backendManager.checkSyncNeeded(passphrase ?? undefined);
-    if (syncResult.synced) {
-      if (syncResult.success) {
-        const syncTime = new Date().toLocaleTimeString();
-        showNotification('Synced on Startup', 'Your recurring expenses are up to date.');
-        updateTrayMenu(handleSyncClick, `Last sync: ${syncTime}`);
-        updateHealthStatus(true, syncTime);
-      } else {
-        showNotification('Sync Failed', syncResult.error || 'Unable to sync. Please try again later.');
-      }
+    if (syncResult.synced && syncResult.success) {
+      const syncTime = new Date().toLocaleTimeString();
+      updateTrayMenu(handleSyncClick, `Last sync: ${syncTime}`);
+      updateHealthStatus(true, syncTime);
     }
+    // Sync failures on startup are silent - user can check tray status or sync manually
   }
 
   // Check if daily backup is needed (runs in background, doesn't block startup)
@@ -494,11 +489,10 @@ async function handleSyncClick(): Promise<void> {
   const result = await backendManager.triggerSync(passphrase);
   if (result.success) {
     const syncTime = new Date().toLocaleTimeString();
-    showNotification('Sync Complete', 'Your recurring expenses are up to date.');
     updateTrayMenu(handleSyncClick, `Last sync: ${syncTime}`);
     updateHealthStatus(true, syncTime);
   } else if (isRateLimitError(result.error)) {
-    // Rate limited - notify renderer to show banner, don't show error notification
+    // Rate limited - notify renderer to show banner
     debugLog('Rate limited during sync - notifying renderer');
     const mainWindow = getMainWindow();
     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -509,9 +503,8 @@ async function handleSyncClick(): Promise<void> {
   } else if (isAuthError(result.error)) {
     // Auth error (session expired, MFA needed) - show reauth notification
     showReauthNotification();
-  } else {
-    showNotification('Sync Failed', result.error || 'Unable to sync. Please try again later.');
   }
+  // Other sync failures are silent - tray status and in-app toasts handle feedback
 }
 
 /**
@@ -530,17 +523,13 @@ function setupPowerMonitor(): void {
         const passphrase = getStoredPassphrase();
         const result = await backendManager.checkSyncNeeded(passphrase ?? undefined);
 
-        // Show feedback if a sync was triggered
-        if (result.synced) {
-          if (result.success) {
-            const syncTime = new Date().toLocaleTimeString();
-            showNotification('Synced After Wake', 'Your recurring expenses are up to date.');
-            updateTrayMenu(handleSyncClick, `Last sync: ${syncTime}`);
-            updateHealthStatus(true, syncTime);
-          } else {
-            showNotification('Sync Failed', result.error || 'Unable to sync. Please try again later.');
-          }
+        // Update tray status if sync was triggered and succeeded
+        if (result.synced && result.success) {
+          const syncTime = new Date().toLocaleTimeString();
+          updateTrayMenu(handleSyncClick, `Last sync: ${syncTime}`);
+          updateHealthStatus(true, syncTime);
         }
+        // Wake sync failures are silent - user can check tray status or sync manually
       }
     } catch (error) {
       console.error('Resume handler error:', error);

@@ -27,6 +27,8 @@ import {
 import '@mdxeditor/editor/style.css';
 import { evaluateMathExpression } from '../../utils/mathEvaluator';
 import { decodeHtmlEntities } from '../../utils';
+import { useIsRateLimited } from '../../context/RateLimitContext';
+import { Tooltip } from '../ui/Tooltip';
 
 interface MathSuggestion {
   expression: string;
@@ -75,6 +77,10 @@ export function NoteEditorMDX({
   const containerRef = useRef<HTMLDivElement>(null);
   const [isFocused, setIsFocused] = useState(false);
   const [mathSuggestion, setMathSuggestion] = useState<MathSuggestion | null>(null);
+  const isRateLimited = useIsRateLimited();
+
+  // Combined disabled state for save button
+  const isSaveDisabled = isSaving || isRateLimited;
 
   // Check for math expressions at the end of the content
   const checkForMath = useCallback((text: string) => {
@@ -142,10 +148,12 @@ export function NoteEditorMDX({
   // Handle keyboard events for math suggestions and save shortcut
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Cmd/Ctrl+Enter to save
+      // Cmd/Ctrl+Enter to save (unless rate limited or already saving)
       if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
         e.preventDefault();
-        onSave();
+        if (!isSaveDisabled) {
+          onSave();
+        }
         return;
       }
 
@@ -163,7 +171,7 @@ export function NoteEditorMDX({
 
     document.addEventListener('keydown', handleKeyDown, { capture: true });
     return () => document.removeEventListener('keydown', handleKeyDown, { capture: true });
-  }, [mathSuggestion, isFocused, acceptMathSuggestion, onSave]);
+  }, [mathSuggestion, isFocused, acceptMathSuggestion, onSave, isSaveDisabled]);
 
   // Handle focus on the container (for toolbar visibility)
   const handleFocus = useCallback(() => {
@@ -269,21 +277,25 @@ export function NoteEditorMDX({
               Cancel
             </button>
           )}
-          <button
-            type="button"
-            onClick={onSave}
-            disabled={isSaving}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors hover:opacity-90 disabled:opacity-50"
-            style={{
-              backgroundColor: 'var(--monarch-tint)',
-              color: 'white',
-            }}
-            aria-label="Save note"
-            title="Save (Cmd+Enter)"
-          >
-            <Check size={14} />
-            {isSaving ? 'Saving...' : 'Save'}
-          </button>
+          <Tooltip content="Rate limited — please wait a few minutes" disabled={!isRateLimited}>
+            <span className={isRateLimited ? 'cursor-not-allowed' : ''}>
+              <button
+                type="button"
+                onClick={onSave}
+                disabled={isSaveDisabled}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors hover:opacity-90 disabled:opacity-50"
+                style={{
+                  backgroundColor: 'var(--monarch-tint)',
+                  color: 'white',
+                }}
+                aria-label="Save note"
+                title={isRateLimited ? 'Rate limited' : 'Save (Cmd+Enter)'}
+              >
+                <Check size={14} />
+                {isSaving ? 'Saving...' : 'Save'}
+              </button>
+            </span>
+          </Tooltip>
         </div>
       )}
     </div>

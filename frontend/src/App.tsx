@@ -16,6 +16,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { DemoProvider, isGlobalDemoMode } from './context/DemoContext';
 import { RateLimitProvider } from './context/RateLimitContext';
 import { DemoAuthProvider } from './context/DemoAuthContext';
+import { MonthTransitionProvider } from './context/MonthTransitionContext';
 import { AppShell } from './components/layout/AppShell';
 import { MacOSDragRegion } from './components/layout/MacOSDragRegion';
 import { ProtectedRoute } from './components/layout/ProtectedRoute';
@@ -351,7 +352,9 @@ export default function App() {
               <ScrollToTop />
               <RateLimitProvider>
                 <DemoProvider>
-                  <AppRouter />
+                  <MonthTransitionProvider>
+                    <AppRouter />
+                  </MonthTransitionProvider>
                 </DemoProvider>
               </RateLimitProvider>
             </Router>

@@ -1309,6 +1309,7 @@ class SyncService:
                     "user_first_name": state.user_first_name,
                 },
                 "last_sync": state.last_sync,
+                "data_month": datetime.now().strftime("%Y-%m"),
                 "ready_to_assign": ready_to_assign_data,
                 "rollup": {
                     "enabled": False,
@@ -1540,6 +1541,7 @@ class SyncService:
                 "user_first_name": state.user_first_name,
             },
             "last_sync": state.last_sync,
+            "data_month": datetime.now().strftime("%Y-%m"),
             "ready_to_assign": ready_to_assign_data,
             "rollup": rollup_data,
             "notices": [

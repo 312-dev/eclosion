@@ -6,6 +6,7 @@
  */
 
 import { createContext, useContext, useCallback, useRef, useMemo, type ReactNode } from 'react';
+import { useToast } from './ToastContext';
 
 interface EditorState {
   id: string;
@@ -39,6 +40,7 @@ interface NotesEditorProviderProps {
 export function NotesEditorProvider({ children }: NotesEditorProviderProps) {
   // Use ref to avoid stale closure issues and prevent unnecessary re-renders
   const activeEditorRef = useRef<EditorState | null>(null);
+  const toast = useToast();
 
   const requestOpen = useCallback(async (id: string, save: () => Promise<void>): Promise<boolean> => {
     // If this editor is already active, just return true
@@ -52,14 +54,14 @@ export function NotesEditorProvider({ children }: NotesEditorProviderProps) {
         await activeEditorRef.current.save();
       } catch (err) {
         console.error('Failed to save previous editor:', err);
-        // Continue anyway - don't block opening new editor
+        toast.warning('Previous note may not have saved. Please check your changes.');
       }
     }
 
     // Set new active editor
     activeEditorRef.current = { id, save };
     return true;
-  }, []);
+  }, [toast]);
 
   const closeEditor = useCallback(() => {
     activeEditorRef.current = null;

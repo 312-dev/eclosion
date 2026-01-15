@@ -19,6 +19,7 @@ import { UninstallModal } from '../UninstallModal';
 import { ImportSettingsModal } from '../ImportSettingsModal';
 import { UpdateModal } from '../UpdateModal';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 import type { DashboardData, AutoSyncStatus, VersionInfo } from '../../types';
 import { useDemo } from '../../context/DemoContext';
 import { usePageTitle, useApiClient } from '../../hooks';
@@ -52,6 +53,7 @@ export function SettingsTab() {
   const [versionInfo, setVersionInfo] = useState<VersionInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const { logout } = useAuth();
+  const toast = useToast();
   const isDemo = useDemo();
   const isDesktop = isDesktopMode();
   const recurringSettingsRef = useRef<HTMLElement>(null);
@@ -77,8 +79,8 @@ export function SettingsTab() {
     try {
       const info = await client.getVersion();
       setVersionInfo(info);
-    } catch {
-      // Non-critical if this fails
+    } catch (err) {
+      console.error('Failed to fetch version info:', err);
     }
   };
 
@@ -86,8 +88,9 @@ export function SettingsTab() {
     try {
       const data = await client.getDashboard();
       setDashboardData(data);
-    } catch {
-      // Non-critical if this fails
+    } catch (err) {
+      console.error('Failed to fetch dashboard data:', err);
+      toast.error('Failed to load some settings. Please refresh the page.');
     } finally {
       setLoading(false);
     }
@@ -97,8 +100,8 @@ export function SettingsTab() {
     try {
       const status = await client.getAutoSyncStatus();
       setAutoSyncStatus(status);
-    } catch {
-      // Non-critical if this fails
+    } catch (err) {
+      console.error('Failed to fetch auto-sync status:', err);
     }
   };
 

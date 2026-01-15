@@ -2,6 +2,8 @@
  * RecurringListHeader - Header with sort buttons for the RecurringList
  */
 
+import { useDataMonth, formatMonthShort } from '../../context/MonthTransitionContext';
+
 type SortField = 'due_date' | 'amount' | 'name' | 'monthly';
 type SortDirection = 'asc' | 'desc';
 
@@ -50,6 +52,9 @@ export const COLUMN_WIDTHS = {
 } as const;
 
 export function RecurringListHeader({ sortField, sortDirection, onSort }: RecurringListHeaderProps) {
+  const dataMonth = useDataMonth();
+  const monthLabel = formatMonthShort(dataMonth);
+
   return (
     <thead>
       <tr className="bg-monarch-bg-page border-b border-monarch-border">
@@ -74,7 +79,7 @@ export function RecurringListHeader({ sortField, sortDirection, onSort }: Recurr
         <th className={`py-3 px-4 text-right ${COLUMN_WIDTHS.budget}`}>
           <SortButton
             field="monthly"
-            label={`${new Date().toLocaleDateString('en-US', { month: 'short' })}. Budget`}
+            label={`${monthLabel}. Budget`}
             currentField={sortField}
             direction={sortDirection}
             onClick={onSort}

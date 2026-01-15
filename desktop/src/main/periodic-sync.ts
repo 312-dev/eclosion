@@ -11,7 +11,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { BackendManager } from './backend';
 import { getStoredPassphrase } from './biometric';
-import { showNotification, updateTrayMenu, updateHealthStatus, isAuthError, showReauthNotification } from './tray';
+import { updateTrayMenu, updateHealthStatus, isAuthError, showReauthNotification } from './tray';
 import { debugLog as log } from './logger';
 import { getStateDir } from './paths';
 
@@ -206,14 +206,11 @@ async function executePeriodicSync(): Promise<void> {
       const syncTime = new Date().toLocaleTimeString();
       debugLog(`Periodic sync completed at ${syncTime}`);
 
-      // Update tray menu with sync time
+      // Update tray menu with sync time (no notification - background syncs are silent)
       if (syncClickHandler) {
         updateTrayMenu(syncClickHandler, `Last sync: ${syncTime}`);
       }
       updateHealthStatus(true, syncTime);
-
-      // Show notification (subtle, non-intrusive)
-      showNotification('Sync Complete', 'Your recurring expenses are up to date.');
     } else {
       debugLog(`Periodic sync failed: ${result.error}`);
       // Check if this is an auth error (session expired, MFA needed)

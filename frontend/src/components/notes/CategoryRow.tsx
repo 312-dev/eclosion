@@ -13,8 +13,9 @@ import { RevisionHistoryModal } from './RevisionHistoryModal';
 import { InheritanceWarningInline } from './InheritanceWarningInline';
 import { useSaveCategoryNoteMutation, useDeleteCategoryNoteMutation } from '../../api/queries';
 import { useCheckboxState, useInheritanceWarning } from '../../hooks';
-import { decodeHtmlEntities, spacifyEmoji } from '../../utils';
+import { decodeHtmlEntities, spacifyEmoji, handleApiError } from '../../utils';
 import { useNotesEditorOptional } from '../../context/NotesEditorContext';
+import { useToast } from '../../context/ToastContext';
 import type { CategoryWithNotes, MonthKey } from '../../types/notes';
 
 interface CategoryRowProps {
@@ -39,6 +40,7 @@ export function CategoryRow({ category, groupId, groupName, currentMonth }: Cate
   const [showHistory, setShowHistory] = useState(false);
   const lastSavedRef = useRef(noteContent);
   const notesEditor = useNotesEditorOptional();
+  const toast = useToast();
 
   const saveMutation = useSaveCategoryNoteMutation();
   const deleteMutation = useDeleteCategoryNoteMutation();
@@ -113,11 +115,11 @@ export function CategoryRow({ category, groupId, groupName, currentMonth }: Cate
       setIsEditing(false);
       notesEditor?.closeEditor();
     } catch (err) {
-      console.error('Failed to save note:', err);
+      toast.error(handleApiError(err, 'Failed to save note'));
     } finally {
       setIsSaving(false);
     }
-  }, [content, effectiveNote.note?.id, category.id, category.name, groupId, groupName, currentMonth, saveMutation, deleteMutation, notesEditor]);
+  }, [content, effectiveNote.note?.id, category.id, category.name, groupId, groupName, currentMonth, saveMutation, deleteMutation, notesEditor, toast]);
 
   // Save function - checks inheritance impact first
   const saveNote = useCallback(async () => {

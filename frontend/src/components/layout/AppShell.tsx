@@ -21,6 +21,7 @@ import { UpdateBanner } from '../UpdateBanner';
 import { UpdateReadyBanner, UpdateErrorBanner, DownloadProgressBanner } from '../update';
 import { OfflineIndicator } from '../OfflineIndicator';
 import { RateLimitBanner } from '../ui/RateLimitBanner';
+import { MonthTransitionBanner } from '../ui/MonthTransitionBanner';
 import { WhatsNewModal } from '../WhatsNewModal';
 import { NoticeBanner } from '../ui/NoticeBanner';
 import { SecurityAlertBanner } from '../SecurityAlertBanner';
@@ -251,6 +252,7 @@ export function AppShell() {
           <DownloadProgressBanner />
           <UpdateReadyBanner />
           <UpdateErrorBanner />
+          <MonthTransitionBanner />
           <RateLimitBanner />
           <OfflineIndicator />
         </div>

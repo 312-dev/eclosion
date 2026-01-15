@@ -12,6 +12,7 @@ import { Tooltip } from './ui/Tooltip';
 import type { ReadyToAssign } from '../types';
 import { ExternalLinkIcon } from './icons';
 import { UI } from '../constants';
+import { useDataMonth, formatMonthShort } from '../context/MonthTransitionContext';
 
 interface LeftToBudgetBadgeProps {
   data: ReadyToAssign | null;
@@ -20,6 +21,8 @@ interface LeftToBudgetBadgeProps {
 export function LeftToBudgetBadge({ data }: LeftToBudgetBadgeProps) {
   const [shouldShake, setShouldShake] = useState(false);
   const prevValueRef = useRef<number | null>(null);
+  const dataMonth = useDataMonth();
+  const monthLabel = formatMonthShort(dataMonth);
 
   const isPositive = data ? data.ready_to_assign >= 0 : true;
 
@@ -68,7 +71,7 @@ export function LeftToBudgetBadge({ data }: LeftToBudgetBadgeProps) {
           className="text-[10px] leading-tight flex items-center gap-0.5"
           style={{ color: isPositive ? 'var(--monarch-success)' : 'var(--monarch-error)', opacity: 0.85 }}
         >
-          Left to budget in {new Date().toLocaleDateString('en-US', { month: 'short' })}
+          Left to budget in {monthLabel}
           <ExternalLinkIcon size={8} strokeWidth={2.5} />
         </span>
       </a>

@@ -5,8 +5,10 @@
  * Used by UpdateReadyBanner to show what's new in an update.
  */
 
+import { useMemo } from 'react';
 import { Sparkles, ExternalLink } from 'lucide-react';
 import { Modal } from '../ui/Modal';
+import { sanitizeHtml } from '../../utils';
 
 export interface ReleaseNotesModalProps {
   /** Whether the modal is open */
@@ -30,6 +32,9 @@ export function ReleaseNotesModal({
 }: ReleaseNotesModalProps) {
   const isBeta = version.includes('-beta');
   const githubUrl = `https://github.com/monarchmoney/eclosion/releases/tag/v${version}`;
+
+  // Sanitize HTML to prevent XSS from external content
+  const sanitizedNotes = useMemo(() => sanitizeHtml(releaseNotes), [releaseNotes]);
 
   return (
     <Modal
@@ -74,7 +79,7 @@ export function ReleaseNotesModal({
       <div
         className="release-notes-content text-sm leading-relaxed"
         style={{ color: 'var(--monarch-text)' }}
-        dangerouslySetInnerHTML={{ __html: releaseNotes }}
+        dangerouslySetInnerHTML={{ __html: sanitizedNotes }}
       />
     </Modal>
   );

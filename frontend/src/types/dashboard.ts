@@ -51,6 +51,7 @@ export interface DashboardData {
   summary: DashboardSummary;
   config: DashboardConfig;
   last_sync: string | null;
+  data_month: string; // YYYY-MM format, e.g., "2026-01"
   ready_to_assign: ReadyToAssign;
   rollup: RollupData;
   notices: RemovedItemNotice[];

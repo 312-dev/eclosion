@@ -69,6 +69,29 @@ If you forget your passphrase:
 - Your passphrase is kept in server memory only during active sessions
 - When the server restarts, you'll need to re-enter your passphrase
 - You can manually lock your session at any time
+- Sessions automatically expire after 30 minutes of inactivity (configurable)
+
+### Session Storage Details
+
+During an active session, your passphrase is stored in the Flask session cookie to enable credential decryption for API calls. This is a security/convenience trade-off:
+
+**How it works:**
+- Flask session cookies are signed and encrypted using the server's `SESSION_SECRET`
+- The passphrase is transmitted in encrypted form with each request
+- The server decrypts the session to access the passphrase when needed
+
+**Mitigations:**
+- Session cookies are `HttpOnly` and `Secure` (HTTPS only in production)
+- Sessions expire after inactivity
+- The `SESSION_SECRET` must be a strong, random value (generated at first run)
+- Locking your session immediately clears the passphrase from the cookie
+
+**Why this design:**
+- Avoids storing the passphrase in plaintext on the server filesystem
+- Enables stateless server restarts (session survives server bounce via cookie)
+- Follows Flask's standard session management pattern
+
+For maximum security, you can reduce `SESSION_TIMEOUT_MINUTES` in your environment configuration or manually lock your session when stepping away.
 
 ## Self-Hosting
 

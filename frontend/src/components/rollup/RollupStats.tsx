@@ -10,12 +10,8 @@ import { StatusBadge } from '../ui';
 import { TrendUpIcon, TrendDownIcon } from '../icons';
 import { formatCurrency } from '../../utils';
 import { useIsRateLimited } from '../../context/RateLimitContext';
+import { useDataMonth, formatMonthShort } from '../../context/MonthTransitionContext';
 import type { ItemStatus } from '../../types';
-
-/** Get current month abbreviation (e.g., "Jan", "Feb") */
-function getCurrentMonthAbbrev(): string {
-  return new Date().toLocaleDateString('en-US', { month: 'short' });
-}
 
 interface RollupStatsProps {
   readonly totalMonthly: number;
@@ -46,6 +42,8 @@ export function RollupStats({
 }: RollupStatsProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const isRateLimited = useIsRateLimited();
+  const dataMonth = useDataMonth();
+  const monthLabel = formatMonthShort(dataMonth);
 
   // Disable input when updating or rate limited
   const isDisabled = isUpdatingBudget || isRateLimited;
@@ -69,7 +67,7 @@ export function RollupStats({
     <div className="flex items-end gap-4 shrink-0" onClick={(e) => e.stopPropagation()}>
       {/* Budgeted - right-aligned like dedicated categories */}
       <div className="flex flex-col items-end">
-        <span className="text-xs text-monarch-text-muted">{getCurrentMonthAbbrev()}. Budget</span>
+        <span className="text-xs text-monarch-text-muted">{monthLabel}. Budget</span>
         <div className="flex items-center whitespace-nowrap rounded bg-monarch-bg-card border border-monarch-border px-2 py-1 focus-within:border-monarch-orange">
           <span className="font-medium text-monarch-text-dark">$</span>
           <input

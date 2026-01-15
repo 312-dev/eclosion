@@ -19,6 +19,7 @@ import { UI } from '../../constants';
 import { SpinnerIcon, ArrowUpIcon } from '../icons';
 import { useAsyncAction, useItemDisplayStatus } from '../../hooks';
 import { useIsRateLimited } from '../../context/RateLimitContext';
+import { useDataMonth, formatMonthShort } from '../../context/MonthTransitionContext';
 
 interface RecurringCardProps {
   readonly item: RecurringItem;
@@ -59,6 +60,8 @@ export const RecurringCard = memo(function RecurringCard({
   const addToRollupAction = useAsyncAction();
   const refreshAction = useAsyncAction();
   const isRateLimited = useIsRateLimited();
+  const dataMonth = useDataMonth();
+  const monthLabel = formatMonthShort(dataMonth);
 
   const cardRef = useRef<HTMLElement>(null);
   const [isHighlighted, setIsHighlighted] = useState(false);
@@ -211,7 +214,7 @@ export const RecurringCard = memo(function RecurringCard({
           </div>
           <div className="flex flex-col items-end">
             <span className="text-xs text-monarch-text-light mb-1">
-              {new Date().toLocaleDateString('en-US', { month: 'short' })}. Budget
+              {monthLabel}. Budget
             </span>
             <RecurringItemBudget
               item={item}

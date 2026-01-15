@@ -61,3 +61,5 @@ export {
   convertEffectiveGeneralNote,
   hasAnyNotes,
 } from './notesTransform';
+
+export { sanitizeHtml } from './sanitizeHtml';

@@ -1383,6 +1383,7 @@ function createDashboardData(items: RecurringItem[]): DashboardData {
       user_first_name: 'Demo User',
     },
     last_sync: new Date().toISOString(),
+    data_month: new Date().toISOString().slice(0, 7),
     ready_to_assign: {
       ready_to_assign: 523.47,
       planned_income: 5000,
