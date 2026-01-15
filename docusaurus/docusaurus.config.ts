@@ -13,10 +13,15 @@ const stableVersions: string[] = fs.existsSync(path.join(__dirname, 'versions.js
   ? JSON.parse(fs.readFileSync(path.join(__dirname, 'versions.json'), 'utf-8')).filter((v: string) => !v.includes('beta'))
   : [];
 
+// Check if we have any versioned snapshots
+const hasVersionedDocs = stableVersions.length > 0;
+
 // Beta site: Shows only current docs labeled with the pre-release version
 // Stable site: Shows versioned docs from versions.json (1.0, 1.1, etc.)
-const includedVersions = isBetaSite ? ['current'] : stableVersions;
+// If no versioned docs exist yet (first stable release), fall back to current docs
+const includedVersions = isBetaSite ? ['current'] : (hasVersionedDocs ? stableVersions : ['current']);
 const lastVersion = isBetaSite ? 'current' : (stableVersions[0] || 'current');
+const includeCurrentDocs = isBetaSite || !hasVersionedDocs;
 
 const config: Config = {
   title: 'Eclosion',
@@ -83,14 +88,15 @@ const config: Config = {
           // Versioning configuration
           // Beta site: Shows only current docs labeled with pre-release version (no version dropdown)
           // Stable site: Shows versioned docs with version dropdown
+          // First stable release: Falls back to current docs if no versioned snapshots exist
           lastVersion,
           onlyIncludeVersions: includedVersions,
           versions: {
-            // Current docs - only define when building beta site
+            // Current docs - define when building beta site OR first stable release (no versions yet)
             // (Docusaurus fails if versions config references versions not in onlyIncludeVersions)
-            ...(isBetaSite && {
+            ...(includeCurrentDocs && {
               current: {
-                label: betaVersion || 'Next',
+                label: isBetaSite ? (betaVersion || 'Next') : 'Latest',
                 path: '',
                 banner: 'none',
               },
@@ -100,7 +106,7 @@ const config: Config = {
               stableVersions.map(v => [v, { label: v, banner: 'none' as const }])
             ),
           },
-          includeCurrentVersion: isBetaSite, // Only include current on beta site
+          includeCurrentVersion: includeCurrentDocs, // Include current on beta OR first stable release
         },
         blog: false,
         theme: {
