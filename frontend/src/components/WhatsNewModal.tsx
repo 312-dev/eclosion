@@ -91,7 +91,7 @@ export function WhatsNewModal() {
 
   // Filter changelog entries to only show versions newer than last read
   const unreadEntries = useMemo(() => {
-    if (!entries || !changelogStatus) return [];
+    if (!entries || !changelogStatus || !current) return [];
 
     // If no last read version, this is first time - show only current version
     if (!lastRead) {
