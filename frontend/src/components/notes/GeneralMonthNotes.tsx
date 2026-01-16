@@ -111,15 +111,15 @@ function GeneralMonthNotesInner({ monthKey, effectiveNote, dataTourId }: General
 
     try {
       // If content is empty and there was a note, delete it
-      if (!trimmedContent) {
+      if (trimmedContent) {
+        // Save the note
+        await saveMutation.mutateAsync({ monthKey, content: trimmedContent });
+        lastSavedRef.current = trimmedContent;
+      } else {
         if (note) {
           await deleteMutation.mutateAsync(monthKey);
           lastSavedRef.current = '';
         }
-      } else {
-        // Save the note
-        await saveMutation.mutateAsync({ monthKey, content: trimmedContent });
-        lastSavedRef.current = trimmedContent;
       }
       setIsEditing(false);
       notesEditor?.closeEditor();

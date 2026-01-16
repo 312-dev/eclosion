@@ -270,12 +270,12 @@ const HTML_ENTITIES: Record<string, string> = {
 export function decodeHtmlEntities(text: string): string {
   if (!text?.includes('&')) return text;
 
-  return text.replace(/&(#?\w+);/g, (match, entity: string) => {
+  return text.replaceAll(/&(#?\w+);/g, (match, entity: string) => {
     // Numeric entity: &#123; or &#x7B;
     if (entity.startsWith('#')) {
       const code = entity.startsWith('#x')
-        ? parseInt(entity.slice(2), 16)
-        : parseInt(entity.slice(1), 10);
+        ? Number.parseInt(entity.slice(2), 16)
+        : Number.parseInt(entity.slice(1), 10);
       return Number.isNaN(code) ? match : String.fromCodePoint(code);
     }
     // Named entity: &amp;, &lt;, etc.

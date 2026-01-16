@@ -18,8 +18,8 @@ const IDEAS_GITHUB_URL = 'https://raw.githubusercontent.com/312-dev/eclosion/mai
 
 // Detect if we're in local development (localhost or 127.0.0.1)
 const isLocalDev =
-  typeof window !== 'undefined' &&
-  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+  typeof globalThis.window !== 'undefined' &&
+  (globalThis.location.hostname === 'localhost' || globalThis.location.hostname === '127.0.0.1');
 
 export function IdeasBoard() {
   const [ideas, setIdeas] = useState<PublicIdea[]>([]);

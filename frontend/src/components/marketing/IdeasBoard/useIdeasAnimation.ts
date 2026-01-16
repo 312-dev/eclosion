@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- Complex animation state machine for landing page demo */
 /**
  * useIdeasAnimation Hook
  *
@@ -23,13 +24,9 @@ import {
   easeInQuad,
   shuffleArray,
   generateRandomDeveloper,
-  getUsernameForIdea,
-  getAvatarUrlForIdea,
 } from './ideasAnimationUtils';
 
 // Re-export for external use
-export type { DeveloperContributor };
-export { getUsernameForIdea, getAvatarUrlForIdea };
 
 export type AnimationPhase =
   | 'stacking' // Drop in ideas one at a time
@@ -361,3 +358,9 @@ export function useIdeasAnimation(ideas: PublicIdea[]): UseIdeasAnimationReturn 
     resume,
   };
 }
+
+export {
+  getUsernameForIdea,
+  getAvatarUrlForIdea,
+  type DeveloperContributor,
+} from './ideasAnimationUtils';

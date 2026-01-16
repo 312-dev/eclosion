@@ -47,16 +47,16 @@ function formatSourceMonth(monthKey: string): string {
 function renderMarkdown(content: string): string {
   /* eslint-disable sonarjs/slow-regex -- Using negated char classes to prevent backtracking */
   return content
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*([^*]+)\*/g, '<em>$1</em>')
-    .replace(
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replaceAll(/\*([^*]+)\*/g, '<em>$1</em>')
+    .replaceAll(
       /\[([^\]]+)\]\(([^)]+)\)/g,
       '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-(--monarch-orange) hover:underline">$1</a>'
     )
-    .replace(/\n/g, '<br />');
+    .replaceAll('\n', '<br />');
   /* eslint-enable sonarjs/slow-regex */
 }
 

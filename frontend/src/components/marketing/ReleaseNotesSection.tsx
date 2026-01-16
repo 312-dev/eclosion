@@ -75,10 +75,10 @@ function getExpandedContent(body: string): string {
 function markdownToText(markdown: string): string {
   /* eslint-disable sonarjs/slow-regex -- Already using negated char classes to prevent backtracking */
   return markdown
-    .replace(/\*\*([^*]+)\*\*/g, '$1') // Bold
-    .replace(/\*([^*]+)\*/g, '$1') // Italic
-    .replace(/`([^`]+)`/g, '$1') // Code
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // Links
+    .replaceAll(/\*\*([^*]+)\*\*/g, '$1') // Bold
+    .replaceAll(/\*([^*]+)\*/g, '$1') // Italic
+    .replaceAll(/`([^`]+)`/g, '$1') // Code
+    .replaceAll(/\[([^\]]+)\]\([^)]+\)/g, '$1') // Links
     .trim();
   /* eslint-enable sonarjs/slow-regex */
 }
@@ -94,53 +94,53 @@ function markdownToHtml(markdown: string): string {
   // This ensures they get grouped into a single <ul>
   const normalized = markdown
     // Collapse multiple blank lines between list items into single newlines
-    .replace(/^([-*] .+)\n+(?=[-*] )/gm, '$1\n');
+    .replaceAll(/^([-*] .+)\n+(?=[-*] )/gm, '$1\n');
 
   let html = normalized
     // Escape HTML entities first
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
     // Headers (## heading)
-    .replace(
+    .replaceAll(
       /^### (.+)$/gm,
       '<h4 class="font-semibold text-(--monarch-text-dark) mt-3 mb-1">$1</h4>'
     )
-    .replace(
+    .replaceAll(
       /^## (.+)$/gm,
       '<h3 class="font-semibold text-(--monarch-text-dark) mt-3 mb-1">$1</h3>'
     )
     /* eslint-disable sonarjs/slow-regex -- Already using negated char classes */
     // Bold (**text**)
-    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replaceAll(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
     // Italic (*text*)
-    .replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<em>$1</em>')
+    .replaceAll(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<em>$1</em>')
     // Inline code (`code`)
-    .replace(
+    .replaceAll(
       /`([^`]+)`/g,
       '<code class="bg-(--monarch-bg-hover) px-1 py-0.5 rounded text-xs font-mono">$1</code>'
     )
     // Links [text](url)
-    .replace(
+    .replaceAll(
       /\[([^\]]+)\]\(([^)]+)\)/g,
       '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-(--monarch-orange) hover:underline">$1</a>'
     )
     /* eslint-enable sonarjs/slow-regex */
     // Unordered list items (- item or * item)
-    .replace(/^[-*] (.+)$/gm, '<li>$1</li>')
+    .replaceAll(/^[-*] (.+)$/gm, '<li>$1</li>')
     // Wrap consecutive li elements in ul (now they should be consecutive after normalization)
-    .replace(/(<li>.*<\/li>\n?)+/g, '<ul class="list-disc pl-5 space-y-1 my-2">$&</ul>')
+    .replaceAll(/(<li>.*<\/li>\n?)+/g, '<ul class="list-disc pl-5 space-y-1 my-2">$&</ul>')
     // Clean up newlines inside ul tags (between li elements)
-    .replace(/<\/li>\n<li>/g, '</li><li>')
+    .replaceAll('</li>\n<li>', '</li><li>')
     // Blockquotes (> text)
-    .replace(
+    .replaceAll(
       /^&gt; (.+)$/gm,
       '<blockquote class="border-l-2 border-(--monarch-border) pl-3 italic text-(--monarch-text-muted)">$1</blockquote>'
     )
     // Line breaks - convert double newlines to paragraph breaks
-    .replace(/\n\n+/g, '</p><p class="my-1">')
+    .replaceAll(/\n\n+/g, '</p><p class="my-1">')
     // Single newlines (not inside lists) - be more selective
-    .replace(/\n/g, ' ');
+    .replaceAll('\n', ' ');
 
   // Wrap in paragraph if not already wrapped
   if (!html.startsWith('<')) {

@@ -131,18 +131,18 @@ function processInlineMarkdown(text: string): string {
 
   /* eslint-disable sonarjs/slow-regex -- Using negated char classes to prevent backtracking */
   // Bold
-  result = result.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-  result = result.replace(/__([^_]+)__/g, '<strong>$1</strong>');
+  result = result.replaceAll(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  result = result.replaceAll(/__([^_]+)__/g, '<strong>$1</strong>');
 
   // Italic
-  result = result.replace(/\*([^*]+)\*/g, '<em>$1</em>');
-  result = result.replace(/_([^_]+)_/g, '<em>$1</em>');
+  result = result.replaceAll(/\*([^*]+)\*/g, '<em>$1</em>');
+  result = result.replaceAll(/_([^_]+)_/g, '<em>$1</em>');
 
   // Inline code
-  result = result.replace(/`([^`]+)`/g, '<code>$1</code>');
+  result = result.replaceAll(/`([^`]+)`/g, '<code>$1</code>');
 
   // Links
-  result = result.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+  result = result.replaceAll(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
   /* eslint-enable sonarjs/slow-regex */
 
   return result;
@@ -216,7 +216,7 @@ function renderMarkdownToHtml(markdown: string, checkboxStates: boolean[]): stri
   let html = processedLines.join('\n');
 
   // Wrap consecutive <li> elements in <ul>
-  html = html.replace(/(<li>.*?<\/li>\n?)+/g, (match) => `<ul>${match}</ul>`);
+  html = html.replaceAll(/(<li>.*?<\/li>\n?)+/g, (match) => `<ul>${match}</ul>`);
 
   return html;
 }
@@ -277,7 +277,7 @@ export function buildExportHtml(
 ): string {
   const isSingleMonth = monthRange.length === 1;
   const firstMonth = monthRange[0] ?? '';
-  const lastMonth = monthRange[monthRange.length - 1] ?? '';
+  const lastMonth = monthRange.at(-1) ?? '';
   const title = isSingleMonth
     ? `Notes for ${formatMonth(firstMonth)}`
     : `Notes for ${formatMonthShort(firstMonth)} - ${formatMonthShort(lastMonth)}`;

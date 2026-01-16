@@ -12,7 +12,7 @@ interface FinishStepProps {
 }
 
 export function FinishStep({ canInstall, isInstalled, isIOS, onInstall }: FinishStepProps) {
-  const baseUrl = window.location.origin;
+  const baseUrl = globalThis.location.origin;
 
   return (
     <div className="text-center animate-fade-in">

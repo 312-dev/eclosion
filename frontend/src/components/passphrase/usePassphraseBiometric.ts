@@ -141,9 +141,9 @@ export function usePassphraseBiometric({
   ]);
 
   const storePassphraseForSync = useCallback(async (passphrase: string): Promise<void> => {
-    if (!window.electron?.biometric) return;
+    if (!globalThis.electron?.biometric) return;
     try {
-      await window.electron.biometric.storeForSync(passphrase);
+      await globalThis.electron.biometric.storeForSync(passphrase);
     } catch {
       // Don't block unlock flow if storage fails
     }
@@ -151,12 +151,12 @@ export function usePassphraseBiometric({
 
   const offerBiometricEnrollment = useCallback(
     async (passphrase: string): Promise<void> => {
-      if (!window.electron || !biometric.available || biometric.enrolled || biometric.loading) {
+      if (!globalThis.electron || !biometric.available || biometric.enrolled || biometric.loading) {
         return;
       }
 
       try {
-        const confirmed = await window.electron.showConfirmDialog({
+        const confirmed = await globalThis.electron.showConfirmDialog({
           title: `Enable ${biometric.displayName}?`,
           message: `Would you like to use ${biometric.displayName} to unlock Eclosion in the future?`,
           detail:
@@ -168,7 +168,7 @@ export function usePassphraseBiometric({
         if (confirmed) {
           const success = await biometric.enroll(passphrase);
           if (!success) {
-            await window.electron.showErrorDialog({
+            await globalThis.electron.showErrorDialog({
               title: 'Enrollment Failed',
               content: `Could not enable ${biometric.displayName}. You can try again from Settings.`,
             });

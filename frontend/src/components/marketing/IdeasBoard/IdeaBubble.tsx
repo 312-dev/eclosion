@@ -298,7 +298,7 @@ export function IdeaBubble({
       {/* Progress bar - shows during dev cycle */}
       {(showDevFeatures || isInDevCycle) && (
         <div
-          className={`h-2 rounded-full bg-(--monarch-bg-page) overflow-hidden ${!isInDevCycle ? 'mt-3 morph-element-in' : ''}`}
+          className={`h-2 rounded-full bg-(--monarch-bg-page) overflow-hidden ${isInDevCycle ? '' : 'mt-3 morph-element-in'}`}
         >
           <div
             className="h-full rounded-full transition-all duration-100 ease-out"

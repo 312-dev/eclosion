@@ -68,7 +68,7 @@ export function FrequencyGroup({
             {formatFrequency(frequency)}
           </span>
           <span className="text-sm ml-2" style={{ color: 'var(--monarch-text-muted)' }}>
-            ({items.length} item{items.length !== 1 ? 's' : ''})
+            ({items.length} item{items.length === 1 ? '' : 's'})
           </span>
         </div>
 

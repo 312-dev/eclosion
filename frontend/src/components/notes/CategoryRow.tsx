@@ -97,13 +97,7 @@ export function CategoryRow({ category, groupId, groupName, currentMonth }: Cate
 
     try {
       // If content is empty and there was a note, delete it
-      if (!trimmedContent) {
-        const noteId = effectiveNote.note?.id;
-        if (noteId) {
-          await deleteMutation.mutateAsync(noteId);
-          lastSavedRef.current = '';
-        }
-      } else {
+      if (trimmedContent) {
         // Save the note
         await saveMutation.mutateAsync({
           categoryType: 'category',
@@ -115,6 +109,12 @@ export function CategoryRow({ category, groupId, groupName, currentMonth }: Cate
           content: trimmedContent,
         });
         lastSavedRef.current = trimmedContent;
+      } else {
+        const noteId = effectiveNote.note?.id;
+        if (noteId) {
+          await deleteMutation.mutateAsync(noteId);
+          lastSavedRef.current = '';
+        }
       }
       setIsEditing(false);
       notesEditor?.closeEditor();

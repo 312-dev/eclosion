@@ -23,9 +23,9 @@ export function LogViewerSection() {
   const contentRef = useRef<HTMLPreElement>(null);
 
   const fetchLogFiles = useCallback(async () => {
-    if (!window.electron) return;
+    if (!globalThis.electron) return;
     try {
-      const files = await window.electron.getLogFiles();
+      const files = await globalThis.electron.getLogFiles();
       setLogFiles(files);
       // Auto-select first file if none selected
       if (!selectedFile && files.length > 0) {
@@ -37,10 +37,10 @@ export function LogViewerSection() {
   }, [selectedFile]);
 
   const fetchLogContent = useCallback(async () => {
-    if (!window.electron || !selectedFile) return;
+    if (!globalThis.electron || !selectedFile) return;
     setLoading(true);
     try {
-      const content = await window.electron.readLogFile(selectedFile.path, {
+      const content = await globalThis.electron.readLogFile(selectedFile.path, {
         lines: MAX_LINES,
         ...(searchTerm ? { search: searchTerm } : {}),
       });
@@ -57,7 +57,7 @@ export function LogViewerSection() {
   }, [selectedFile, searchTerm]);
 
   useEffect(() => {
-    if (window.electron && expanded) {
+    if (globalThis.electron && expanded) {
       fetchLogFiles();
     }
   }, [fetchLogFiles, expanded]);
@@ -82,7 +82,7 @@ export function LogViewerSection() {
   };
 
   // Don't render if not in desktop mode
-  if (!window.electron) return null;
+  if (!globalThis.electron) return null;
 
   return (
     <section className="mb-8">

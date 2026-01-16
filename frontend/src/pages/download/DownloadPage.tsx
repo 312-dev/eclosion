@@ -166,7 +166,7 @@ export function DownloadPage() {
           // Only actually download if under rate limit
           if (canAutoDownload) {
             recordDownload();
-            window.location.href = downloadUrl;
+            globalThis.location.href = downloadUrl;
           }
         }, 5000);
 

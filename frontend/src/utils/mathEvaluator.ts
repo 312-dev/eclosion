@@ -45,7 +45,7 @@ function tokenize(expr: string): Token[] | null {
         i++;
       }
 
-      const value = parseFloat(numStr);
+      const value = Number.parseFloat(numStr);
       if (isNaN(value)) return null;
       tokens.push({ type: 'number', value });
       continue;
@@ -204,7 +204,7 @@ class Parser {
 export function evaluateMathExpression(expression: string): number | null {
   // Normalize: replace 'x' or 'X' with '*' for multiplication
   // (allows $85x2 since * conflicts with markdown bold/italic)
-  const normalized = expression.replace(/x/gi, '*');
+  const normalized = expression.replaceAll(/x/gi, '*');
 
   // Quick validation - only allowed characters
   if (!/^[\d.+\-*/()\s]+$/.test(normalized)) {

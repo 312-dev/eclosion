@@ -33,9 +33,9 @@ import { useAuth } from '../context/AuthContext';
  */
 function isElectronDesktop(): boolean {
   return (
-    typeof window !== 'undefined' &&
-    'electron' in window &&
-    window.electron?.credentials !== undefined
+    typeof globalThis.window !== 'undefined' &&
+    'electron' in globalThis &&
+    globalThis.electron?.credentials !== undefined
   );
 }
 

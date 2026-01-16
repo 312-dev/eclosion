@@ -273,7 +273,7 @@ export function StartupLoadingScreen({
         {/* Timeout action */}
         {isTimedOut && (
           <button
-            onClick={() => window.location.reload()}
+            onClick={() => globalThis.location.reload()}
             className="mt-4 px-4 py-2 rounded-lg font-medium transition-colors btn-press"
             style={{
               backgroundColor: 'var(--monarch-orange)',
