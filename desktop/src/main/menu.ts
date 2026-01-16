@@ -14,6 +14,7 @@ import { exportDiagnostics, getQuickDebugInfo } from './diagnostics';
 import { createBackup, restoreBackup, getBackupWarning, getRestoreWarning } from './backup';
 import { lockApp } from './lock-manager';
 import { checkForUpdates } from './updater';
+import { getStore } from './store';
 
 /**
  * Callback for sync action (set by createAppMenu).
@@ -38,6 +39,13 @@ function isBetaBuild(): boolean {
     app.getName().toLowerCase().includes('beta') ||
     process.env.RELEASE_CHANNEL === 'beta'
   );
+}
+
+/**
+ * Check if developer mode is enabled in settings.
+ */
+function isDeveloperMode(): boolean {
+  return getStore().get('settings.developerMode', false);
 }
 
 /**
@@ -328,8 +336,8 @@ export function createAppMenu(onSync?: () => Promise<void>): void {
     {
       label: 'View',
       submenu: [
-        // Developer tools available in development builds and beta releases
-        ...(!app.isPackaged || isBetaBuild()
+        // Developer tools available in development builds, beta releases, or when developer mode is enabled
+        ...(!app.isPackaged || isBetaBuild() || isDeveloperMode()
           ? [
               { role: 'reload' as const },
               { role: 'forceReload' as const },

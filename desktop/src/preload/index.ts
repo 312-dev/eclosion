@@ -136,26 +136,6 @@ const electronAPI = {
   quitAndInstall: (): Promise<void> => ipcRenderer.invoke('quit-and-install'),
 
   /**
-   * Check if auto-update is enabled.
-   * When disabled, updates are shown but not auto-downloaded.
-   */
-  getAutoUpdateEnabled: (): Promise<boolean> => ipcRenderer.invoke('get-auto-update-enabled'),
-
-  /**
-   * Enable or disable auto-update.
-   * When enabled, updates are automatically downloaded and installed on quit.
-   */
-  setAutoUpdateEnabled: (enabled: boolean): Promise<boolean> =>
-    ipcRenderer.invoke('set-auto-update-enabled', enabled),
-
-  /**
-   * Manually download an available update.
-   * Use when auto-update is disabled but user wants to update.
-   */
-  downloadUpdate: (): Promise<{ success: boolean; error?: string }> =>
-    ipcRenderer.invoke('download-update'),
-
-  /**
    * Listen for update events.
    */
   onUpdateAvailable: (callback: (info: unknown) => void): (() => void) => {
@@ -1034,6 +1014,23 @@ const electronAPI = {
      */
     setMinimal: (): Promise<void> => ipcRenderer.invoke('menu:set-minimal'),
   },
+
+  // =========================================================================
+  // Developer Mode
+  // =========================================================================
+
+  /**
+   * Get developer mode setting.
+   * When enabled, View menu shows Reload, Force Reload, and Toggle DevTools.
+   */
+  getDeveloperMode: (): Promise<boolean> => ipcRenderer.invoke('get-developer-mode'),
+
+  /**
+   * Set developer mode setting.
+   * Rebuilds the menu to show/hide developer tools.
+   */
+  setDeveloperMode: (enabled: boolean): Promise<boolean> =>
+    ipcRenderer.invoke('set-developer-mode', enabled),
 };
 
 // Expose the API to the renderer process

@@ -73,6 +73,9 @@ export interface StoreSchema {
   'desktop.showInTaskbar': boolean;
   'desktop.globalShortcut': string;
 
+  // Developer settings
+  'settings.developerMode': boolean;
+
   // Legacy desktop settings
   /** @deprecated Use desktop.closeToTray and desktop.showInDock instead */
   menuBarMode: boolean;
@@ -107,6 +110,13 @@ export interface StoreSchema {
   'autoBackup.folderPath': string;
   'autoBackup.retentionDays': number;
   'autoBackup.lastBackupDate': string;
+
+  // Crash recovery state
+  'crashRecovery.crashCount': number;
+  'crashRecovery.lastCrashTime': number;
+  'crashRecovery.currentVersion': string;
+  'crashRecovery.lastStableVersion': string;
+  'crashRecovery.versionAtFirstCrash': string | null;
 }
 
 /**

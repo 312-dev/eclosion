@@ -88,8 +88,8 @@ export interface DesktopSettings {
   closeToTray: boolean;
 
   // Visibility
-  showInDock: boolean;      // macOS only
-  showInTaskbar: boolean;   // Windows only (future)
+  showInDock: boolean; // macOS only
+  showInTaskbar: boolean; // Windows only (future)
 
   // Shortcut
   globalShortcut: string;
@@ -126,7 +126,12 @@ export interface BackendStatusChange {
   timestamp: string;
 }
 
-export type BackendStartupPhase = 'initializing' | 'spawning' | 'waiting_for_health' | 'ready' | 'failed';
+export type BackendStartupPhase =
+  | 'initializing'
+  | 'spawning'
+  | 'waiting_for_health'
+  | 'ready'
+  | 'failed';
 
 export interface BackendStartupStatus {
   phase: BackendStartupPhase;
@@ -214,13 +219,7 @@ export type BiometricType = 'touchId' | 'windowsHello' | null;
 
 // Lock Management Types
 
-export type LockTrigger =
-  | 'system-lock'
-  | 'idle-1'
-  | 'idle-5'
-  | 'idle-15'
-  | 'idle-30'
-  | 'never';
+export type LockTrigger = 'system-lock' | 'idle-1' | 'idle-5' | 'idle-15' | 'idle-30' | 'never';
 
 export interface LockOption {
   value: LockTrigger;
@@ -482,6 +481,10 @@ export interface ElectronAPI {
   getStateDir: () => Promise<string>;
   revealDataFolder: () => Promise<void>;
 
+  // Developer Mode
+  getDeveloperMode: () => Promise<boolean>;
+  setDeveloperMode: (enabled: boolean) => Promise<void>;
+
   // Log Viewer
   getLogFiles: () => Promise<LogFileInfo[]>;
   readLogFile: (filePath: string, options?: ReadLogOptions) => Promise<LogFileContent>;
@@ -571,7 +574,10 @@ export interface ReauthAPI {
   /** Listen for MFA required events during session restore (e.g., 6-digit code users on restart) */
   onMfaRequired: (callback: (data: MfaRequiredData) => void) => () => void;
   /** Submit MFA code to complete session restore */
-  submitMfaCode: (mfaCode: string, mfaMode: 'secret' | 'code') => Promise<{ success: boolean; error?: string }>;
+  submitMfaCode: (
+    mfaCode: string,
+    mfaMode: 'secret' | 'code'
+  ) => Promise<{ success: boolean; error?: string }>;
 }
 
 /** Window mode for compact (loading/login) vs full (main app) views */

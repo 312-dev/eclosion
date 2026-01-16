@@ -84,7 +84,7 @@ import {
   showReauthNotification,
 } from './tray';
 import { setupIpcHandlers, createLoadingReadyPromise } from './ipc';
-import { initializeUpdater, scheduleUpdateChecks, offerUpdateOnStartupFailure } from './updater';
+import { initializeUpdater, scheduleUpdateChecks, offerUpdateOnStartupFailure, checkForUpdatesOnBoot } from './updater';
 import { createMinimalMenu, setSyncCallback } from './menu';
 import { initializeHotkeys, unregisterAllHotkeys } from './hotkeys';
 import {
@@ -279,6 +279,18 @@ async function initialize(): Promise<void> {
       initializeUpdater();
       logStartupTiming('Updater initialized');
       debugLog('Updater initialized');
+
+      // Check for updates on boot with 10-second timeout
+      // If update found, it will auto-download and auto-install (app restarts)
+      logStartupTiming('Checking for updates on boot');
+      const bootUpdateResult = await checkForUpdatesOnBoot();
+      logStartupTiming(`Boot update check complete: ${bootUpdateResult.updateAvailable ? 'update available' : 'no update'}`);
+
+      if (bootUpdateResult.updateAvailable) {
+        debugLog(`Update ${bootUpdateResult.version} found on boot - downloading...`);
+        // The updater will auto-download and auto-install, restarting the app
+        // We don't need to wait here - the app will restart when download completes
+      }
     } else {
       debugLog('Skipping updater initialization (development mode)');
     }

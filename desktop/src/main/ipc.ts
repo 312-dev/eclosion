@@ -32,9 +32,6 @@ import {
   quitAndInstall,
   getUpdateStatus,
   getUpdateChannel,
-  isAutoUpdateEnabled,
-  setAutoUpdateEnabled,
-  downloadUpdate,
 } from './updater';
 import { exportDiagnostics, getQuickDebugInfo } from './diagnostics';
 import { createBackup, restoreBackup, getBackupWarning, getRestoreWarning } from './backup';
@@ -262,29 +259,6 @@ export function setupIpcHandlers(backendManager: BackendManager): void {
    */
   ipcMain.handle('quit-and-install', () => {
     quitAndInstall();
-  });
-
-  /**
-   * Check if auto-update is enabled.
-   */
-  ipcMain.handle('get-auto-update-enabled', () => {
-    return isAutoUpdateEnabled();
-  });
-
-  /**
-   * Enable or disable auto-update.
-   */
-  ipcMain.handle('set-auto-update-enabled', (_event, enabled: boolean) => {
-    setAutoUpdateEnabled(enabled);
-    return enabled;
-  });
-
-  /**
-   * Manually download an available update.
-   * Use when auto-update is disabled but user wants to update.
-   */
-  ipcMain.handle('download-update', async () => {
-    return downloadUpdate();
   });
 
   // =========================================================================
@@ -1147,5 +1121,35 @@ export function setupIpcHandlers(backendManager: BackendManager): void {
   ipcMain.handle('menu:set-minimal', async () => {
     const { createMinimalMenu } = await import('./menu');
     createMinimalMenu();
+  });
+
+  // =========================================================================
+  // Developer Mode
+  // =========================================================================
+
+  /**
+   * Get developer mode setting.
+   */
+  ipcMain.handle('get-developer-mode', () => {
+    return getStore().get('settings.developerMode', false);
+  });
+
+  /**
+   * Set developer mode setting.
+   * Rebuilds the menu to show/hide developer tools.
+   */
+  ipcMain.handle('set-developer-mode', async (_event, enabled: boolean) => {
+    getStore().set('settings.developerMode', enabled);
+    debugLog(`Developer mode ${enabled ? 'enabled' : 'disabled'}`);
+
+    // Rebuild the menu to show/hide developer tools
+    const { isFullMenu, createAppMenu, getSyncCallback, createMinimalMenu } = await import('./menu');
+    if (isFullMenu()) {
+      createAppMenu(getSyncCallback() ?? undefined);
+    } else {
+      createMinimalMenu();
+    }
+
+    return true;
   });
 }
