@@ -2,22 +2,65 @@
  * WhatsNewModal Component
  *
  * Automatically shows changelog on first app open after an upgrade.
+ * Shows ALL versions since the user's last read version, not just the current.
+ * This handles cases where users skip multiple versions.
+ *
  * Can be dismissed and won't show again until the next upgrade.
  * User can still view changelog by clicking the version indicator.
  */
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Sparkles } from 'lucide-react';
 import { Modal } from './ui/Modal';
 import { ChangelogDisplay } from './ChangelogDisplay';
-import { useChangelogStatusQuery, useMarkChangelogReadMutation, useVersionQuery } from '../api/queries';
+import { useChangelogStatusQuery, useMarkChangelogReadMutation, useChangelogQuery } from '../api/queries';
+
+/**
+ * Parse a semver string into comparable parts.
+ * Returns [major, minor, patch] as numbers, or null if invalid.
+ */
+function parseSemver(version: string): [number, number, number] | null {
+  // Remove 'v' prefix and any beta/rc suffix
+  const clean = version.replace(/^v/, '').split('-')[0] ?? '';
+  const parts = clean.split('.').map(Number);
+  if (parts.length >= 3 && parts.every((p) => !Number.isNaN(p))) {
+    const [major, minor, patch] = parts;
+    if (major !== undefined && minor !== undefined && patch !== undefined) {
+      return [major, minor, patch];
+    }
+  }
+  return null;
+}
+
+/**
+ * Compare two semver versions.
+ * Returns: -1 if a < b, 0 if a == b, 1 if a > b
+ */
+function compareSemver(a: string, b: string): number {
+  const parsedA = parseSemver(a);
+  const parsedB = parseSemver(b);
+  if (!parsedA || !parsedB) return 0;
+
+  // Compare major, minor, patch in order
+  const [majorA, minorA, patchA] = parsedA;
+  const [majorB, minorB, patchB] = parsedB;
+
+  if (majorA < majorB) return -1;
+  if (majorA > majorB) return 1;
+  if (minorA < minorB) return -1;
+  if (minorA > minorB) return 1;
+  if (patchA < patchB) return -1;
+  if (patchA > patchB) return 1;
+
+  return 0;
+}
 
 export function WhatsNewModal() {
   const [isOpen, setIsOpen] = useState(false);
   const hasAutoOpenedRef = useRef(false);
 
   const { data: changelogStatus, isLoading: statusLoading } = useChangelogStatusQuery();
-  const { data: versionInfo } = useVersionQuery();
+  const { data: changelogData } = useChangelogQuery(20); // Fetch more to cover version jumps
   const markAsRead = useMarkChangelogReadMutation();
 
   // Auto-open modal on first render if there are unread changelog entries
@@ -41,12 +84,45 @@ export function WhatsNewModal() {
     }
   };
 
+  // Extract values outside useMemo to satisfy React Compiler
+  const entries = changelogData?.entries;
+  const lastRead = changelogStatus?.last_read_version;
+  const current = changelogStatus?.current_version;
+
+  // Filter changelog entries to only show versions newer than last read
+  const unreadEntries = useMemo(() => {
+    if (!entries || !changelogStatus) return [];
+
+    // If no last read version, this is first time - show only current version
+    if (!lastRead) {
+      return entries.filter((e) => e.version === current);
+    }
+
+    // Filter to entries newer than lastRead and up to current
+    return entries.filter((entry) => {
+      const isNewerThanLastRead = compareSemver(entry.version, lastRead) > 0;
+      const isAtOrBeforeCurrent = compareSemver(entry.version, current) <= 0;
+      return isNewerThanLastRead && isAtOrBeforeCurrent;
+    });
+  }, [entries, changelogStatus, lastRead, current]);
+
   // Don't render if no unread entries (after first check)
   if (!changelogStatus?.has_unread && !isOpen) {
     return null;
   }
 
-  const currentVersion = versionInfo?.version || changelogStatus?.current_version || '';
+  const currentVersion = current || '';
+  const lastReadVersion = lastRead;
+  const hasMultipleVersions = unreadEntries.length > 1;
+
+  // Build title based on whether user jumped multiple versions
+  const title = hasMultipleVersions && lastReadVersion
+    ? `What's New (v${lastReadVersion} → v${currentVersion})`
+    : `What's New in v${currentVersion}`;
+
+  const description = hasMultipleVersions
+    ? `You've updated across ${unreadEntries.length} releases. Here's everything that changed.`
+    : "Here's what changed in this update";
 
   return (
     <Modal
@@ -55,10 +131,10 @@ export function WhatsNewModal() {
       title={
         <span className="flex items-center gap-2">
           <Sparkles size={20} style={{ color: 'var(--monarch-orange)' }} />
-          What's New in v{currentVersion}
+          {title}
         </span>
       }
-      description="Here's what changed in this update"
+      description={description}
       maxWidth="lg"
       footer={
         <div className="flex items-center justify-between w-full">
@@ -70,13 +146,15 @@ export function WhatsNewModal() {
             className="px-4 py-2 rounded-lg font-medium transition-colors hover:opacity-90"
             style={{ backgroundColor: 'var(--monarch-orange)', color: 'white' }}
           >
-            Got it
+            Got it, thanks!
           </button>
         </div>
       }
     >
+      {/* Show all unread versions, not just current */}
       <ChangelogDisplay
-        version={currentVersion}
+        version={hasMultipleVersions ? undefined : currentVersion}
+        limit={unreadEntries.length || 5}
         showUpdateInstructions={false}
       />
     </Modal>
