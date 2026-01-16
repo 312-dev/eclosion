@@ -53,6 +53,9 @@ class CategoryState:
     balance_at_month_start: float | None = None
     frozen_amount: float | None = None
     frozen_frequency_months: float | None = None
+    # New fields for improved frozen target calculation (v3)
+    frozen_rollover_amount: float | None = None
+    frozen_next_due_date: str | None = None
     sync_name: bool = True
     is_linked: bool = False
 
@@ -528,6 +531,8 @@ class StateManager:
                 "balance_at_month_start": cat.balance_at_month_start,
                 "frozen_amount": cat.frozen_amount,
                 "frozen_frequency_months": cat.frozen_frequency_months,
+                "frozen_rollover_amount": cat.frozen_rollover_amount,
+                "frozen_next_due_date": cat.frozen_next_due_date,
             }
         return None
 
@@ -539,6 +544,8 @@ class StateManager:
         balance_at_start: float,
         amount: float,
         frequency_months: float,
+        rollover_amount: float | None = None,
+        next_due_date: str | None = None,
     ) -> None:
         """Set frozen monthly target for an item."""
         with db_session() as session:
@@ -550,6 +557,8 @@ class StateManager:
                 balance_at_start,
                 amount,
                 frequency_months,
+                rollover_amount,
+                next_due_date,
             )
 
     def clear_frozen_target(self, recurring_id: str) -> bool:

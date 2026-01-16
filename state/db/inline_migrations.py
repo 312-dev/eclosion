@@ -20,10 +20,55 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 # Current schema version - bump when adding migrations
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
+
+
+def column_exists(conn: sqlite3.Connection, table: str, column: str) -> bool:
+    """Check if a column exists in a table."""
+    cursor = conn.cursor()
+    cursor.execute(f"PRAGMA table_info({table})")
+    columns = [row[1] for row in cursor.fetchall()]
+    return column in columns
+
+
+def migrate_v3_frozen_target(conn: sqlite3.Connection) -> None:
+    """
+    Migration v3: Improved frozen target calculation with rollover tracking.
+
+    Adds fields for tracking rollover amount and due date at freeze time.
+    Clears existing frozen targets to force recalculation with new model.
+
+    This is a Python function instead of raw SQL to handle the case where
+    columns may already exist (SQLite doesn't support ADD COLUMN IF NOT EXISTS).
+    """
+    cursor = conn.cursor()
+
+    # Add columns only if they don't exist
+    if not column_exists(conn, "categories", "frozen_rollover_amount"):
+        cursor.execute("ALTER TABLE categories ADD COLUMN frozen_rollover_amount FLOAT")
+
+    if not column_exists(conn, "categories", "frozen_next_due_date"):
+        cursor.execute("ALTER TABLE categories ADD COLUMN frozen_next_due_date VARCHAR(20)")
+
+    # Clear all existing frozen targets to force recalculation
+    # This fixes the rollup proportion bug and applies new balance model
+    cursor.execute("""
+        UPDATE categories SET
+            frozen_monthly_target = NULL,
+            target_month = NULL,
+            balance_at_month_start = NULL,
+            frozen_amount = NULL,
+            frozen_frequency_months = NULL,
+            frozen_rollover_amount = NULL,
+            frozen_next_due_date = NULL
+    """)
+
+    conn.commit()
+
 
 # Migration definitions
 # Each migration runs only if current DB version < migration version
+# "sql" can be a string (executed as script) or a callable (called with conn)
 MIGRATIONS = [
     # Version 1: Initial schema
     # Handled by SQLAlchemy create_all() - no SQL needed
@@ -60,12 +105,15 @@ MIGRATIONS = [
                 ON checkbox_states (general_note_month_key, viewing_month);
         """,
     },
-    # Future migrations go here:
-    # {
-    #     "version": 3,
-    #     "description": "Add new feature column",
-    #     "sql": "ALTER TABLE notes ADD COLUMN new_column TEXT;",
-    # },
+    # Version 3: Improved frozen target calculation
+    # Adds fields for tracking rollover amount and due date at freeze time
+    # Clears existing frozen targets to force recalculation with new model
+    # Uses callable to handle idempotent column addition (SQLite limitation)
+    {
+        "version": 3,
+        "description": "Improved frozen target calculation with rollover tracking",
+        "sql": migrate_v3_frozen_target,  # Callable for idempotent migration
+    },
 ]
 
 
@@ -159,10 +207,14 @@ def run_migrations(db_path: Path) -> None:
             logger.info(f"Running migration v{version}: {description}")
 
             if sql:
-                # Execute migration SQL
-                cursor = conn.cursor()
-                cursor.executescript(sql)
-                conn.commit()
+                if callable(sql):
+                    # Execute migration function
+                    sql(conn)
+                else:
+                    # Execute migration SQL script
+                    cursor = conn.cursor()
+                    cursor.executescript(sql)
+                    conn.commit()
 
             # Update version after each successful migration
             set_schema_version(conn, version)

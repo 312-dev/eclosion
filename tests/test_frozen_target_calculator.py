@@ -4,7 +4,7 @@ Tests for the Frozen Target Calculator service.
 Tests cover:
 - Frozen target calculation and caching
 - Monthly vs infrequent subscription handling
-- Progress percentage calculations
+- Progress percentage calculations (based on budgeted amount)
 - State persistence interactions
 - Rate after catch-up calculations
 """
@@ -38,6 +38,8 @@ class MockStateManager:
         balance_at_start: float,
         amount: float,
         frequency_months: float,
+        rollover_amount: float | None = None,
+        next_due_date: str | None = None,
     ) -> None:
         self.frozen_targets[recurring_id] = {
             "frozen_monthly_target": frozen_target,
@@ -45,6 +47,8 @@ class MockStateManager:
             "balance_at_month_start": balance_at_start,
             "frozen_amount": amount,
             "frozen_frequency_months": frequency_months,
+            "frozen_rollover_amount": rollover_amount,
+            "frozen_next_due_date": next_due_date,
         }
 
 
@@ -61,8 +65,9 @@ class TestFrozenTargetCalculationMonthly:
             amount=80.0,
             frequency_months=1,
             months_until_due=1,
-            current_balance=30.0,
-            ideal_monthly_rate=80.0,
+            rollover_amount=30.0,  # Starting balance
+            budgeted_this_month=0.0,
+            next_due_date="2025-02-15",
             state_manager=state_manager,
             current_month=current_month,
         )
@@ -82,8 +87,9 @@ class TestFrozenTargetCalculationMonthly:
             amount=80.0,
             frequency_months=1,
             months_until_due=1,
-            current_balance=80.0,
-            ideal_monthly_rate=80.0,
+            rollover_amount=80.0,  # Fully funded at start of month
+            budgeted_this_month=0.0,
+            next_due_date="2025-02-15",
             state_manager=state_manager,
             current_month=current_month,
         )
@@ -102,8 +108,9 @@ class TestFrozenTargetCalculationMonthly:
             amount=80.0,
             frequency_months=1,
             months_until_due=1,
-            current_balance=100.0,
-            ideal_monthly_rate=80.0,
+            rollover_amount=100.0,  # Overfunded
+            budgeted_this_month=0.0,
+            next_due_date="2025-02-15",
             state_manager=state_manager,
             current_month=current_month,
         )
@@ -125,8 +132,9 @@ class TestFrozenTargetCalculationInfrequent:
             amount=600.0,
             frequency_months=12,
             months_until_due=12,
-            current_balance=0.0,
-            ideal_monthly_rate=50.0,  # 600/12
+            rollover_amount=0.0,  # Nothing saved yet
+            budgeted_this_month=0.0,
+            next_due_date="2026-01-15",
             state_manager=state_manager,
             current_month=current_month,
         )
@@ -145,8 +153,9 @@ class TestFrozenTargetCalculationInfrequent:
             amount=600.0,
             frequency_months=12,
             months_until_due=3,  # Only 3 months left
-            current_balance=300.0,  # Only half saved
-            ideal_monthly_rate=50.0,
+            rollover_amount=300.0,  # Only half saved at start
+            budgeted_this_month=0.0,
+            next_due_date="2025-04-15",
             state_manager=state_manager,
             current_month=current_month,
         )
@@ -164,8 +173,9 @@ class TestFrozenTargetCalculationInfrequent:
             amount=600.0,
             frequency_months=12,
             months_until_due=3,
-            current_balance=600.0,
-            ideal_monthly_rate=50.0,
+            rollover_amount=600.0,  # Fully funded
+            budgeted_this_month=0.0,
+            next_due_date="2025-04-15",
             state_manager=state_manager,
             current_month=current_month,
         )
@@ -183,8 +193,9 @@ class TestFrozenTargetCalculationInfrequent:
             amount=90.0,
             frequency_months=3,
             months_until_due=3,
-            current_balance=0.0,
-            ideal_monthly_rate=30.0,
+            rollover_amount=0.0,
+            budgeted_this_month=0.0,
+            next_due_date="2025-04-15",
             state_manager=state_manager,
             current_month=current_month,
         )
@@ -208,6 +219,8 @@ class TestFrozenTargetCaching:
             "balance_at_month_start": 10.0,
             "frozen_amount": 100.0,
             "frozen_frequency_months": 12,
+            "frozen_rollover_amount": 10.0,
+            "frozen_next_due_date": "2025-07-15",
         }
 
         result = calculate_frozen_target(
@@ -215,8 +228,9 @@ class TestFrozenTargetCaching:
             amount=100.0,
             frequency_months=12,
             months_until_due=6,
-            current_balance=50.0,  # Balance changed but target should not
-            ideal_monthly_rate=9.0,
+            rollover_amount=10.0,  # Same rollover
+            budgeted_this_month=40.0,  # Budget changed but target should not
+            next_due_date="2025-07-15",  # Same due date
             state_manager=state_manager,
             current_month=current_month,
         )
@@ -237,6 +251,8 @@ class TestFrozenTargetCaching:
             "balance_at_month_start": 10.0,
             "frozen_amount": 100.0,
             "frozen_frequency_months": 12,
+            "frozen_rollover_amount": 10.0,
+            "frozen_next_due_date": "2024-07-15",
         }
 
         result = calculate_frozen_target(
@@ -244,16 +260,17 @@ class TestFrozenTargetCaching:
             amount=100.0,
             frequency_months=12,
             months_until_due=6,
-            current_balance=50.0,
-            ideal_monthly_rate=9.0,
+            rollover_amount=50.0,  # New month's rollover
+            budgeted_this_month=0.0,
+            next_due_date="2024-07-15",
             state_manager=state_manager,
             current_month="2024-02",  # New month
         )
 
         # Should recalculate
         assert result.was_recalculated is True
-        # Shortfall = 50, months = 6, target = ceil(50/6) = 9
-        assert result.frozen_target == 9
+        # Shortfall = 50, months = 6, target = round(50/6) = 8
+        assert result.frozen_target == 8
 
     def test_recalculates_on_amount_change(self) -> None:
         """Should recalculate target when subscription amount changes."""
@@ -267,6 +284,8 @@ class TestFrozenTargetCaching:
             "balance_at_month_start": 10.0,
             "frozen_amount": 100.0,  # Old amount
             "frozen_frequency_months": 12,
+            "frozen_rollover_amount": 50.0,
+            "frozen_next_due_date": "2025-07-15",
         }
 
         result = calculate_frozen_target(
@@ -274,8 +293,9 @@ class TestFrozenTargetCaching:
             amount=200.0,  # Amount changed!
             frequency_months=12,
             months_until_due=6,
-            current_balance=50.0,
-            ideal_monthly_rate=17.0,
+            rollover_amount=50.0,
+            budgeted_this_month=0.0,
+            next_due_date="2025-07-15",
             state_manager=state_manager,
             current_month=current_month,
         )
@@ -297,6 +317,8 @@ class TestFrozenTargetCaching:
             "balance_at_month_start": 10.0,
             "frozen_amount": 120.0,
             "frozen_frequency_months": 12,  # Was yearly
+            "frozen_rollover_amount": 0.0,
+            "frozen_next_due_date": "2025-12-15",
         }
 
         result = calculate_frozen_target(
@@ -304,8 +326,9 @@ class TestFrozenTargetCaching:
             amount=120.0,
             frequency_months=3,  # Now quarterly
             months_until_due=3,
-            current_balance=0.0,
-            ideal_monthly_rate=40.0,
+            rollover_amount=0.0,
+            budgeted_this_month=0.0,
+            next_due_date="2025-04-15",
             state_manager=state_manager,
             current_month=current_month,
         )
@@ -315,12 +338,78 @@ class TestFrozenTargetCaching:
         # Shortfall = 120, months = 3, target = ceil(120/3) = 40
         assert result.frozen_target == 40
 
+    def test_recalculates_on_rollover_change(self) -> None:
+        """Should recalculate target when rollover amount changes."""
+        state_manager = MockStateManager()
+        current_month = datetime.now().strftime("%Y-%m")
+
+        # Cache with old rollover
+        state_manager.frozen_targets["test-rollover-change"] = {
+            "frozen_monthly_target": 50.0,
+            "target_month": current_month,
+            "balance_at_month_start": 100.0,
+            "frozen_amount": 600.0,
+            "frozen_frequency_months": 12,
+            "frozen_rollover_amount": 100.0,  # Old rollover
+            "frozen_next_due_date": "2025-12-15",
+        }
+
+        result = calculate_frozen_target(
+            recurring_id="test-rollover-change",
+            amount=600.0,
+            frequency_months=12,
+            months_until_due=10,
+            rollover_amount=200.0,  # Rollover changed (e.g., user edited prior months)
+            budgeted_this_month=0.0,
+            next_due_date="2025-12-15",
+            state_manager=state_manager,
+            current_month=current_month,
+        )
+
+        # Should recalculate due to rollover change
+        assert result.was_recalculated is True
+        # Shortfall = 400, months = 10, target = ceil(400/10) = 40
+        assert result.frozen_target == 40
+
+    def test_recalculates_on_due_date_change(self) -> None:
+        """Should recalculate target when due date changes."""
+        state_manager = MockStateManager()
+        current_month = datetime.now().strftime("%Y-%m")
+
+        # Cache with old due date
+        state_manager.frozen_targets["test-due-date-change"] = {
+            "frozen_monthly_target": 50.0,
+            "target_month": current_month,
+            "balance_at_month_start": 100.0,
+            "frozen_amount": 600.0,
+            "frozen_frequency_months": 12,
+            "frozen_rollover_amount": 100.0,
+            "frozen_next_due_date": "2025-12-15",  # Old due date
+        }
+
+        result = calculate_frozen_target(
+            recurring_id="test-due-date-change",
+            amount=600.0,
+            frequency_months=12,
+            months_until_due=6,  # Due date moved closer
+            rollover_amount=100.0,
+            budgeted_this_month=0.0,
+            next_due_date="2025-07-15",  # Due date changed!
+            state_manager=state_manager,
+            current_month=current_month,
+        )
+
+        # Should recalculate due to due date change
+        assert result.was_recalculated is True
+        # Shortfall = 500, months = 6, target = round(500/6) = 83
+        assert result.frozen_target == 83
+
 
 class TestMonthlyProgressCalculation:
     """Tests for monthly progress percentage calculations."""
 
-    def test_progress_zero_start(self) -> None:
-        """Progress should calculate from balance at start of month."""
+    def test_progress_based_on_budgeted(self) -> None:
+        """Progress should be based on what was budgeted this month."""
         state_manager = MockStateManager()
         current_month = datetime.now().strftime("%Y-%m")
 
@@ -329,58 +418,52 @@ class TestMonthlyProgressCalculation:
             amount=100.0,
             frequency_months=12,
             months_until_due=10,
-            current_balance=25.0,
-            ideal_monthly_rate=10.0,
+            rollover_amount=25.0,
+            budgeted_this_month=5.0,  # Budgeted $5 this month
+            next_due_date="2025-11-15",
             state_manager=state_manager,
             current_month=current_month,
         )
 
-        # Balance at start = 25, current = 25, contributed = 0
-        # Target = ceil(75/10) = 8, progress = 0%
-        assert result.contributed_this_month == 0
-        assert result.monthly_progress_percent == 0
+        # Target = ceil(75/10) = 8, contributed = 5, progress = 5/8*100 = 62.5%
+        assert result.contributed_this_month == 5.0
+        assert result.monthly_progress_percent == 62.5
 
-    def test_progress_with_contributions(self) -> None:
-        """Progress should reflect contributions during the month."""
+    def test_progress_zero_budgeted(self) -> None:
+        """Progress should be 0 when nothing budgeted this month."""
         state_manager = MockStateManager()
         current_month = datetime.now().strftime("%Y-%m")
 
-        # Pre-populate with balance at start
-        state_manager.frozen_targets["test-progress-contrib"] = {
-            "frozen_monthly_target": 50.0,
-            "target_month": current_month,
-            "balance_at_month_start": 100.0,
-            "frozen_amount": 600.0,
-            "frozen_frequency_months": 12,
-        }
-
         result = calculate_frozen_target(
-            recurring_id="test-progress-contrib",
-            amount=600.0,
+            recurring_id="test-progress-zero",
+            amount=100.0,
             frequency_months=12,
             months_until_due=10,
-            current_balance=125.0,  # Contributed 25 since start
-            ideal_monthly_rate=50.0,
+            rollover_amount=25.0,
+            budgeted_this_month=0.0,  # Nothing budgeted
+            next_due_date="2025-11-15",
             state_manager=state_manager,
             current_month=current_month,
         )
 
-        # Contributed = 125 - 100 = 25, target = 50, progress = 50%
-        assert result.contributed_this_month == 25.0
-        assert result.monthly_progress_percent == 50.0
+        # Target = ceil(75/10) = 8, contributed = 0, progress = 0%
+        assert result.contributed_this_month == 0
+        assert result.monthly_progress_percent == 0
 
     def test_progress_complete(self) -> None:
         """Progress should show 100% when target is met."""
         state_manager = MockStateManager()
         current_month = datetime.now().strftime("%Y-%m")
 
-        # Pre-populate with balance at start
+        # Pre-populate cache to test cached path
         state_manager.frozen_targets["test-progress-complete"] = {
             "frozen_monthly_target": 50.0,
             "target_month": current_month,
             "balance_at_month_start": 100.0,
             "frozen_amount": 600.0,
             "frozen_frequency_months": 12,
+            "frozen_rollover_amount": 100.0,
+            "frozen_next_due_date": "2025-11-15",
         }
 
         result = calculate_frozen_target(
@@ -388,8 +471,9 @@ class TestMonthlyProgressCalculation:
             amount=600.0,
             frequency_months=12,
             months_until_due=10,
-            current_balance=150.0,  # Contributed full 50
-            ideal_monthly_rate=50.0,
+            rollover_amount=100.0,  # Same as cached
+            budgeted_this_month=50.0,  # Budgeted full target
+            next_due_date="2025-11-15",
             state_manager=state_manager,
             current_month=current_month,
         )
@@ -397,6 +481,38 @@ class TestMonthlyProgressCalculation:
         # Contributed = 50, target = 50, progress = 100%
         assert result.contributed_this_month == 50.0
         assert result.monthly_progress_percent == 100.0
+
+    def test_progress_over_target(self) -> None:
+        """Progress should exceed 100% when budgeted more than target."""
+        state_manager = MockStateManager()
+        current_month = datetime.now().strftime("%Y-%m")
+
+        # Pre-populate cache
+        state_manager.frozen_targets["test-progress-over"] = {
+            "frozen_monthly_target": 50.0,
+            "target_month": current_month,
+            "balance_at_month_start": 100.0,
+            "frozen_amount": 600.0,
+            "frozen_frequency_months": 12,
+            "frozen_rollover_amount": 100.0,
+            "frozen_next_due_date": "2025-11-15",
+        }
+
+        result = calculate_frozen_target(
+            recurring_id="test-progress-over",
+            amount=600.0,
+            frequency_months=12,
+            months_until_due=10,
+            rollover_amount=100.0,
+            budgeted_this_month=75.0,  # Budgeted more than target
+            next_due_date="2025-11-15",
+            state_manager=state_manager,
+            current_month=current_month,
+        )
+
+        # Contributed = 75, target = 50, progress = 150%
+        assert result.contributed_this_month == 75.0
+        assert result.monthly_progress_percent == 150.0
 
     def test_progress_zero_target(self) -> None:
         """Progress should be 100% when target is zero (fully funded)."""
@@ -408,8 +524,9 @@ class TestMonthlyProgressCalculation:
             amount=600.0,
             frequency_months=12,
             months_until_due=10,
-            current_balance=600.0,  # Fully funded
-            ideal_monthly_rate=50.0,
+            rollover_amount=600.0,  # Fully funded at start
+            budgeted_this_month=0.0,
+            next_due_date="2025-11-15",
             state_manager=state_manager,
             current_month=current_month,
         )
@@ -474,8 +591,9 @@ class TestEdgeCases:
             amount=100.0,
             frequency_months=12,
             months_until_due=0,  # Due now
-            current_balance=50.0,
-            ideal_monthly_rate=9.0,
+            rollover_amount=50.0,
+            budgeted_this_month=0.0,
+            next_due_date="2025-01-15",
             state_manager=state_manager,
             current_month=current_month,
         )
@@ -483,8 +601,8 @@ class TestEdgeCases:
         # Due now: shortfall = 50, months = max(1, 0) = 1, target = 50
         assert result.frozen_target == 50
 
-    def test_negative_balance(self) -> None:
-        """Should handle negative balance (shouldn't happen but be safe)."""
+    def test_negative_rollover(self) -> None:
+        """Should handle negative rollover (shouldn't happen but be safe)."""
         state_manager = MockStateManager()
         current_month = datetime.now().strftime("%Y-%m")
 
@@ -493,15 +611,14 @@ class TestEdgeCases:
             amount=100.0,
             frequency_months=12,
             months_until_due=10,
-            current_balance=-10.0,  # Negative balance
-            ideal_monthly_rate=9.0,
+            rollover_amount=-10.0,  # Negative rollover
+            budgeted_this_month=0.0,
+            next_due_date="2025-11-15",
             state_manager=state_manager,
             current_month=current_month,
         )
 
-        # Shortfall = 100 - (-10) = 110, but we use max(0, amount - balance)
-        # Actually the code does: shortfall = max(0, amount - current_balance)
-        # = max(0, 100 - (-10)) = max(0, 110) = 110
+        # Shortfall = 100 - (-10) = 110
         # target = ceil(110/10) = 11
         assert result.frozen_target == 11
 
@@ -515,8 +632,9 @@ class TestEdgeCases:
             amount=1.0,
             frequency_months=12,
             months_until_due=12,
-            current_balance=0.0,
-            ideal_monthly_rate=0.09,
+            rollover_amount=0.0,
+            budgeted_this_month=0.0,
+            next_due_date="2026-01-15",
             state_manager=state_manager,
             current_month=current_month,
         )
@@ -534,42 +652,15 @@ class TestEdgeCases:
             amount=10000.0,
             frequency_months=12,
             months_until_due=12,
-            current_balance=0.0,
-            ideal_monthly_rate=834.0,
+            rollover_amount=0.0,
+            budgeted_this_month=0.0,
+            next_due_date="2026-01-15",
             state_manager=state_manager,
             current_month=current_month,
         )
 
-        # Shortfall = 10000, months = 12, target = ceil(10000/12) = 834
-        assert result.frozen_target == 834
-
-    def test_fractional_balance_contribution(self) -> None:
-        """Should correctly calculate contribution with fractional balances."""
-        state_manager = MockStateManager()
-        current_month = datetime.now().strftime("%Y-%m")
-
-        # Pre-populate with fractional balance at start
-        state_manager.frozen_targets["test-fractional"] = {
-            "frozen_monthly_target": 50.0,
-            "target_month": current_month,
-            "balance_at_month_start": 100.50,
-            "frozen_amount": 600.0,
-            "frozen_frequency_months": 12,
-        }
-
-        result = calculate_frozen_target(
-            recurring_id="test-fractional",
-            amount=600.0,
-            frequency_months=12,
-            months_until_due=10,
-            current_balance=125.75,
-            ideal_monthly_rate=50.0,
-            state_manager=state_manager,
-            current_month=current_month,
-        )
-
-        # Contributed = 125.75 - 100.50 = 25.25
-        assert result.contributed_this_month == 25.25
+        # Shortfall = 10000, months = 12, target = round(10000/12) = 833
+        assert result.frozen_target == 833
 
 
 class TestDefaultCurrentMonth:
@@ -584,8 +675,9 @@ class TestDefaultCurrentMonth:
             amount=100.0,
             frequency_months=12,
             months_until_due=6,
-            current_balance=50.0,
-            ideal_monthly_rate=9.0,
+            rollover_amount=50.0,
+            budgeted_this_month=0.0,
+            next_due_date="2025-07-15",
             state_manager=state_manager,
             # current_month not specified
         )

@@ -73,7 +73,15 @@ class MockStateManager:
         return self.frozen_targets.get(recurring_id)
 
     def set_frozen_target(
-        self, recurring_id, frozen_target, target_month, balance_at_start, amount, frequency_months
+        self,
+        recurring_id,
+        frozen_target,
+        target_month,
+        balance_at_start,
+        amount,
+        frequency_months,
+        rollover_amount=None,
+        next_due_date=None,
     ):
         self.frozen_targets[recurring_id] = {
             "frozen_monthly_target": frozen_target,
@@ -81,7 +89,15 @@ class MockStateManager:
             "balance_at_month_start": balance_at_start,
             "frozen_amount": amount,
             "frozen_frequency_months": frequency_months,
+            "frozen_rollover_amount": rollover_amount,
+            "frozen_next_due_date": next_due_date,
         }
+
+    def clear_frozen_target(self, recurring_id):
+        if recurring_id in self.frozen_targets:
+            del self.frozen_targets[recurring_id]
+            return True
+        return False
 
 
 class MockCategoryManager:
@@ -91,6 +107,7 @@ class MockCategoryManager:
         self.categories = {}
         self.budgets = {}
         self.balances = {}
+        self.budget_data = {}  # Full budget data: cat_id -> {rollover, budgeted, remaining, actual}
 
     async def create_category(self, group_id, name, icon=None):
         cat_id = f"cat-{len(self.categories)}"
@@ -105,6 +122,22 @@ class MockCategoryManager:
 
     async def get_all_category_balances(self):
         return self.balances
+
+    async def get_all_category_budget_data(self):
+        # Returns dict: category_id -> {rollover, budgeted, remaining, actual}
+        # Use budget_data if set, otherwise build from balances and budgets
+        if self.budget_data:
+            return self.budget_data
+
+        result = {}
+        for cat_id in set(list(self.balances.keys()) + list(self.budgets.keys())):
+            result[cat_id] = {
+                "rollover": 0.0,
+                "budgeted": float(self.budgets.get(cat_id, 0)),
+                "remaining": float(self.balances.get(cat_id, 0)),
+                "actual": 0.0,
+            }
+        return result
 
     async def set_category_budget(self, category_id, amount, apply_to_future=False):
         self.budgets[category_id] = amount
@@ -469,11 +502,18 @@ class TestGetRollupData:
         rollup_service.state_manager.state.rollup.enabled = True
         rollup_service.state_manager.state.rollup.monarch_category_id = "cat-1"
         rollup_service.category_manager.categories["cat-1"] = {"id": "cat-1", "name": "Rollup"}
-        rollup_service.category_manager.balances["cat-1"] = 25.0
+        # Set up budget data with new balance model: rollover + budgeted = progress
+        rollup_service.category_manager.budget_data["cat-1"] = {
+            "rollover": 15.0,  # What rolled over from previous month
+            "budgeted": 10.0,  # What was budgeted this month
+            "remaining": 25.0,  # Current balance (rollover + budgeted - spent)
+            "actual": 0.0,  # Spent this month
+        }
 
         result = await rollup_service.get_rollup_data()
 
         assert result["enabled"] is True
         assert len(result["items"]) == 2
         assert result["total_target"] == pytest.approx(25.98, rel=0.01)  # 15.99 + 9.99
+        # total_saved = rollover + budgeted = 15 + 10 = 25
         assert result["total_saved"] == 25.0

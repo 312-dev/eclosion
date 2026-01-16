@@ -479,6 +479,62 @@ class CategoryManager:
 
         return planned
 
+    async def get_all_category_rollovers(self) -> dict[str, float]:
+        """
+        Get rollover amounts (start of month balance) for all categories.
+
+        This is the amount that rolled over from the previous month,
+        representing the starting balance before any budgeting this month.
+
+        Returns dict: category_id -> previousMonthRolloverAmount
+        Uses cached budget data.
+        """
+        start, _ = get_month_range()
+        budgets = await self._get_budgets_cached()
+
+        rollovers = {}
+        for entry in budgets.get("budgetData", {}).get("monthlyAmountsByCategory", []):
+            cat_id = entry.get("category", {}).get("id")
+            if cat_id:
+                for month in entry.get("monthlyAmounts", []):
+                    if month.get("month") == start:
+                        rollovers[cat_id] = float(month.get("previousMonthRolloverAmount", 0))
+                        break
+
+        return rollovers
+
+    async def get_all_category_budget_data(self) -> dict[str, dict[str, float]]:
+        """
+        Get comprehensive budget data for all categories.
+
+        Returns all budget fields needed for frozen target calculation:
+        - rollover: previousMonthRolloverAmount (start of month balance)
+        - budgeted: plannedCashFlowAmount (what was budgeted this month)
+        - remaining: remainingAmount (current balance)
+        - actual: actualAmount (spending this month)
+
+        Returns dict: category_id -> {rollover, budgeted, remaining, actual}
+        Uses cached budget data.
+        """
+        start, _ = get_month_range()
+        budgets = await self._get_budgets_cached()
+
+        data: dict[str, dict[str, float]] = {}
+        for entry in budgets.get("budgetData", {}).get("monthlyAmountsByCategory", []):
+            cat_id = entry.get("category", {}).get("id")
+            if cat_id:
+                for month in entry.get("monthlyAmounts", []):
+                    if month.get("month") == start:
+                        data[cat_id] = {
+                            "rollover": float(month.get("previousMonthRolloverAmount") or 0),
+                            "budgeted": float(month.get("plannedCashFlowAmount") or 0),
+                            "remaining": float(month.get("remainingAmount") or 0),
+                            "actual": float(month.get("actualAmount") or 0),
+                        }
+                        break
+
+        return data
+
     async def get_all_category_info(self) -> dict[str, dict[str, str]]:
         """
         Get info for all categories including their group names.
