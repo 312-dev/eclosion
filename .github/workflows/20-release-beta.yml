@@ -221,6 +221,8 @@ jobs:
             --repo-url "https://github.com/${{ github.repository }}" \
             --beta \
             --polish \
+            --with-ai-summary \
+            --version "$NEW_TAG" \
             > /tmp/release-notes.md
 
       - name: Clean up any existing draft with same tag
