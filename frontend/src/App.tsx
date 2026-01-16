@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- Root component with all routes and providers */
 /**
  * App - Root component with routing and providers
  *

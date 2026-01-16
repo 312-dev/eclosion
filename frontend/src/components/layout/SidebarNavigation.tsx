@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- Navigation with desktop/mobile layouts and all nav items */
 /**
  * Sidebar Navigation
  *

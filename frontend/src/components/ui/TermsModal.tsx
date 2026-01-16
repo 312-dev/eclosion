@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- Terms modal with all legal sections and acknowledgment */
 /**
  * Terms Modal
  *

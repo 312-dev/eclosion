@@ -92,4 +92,95 @@ export default defineConfig([
       'jsx-a11y/anchor-is-valid': 'warn', // Anchors need href or button
     },
   },
+
+  // Custom widget components that legitimately need ARIA roles
+  // Native HTML elements cannot provide the required UX (styling, grouping, search)
+  {
+    files: [
+      '**/SearchableSelect.tsx', // Custom dropdown: role="listbox" (native select can't search/group)
+      '**/EmojiPicker.tsx', // Custom picker: role="dialog" (no native emoji picker)
+      '**/CategoryGroupDropdown.tsx', // Custom dropdown: role="listbox" (native select can't group visually)
+      '**/ProgressBar.tsx', // Custom progress: role="progressbar" (native progress unstyled)
+      '**/DesktopUpdateBanner.tsx', // Status + progress indicators
+      '**/StabilizationTimeline.tsx', // Popover: role="dialog"
+      '**/StaleWarningPopover.tsx', // Popover: role="dialog"
+      '**/MonthPicker.tsx', // Picker: role="dialog"
+      '**/MerchantIcon.tsx', // Image with fallback handlers
+      '**/ReadyToAssign.tsx', // Custom progress indicator
+    ],
+    rules: {
+      'jsx-a11y/prefer-tag-over-role': 'off',
+      'jsx-a11y/no-noninteractive-element-interactions': 'off',
+    },
+  },
+
+  // Collapsible/expandable containers with nested interactive elements
+  // Using role="button" on container avoids nested button issues while maintaining a11y
+  {
+    files: [
+      '**/RollupZone.tsx', // Collapsible header with nested buttons
+      '**/RollupStats.tsx', // Budget input container (stops propagation)
+      '**/RecurringItemHeader.tsx', // Double-click to edit name
+      '**/RollupNameEditor.tsx', // Double-click to edit rollup name
+    ],
+    rules: {
+      'jsx-a11y/prefer-tag-over-role': 'off',
+      'jsx-a11y/no-static-element-interactions': 'off',
+      'jsx-a11y/click-events-have-key-events': 'off',
+    },
+  },
+
+  // Modal components - backdrop click-to-close is a standard pattern
+  // The backdrop div needs onClick but doesn't need keyboard handler (Escape key handled separately)
+  {
+    files: ['**/*Modal.tsx', '**/*Overlay.tsx'],
+    rules: {
+      'jsx-a11y/prefer-tag-over-role': 'off', // Modals use role="dialog"
+      'jsx-a11y/no-static-element-interactions': 'off',
+      'jsx-a11y/click-events-have-key-events': 'off',
+    },
+  },
+
+  // Chart components - complex mouse interactions for tooltips/zoom
+  {
+    files: ['**/charts/*.tsx'],
+    rules: {
+      'jsx-a11y/no-static-element-interactions': 'off',
+    },
+  },
+
+  // Marketing/landing pages - interactive demos and animations
+  {
+    files: ['**/marketing/**/*.tsx', '**/pages/LandingPage.tsx'],
+    rules: {
+      'jsx-a11y/prefer-tag-over-role': 'off', // Demo components use semantic roles
+      'jsx-a11y/no-static-element-interactions': 'off', // Interactive demos
+    },
+  },
+
+  // Notes editor - click-to-edit patterns
+  {
+    files: ['**/notes/*.tsx'],
+    rules: {
+      'jsx-a11y/no-static-element-interactions': 'off', // Click to edit
+    },
+  },
+
+  // Wizard components - selectable cards
+  {
+    files: ['**/wizards/**/*.tsx'],
+    rules: {
+      'jsx-a11y/no-static-element-interactions': 'off',
+      'jsx-a11y/click-events-have-key-events': 'off',
+      'jsx-a11y/no-noninteractive-element-interactions': 'off',
+    },
+  },
+
+  // Test files - testing ARIA patterns intentionally
+  {
+    files: ['**/*.test.tsx'],
+    rules: {
+      'jsx-a11y/prefer-tag-over-role': 'off',
+    },
+  },
 ])

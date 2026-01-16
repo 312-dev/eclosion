@@ -46,7 +46,7 @@ function tokenize(expr: string): Token[] | null {
       }
 
       const value = Number.parseFloat(numStr);
-      if (isNaN(value)) return null;
+      if (Number.isNaN(value)) return null;
       tokens.push({ type: 'number', value });
       continue;
     }
@@ -219,7 +219,7 @@ export function evaluateMathExpression(expression: string): number | null {
   const parser = new Parser(tokens);
   const result = parser.parse();
 
-  if (result === null || !isFinite(result)) {
+  if (result === null || !Number.isFinite(result)) {
     return null;
   }
 

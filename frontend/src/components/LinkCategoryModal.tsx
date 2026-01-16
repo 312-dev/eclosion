@@ -1,3 +1,5 @@
+/* eslint-disable max-lines -- Complex modal with category selection and sync options */
+
 import { useState, useEffect, useMemo } from 'react';
 import type { UnmappedCategory, RecurringItem } from '../types';
 import { linkToCategory } from '../api/client';

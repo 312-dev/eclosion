@@ -148,7 +148,7 @@ export function MonthYearSelector({
                 className="text-xl font-semibold cursor-pointer hover:opacity-70 transition-opacity"
                 style={{ color: 'var(--monarch-text-dark)' }}
                 aria-expanded={isMonthOpen}
-                aria-haspopup="listbox"
+                aria-haspopup="menu"
                 aria-label={`Month: ${selectedMonthData?.label}. Click to change.`}
               >
                 {selectedMonthData?.label}
@@ -163,7 +163,7 @@ export function MonthYearSelector({
                     border: '1px solid var(--monarch-border)',
                     zIndex: 'var(--z-index-dropdown)',
                   }}
-                  role="listbox"
+                  role="menu"
                   aria-label="Select month"
                 >
                   {MONTHS.map((month) => {
@@ -175,6 +175,7 @@ export function MonthYearSelector({
                       <button
                         key={month.value}
                         type="button"
+                        role="menuitem"
                         onClick={() => handleMonthSelect(month.value)}
                         className={`w-full px-3 py-1.5 text-left text-sm transition-colors ${
                           isSelected ? 'font-medium' : ''
@@ -185,8 +186,7 @@ export function MonthYearSelector({
                             ? 'var(--monarch-orange-light)'
                             : 'transparent',
                         }}
-                        role="option"
-                        aria-selected={isSelected}
+                        aria-current={isSelected ? 'true' : undefined}
                       >
                         {month.label}
                         {isCurrent && !isSelected && (
@@ -215,7 +215,7 @@ export function MonthYearSelector({
                 className="text-xl font-semibold cursor-pointer hover:opacity-70 transition-opacity"
                 style={{ color: 'var(--monarch-text-dark)' }}
                 aria-expanded={isYearOpen}
-                aria-haspopup="listbox"
+                aria-haspopup="menu"
                 aria-label={`Year: ${selectedYear}. Click to change.`}
               >
                 {selectedYear}
@@ -230,7 +230,7 @@ export function MonthYearSelector({
                     border: '1px solid var(--monarch-border)',
                     zIndex: 'var(--z-index-dropdown)',
                   }}
-                  role="listbox"
+                  role="menu"
                   aria-label="Select year"
                 >
                   {availableYears.map((year) => {
@@ -241,6 +241,7 @@ export function MonthYearSelector({
                       <button
                         key={year}
                         type="button"
+                        role="menuitem"
                         onClick={() => handleYearSelect(year)}
                         className={`w-full px-3 py-1.5 text-left text-sm transition-colors ${
                           isSelected ? 'font-medium' : ''
@@ -251,8 +252,7 @@ export function MonthYearSelector({
                             ? 'var(--monarch-orange-light)'
                             : 'transparent',
                         }}
-                        role="option"
-                        aria-selected={isSelected}
+                        aria-current={isSelected ? 'true' : undefined}
                       >
                         {year}
                         {isCurrent && !isSelected && (

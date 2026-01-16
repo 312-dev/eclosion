@@ -39,7 +39,7 @@ interface IdeaBubbleProps {
 /** Get rotation angle for stacked cards - dramatic angles for visual impact */
 function getStackRotation(position: number, ideaId: string): number {
   // Use idea ID to make rotation deterministic but varied
-  const hash = ideaId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const hash = ideaId.split('').reduce((acc, char) => acc + (char.codePointAt(0) ?? 0), 0);
   // Base angle adds some randomness based on idea hash (-3 to +3)
   const hashOffset = (hash % 6) - 3;
   // Each position gets a distinct, dramatic rotation
@@ -55,7 +55,7 @@ function getStackRotation(position: number, ideaId: string): number {
 
 /** Get offset for stacked cards - no y offset, cards stack directly */
 function getStackOffset(position: number, ideaId: string): { x: number; y: number } {
-  const hash = ideaId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const hash = ideaId.split('').reduce((acc, char) => acc + (char.codePointAt(0) ?? 0), 0);
   // Horizontal scatter based on hash + position
   const xBase = (hash % 20) - 10;
   let xPosition = 0; // default for position 2

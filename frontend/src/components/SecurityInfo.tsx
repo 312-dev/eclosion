@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- Security dashboard with multiple collapsible sections */
 import { useState, useEffect } from 'react';
 import { getSecurityStatus } from '../api/client';
 import { isDesktopMode } from '../utils/apiBase';

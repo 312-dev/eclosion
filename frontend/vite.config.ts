@@ -30,9 +30,10 @@ interface ChangelogEntry {
 }
 
 // Regex patterns for parsing
-// eslint-disable-next-line sonarjs/slow-regex -- Safe: operates on single changelog lines, not user input
+/* eslint-disable sonarjs/slow-regex -- Safe: operates on single changelog lines, not user input */
 const VERSION_PATTERN =
   /^## \[(\d+\.\d+\.\d+(?:-[a-zA-Z0-9.]+)?)\](?:\([^)]*\))?\s*[-–]?\s*\(?(\d{4}-\d{2}-\d{2})\)?/;
+/* eslint-enable sonarjs/slow-regex */
 const UNRELEASED_PATTERN = /^## \[Unreleased\]/i;
 const SECTION_PATTERN = /^### (.+)/;
 const LIST_ITEM_PATTERN = /^[*-]\s+(.+)/;
