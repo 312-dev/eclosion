@@ -251,86 +251,37 @@ jobs:
       - name: Pull latest (after version commit)
         run: git pull origin main
 
+      - name: Setup Node.js
+        uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: scripts/release-notes-updater/package-lock.json
+
+      - name: Install dependencies
+        working-directory: scripts/release-notes-updater
+        run: npm ci
+
       - name: Generate release notes
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO_URL: "https://github.com/${{ github.repository }}"
+          MODELS_TOKEN: ${{ secrets.MODELS_TOKEN }}
         run: |
           # Find last stable tag
           LAST_TAG=$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | grep -v beta | head -1)
           NEW_TAG="${{ needs.calculate-version.outputs.tag }}"
 
           if [ -z "$LAST_TAG" ]; then
-            # No previous stable tag - use first commit
             LAST_TAG=$(git rev-list --max-parents=0 HEAD)
           fi
 
-          echo "Generating notes from $LAST_TAG to HEAD"
+          echo "Generating notes from $LAST_TAG to $NEW_TAG"
 
-          # Get commits with author, filter out automated commits
-          # Format: "* commit message (@author)"
-          COMMITS=$(git log "$LAST_TAG"..HEAD --pretty=format:"* %s (@%an)" --no-merges \
-            | grep -vE "^\* (chore: release|docs: create version)" \
-            | grep -vE "^\* (ci|build|chore\(deps\)):" \
-            | head -30)
-
-          # Remove owner attribution (keep for external contributors)
-          COMMITS=$(echo "$COMMITS" | sed -E 's/ \(@(Grayson Adams|GraysonAdams|GraysonCAdams)\)$//')
-
-          # Convert PR references to hyperlinks: (#123) -> in [#123](url)
-          # Use | as sed delimiter to avoid escaping issues with URLs
-          COMMITS=$(echo "$COMMITS" | sed -E "s| \(#([0-9]+)\)| in [#\1]($REPO_URL/pull/\1)|g")
-
-          # Categorize and clean commit prefixes for readability
-          # Features: "feat: Add thing" or "feat(scope): Add thing" -> "Add thing"
-          FEATURES=$(echo "$COMMITS" | grep -E "^\* feat" | sed -E 's/^\* feat(\([^)]*\))?: /\* /') || true
-
-          # Fixes: "fix: Fix thing" or "fix(scope): Fix thing" -> "Fix thing"
-          FIXES=$(echo "$COMMITS" | grep -E "^\* fix" | sed -E 's/^\* fix(\([^)]*\))?: /\* /') || true
-
-          # Other: exclude conventional commit types that are internal
-          OTHER=$(echo "$COMMITS" \
-            | grep -vE "^\* (feat|fix|chore|docs|test|ci|build|refactor|style|perf)" \
-            | grep -v "^$") || true
-
-          # Build release notes with emoji categories
-          echo "## What's Changed" > /tmp/release-notes.md
-          echo "" >> /tmp/release-notes.md
-
-          if [ -n "$FEATURES" ]; then
-            echo "### 🚀 Features" >> /tmp/release-notes.md
-            echo "$FEATURES" >> /tmp/release-notes.md
-            echo "" >> /tmp/release-notes.md
-          fi
-
-          if [ -n "$FIXES" ]; then
-            echo "### 🐛 Bug Fixes" >> /tmp/release-notes.md
-            echo "$FIXES" >> /tmp/release-notes.md
-            echo "" >> /tmp/release-notes.md
-          fi
-
-          if [ -n "$OTHER" ]; then
-            echo "### 📦 Other Changes" >> /tmp/release-notes.md
-            echo "$OTHER" >> /tmp/release-notes.md
-            echo "" >> /tmp/release-notes.md
-          fi
-
-          cat >> /tmp/release-notes.md << EOF
-          ---
-
-          ### Installation Notes
-
-          **macOS:** Signed and notarized. Drag to Applications and launch.
-
-          **Windows:** Click "More info" → "Run anyway" if SmartScreen appears.
-
-          **Linux:** Run \`chmod +x Eclosion-*.AppImage\` to make executable.
-
-          ---
-
-          **Full Changelog**: $REPO_URL/compare/${LAST_TAG}...${NEW_TAG}
-          EOF
-          sed -i 's/^          //' /tmp/release-notes.md
+          npx tsx scripts/release-notes-updater/generate-notes.ts \
+            --from "$LAST_TAG" \
+            --to HEAD \
+            --repo-url "https://github.com/${{ github.repository }}" \
+            --polish \
+            > /tmp/release-notes.md
 
       - name: Create tag
         run: |
