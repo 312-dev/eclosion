@@ -283,6 +283,44 @@ jobs:
             npx electron-builder --mac --${{ matrix.arch }} --publish never
           fi
 
+      - name: Add blockMapSize to latest-mac.yml
+        working-directory: desktop
+        run: |
+          # Add blockMapSize to latest-mac.yml for differential updates
+          # This enables electron-updater to download only changed blocks
+          node -e "
+            const fs = require('fs');
+            const path = require('path');
+
+            const ymlPath = 'release/latest-mac.yml';
+            if (!fs.existsSync(ymlPath)) {
+              console.log('latest-mac.yml not found, skipping');
+              process.exit(0);
+            }
+
+            let yml = fs.readFileSync(ymlPath, 'utf8');
+            const blockmaps = fs.readdirSync('release').filter(f => f.endsWith('.blockmap'));
+
+            for (const blockmap of blockmaps) {
+              const base = blockmap.replace('.blockmap', '');
+              const size = fs.statSync(path.join('release', blockmap)).size;
+
+              // Check if this file is in the yml and doesn't already have blockMapSize
+              if (yml.includes('url: ' + base) && !yml.includes('blockMapSize:')) {
+                // Add blockMapSize after size line for this file
+                yml = yml.replace(
+                  new RegExp('(url: ' + base.replace(/[.*+?^${}()|[\]\\\\]/g, '\\\\$&') + '[\\\\s\\\\S]*?size: \\\\d+)'),
+                  '\$1\\n    blockMapSize: ' + size
+                );
+                console.log('Added blockMapSize ' + size + ' for ' + base);
+              }
+            }
+
+            fs.writeFileSync(ymlPath, yml);
+            console.log('\\nUpdated latest-mac.yml:');
+            console.log(fs.readFileSync(ymlPath, 'utf8'));
+          "
+
       - name: Validate backend binary
         run: |
           echo "## macOS Backend Binary Validation (${{ matrix.arch }})" >> $GITHUB_STEP_SUMMARY
@@ -341,6 +379,7 @@ jobs:
           path: |
             desktop/release/*.dmg
             desktop/release/*.zip
+            desktop/release/*.blockmap
             desktop/release/latest-mac.yml
             desktop/release/checksums-macos-${{ matrix.arch }}.txt
           retention-days: 30
@@ -408,6 +447,35 @@ jobs:
             npx electron-builder --win --publish never
           }
 
+      - name: Add blockMapSize to latest.yml
+        working-directory: desktop
+        shell: pwsh
+        run: |
+          # Add blockMapSize to latest.yml for differential updates
+          $ymlPath = "release/latest.yml"
+          if (-not (Test-Path $ymlPath)) {
+            Write-Host "latest.yml not found, skipping"
+            exit 0
+          }
+
+          $yml = Get-Content $ymlPath -Raw
+          $blockmaps = Get-ChildItem -Path "release" -Filter "*.blockmap"
+
+          foreach ($blockmap in $blockmaps) {
+            $base = $blockmap.Name -replace '\.blockmap$', ''
+            $size = $blockmap.Length
+
+            if ($yml -match [regex]::Escape("url: $base") -and $yml -notmatch "blockMapSize:") {
+              $pattern = "(url: " + [regex]::Escape($base) + "[\s\S]*?size: \d+)"
+              $yml = $yml -replace $pattern, "`$1`n    blockMapSize: $size"
+              Write-Host "Added blockMapSize $size for $base"
+            }
+          }
+
+          Set-Content -Path $ymlPath -Value $yml
+          Write-Host "`nUpdated latest.yml:"
+          Get-Content $ymlPath
+
       - name: Check binary sizes
         shell: pwsh
         run: |
@@ -443,6 +511,7 @@ jobs:
           name: eclosion-windows
           path: |
             desktop/release/*.exe
+            desktop/release/*.blockmap
             desktop/release/latest.yml
             desktop/release/checksums-windows.txt
           retention-days: 30
@@ -530,6 +599,43 @@ jobs:
             npx electron-builder --linux --${{ matrix.arch }} --publish never
           fi
 
+      - name: Add blockMapSize to latest-linux.yml
+        working-directory: desktop
+        run: |
+          # Add blockMapSize to latest-linux.yml for differential updates
+          node -e "
+            const fs = require('fs');
+            const path = require('path');
+
+            const ymlPath = 'release/latest-linux.yml';
+            if (!fs.existsSync(ymlPath)) {
+              console.log('latest-linux.yml not found, skipping');
+              process.exit(0);
+            }
+
+            let yml = fs.readFileSync(ymlPath, 'utf8');
+            const blockmaps = fs.readdirSync('release').filter(f => f.endsWith('.blockmap'));
+
+            for (const blockmap of blockmaps) {
+              const base = blockmap.replace('.blockmap', '');
+              const size = fs.statSync(path.join('release', blockmap)).size;
+
+              // Check if this file is in the yml and doesn't already have blockMapSize
+              if (yml.includes('url: ' + base) && !yml.includes('blockMapSize:')) {
+                // Add blockMapSize after size line for this file
+                yml = yml.replace(
+                  new RegExp('(url: ' + base.replace(/[.*+?^\${}()|[\\]\\\\]/g, '\\\\$&') + '[\\\\s\\\\S]*?size: \\\\d+)'),
+                  '\$1\\n    blockMapSize: ' + size
+                );
+                console.log('Added blockMapSize ' + size + ' for ' + base);
+              }
+            }
+
+            fs.writeFileSync(ymlPath, yml);
+            console.log('\\nUpdated latest-linux.yml:');
+            console.log(fs.readFileSync(ymlPath, 'utf8'));
+          "
+
       - name: Check binary sizes
         run: |
           echo "## Linux Artifact Sizes (${{ matrix.arch }})" >> $GITHUB_STEP_SUMMARY
@@ -569,6 +675,7 @@ jobs:
             desktop/release/*.AppImage
             desktop/release/*.deb
             desktop/release/*.rpm
+            desktop/release/*.blockmap
             desktop/release/latest-linux.yml
             desktop/release/checksums-linux-${{ matrix.arch }}.txt
           retention-days: 30
