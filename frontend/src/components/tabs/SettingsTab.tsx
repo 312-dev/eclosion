@@ -40,6 +40,7 @@ import {
   DataManagementSection,
   DangerZoneSection,
   CreditsSection,
+  DeveloperSection,
 } from '../settings';
 
 export function SettingsTab() {
@@ -122,9 +123,10 @@ export function SettingsTab() {
   };
 
   // Calculate totals for the reset modal
-  const dedicatedItems = dashboardData?.items.filter(
-    item => item.is_enabled && !item.is_in_rollup && item.category_id
-  ) || [];
+  const dedicatedItems =
+    dashboardData?.items.filter(
+      (item) => item.is_enabled && !item.is_in_rollup && item.category_id
+    ) || [];
   const rollupItems = dashboardData?.rollup?.items || [];
   const totalCategories = dedicatedItems.length + (dashboardData?.rollup?.category_id ? 1 : 0);
   const totalItems = dedicatedItems.length + rollupItems.length;
@@ -153,10 +155,16 @@ export function SettingsTab() {
           </div>
         </div>
 
-        {isDemo && <div id="demo"><DemoModeSection /></div>}
+        {isDemo && (
+          <div id="demo">
+            <DemoModeSection />
+          </div>
+        )}
 
         {/* User-facing settings */}
-        <div id="appearance"><AppearanceSettings /></div>
+        <div id="appearance">
+          <AppearanceSettings />
+        </div>
 
         <div id="tool-settings">
           <RecurringToolSettings
@@ -168,9 +176,15 @@ export function SettingsTab() {
           />
         </div>
 
-        {isDesktop && <div id="desktop"><DesktopSection /></div>}
+        {isDesktop && (
+          <div id="desktop">
+            <DesktopSection />
+          </div>
+        )}
 
-        <div id="account"><AccountSection /></div>
+        <div id="account">
+          <AccountSection />
+        </div>
 
         <div id="updates">
           <UpdatesSection
@@ -179,7 +193,9 @@ export function SettingsTab() {
           />
         </div>
 
-        <div id="credits"><CreditsSection /></div>
+        <div id="credits">
+          <CreditsSection />
+        </div>
 
         {/* Technical settings */}
         <div id="automation">
@@ -192,11 +208,27 @@ export function SettingsTab() {
         </div>
 
         {/* Hide security events on desktop - only relevant for web deployments */}
-        {!isDesktop && <div id="security"><SecuritySection /></div>}
+        {!isDesktop && (
+          <div id="security">
+            <SecuritySection />
+          </div>
+        )}
 
-        <div id="data"><DataManagementSection onShowImportModal={() => setShowImportModal(true)} /></div>
+        <div id="data">
+          <DataManagementSection onShowImportModal={() => setShowImportModal(true)} />
+        </div>
 
-        {isDesktop && <div id="logs"><LogViewerSection /></div>}
+        {isDesktop && (
+          <div id="logs">
+            <LogViewerSection />
+          </div>
+        )}
+
+        {isDesktop && (
+          <div id="developer">
+            <DeveloperSection />
+          </div>
+        )}
 
         <div id="danger">
           <DangerZoneSection
@@ -215,18 +247,9 @@ export function SettingsTab() {
           logout();
         }}
       />
-      <UninstallModal
-        isOpen={showUninstallModal}
-        onClose={() => setShowUninstallModal(false)}
-      />
-      <UpdateModal
-        isOpen={showUpdateModal}
-        onClose={() => setShowUpdateModal(false)}
-      />
-      <ImportSettingsModal
-        isOpen={showImportModal}
-        onClose={() => setShowImportModal(false)}
-      />
+      <UninstallModal isOpen={showUninstallModal} onClose={() => setShowUninstallModal(false)} />
+      <UpdateModal isOpen={showUpdateModal} onClose={() => setShowUpdateModal(false)} />
+      <ImportSettingsModal isOpen={showImportModal} onClose={() => setShowImportModal(false)} />
       <RecurringResetModal
         isOpen={showRecurringResetModal}
         onClose={() => setShowRecurringResetModal(false)}

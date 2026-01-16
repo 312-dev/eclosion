@@ -20,3 +20,4 @@ export { DangerZoneSection } from './DangerZoneSection';
 export { CreditsSection } from './CreditsSection';
 export { LogViewerSection } from './LogViewerSection';
 export { HiddenCategoriesModal } from './HiddenCategoriesModal';
+export { DeveloperSection } from './DeveloperSection';
