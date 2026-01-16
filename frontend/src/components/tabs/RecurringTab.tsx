@@ -52,16 +52,9 @@ export function RecurringTab() {
     const rollupTotal = data.rollup.enabled ? data.rollup.total_frozen_monthly : 0;
     return itemsTotal + rollupTotal;
   }, [data]);
-  const lowestMonthlyCost = useMemo(() => {
-    if (!data) return 0;
-    const enabledItems = data.items.filter(i => i.is_enabled && !i.is_in_rollup);
-    const itemsTotal = enabledItems.reduce((sum, item) => sum + item.ideal_monthly_rate, 0);
-    const rollupTotal = data.rollup.enabled ? data.rollup.total_ideal_rate : 0;
-    return itemsTotal + rollupTotal;
-  }, [data]);
-  const burndownData = useMemo(
-    () => data ? calculateBurndownData(data.items, currentMonthlyCost, lowestMonthlyCost) : [],
-    [data, currentMonthlyCost, lowestMonthlyCost]
+  const { points: burndownPoints } = useMemo(
+    () => data ? calculateBurndownData(data.items, currentMonthlyCost) : { stabilization: null, points: [] },
+    [data, currentMonthlyCost]
   );
 
   // Watch for sync mutation results
@@ -214,7 +207,7 @@ export function RecurringTab() {
         )}
 
         {/* Catch-up Burndown Chart */}
-        {burndownData.length >= 2 && (
+        {burndownPoints.length >= 2 && (
           <div
             className="rounded-xl shadow-sm overflow-hidden mb-4"
             style={{ backgroundColor: 'var(--monarch-bg-card)', border: '1px solid var(--monarch-border)' }}
@@ -227,7 +220,7 @@ export function RecurringTab() {
               <p className="text-sm" style={{ color: 'var(--monarch-text-muted)' }}>
                 Your monthly contribution will decrease as catch-up payments complete
               </p>
-              <BurndownChart data={burndownData} formatCurrency={formatCurrency} />
+              <BurndownChart data={burndownPoints} formatCurrency={formatCurrency} />
             </div>
           </div>
         )}

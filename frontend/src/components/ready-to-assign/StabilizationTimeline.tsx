@@ -26,7 +26,6 @@ interface StabilizationPopoverProps {
   onFocusTrigger: () => void;
   dropdownRef: RefObject<HTMLDivElement | null>;
   stabilization: StabilizationData;
-  lowestMonthlyCost: number;
   catchUpAmount: number;
   itemsBehindCount: number;
   currentMonthlyCost: number;
@@ -40,7 +39,6 @@ export function StabilizationPopover({
   onFocusTrigger,
   dropdownRef,
   stabilization,
-  lowestMonthlyCost,
   catchUpAmount,
   itemsBehindCount,
   currentMonthlyCost,
@@ -114,7 +112,7 @@ export function StabilizationPopover({
               <div className="flex justify-between">
                 <span>Stable rate</span>
                 <span className="font-medium text-monarch-success">
-                  {formatCurrency(Math.round(lowestMonthlyCost), { maximumFractionDigits: 0 })}
+                  {formatCurrency(stabilization.stableMonthlyRate, { maximumFractionDigits: 0 })}
                 </span>
               </div>
               <div className="flex justify-between text-monarch-orange">

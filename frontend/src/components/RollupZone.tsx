@@ -131,6 +131,8 @@ export function RollupZone({ rollup, onRemoveItem, onBudgetChange, onEmojiChange
     frozen_monthly_target: totalMonthly,
     ideal_monthly_rate: totalStable,
     planned_budget: rollup.budgeted,
+    total_saved: rollup.total_saved,
+    total_target: rollup.total_target,
     status: 'on_track',
   });
 
