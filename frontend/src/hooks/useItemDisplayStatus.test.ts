@@ -46,7 +46,7 @@ describe('calculateItemDisplayStatus', () => {
       expect(calculateItemDisplayStatus(item)).toBe('ahead');
     });
 
-    it('returns "ahead" when budgeted equals target and balance covers amount', () => {
+    it('returns "funded" when balance covers amount (regardless of budget)', () => {
       const item = createItem({
         frozen_monthly_target: 100,
         planned_budget: 100,
@@ -54,8 +54,8 @@ describe('calculateItemDisplayStatus', () => {
         amount: 100,
       });
 
-      // When funded, effective target is $0. Budget ($100) > $0 = ahead
-      expect(calculateItemDisplayStatus(item)).toBe('ahead');
+      // Funded takes priority - if you have the money, you're funded
+      expect(calculateItemDisplayStatus(item)).toBe('funded');
     });
 
     it('returns "on_track" when budgeted equals target but balance does not cover amount', () => {
@@ -111,28 +111,28 @@ describe('calculateItemDisplayStatus', () => {
       expect(calculateItemDisplayStatus(item)).toBe('behind');
     });
 
-    it('uses ceiling for target and budget comparisons', () => {
+    it('uses ceiling for target and budget comparisons (when not funded)', () => {
       const item = createItem({
         frozen_monthly_target: 99.1, // ceil = 100
         planned_budget: 99.5, // ceil = 100
-        current_balance: 100,
+        current_balance: 50, // Not funded
         amount: 100,
       });
 
-      // When funded, effective target is $0. Budget ($100) > $0 = ahead
-      expect(calculateItemDisplayStatus(item)).toBe('ahead');
+      // budget (100) >= target (100) = on_track
+      expect(calculateItemDisplayStatus(item)).toBe('on_track');
     });
 
-    it('returns "ahead" when funded but still budgeting more than $0', () => {
+    it('returns "funded" when funded regardless of budget amount', () => {
       const item = createItem({
         frozen_monthly_target: 100,
-        planned_budget: 50, // Any budget > $0 when funded
+        planned_budget: 50, // Any budget - doesn't matter when funded
         current_balance: 150, // Already funded
         amount: 100,
       });
 
-      // Funded, so effective target is $0. Budget ($50) > $0 = ahead
-      expect(calculateItemDisplayStatus(item)).toBe('ahead');
+      // Funded takes priority - balance >= amount
+      expect(calculateItemDisplayStatus(item)).toBe('funded');
     });
 
     it('returns "funded" when funded and budget is $0', () => {
@@ -149,7 +149,10 @@ describe('calculateItemDisplayStatus', () => {
   });
 
   describe('monthly expenses (frequency_months <= 1)', () => {
-    it('returns "funded" when funded and budget equals target', () => {
+    // Note: For monthly expenses, the target is for the upcoming bill.
+    // Funded status takes priority regardless of frequency.
+
+    it('returns "funded" when balance covers amount', () => {
       const item = createItem({
         frequency_months: 1,
         frozen_monthly_target: 80,
@@ -158,12 +161,11 @@ describe('calculateItemDisplayStatus', () => {
         amount: 80,
       });
 
-      // Monthly: even when funded, effective target stays at $80
-      // Budget ($80) >= target ($80) AND funded = funded
+      // Funded takes priority - balance >= amount
       expect(calculateItemDisplayStatus(item)).toBe('funded');
     });
 
-    it('returns "ahead" when funded and budget exceeds target', () => {
+    it('returns "funded" even when budget exceeds target', () => {
       const item = createItem({
         frequency_months: 1,
         frozen_monthly_target: 80,
@@ -172,11 +174,11 @@ describe('calculateItemDisplayStatus', () => {
         amount: 80,
       });
 
-      // Monthly: budget ($100) > target ($80) = ahead
-      expect(calculateItemDisplayStatus(item)).toBe('ahead');
+      // Funded takes priority - balance >= amount
+      expect(calculateItemDisplayStatus(item)).toBe('funded');
     });
 
-    it('returns "behind" when funded but budget is below target', () => {
+    it('returns "funded" regardless of budget amount', () => {
       const item = createItem({
         frequency_months: 1,
         frozen_monthly_target: 80,
@@ -185,12 +187,11 @@ describe('calculateItemDisplayStatus', () => {
         amount: 80,
       });
 
-      // Monthly: even when funded, need to keep budgeting for next month
-      // Budget ($50) < target ($80) = behind
-      expect(calculateItemDisplayStatus(item)).toBe('behind');
+      // Funded takes priority - balance >= amount
+      expect(calculateItemDisplayStatus(item)).toBe('funded');
     });
 
-    it('returns "behind" when funded but budget is zero', () => {
+    it('returns "funded" even with zero budget', () => {
       const item = createItem({
         frequency_months: 1,
         frozen_monthly_target: 80,
@@ -199,8 +200,21 @@ describe('calculateItemDisplayStatus', () => {
         amount: 80,
       });
 
-      // Monthly: can't stop budgeting just because this month is funded
-      expect(calculateItemDisplayStatus(item)).toBe('behind');
+      // Funded takes priority - balance >= amount
+      expect(calculateItemDisplayStatus(item)).toBe('funded');
+    });
+
+    it('returns "on_track" when not funded but budget meets target', () => {
+      const item = createItem({
+        frequency_months: 1,
+        frozen_monthly_target: 80,
+        planned_budget: 80,
+        current_balance: 50, // Not enough saved
+        amount: 80,
+      });
+
+      // Not funded, budget >= target = on_track
+      expect(calculateItemDisplayStatus(item)).toBe('on_track');
     });
   });
 
@@ -249,8 +263,8 @@ describe('calculateItemDisplayStatus', () => {
         amount: 0,
       });
 
-      // balance (0) >= amount (0) = funded, but budget ($100) > $0 = ahead
-      expect(calculateItemDisplayStatus(item)).toBe('ahead');
+      // balance (0) >= amount (0) = funded
+      expect(calculateItemDisplayStatus(item)).toBe('funded');
     });
 
     it('handles negative balance', () => {
