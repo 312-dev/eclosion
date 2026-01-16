@@ -108,10 +108,13 @@ export function getStatusStyles(status: ItemStatus, isEnabled = true): StatusSty
  *
  * NOTE: For individual RecurringItem objects, use `calculateItemDisplayStatus`
  * from `hooks/useItemDisplayStatus.ts` instead. That function handles the full
- * item logic including funded status and effective target for infrequent expenses.
+ * item logic including funded status.
  *
- * This simplified version is for rollup/aggregate objects that only have
- * partial properties (frozen_monthly_target, planned_budget, etc.).
+ * This version is for rollup/aggregate objects. Status logic:
+ * 1. If total_saved >= total_target → FUNDED (all items have enough)
+ * 2. If budget > target → AHEAD
+ * 3. If budget >= target → ON_TRACK
+ * 4. Otherwise → BEHIND
  *
  * @param item - Object with aggregate properties
  * @returns The calculated display status
@@ -121,8 +124,8 @@ export function calculateDisplayStatus(item: {
   frozen_monthly_target: number;
   ideal_monthly_rate: number;
   planned_budget?: number;
-  current_balance?: number;
-  amount?: number;
+  total_saved?: number;
+  total_target?: number;
   status: ItemStatus;
 }): ItemStatus {
   // If disabled, return disabled status
@@ -131,6 +134,13 @@ export function calculateDisplayStatus(item: {
   }
 
   const plannedBudget = item.planned_budget ?? 0;
+  const totalSaved = item.total_saved ?? 0;
+  const totalTarget = item.total_target ?? 0;
+
+  // FUNDED: Total saved covers all target amounts
+  if (totalTarget > 0 && totalSaved >= totalTarget) {
+    return 'funded';
+  }
 
   // If frozen target exists, determine status based on budgeted vs target
   // Use Math.ceil for both to match what the UI displays

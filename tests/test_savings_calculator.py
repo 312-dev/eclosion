@@ -108,8 +108,8 @@ class TestProgressStatus:
     def test_calculate_behind_schedule(self, savings_calculator: SavingsCalculator) -> None:
         """Behind schedule should show BEHIND status."""
         # Need $100 in 2 months but have $0 - requires $50/month
-        # Ideal rate is $100/12 = ~$9/month
-        # $50 >> $9 * 1.1, so status should be BEHIND
+        # Ideal rate is $100/12 = ~$8/month (round)
+        # $50 >> $8 * 1.1, so status should be BEHIND
         result = savings_calculator.calculate(
             target_amount=100.00,
             current_balance=0,
@@ -119,7 +119,7 @@ class TestProgressStatus:
 
         assert result.monthly_contribution == 50
         assert result.status == SavingsStatus.BEHIND
-        assert result.ideal_monthly_rate == 9  # ceil(100/12)
+        assert result.ideal_monthly_rate == 8  # round(100/12)
 
     def test_calculate_ahead_schedule(self, savings_calculator: SavingsCalculator) -> None:
         """Ahead of schedule should show AHEAD status."""
@@ -243,9 +243,9 @@ class TestSavingsCalculationDataclass:
 
     def test_to_dict(self, savings_calculator: SavingsCalculator) -> None:
         """to_dict should return JSON-serializable dict."""
-        # With target=100, frequency=12, ideal_rate=9
-        # current_balance=55 means shortfall=45, monthly=45/5=9
-        # monthly(9) is within 10% of ideal_rate(9), so status is on_track
+        # With target=100, frequency=12, ideal_rate=8 (round)
+        # current_balance=55 means shortfall=45, monthly=round(45/5)=9
+        # monthly(9) > ideal_rate(8) * 1.1 = 8.8, so status is behind
         result = savings_calculator.calculate(
             target_amount=100.00,
             current_balance=55.00,
@@ -258,4 +258,4 @@ class TestSavingsCalculationDataclass:
         assert isinstance(data, dict)
         assert data["target_amount"] == 100.00
         assert data["current_balance"] == 55.00
-        assert data["status"] == "on_track"  # String value, not enum
+        assert data["status"] == "behind"  # String value, not enum

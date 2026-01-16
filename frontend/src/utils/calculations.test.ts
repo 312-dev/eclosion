@@ -16,20 +16,14 @@ import { calculateFrozenTarget } from './calculations';
 
 describe('calculateFrozenTarget - parity with Python _calculate_target', () => {
   /**
-   * Python reference (services/frozen_target_calculator.py lines 130-157):
+   * Python reference (services/frozen_target_calculator.py _calculate_target):
    *
-   * def _calculate_target(*, amount, frequency_months, months_until_due, current_balance, _ideal_monthly_rate):
-   *     if frequency_months <= 1:
-   *         return math.ceil(max(0, amount - current_balance))
-   *     else:
-   *         shortfall = max(0, amount - current_balance)
-   *         months_remaining = max(1, months_until_due)
-   *         if shortfall > 0:
-   *             return math.ceil(shortfall / months_remaining)
-   *         return 0
+   * For sub-monthly (weekly, bi-weekly): monthly_equivalent = amount / frequency_months
+   * For monthly: shortfall = amount - balance
+   * For infrequent: shortfall spread across remaining months
    */
 
-  describe('monthly expenses (frequency_months <= 1)', () => {
+  describe('monthly expenses (frequency_months === 1)', () => {
     it('returns shortfall when partially funded', () => {
       // Python: math.ceil(max(0, 80 - 50)) = 30
       expect(calculateFrozenTarget(80, 1, 1, 50)).toBe(30);
@@ -57,13 +51,35 @@ describe('calculateFrozenTarget - parity with Python _calculate_target', () => {
       expect(calculateFrozenTarget(100, 1, 1, 51)).toBe(49);
     });
 
-    it('handles weekly frequency (0.25 months) same as monthly', () => {
-      // frequency_months <= 1 uses monthly logic
-      expect(calculateFrozenTarget(25, 0.25, 1, 10)).toBe(15);
+  });
+
+  describe('sub-monthly expenses (frequency_months < 1)', () => {
+    it('calculates monthly equivalent for weekly expenses', () => {
+      // $78/week, frequency=0.25, 10 balance
+      // Monthly equivalent = 78/0.25 = $312
+      // Target = max(0, 312 - 10) = 302
+      expect(calculateFrozenTarget(78, 0.25, 1, 10)).toBe(302);
     });
 
-    it('handles bi-weekly frequency (0.5 months) same as monthly', () => {
-      expect(calculateFrozenTarget(50, 0.5, 1, 30)).toBe(20);
+    it('calculates monthly equivalent for bi-weekly expenses', () => {
+      // $100/bi-weekly, frequency=0.5, 50 balance
+      // Monthly equivalent = 100/0.5 = $200
+      // Target = max(0, 200 - 50) = 150
+      expect(calculateFrozenTarget(100, 0.5, 1, 50)).toBe(150);
+    });
+
+    it('returns zero when fully funded for the month', () => {
+      // $78/week, frequency=0.25, 312 balance (covers full month)
+      // Monthly equivalent = 78/0.25 = $312
+      // Target = max(0, 312 - 312) = 0
+      expect(calculateFrozenTarget(78, 0.25, 1, 312)).toBe(0);
+    });
+
+    it('returns zero when overfunded', () => {
+      // $78/week, frequency=0.25, 400 balance
+      // Monthly equivalent = 78/0.25 = $312
+      // Target = max(0, 312 - 400) = 0
+      expect(calculateFrozenTarget(78, 0.25, 1, 400)).toBe(0);
     });
   });
 
@@ -112,16 +128,16 @@ describe('calculateFrozenTarget - parity with Python _calculate_target', () => {
         expect(calculateFrozenTarget(600, 12, 6, 600)).toBe(0);
       });
 
-      it('rounds up fractional monthly amounts', () => {
+      it('rounds fractional monthly amounts', () => {
         // $100 yearly, $0 saved, 12 months left
-        // Python: ceil(100/12) = ceil(8.33) = 9
-        expect(calculateFrozenTarget(100, 12, 12, 0)).toBe(9);
+        // Python: round(100/12) = round(8.33) = 8
+        expect(calculateFrozenTarget(100, 12, 12, 0)).toBe(8);
       });
 
       it('handles uneven division with proper rounding', () => {
         // $500 yearly, $0 saved, 7 months left
-        // Python: ceil(500/7) = ceil(71.43) = 72
-        expect(calculateFrozenTarget(500, 12, 7, 0)).toBe(72);
+        // Python: round(500/7) = round(71.43) = 71
+        expect(calculateFrozenTarget(500, 12, 7, 0)).toBe(71);
       });
     });
 
@@ -177,14 +193,22 @@ describe('calculateFrozenTarget - parity with Python _calculate_target', () => {
     });
 
     it('handles frequency exactly equal to 1', () => {
-      // Boundary case: frequency_months === 1 should use monthly logic
+      // Boundary case: frequency_months === 1 should use monthly logic (shortfall)
       expect(calculateFrozenTarget(100, 1, 1, 50)).toBe(50);
+    });
+
+    it('handles frequency just below 1 (sub-monthly)', () => {
+      // Boundary case: frequency_months < 1 should use monthly equivalent
+      // $100, 0.9 month frequency (slightly more than monthly)
+      // Monthly equivalent = 100/0.9 = $111.11
+      // Target = max(0, 111 - 50) = 61 (after rounding)
+      expect(calculateFrozenTarget(100, 0.9, 1, 50)).toBe(61);
     });
 
     it('handles frequency just above 1', () => {
       // Boundary case: frequency_months > 1 should use infrequent logic
       // $100, 1.1 month frequency, 1 month left, $50 saved
-      // shortfall=50, months=1, ceil(50/1) = 50
+      // shortfall=50, months=1, round(50/1) = 50
       expect(calculateFrozenTarget(100, 1.1, 1, 50)).toBe(50);
     });
   });
@@ -233,21 +257,15 @@ describe('calculateFrozenTarget - parity with Python _calculate_target', () => {
  *
  * These test cases should produce identical results when run against
  * the Python implementation. If updating this file, also update the
- * corresponding Python tests in tests/test_savings_calculator.py.
+ * corresponding Python tests in tests/test_frozen_target_calculator.py.
  */
 describe('cross-implementation test vectors', () => {
   /**
-   * Test vectors that can be validated against Python:
+   * Test vectors validated against Python frozen_target_calculator.py:
    *
-   * python -c "
-   * import math
-   * def calc(amount, freq, months, balance):
-   *     if freq <= 1:
-   *         return math.ceil(max(0, amount - balance))
-   *     shortfall = max(0, amount - balance)
-   *     months_remaining = max(1, months)
-   *     return math.ceil(shortfall / months_remaining) if shortfall > 0 else 0
-   * "
+   * For sub-monthly (freq < 1): monthly_equivalent = amount/freq, target = max(0, equiv - balance)
+   * For monthly (freq == 1): target = max(0, amount - balance)
+   * For infrequent (freq > 1): target = shortfall / months_remaining
    */
   const testVectors: Array<{
     inputs: [number, number, number, number]; // amount, freq, months, balance
@@ -257,12 +275,15 @@ describe('cross-implementation test vectors', () => {
     { inputs: [100, 1, 1, 0], expected: 100, description: 'monthly-full' },
     { inputs: [100, 1, 1, 100], expected: 0, description: 'monthly-funded' },
     { inputs: [100, 1, 1, 50], expected: 50, description: 'monthly-partial' },
+    { inputs: [78, 0.25, 1, 0], expected: 312, description: 'weekly-full' },
+    { inputs: [78, 0.25, 1, 312], expected: 0, description: 'weekly-funded' },
+    { inputs: [78, 0.25, 1, 100], expected: 212, description: 'weekly-partial' },
     { inputs: [600, 12, 12, 0], expected: 50, description: 'yearly-start' },
     { inputs: [600, 12, 6, 300], expected: 50, description: 'yearly-ontrack' },
     { inputs: [600, 12, 3, 300], expected: 100, description: 'yearly-behind' },
     { inputs: [600, 12, 6, 600], expected: 0, description: 'yearly-funded' },
-    { inputs: [100, 12, 12, 0], expected: 9, description: 'yearly-rounded' },
-    { inputs: [500, 12, 7, 0], expected: 72, description: 'yearly-uneven' },
+    { inputs: [100, 12, 12, 0], expected: 8, description: 'yearly-rounded' },
+    { inputs: [500, 12, 7, 0], expected: 71, description: 'yearly-uneven' },
     { inputs: [300, 3, 3, 0], expected: 100, description: 'quarterly-start' },
     { inputs: [600, 12, 0, 0], expected: 600, description: 'due-now' },
     { inputs: [0, 12, 6, 0], expected: 0, description: 'zero-amount' },

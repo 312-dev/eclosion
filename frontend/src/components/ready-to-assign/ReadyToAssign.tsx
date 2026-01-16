@@ -13,7 +13,7 @@ import type { ReadyToAssign as ReadyToAssignData, RecurringItem, DashboardSummar
 import { formatCurrency } from '../../utils';
 import { Tooltip } from '../ui/Tooltip';
 import { useDropdown } from '../../hooks';
-import { calculateStabilizationPoint, calculateBurndownData } from '../charts';
+import { calculateBurndownData } from '../charts';
 import { TargetIcon } from '../icons';
 import { MobileReadyToAssign } from './MobileReadyToAssign';
 import { StabilizationPopover, StabilizationTimeline } from './StabilizationTimeline';
@@ -39,24 +39,21 @@ export function ReadyToAssign({ data, summary: _summary, items, rollup, variant 
     infoDropdown.triggerRef.current?.focus();
   };
 
-  // Calculate current and stable monthly costs - must include rollup to match chart
+  // Calculate current monthly cost (sum of all frozen targets)
   const currentMonthlyCost = useMemo(() => {
     const enabledItems = items.filter(i => i.is_enabled && !i.is_in_rollup);
     const itemsTotal = enabledItems.reduce((sum, item) => sum + item.frozen_monthly_target, 0);
     const rollupTotal = rollup.enabled ? rollup.total_frozen_monthly : 0;
     return itemsTotal + rollupTotal;
   }, [items, rollup]);
-  const lowestMonthlyCost = useMemo(() => {
-    const enabledItems = items.filter(i => i.is_enabled && !i.is_in_rollup);
-    const itemsTotal = enabledItems.reduce((sum, item) => sum + item.ideal_monthly_rate, 0);
-    const rollupTotal = rollup.enabled ? rollup.total_ideal_rate : 0;
-    return itemsTotal + rollupTotal;
-  }, [items, rollup]);
 
-  // Calculate stabilization point
-  const stabilization = useMemo(() => calculateStabilizationPoint(items, rollup.enabled ? rollup : null), [items, rollup]);
+  // Calculate burndown data and stabilization in one pass - single source of truth
+  const { stabilization, points: burndownPoints } = useMemo(
+    () => calculateBurndownData(items, currentMonthlyCost),
+    [items, currentMonthlyCost]
+  );
 
-  const catchUpAmount = currentMonthlyCost - Math.round(lowestMonthlyCost);
+  const catchUpAmount = currentMonthlyCost - stabilization.stableMonthlyRate;
   const itemsBehind = items.filter((i) => i.is_enabled && i.progress_percent < 100);
 
   // Calculate monthly targets and progress for the widget
@@ -80,9 +77,9 @@ export function ReadyToAssign({ data, summary: _summary, items, rollup, variant 
   }, [items]);
 
   // Generate month labels with projected amounts for the stabilization timeline
+  // Each month shows the "Needed for THAT MONTH" value when that month arrives
   const timelineMonths = useMemo(() => {
     if (!stabilization.hasCatchUp || stabilization.monthsUntilStable <= 0) return [];
-    const burndownData = calculateBurndownData(items, currentMonthlyCost, lowestMonthlyCost);
     const months: { month: string; year: string; showYear: boolean; amount: number }[] = [];
     const now = new Date();
     let lastYear = now.getFullYear();
@@ -91,14 +88,14 @@ export function ReadyToAssign({ data, summary: _summary, items, rollup, variant 
       const date = new Date(now.getFullYear(), now.getMonth() + i, 1);
       const year = date.getFullYear();
       const monthLabel = date.toLocaleDateString('en-US', { month: 'short' });
-      const burndownPoint = burndownData.find((p) => p.month === monthLabel);
+      const burndownPoint = burndownPoints.find((p) => p.month === monthLabel);
       const amount = burndownPoint?.amount ?? currentMonthlyCost;
       const showYear = year !== lastYear;
       months.push({ month: monthLabel, year: `'${year.toString().slice(-2)}`, showYear, amount: Math.round(amount) });
       lastYear = year;
     }
     return months;
-  }, [stabilization.hasCatchUp, stabilization.monthsUntilStable, items, currentMonthlyCost, lowestMonthlyCost]);
+  }, [stabilization.hasCatchUp, stabilization.monthsUntilStable, burndownPoints, currentMonthlyCost]);
 
   // Mobile horizontal layout
   if (variant === 'mobile') {
@@ -177,7 +174,6 @@ export function ReadyToAssign({ data, summary: _summary, items, rollup, variant 
           onFocusTrigger={handleFocusTrigger}
           dropdownRef={infoDropdown.dropdownRef}
           stabilization={stabilization}
-          lowestMonthlyCost={lowestMonthlyCost}
           catchUpAmount={catchUpAmount}
           itemsBehindCount={itemsBehind.length}
           currentMonthlyCost={currentMonthlyCost}
