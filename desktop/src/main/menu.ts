@@ -108,6 +108,19 @@ export function createMinimalMenu(): void {
         { role: 'selectAll' as const },
       ],
     },
+    // View menu - only shown in dev/beta for debugging startup issues
+    ...(!app.isPackaged || isBetaBuild()
+      ? [
+          {
+            label: 'View',
+            submenu: [
+              { role: 'reload' as const },
+              { role: 'forceReload' as const },
+              { role: 'toggleDevTools' as const },
+            ],
+          },
+        ]
+      : []),
     // Window menu
     {
       label: 'Window',

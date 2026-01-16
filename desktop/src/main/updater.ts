@@ -215,13 +215,25 @@ export async function checkForUpdates(): Promise<{ updateAvailable: boolean; ver
  * This will quit the app and install the update.
  */
 export function quitAndInstall(): void {
-  if (updateDownloaded) {
+  if (!updateDownloaded) {
+    debugLog('quitAndInstall called but no update downloaded', LOG_PREFIX);
+    notifyRenderer('update-error', { message: 'No update available to install' });
+    return;
+  }
+
+  try {
     debugLog('Installing update...', LOG_PREFIX);
     // Set isQuitting flag to prevent window close handler from hiding to tray
     // instead of actually quitting. Without this, closeToTray=true would
     // intercept the quit and just hide the window, leaving the app stuck.
     setIsQuitting(true);
     autoUpdater.quitAndInstall(false, true);
+  } catch (err) {
+    // Reset quitting flag since we're not actually quitting
+    setIsQuitting(false);
+    const cleanMessage = getCleanErrorMessage(err as Error);
+    debugLog(`Failed to install update: ${cleanMessage}`, LOG_PREFIX);
+    notifyRenderer('update-error', { message: `Installation failed: ${cleanMessage}` });
   }
 }
 

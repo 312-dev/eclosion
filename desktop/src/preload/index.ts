@@ -136,6 +136,11 @@ const electronAPI = {
   quitAndInstall: (): Promise<void> => ipcRenderer.invoke('quit-and-install'),
 
   /**
+   * Get auto-update enabled setting.
+   */
+  getAutoUpdateEnabled: (): Promise<boolean> => ipcRenderer.invoke('get-auto-update-enabled'),
+
+  /**
    * Listen for update events.
    */
   onUpdateAvailable: (callback: (info: unknown) => void): (() => void) => {
@@ -228,16 +233,12 @@ const electronAPI = {
   getDesktopSettings: (): Promise<{
     launchAtLogin: boolean;
     startMinimized: boolean;
-    minimizeToTray: boolean;
-    closeToTray: boolean;
-    showInDock: boolean;
     showInTaskbar: boolean;
-    globalShortcut: string;
   }> => ipcRenderer.invoke('get-desktop-settings'),
 
   /**
    * Set a single desktop setting.
-   * Handles side effects for launchAtLogin, showInDock, and globalShortcut.
+   * Handles side effects for launchAtLogin and showInDock.
    */
   setDesktopSetting: (key: string, value: boolean | string): Promise<boolean> =>
     ipcRenderer.invoke('set-desktop-setting', key, value),
@@ -306,35 +307,6 @@ const electronAPI = {
    * Get the warning message for restoring a backup.
    */
   getRestoreWarning: (): Promise<string> => ipcRenderer.invoke('get-restore-warning'),
-
-  // =========================================================================
-  // Global Hotkeys
-  // =========================================================================
-
-  /**
-   * Get all hotkey configurations.
-   */
-  getHotkeyConfigs: (): Promise<Record<string, { enabled: boolean; accelerator: string }>> =>
-    ipcRenderer.invoke('get-hotkey-configs'),
-
-  /**
-   * Set a hotkey configuration.
-   */
-  setHotkeyConfig: (
-    action: string,
-    config: { enabled: boolean; accelerator: string }
-  ): Promise<boolean> => ipcRenderer.invoke('set-hotkey-config', action, config),
-
-  /**
-   * Validate a keyboard shortcut.
-   */
-  validateShortcut: (accelerator: string, currentAction?: string): Promise<string | null> =>
-    ipcRenderer.invoke('validate-shortcut', accelerator, currentAction),
-
-  /**
-   * Reset hotkeys to defaults.
-   */
-  resetHotkeys: (): Promise<void> => ipcRenderer.invoke('reset-hotkeys'),
 
   // =========================================================================
   // Onboarding

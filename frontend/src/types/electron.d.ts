@@ -66,14 +66,7 @@ export interface UpdateCheckResult {
 /**
  * Keys for individual desktop settings.
  */
-export type DesktopSettingKey =
-  | 'launchAtLogin'
-  | 'startMinimized'
-  | 'minimizeToTray'
-  | 'closeToTray'
-  | 'showInDock'
-  | 'showInTaskbar'
-  | 'globalShortcut';
+export type DesktopSettingKey = 'launchAtLogin' | 'startMinimized' | 'showInTaskbar';
 
 /**
  * Desktop settings structure.
@@ -83,16 +76,8 @@ export interface DesktopSettings {
   launchAtLogin: boolean;
   startMinimized: boolean;
 
-  // Window behavior
-  minimizeToTray: boolean;
-  closeToTray: boolean;
-
   // Visibility
-  showInDock: boolean; // macOS only
   showInTaskbar: boolean; // Windows only (future)
-
-  // Shortcut
-  globalShortcut: string;
 }
 
 export interface LogFileInfo {
@@ -152,15 +137,6 @@ export interface RestoreResult {
   filesRestored?: number;
   settingsRestored?: boolean;
 }
-
-export type HotkeyAction = 'toggle-window' | 'trigger-sync';
-
-export interface HotkeyConfig {
-  enabled: boolean;
-  accelerator: string;
-}
-
-export type HotkeyConfigs = Record<HotkeyAction, HotkeyConfig>;
 
 export interface OnboardingStep {
   id: string;
@@ -494,12 +470,6 @@ export interface ElectronAPI {
   restoreBackup: () => Promise<RestoreResult>;
   getBackupWarning: () => Promise<string>;
   getRestoreWarning: () => Promise<string>;
-
-  // Global Hotkeys
-  getHotkeyConfigs: () => Promise<HotkeyConfigs>;
-  setHotkeyConfig: (action: HotkeyAction, config: HotkeyConfig) => Promise<boolean>;
-  validateShortcut: (accelerator: string, currentAction?: HotkeyAction) => Promise<string | null>;
-  resetHotkeys: () => Promise<void>;
 
   // Onboarding
   getOnboardingData: () => Promise<OnboardingData>;
