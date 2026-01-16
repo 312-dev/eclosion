@@ -5,10 +5,11 @@ Calculates monthly contribution amounts for recurring transactions.
 Handles over-contributions and edge cases.
 """
 
-import math
 from dataclasses import dataclass
 from datetime import date
 from enum import Enum
+
+from .frozen_target_calculator import round_monthly_rate
 
 
 class SavingsStatus(Enum):
@@ -79,9 +80,11 @@ class SavingsCalculator:
         """
         # Calculate ideal monthly rate (amount / frequency)
         # This is what you'd save each month from renewal to next renewal
-        # Round up to nearest dollar (Monarch doesn't do cents)
+        # Round to nearest dollar (Monarch doesn't do cents)
         ideal_monthly_rate = (
-            math.ceil(target_amount / frequency_months) if frequency_months > 0 else target_amount
+            round_monthly_rate(target_amount / frequency_months)
+            if frequency_months > 0
+            else target_amount
         )
 
         # Calculate progress (zero-amount items are considered 100% complete)
@@ -136,7 +139,7 @@ class SavingsCalculator:
             else:
                 status = SavingsStatus.ON_TRACK
             return SavingsCalculation(
-                monthly_contribution=math.ceil(ideal_monthly_rate),
+                monthly_contribution=round_monthly_rate(ideal_monthly_rate),
                 months_remaining=months_until_due,
                 target_amount=target_amount,
                 current_balance=current_balance,
@@ -151,7 +154,7 @@ class SavingsCalculator:
         # Due this month or past due
         if months_until_due <= 0:
             return SavingsCalculation(
-                monthly_contribution=math.ceil(shortfall),
+                monthly_contribution=round_monthly_rate(shortfall),
                 months_remaining=0,
                 target_amount=target_amount,
                 current_balance=current_balance,
@@ -165,7 +168,7 @@ class SavingsCalculator:
 
         # Normal calculation: spread shortfall over remaining months
         monthly = shortfall / months_until_due
-        monthly_rounded = math.ceil(monthly)  # Round up to nearest dollar
+        monthly_rounded = round_monthly_rate(monthly)  # Round to nearest dollar
 
         # Determine status based on whether you're ahead, on track, or behind:
         # - AHEAD: Need to pay less than 90% of ideal rate (ahead of schedule)

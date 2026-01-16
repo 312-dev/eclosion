@@ -5,7 +5,6 @@ Handles the rollup feature which allows multiple small recurring expenses
 to be bundled into a single shared category in Monarch Money.
 """
 
-import math
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
@@ -37,6 +36,17 @@ class RollupService:
         self.category_manager = category_manager
         self.recurring_service = recurring_service
         self.savings_calculator = savings_calculator
+
+    def _clear_all_rollup_frozen_targets(self) -> None:
+        """
+        Clear frozen targets for all rollup items.
+
+        Called when items are added/removed from rollup to ensure all items
+        recalculate with correct proportions on next get_rollup_data() call.
+        """
+        state = self.state_manager.load()
+        for item_id in state.rollup.item_ids:
+            self.state_manager.clear_frozen_target(f"rollup_{item_id}")
 
     async def toggle_rollup(self, enabled: bool) -> dict[str, Any]:
         """
@@ -221,6 +231,9 @@ class RollupService:
         # Add to rollup (local state only - user controls Monarch budget via input)
         rollup = self.state_manager.add_to_rollup(recurring_id, monthly_rate)
 
+        # Clear all rollup frozen targets so they recalculate with correct proportions
+        self._clear_all_rollup_frozen_targets()
+
         return {
             "success": True,
             "item_id": recurring_id,
@@ -257,6 +270,12 @@ class RollupService:
 
         # Remove from rollup (local state only - user controls Monarch budget via input)
         rollup = self.state_manager.remove_from_rollup(recurring_id, monthly_rate)
+
+        # Clear all rollup frozen targets so remaining items recalculate with correct proportions
+        self._clear_all_rollup_frozen_targets()
+
+        # Also clear the removed item's frozen target
+        self.state_manager.clear_frozen_target(f"rollup_{recurring_id}")
 
         # Restore individual category budget if item is enabled
         if state.is_item_enabled(recurring_id):
@@ -343,6 +362,8 @@ class RollupService:
 
     async def get_rollup_data(self) -> dict[str, Any]:
         """Get rollup state with computed data, including per-item catch-up calculations."""
+        from .frozen_target_calculator import calculate_frozen_target
+
         state = self.state_manager.load()
         rollup = state.rollup
 
@@ -374,11 +395,18 @@ class RollupService:
         recurring_items = await self.recurring_service.get_all_recurring()
         rollup_items = [i for i in recurring_items if i.id in rollup.item_ids]
 
-        # Get current balance from Monarch (shared rollup category)
+        # Get budget data from Monarch (shared rollup category)
+        # Using new balance model: rollover + budgeted = progress
+        rollover_amount = 0.0
+        budgeted_this_month = 0.0
         current_balance = 0.0
+
         if rollup.monarch_category_id:
-            all_balances = await self.category_manager.get_all_category_balances()
-            current_balance = all_balances.get(rollup.monarch_category_id, 0.0)
+            all_budget_data = await self.category_manager.get_all_category_budget_data()
+            cat_data = all_budget_data.get(rollup.monarch_category_id, {})
+            rollover_amount = cat_data.get("rollover", 0.0)
+            budgeted_this_month = cat_data.get("budgeted", 0.0)
+            current_balance = cat_data.get("remaining", 0.0)
 
         # Calculate total target (sum of all item amounts)
         total_target = sum(item.amount for item in rollup_items)
@@ -390,12 +418,16 @@ class RollupService:
         current_month = datetime.now().strftime("%Y-%m")
 
         for item in rollup_items:
-            # Calculate proportional share of the shared balance for this item
-            # This gives us a virtual "current_balance" for each item
+            # Calculate proportional share of budget data for this item
+            # All items share the single rollup category, so we split proportionally
             if total_target > 0:
                 proportion = item.amount / total_target
+                item_rollover = rollover_amount * proportion
+                item_budgeted = budgeted_this_month * proportion
                 item_balance = current_balance * proportion
             else:
+                item_rollover = 0
+                item_budgeted = 0
                 item_balance = 0
 
             # Calculate savings using the same logic as standalone categories
@@ -409,62 +441,31 @@ class RollupService:
 
             ideal_monthly_rate = calc.ideal_monthly_rate
 
-            # Calculate frozen monthly target using same logic as get_dashboard_data()
-            # Check if we have a stored frozen target for this rollup item
+            # Calculate frozen monthly target using centralized calculator
             rollup_target_key = f"rollup_{item.id}"
-            stored_target = self.state_manager.get_frozen_target(rollup_target_key)
-
-            needs_recalc = (
-                stored_target is None
-                or stored_target["target_month"] != current_month
-                or stored_target.get("frozen_amount") != item.amount
-                or stored_target.get("frozen_frequency_months") != item.frequency_months
+            result = calculate_frozen_target(
+                recurring_id=rollup_target_key,
+                amount=item.amount,
+                frequency_months=item.frequency_months,
+                months_until_due=item.months_until_due,
+                rollover_amount=item_rollover,
+                budgeted_this_month=item_budgeted,
+                next_due_date=item.next_due_date.isoformat(),
+                state_manager=self.state_manager,
+                current_month=current_month,
             )
 
-            if needs_recalc:
-                # New month or inputs changed - calculate and freeze
-                if item.frequency_months <= 1:
-                    # Frequent subscriptions - use ideal rate
-                    frozen_target = math.ceil(ideal_monthly_rate)
-                else:
-                    # Infrequent subscriptions - calculate catch-up rate
-                    shortfall = max(0, item.amount - item_balance)
-                    months_remaining = max(1, item.months_until_due)
-                    frozen_target = math.ceil(shortfall / months_remaining) if shortfall > 0 else 0
-
-                self.state_manager.set_frozen_target(
-                    recurring_id=rollup_target_key,
-                    frozen_target=frozen_target,
-                    target_month=current_month,
-                    balance_at_start=item_balance,
-                    amount=item.amount,
-                    frequency_months=item.frequency_months,
-                )
-                balance_at_start = item_balance
-            else:
-                assert stored_target is not None
-                frozen_target = stored_target["frozen_monthly_target"]
-                balance_at_start = stored_target["balance_at_month_start"] or 0
-
+            frozen_target = result.frozen_target
             total_frozen_monthly += frozen_target
 
-            # Calculate what the rate will be after catching-up items finish:
-            # - Catching up items (frozen > ideal): will drop to ideal after payment
-            # - Non-catching up items: stay at their current frozen rate
-            if frozen_target > ideal_monthly_rate:
-                rate_after_catchup = ideal_monthly_rate
-            else:
-                rate_after_catchup = frozen_target
-            total_ideal_rate += rate_after_catchup
-
-            # Calculate monthly progress
-            contributed_this_month = max(0, item_balance - balance_at_start)
-            monthly_progress_percent = (
-                (contributed_this_month / frozen_target * 100) if frozen_target > 0 else 100
-            )
+            # Total ideal rate is the sum of all ideal_monthly_rate values
+            # This is the stable rate after all catch-up payments complete
+            total_ideal_rate += ideal_monthly_rate
 
             # Calculate overall progress for this item
-            progress_percent = (item_balance / item.amount * 100) if item.amount > 0 else 100
+            # Progress = rollover + budgeted this month
+            item_progress = item_rollover + item_budgeted
+            progress_percent = (item_progress / item.amount * 100) if item.amount > 0 else 100
 
             items_data.append(
                 {
@@ -480,8 +481,8 @@ class RollupService:
                     "current_balance": item_balance,
                     "ideal_monthly_rate": ideal_monthly_rate,
                     "frozen_monthly_target": frozen_target,
-                    "contributed_this_month": contributed_this_month,
-                    "monthly_progress_percent": monthly_progress_percent,
+                    "contributed_this_month": result.contributed_this_month,
+                    "monthly_progress_percent": result.monthly_progress_percent,
                     "progress_percent": min(100, progress_percent),
                     "status": calc.status.value,
                     "amount_needed_now": calc.amount_needed_now,
@@ -489,7 +490,9 @@ class RollupService:
             )
 
         # Calculate overall progress toward total target
-        overall_progress = (current_balance / total_target * 100) if total_target > 0 else 0
+        # Progress = rollover + budgeted this month
+        total_progress = rollover_amount + budgeted_this_month
+        overall_progress = (total_progress / total_target * 100) if total_target > 0 else 0
 
         return {
             "enabled": True,
@@ -497,7 +500,7 @@ class RollupService:
             "total_ideal_rate": total_ideal_rate,
             "total_frozen_monthly": total_frozen_monthly,
             "total_target": total_target,
-            "total_saved": current_balance,
+            "total_saved": total_progress,
             "budgeted": rollup.total_budgeted,
             "current_balance": current_balance,
             "progress_percent": round(min(100, overall_progress), 1),

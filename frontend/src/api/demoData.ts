@@ -18,6 +18,7 @@ import type {
   ArchivedNote,
 } from '../types';
 import type { NotesCategoryGroup } from '../types/notes';
+import { roundMonthlyRate } from '../utils/calculations';
 
 // ============================================================================
 // Demo State Interface
@@ -73,8 +74,12 @@ function calculateProgress(saved: number, target: number): number {
  * This is calculated for ALL items (enabled or disabled) so the target is ready
  * when the item is enabled. Mirrors the logic from services/frozen_target_calculator.py
  *
- * For monthly expenses: Target = ideal rate (no buffer/catch-up)
- * For infrequent expenses: Target = ceil(shortfall / months_remaining)
+ * For sub-monthly expenses: Target = monthly equivalent - what you have
+ * For monthly expenses: Target = shortfall (what's still needed)
+ * For infrequent expenses: Target = round(shortfall / months_remaining)
+ *
+ * Uses round() instead of ceil() to minimize overbudgeting.
+ * Minimum $1/mo for any non-zero rate (prevents showing $0 for small expenses).
  */
 function calculateFrozenTarget(
   amount: number,
@@ -82,15 +87,20 @@ function calculateFrozenTarget(
   monthsUntilDue: number,
   currentBalance: number
 ): number {
-  if (frequencyMonths <= 1) {
-    // Monthly items: target is simply the ideal rate (rounded up)
-    return Math.ceil(amount);
+  if (frequencyMonths < 1) {
+    // Sub-monthly (weekly, bi-weekly): use monthly equivalent
+    // $78/week → $312/month
+    const monthlyEquivalent = amount / frequencyMonths;
+    return roundMonthlyRate(Math.max(0, monthlyEquivalent - currentBalance));
+  } else if (frequencyMonths === 1) {
+    // Monthly items: target is the shortfall (what's still needed)
+    return roundMonthlyRate(Math.max(0, amount - currentBalance));
   } else {
     // Non-monthly items: calculate catch-up rate
     const shortfall = Math.max(0, amount - currentBalance);
     const monthsRemaining = Math.max(1, monthsUntilDue);
     if (shortfall > 0) {
-      return Math.ceil(shortfall / monthsRemaining);
+      return roundMonthlyRate(shortfall / monthsRemaining);
     }
     return 0;
   }

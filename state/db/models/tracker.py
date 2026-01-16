@@ -65,6 +65,9 @@ class Category(Base):
     balance_at_month_start: Mapped[float | None] = mapped_column(Float, nullable=True)
     frozen_amount: Mapped[float | None] = mapped_column(Float, nullable=True)
     frozen_frequency_months: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # New fields for improved frozen target calculation (v3)
+    frozen_rollover_amount: Mapped[float | None] = mapped_column(Float, nullable=True)
+    frozen_next_due_date: Mapped[str | None] = mapped_column(String(20), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     last_synced_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 

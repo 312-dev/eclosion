@@ -9,7 +9,6 @@ Orchestrates the full synchronization process:
 5. Track state and over-contributions
 """
 
-import math
 import os
 import sys
 from datetime import UTC, datetime
@@ -470,9 +469,12 @@ class SyncService:
             else:
                 display_name = existing_name
 
-        # Calculate monthly contribution
-        all_balances = await self.category_manager.get_all_category_balances()
-        current_balance = all_balances.get(category_id, 0)
+        # Calculate monthly contribution using budget data
+        all_budget_data = await self.category_manager.get_all_category_budget_data()
+        budget_data = all_budget_data.get(category_id, {})
+        rollover_amount = budget_data.get("rollover", 0.0)
+        budgeted_this_month = budget_data.get("budgeted", 0.0)
+        current_balance = budget_data.get("remaining", 0.0)
 
         calc = self.savings_calculator.calculate(
             target_amount=item.amount,
@@ -504,25 +506,18 @@ class SyncService:
             state.categories[recurring_id].emoji = emoji
             self.state_manager.save(state)
 
-        # Initialize frozen monthly target to avoid stale/incorrect values on first load
-        # Use the same logic as get_recurring_list to ensure consistency
-        current_month = datetime.now().strftime("%Y-%m")
-        if item.frequency_months <= 1:
-            # Frequent subscriptions - use ideal rate (rounded up)
-            frozen_target = math.ceil(calc.ideal_monthly_rate)
-        else:
-            # Infrequent subscriptions - calculate catch-up rate
-            shortfall = max(0, item.amount - current_balance)
-            months_remaining = max(1, item.months_until_due)
-            frozen_target = math.ceil(shortfall / months_remaining) if shortfall > 0 else 0
+        # Initialize frozen monthly target using new balance model
+        from .frozen_target_calculator import calculate_frozen_target as calc_frozen
 
-        self.state_manager.set_frozen_target(
+        calc_frozen(
             recurring_id=recurring_id,
-            frozen_target=frozen_target,
-            target_month=current_month,
-            balance_at_start=current_balance,
             amount=item.amount,
             frequency_months=item.frequency_months,
+            months_until_due=item.months_until_due,
+            rollover_amount=rollover_amount,
+            budgeted_this_month=budgeted_this_month,
+            next_due_date=item.next_due_date.isoformat(),
+            state_manager=self.state_manager,
         )
 
         # Enable tracking for this item
@@ -1336,13 +1331,13 @@ class SyncService:
         # Fetch recurring items
         recurring_items = await self.recurring_service.get_all_recurring()
 
-        # Get all balances, planned budgets, and category info
-        all_balances = await self.category_manager.get_all_category_balances()
-        all_planned_budgets = await self.category_manager.get_all_planned_budgets()
+        # Get all budget data (rollover, budgeted, remaining, actual) and category info
+        # Using new balance model: progress = rollover + budgeted this month
+        all_budget_data = await self.category_manager.get_all_category_budget_data()
         all_category_info = await self.category_manager.get_all_category_info()
 
         # Debug logging for balance retrieval
-        logger.info(f"[Dashboard] Fetched {len(all_balances)} category balances")
+        logger.info(f"[Dashboard] Fetched {len(all_budget_data)} category budget data")
 
         items_data: list[dict[str, Any]] = []
         total_monthly = 0.0
@@ -1356,21 +1351,26 @@ class SyncService:
             is_enabled = state.is_item_enabled(item.id)
 
             if cat_state and is_enabled:
-                current_balance = all_balances.get(cat_state.monarch_category_id, 0)
+                budget_data = all_budget_data.get(cat_state.monarch_category_id, {})
+                rollover_amount = budget_data.get("rollover", 0.0)
+                budgeted_this_month = budget_data.get("budgeted", 0.0)
+                current_balance = budget_data.get("remaining", 0.0)
                 tracked_over = cat_state.over_contribution
                 cat_info = all_category_info.get(cat_state.monarch_category_id)
                 # Debug: log balance lookup
-                if current_balance == 0 and cat_state.monarch_category_id in all_balances:
+                if current_balance == 0 and cat_state.monarch_category_id in all_budget_data:
                     logger.warning(f"[Dashboard] {item.name}: balance is 0 but key exists")
-                elif cat_state.monarch_category_id not in all_balances:
+                elif cat_state.monarch_category_id not in all_budget_data:
                     logger.warning(
-                        f"[Dashboard] {item.name}: monarch_category_id {cat_state.monarch_category_id} NOT in all_balances"
+                        f"[Dashboard] {item.name}: monarch_category_id {cat_state.monarch_category_id} NOT in all_budget_data"
                     )
                 # Use cached info - no individual lookups to avoid extra API calls
                 category_group_name = cat_info.get("group_name") if cat_info else None
                 # Check if category still exists in Monarch
                 category_missing = cat_info is None
             else:
+                rollover_amount = 0.0
+                budgeted_this_month = 0.0
                 current_balance = 0
                 tracked_over = 0
                 category_group_name = None
@@ -1386,67 +1386,51 @@ class SyncService:
             )
 
             # Frozen monthly target logic - only recalculate at month boundaries OR if inputs changed
+            # Using new balance model: progress = rollover + budgeted this month
+            from .frozen_target_calculator import (
+                calculate_frozen_target as calc_frozen,
+            )
+            from .frozen_target_calculator import (
+                round_monthly_rate,
+            )
+
             current_month = datetime.now().strftime("%Y-%m")
-            stored_target = self.state_manager.get_frozen_target(item.id)
 
             if is_enabled and cat_state:
-                # Check if we need to recalculate
-                needs_recalc = (
-                    stored_target is None
-                    or stored_target["target_month"] != current_month
-                    # Recalculate if subscription amount or frequency changed
-                    or stored_target.get("frozen_amount") != item.amount
-                    or stored_target.get("frozen_frequency_months") != item.frequency_months
+                # Use centralized frozen target calculator with new balance model
+                result = calc_frozen(
+                    recurring_id=item.id,
+                    amount=item.amount,
+                    frequency_months=item.frequency_months,
+                    months_until_due=item.months_until_due,
+                    rollover_amount=rollover_amount,
+                    budgeted_this_month=budgeted_this_month,
+                    next_due_date=item.next_due_date.isoformat(),
+                    state_manager=self.state_manager,
+                    current_month=current_month,
                 )
-
-                if needs_recalc:
-                    # New month, first time, or inputs changed - calculate and freeze
-                    if item.frequency_months <= 1:
-                        # Frequent subscriptions (monthly or more often) - use ideal rate
-                        # No "saving up" needed, just cover monthly cost
-                        frozen_target = math.ceil(calc.ideal_monthly_rate)
-                    else:
-                        # Infrequent subscriptions - calculate catch-up rate
-                        shortfall = max(0, item.amount - current_balance)
-                        months_remaining = max(1, item.months_until_due)
-                        frozen_target = (
-                            math.ceil(shortfall / months_remaining) if shortfall > 0 else 0
-                        )
-
-                    self.state_manager.set_frozen_target(
-                        recurring_id=item.id,
-                        frozen_target=frozen_target,
-                        target_month=current_month,
-                        balance_at_start=current_balance,
-                        amount=item.amount,
-                        frequency_months=item.frequency_months,
-                    )
-                    balance_at_start = current_balance
-                else:
-                    # Same month and inputs unchanged - use frozen target
-                    assert stored_target is not None
-                    frozen_target = stored_target["frozen_monthly_target"]
-                    balance_at_start = stored_target["balance_at_month_start"] or 0
-
-                # Calculate progress this month
-                contributed_this_month = max(0, current_balance - balance_at_start)
-                monthly_progress_percent = (
-                    (contributed_this_month / frozen_target * 100) if frozen_target > 0 else 100
-                )
+                frozen_target = result.frozen_target
+                contributed_this_month = result.contributed_this_month
+                monthly_progress_percent = result.monthly_progress_percent
             else:
                 # For disabled items, still calculate what the frozen target would be
                 # so we can show if they'd need to catch up or are ahead if tracked
-                if item.frequency_months <= 1:
-                    # Monthly or more frequent - would just use ideal rate
-                    frozen_target = math.ceil(calc.ideal_monthly_rate)
+                if item.frequency_months < 1:
+                    # Sub-monthly (weekly, bi-weekly) - use monthly equivalent
+                    monthly_equivalent = item.amount / item.frequency_months
+                    frozen_target = round_monthly_rate(max(0, monthly_equivalent - current_balance))
+                elif item.frequency_months == 1:
+                    # Monthly - would use ideal rate
+                    frozen_target = round_monthly_rate(calc.ideal_monthly_rate)
                 else:
                     # Infrequent - calculate catch-up rate (balance is 0 for untracked)
                     shortfall = max(0, item.amount - current_balance)
                     months_remaining = max(1, item.months_until_due)
-                    frozen_target = math.ceil(shortfall / months_remaining) if shortfall > 0 else 0
+                    frozen_target = (
+                        round_monthly_rate(shortfall / months_remaining) if shortfall > 0 else 0
+                    )
                 contributed_this_month = 0
                 monthly_progress_percent = 0
-                balance_at_start = 0
 
             is_active = cat_state.is_active if cat_state else True
 
@@ -1469,11 +1453,7 @@ class SyncService:
                     "next_due_date": item.next_due_date.isoformat(),
                     "months_until_due": item.months_until_due,
                     "current_balance": current_balance,
-                    "planned_budget": (
-                        all_planned_budgets.get(cat_state.monarch_category_id, 0)
-                        if cat_state
-                        else 0
-                    ),
+                    "planned_budget": (int(budgeted_this_month) if cat_state else 0),
                     "monthly_contribution": (calc.monthly_contribution if is_enabled else 0),
                     "over_contribution": calc.over_contribution,
                     "progress_percent": calc.progress_percent if is_enabled else 0,
@@ -1493,7 +1473,8 @@ class SyncService:
 
             if is_enabled and is_active:
                 total_monthly += frozen_target
-                total_saved += current_balance
+                # Progress = rollover + budgeted (what's been allocated toward the goal)
+                total_saved += rollover_amount + budgeted_this_month
                 total_target += item.amount
                 active_count += 1
             elif not is_enabled:

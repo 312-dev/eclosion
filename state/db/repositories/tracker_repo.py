@@ -161,6 +161,8 @@ class TrackerRepository:
         balance_at_start: float,
         amount: float,
         frequency_months: float,
+        rollover_amount: float | None = None,
+        next_due_date: str | None = None,
     ) -> bool:
         """Set frozen monthly target for a category."""
         category = self.get_category(recurring_id)
@@ -184,6 +186,8 @@ class TrackerRepository:
         category.balance_at_month_start = balance_at_start
         category.frozen_amount = amount
         category.frozen_frequency_months = frequency_months
+        category.frozen_rollover_amount = rollover_amount
+        category.frozen_next_due_date = next_due_date
         return True
 
     def clear_frozen_target(self, recurring_id: str) -> bool:
@@ -195,6 +199,8 @@ class TrackerRepository:
             category.balance_at_month_start = None
             category.frozen_amount = None
             category.frozen_frequency_months = None
+            category.frozen_rollover_amount = None
+            category.frozen_next_due_date = None
             return True
         return False
 

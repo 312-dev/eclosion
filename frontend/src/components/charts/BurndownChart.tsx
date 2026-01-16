@@ -63,7 +63,7 @@ function CustomTooltip({ active, payload, formatCurrency, coordinate, data }: Cu
   }
 
   // Generate explanation based on completing items
-  let explanation = '';
+  let explanation = 'Monthly contribution rate';
   if (point.completingItems.length > 0) {
     const names = point.completingItems.slice(0, 3);
     if (point.completingItems.length > 3) {
@@ -71,8 +71,12 @@ function CustomTooltip({ active, payload, formatCurrency, coordinate, data }: Cu
     } else {
       explanation = `${names.join(', ')} ${names.length === 1 ? 'completes' : 'complete'} catch-up`;
     }
-  } else {
-    explanation = 'Monthly contribution rate';
+    // For stabilization point, add the steady-state message
+    if (isStabilizationPoint) {
+      explanation += '. Steady-state rate going forward.';
+    }
+  } else if (isStabilizationPoint) {
+    explanation = 'Your steady-state monthly rate going forward';
   }
 
   return (
@@ -118,9 +122,7 @@ function CustomTooltip({ active, payload, formatCurrency, coordinate, data }: Cu
             className="text-[11px] leading-relaxed"
             style={{ color: 'var(--monarch-text-muted)' }}
           >
-            {isStabilizationPoint
-              ? 'Your steady-state monthly rate going forward'
-              : explanation}
+            {explanation}
           </div>
         </div>
       </div>
