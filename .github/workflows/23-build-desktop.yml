@@ -289,7 +289,8 @@ jobs:
           # Add blockMapSize to manifest yml for differential updates
           # This enables electron-updater to download only changed blocks
           # Handles both latest-mac.yml (stable) and beta-mac.yml (beta)
-          node -e "
+          # Using heredoc with single quotes to prevent bash variable expansion
+          node << 'BLOCKMAP_SCRIPT'
             const fs = require('fs');
             const path = require('path');
 
@@ -313,17 +314,17 @@ jobs:
               if (yml.includes('url: ' + base) && !yml.includes('blockMapSize:')) {
                 // Add blockMapSize after size line for this file
                 yml = yml.replace(
-                  new RegExp('(url: ' + base.replace(/[.*+?^${}()|[\]\\\\]/g, '\\\\$&') + '[\\\\s\\\\S]*?size: \\\\d+)'),
-                  '\\$1\\n    blockMapSize: ' + size
+                  new RegExp('(url: ' + base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '[\\s\\S]*?size: \\d+)'),
+                  '$1\n    blockMapSize: ' + size
                 );
                 console.log('Added blockMapSize ' + size + ' for ' + base);
               }
             }
 
             fs.writeFileSync(ymlPath, yml);
-            console.log('\\nUpdated ' + path.basename(ymlPath) + ':');
+            console.log('\nUpdated ' + path.basename(ymlPath) + ':');
             console.log(fs.readFileSync(ymlPath, 'utf8'));
-          "
+          BLOCKMAP_SCRIPT
 
       - name: Validate backend binary
         run: |
@@ -612,7 +613,8 @@ jobs:
         run: |
           # Add blockMapSize to manifest yml for differential updates
           # Handles both latest-linux.yml (stable) and beta-linux.yml (beta)
-          node -e "
+          # Using heredoc with single quotes to prevent bash variable expansion
+          node << 'BLOCKMAP_SCRIPT'
             const fs = require('fs');
             const path = require('path');
 
@@ -636,17 +638,17 @@ jobs:
               if (yml.includes('url: ' + base) && !yml.includes('blockMapSize:')) {
                 // Add blockMapSize after size line for this file
                 yml = yml.replace(
-                  new RegExp('(url: ' + base.replace(/[.*+?^\\${}()|[\\]\\\\]/g, '\\\\\\$&') + '[\\\\s\\\\S]*?size: \\\\d+)'),
-                  '\\$1\\n    blockMapSize: ' + size
+                  new RegExp('(url: ' + base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '[\\s\\S]*?size: \\d+)'),
+                  '$1\n    blockMapSize: ' + size
                 );
                 console.log('Added blockMapSize ' + size + ' for ' + base);
               }
             }
 
             fs.writeFileSync(ymlPath, yml);
-            console.log('\\nUpdated ' + path.basename(ymlPath) + ':');
+            console.log('\nUpdated ' + path.basename(ymlPath) + ':');
             console.log(fs.readFileSync(ymlPath, 'utf8'));
-          "
+          BLOCKMAP_SCRIPT
 
       - name: Check binary sizes
         run: |
