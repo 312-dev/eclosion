@@ -1339,6 +1339,14 @@ class SyncService:
         # Debug logging for balance retrieval
         logger.info(f"[Dashboard] Fetched {len(all_budget_data)} category budget data")
 
+        # Fetch rollup data early to get correct values for rollup items
+        # Rollup items in the main items list would otherwise have wrong frozen_monthly_target
+        # (calculated with balance=0 instead of proportional share of rollup balance)
+        rollup_data = await self.get_rollup_data()
+        rollup_items_map: dict[str, dict[str, Any]] = {}
+        if rollup_data.get("enabled") and rollup_data.get("items"):
+            rollup_items_map = {item["id"]: item for item in rollup_data["items"]}
+
         items_data: list[dict[str, Any]] = []
         total_monthly = 0.0
         total_saved = 0.0
@@ -1349,6 +1357,10 @@ class SyncService:
         for item in recurring_items:
             cat_state = state.categories.get(item.id)
             is_enabled = state.is_item_enabled(item.id)
+            is_in_rollup = item.id in state.rollup.item_ids
+
+            # Check if this item is in the rollup and has pre-calculated values
+            rollup_item_data = rollup_items_map.get(item.id) if is_in_rollup else None
 
             if cat_state and is_enabled:
                 budget_data = all_budget_data.get(cat_state.monarch_category_id, {})
@@ -1368,6 +1380,15 @@ class SyncService:
                 category_group_name = cat_info.get("group_name") if cat_info else None
                 # Check if category still exists in Monarch
                 category_missing = cat_info is None
+            elif rollup_item_data:
+                # Rollup item: use pre-calculated values from rollup data
+                # These have correct proportional balance, not balance=0
+                rollover_amount = 0.0  # Not tracked individually
+                budgeted_this_month = 0.0  # Budget is on rollup category
+                current_balance = rollup_item_data.get("current_balance", 0.0)
+                tracked_over = 0
+                category_group_name = None
+                category_missing = False
             else:
                 rollover_amount = 0.0
                 budgeted_this_month = 0.0
@@ -1412,6 +1433,12 @@ class SyncService:
                 frozen_target = result.frozen_target
                 contributed_this_month = result.contributed_this_month
                 monthly_progress_percent = result.monthly_progress_percent
+            elif rollup_item_data:
+                # Rollup item: use pre-calculated values from rollup data
+                # These are calculated with correct proportional balance
+                frozen_target = rollup_item_data.get("frozen_monthly_target", 0)
+                contributed_this_month = rollup_item_data.get("contributed_this_month", 0)
+                monthly_progress_percent = rollup_item_data.get("monthly_progress_percent", 0)
             else:
                 # For disabled items, still calculate what the frozen target would be
                 # so we can show if they'd need to catch up or are ahead if tracked
@@ -1434,7 +1461,25 @@ class SyncService:
 
             is_active = cat_state.is_active if cat_state else True
 
-            is_in_rollup = item.id in state.rollup.item_ids
+            # Determine values based on item type (dedicated, rollup, or untracked)
+            if rollup_item_data:
+                # Rollup item: use values from rollup calculation
+                ideal_rate = rollup_item_data.get("ideal_monthly_rate", calc.ideal_monthly_rate)
+                progress = rollup_item_data.get("progress_percent", 0)
+                item_status = rollup_item_data.get("status", "on_track")
+                amount_needed = rollup_item_data.get("amount_needed_now", 0)
+            elif is_enabled:
+                # Dedicated item: use values from savings calculator
+                ideal_rate = calc.ideal_monthly_rate
+                progress = calc.progress_percent
+                item_status = calc.status.value
+                amount_needed = calc.amount_needed_now
+            else:
+                # Untracked item
+                ideal_rate = calc.ideal_monthly_rate
+                progress = 0
+                item_status = "disabled"
+                amount_needed = 0
 
             items_data.append(
                 {
@@ -1456,18 +1501,18 @@ class SyncService:
                     "planned_budget": (int(budgeted_this_month) if cat_state else 0),
                     "monthly_contribution": (calc.monthly_contribution if is_enabled else 0),
                     "over_contribution": calc.over_contribution,
-                    "progress_percent": calc.progress_percent if is_enabled else 0,
-                    "status": calc.status.value if is_enabled else "disabled",
+                    "progress_percent": progress,
+                    "status": item_status,
                     "is_active": is_active,
                     "is_enabled": is_enabled,
                     "is_stale": item.is_stale,
-                    "ideal_monthly_rate": calc.ideal_monthly_rate,
-                    "amount_needed_now": calc.amount_needed_now if is_enabled else 0,
+                    "ideal_monthly_rate": ideal_rate,
+                    "amount_needed_now": amount_needed,
                     "is_in_rollup": is_in_rollup,
                     "emoji": cat_state.emoji if cat_state else "🔄",
                     "frozen_monthly_target": frozen_target,
-                    "contributed_this_month": (contributed_this_month if is_enabled else 0),
-                    "monthly_progress_percent": (monthly_progress_percent if is_enabled else 0),
+                    "contributed_this_month": contributed_this_month,
+                    "monthly_progress_percent": monthly_progress_percent,
                 }
             )
 
@@ -1493,8 +1538,7 @@ class SyncService:
         # Get ready to assign amount
         ready_to_assign_data = await self.category_manager.get_ready_to_assign()
 
-        # Get rollup data
-        rollup_data = await self.get_rollup_data()
+        # rollup_data already fetched at the start of this method
 
         # Get active notices
         active_notices = self.state_manager.get_active_notices()
