@@ -61,7 +61,7 @@ import {
   authenticateAndGetCredentials,
   clearAllAuthData,
   promptTouchIdForSetup,
-  validateCredentialsFallback,
+  validatePasswordFallback,
   getOrCreateNotesKey,
   type MonarchCredentials,
 } from './biometric';
@@ -89,6 +89,20 @@ import { getStateDir } from './paths';
 import { getAllLogFiles, getLogDir, debugLog } from './logger';
 import { getHealthStatus, updateTrayMenuSyncStatus } from './tray';
 import { getStore } from './store';
+import {
+  getPeriodicSyncSettings,
+  getPeriodicSyncIntervals,
+  setPeriodicSyncEnabled,
+  setPeriodicSyncInterval,
+} from './periodic-sync';
+import {
+  isBackgroundSyncInstalled,
+  getBackgroundSyncSettings,
+  getBackgroundSyncIntervals,
+  installBackgroundSync,
+  uninstallBackgroundSync,
+  updateBackgroundSyncInterval,
+} from './background-sync';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
@@ -189,9 +203,22 @@ export function setupIpcHandlers(backendManager: BackendManager): void {
 
   /**
    * Trigger a manual sync.
+   * Sends IPC event to renderer if rate limited so banner appears.
    */
   ipcMain.handle('trigger-sync', async () => {
-    return backendManager.triggerSync();
+    const result = await backendManager.triggerSync();
+
+    // Send IPC event if rate limited so RateLimitContext updates
+    if (result.rateLimited) {
+      const mainWindow = getMainWindow();
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('monarch-rate-limited', {
+          retryAfter: result.retryAfter || 60,
+        });
+      }
+    }
+
+    return result;
   });
 
   /**
@@ -692,11 +719,11 @@ export function setupIpcHandlers(backendManager: BackendManager): void {
   });
 
   /**
-   * Validate credentials for fallback authentication when Touch ID fails.
+   * Validate password for fallback authentication when Touch ID fails.
    * Compares against stored credentials (works offline).
    */
-  ipcMain.handle('biometric:validate-fallback', (_event, email: string, password: string) => {
-    return validateCredentialsFallback(email, password);
+  ipcMain.handle('biometric:validate-fallback', (_event, password: string) => {
+    return validatePasswordFallback(password);
   });
 
   // =========================================================================
@@ -1076,5 +1103,94 @@ export function setupIpcHandlers(backendManager: BackendManager): void {
     }
 
     return true;
+  });
+
+  // =========================================================================
+  // Periodic Sync (sync while app is running)
+  // =========================================================================
+
+  /**
+   * Get current periodic sync settings.
+   */
+  ipcMain.handle('periodic-sync:get-settings', () => {
+    return getPeriodicSyncSettings();
+  });
+
+  /**
+   * Get available sync interval options.
+   */
+  ipcMain.handle('periodic-sync:get-intervals', () => {
+    return getPeriodicSyncIntervals();
+  });
+
+  /**
+   * Enable or disable periodic sync.
+   */
+  ipcMain.handle('periodic-sync:set-enabled', (_event, enabled: boolean) => {
+    setPeriodicSyncEnabled(enabled);
+    return getPeriodicSyncSettings();
+  });
+
+  /**
+   * Set the sync interval.
+   */
+  ipcMain.handle('periodic-sync:set-interval', (_event, intervalMinutes: number) => {
+    setPeriodicSyncInterval(intervalMinutes);
+    return getPeriodicSyncSettings();
+  });
+
+  // =========================================================================
+  // Background Sync (sync when app is closed)
+  // =========================================================================
+
+  /**
+   * Get current background sync status.
+   */
+  ipcMain.handle('background-sync:get-status', async () => {
+    const installed = await isBackgroundSyncInstalled();
+    const { intervalMinutes } = getBackgroundSyncSettings();
+    return { installed, intervalMinutes };
+  });
+
+  /**
+   * Get available sync interval options.
+   */
+  ipcMain.handle('background-sync:get-intervals', () => {
+    return getBackgroundSyncIntervals();
+  });
+
+  /**
+   * Enable background sync with the specified interval.
+   */
+  ipcMain.handle(
+    'background-sync:enable',
+    async (_event, intervalMinutes: number, _passphrase: string) => {
+      const success = await installBackgroundSync(intervalMinutes);
+      if (success) {
+        const { intervalMinutes: actualInterval } = getBackgroundSyncSettings();
+        return { success: true, intervalMinutes: actualInterval };
+      }
+      return { success: false, error: 'Failed to install background sync' };
+    }
+  );
+
+  /**
+   * Disable background sync.
+   */
+  ipcMain.handle('background-sync:disable', async () => {
+    const success = await uninstallBackgroundSync();
+    return { success, error: success ? undefined : 'Failed to uninstall background sync' };
+  });
+
+  /**
+   * Set the sync interval (must be enabled first).
+   */
+  ipcMain.handle('background-sync:set-interval', async (_event, intervalMinutes: number) => {
+    const success = await updateBackgroundSyncInterval(intervalMinutes);
+    if (success) {
+      const { intervalMinutes: actualInterval } = getBackgroundSyncSettings();
+      return { success: true, intervalMinutes: actualInterval };
+    }
+    return { success: false, error: 'Failed to update interval' };
   });
 }

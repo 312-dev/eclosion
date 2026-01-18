@@ -5,7 +5,6 @@ Provides reusable fixtures including:
 - Temporary SQLite database
 - Sample data generators
 - StateManager instances
-- SavingsCalculator instances
 """
 
 from collections.abc import Generator
@@ -13,7 +12,6 @@ from pathlib import Path
 
 import pytest
 
-from services.savings_calculator import SavingsCalculator
 from state import (
     CategoryState,
     StateManager,
@@ -112,12 +110,3 @@ def configured_state() -> TrackerState:
     return state
 
 
-# ============================================================================
-# Calculator Fixtures
-# ============================================================================
-
-
-@pytest.fixture
-def savings_calculator() -> SavingsCalculator:
-    """Provide a SavingsCalculator instance."""
-    return SavingsCalculator()

@@ -11,7 +11,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { HardDrive, FolderOpen, ChevronDown, RefreshCw, ExternalLink, Clock } from 'lucide-react';
+import { HardDrive, FolderOpen, ChevronDown, RefreshCw, ExternalLink } from 'lucide-react';
 import { SettingsRow } from './SettingsRow';
 import { ToggleSwitch } from './ToggleSwitch';
 import { BackupRestoreModal } from './BackupRestoreModal';
@@ -268,23 +268,20 @@ export function AutoBackupSection() {
       </SettingsRow>
 
       <SettingsRow label="Backup time" description="Daily backup will run at this time">
-        <div className="flex items-center gap-2">
-          <Clock size={14} style={{ color: 'var(--monarch-text-muted)' }} />
-          <input
-            type="time"
-            value={settings?.scheduledTime ?? '03:00'}
-            onChange={(e) => handleScheduledTimeChange(e.target.value)}
-            disabled={loading || !isConfigured}
-            className="px-3 py-1.5 rounded-lg text-sm hover-bg-page-to-hover"
-            style={{
-              color: isConfigured ? 'var(--monarch-text-dark)' : 'var(--monarch-text-muted)',
-              border: '1px solid var(--monarch-border)',
-              backgroundColor: 'var(--monarch-bg-card)',
-              opacity: isConfigured ? 1 : 0.6,
-            }}
-            aria-label="Select backup time"
-          />
-        </div>
+        <input
+          type="time"
+          value={settings?.scheduledTime ?? '03:00'}
+          onChange={(e) => handleScheduledTimeChange(e.target.value)}
+          disabled={loading || !isConfigured}
+          className="px-3 py-1.5 rounded-lg text-sm hover-bg-page-to-hover"
+          style={{
+            color: isConfigured ? 'var(--monarch-text-dark)' : 'var(--monarch-text-muted)',
+            border: '1px solid var(--monarch-border)',
+            backgroundColor: 'var(--monarch-bg-card)',
+            opacity: isConfigured ? 1 : 0.6,
+          }}
+          aria-label="Select backup time"
+        />
       </SettingsRow>
 
       <div

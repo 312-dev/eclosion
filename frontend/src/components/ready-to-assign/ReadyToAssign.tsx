@@ -9,7 +9,12 @@
  */
 
 import { useMemo, useId } from 'react';
-import type { ReadyToAssign as ReadyToAssignData, RecurringItem, DashboardSummary, RollupData } from '../../types';
+import type {
+  ReadyToAssign as ReadyToAssignData,
+  RecurringItem,
+  DashboardSummary,
+  RollupData,
+} from '../../types';
 import { formatCurrency } from '../../utils';
 import { Tooltip } from '../ui/Tooltip';
 import { useDropdown } from '../../hooks';
@@ -26,7 +31,13 @@ interface ReadyToAssignProps {
   variant?: 'mobile' | 'sidebar';
 }
 
-export function ReadyToAssign({ data, summary: _summary, items, rollup, variant = 'sidebar' }: ReadyToAssignProps) {
+export function ReadyToAssign({
+  data,
+  summary: _summary,
+  items,
+  rollup,
+  variant = 'sidebar',
+}: ReadyToAssignProps) {
   const progressBarId = useId();
   const popoverId = useId();
 
@@ -40,12 +51,16 @@ export function ReadyToAssign({ data, summary: _summary, items, rollup, variant 
   };
 
   // Calculate current monthly cost (sum of all frozen targets)
+  // IMPORTANT: Use items[] for rollup items too, ensuring consistency with burndown calculation.
+  // Using rollup.total_frozen_monthly here would cause a mismatch because rollup.items[]
+  // and items[] may compute frozen_monthly_target differently (different rollover fallbacks).
   const currentMonthlyCost = useMemo(() => {
-    const enabledItems = items.filter(i => i.is_enabled && !i.is_in_rollup);
+    const enabledItems = items.filter((i) => i.is_enabled && !i.is_in_rollup);
     const itemsTotal = enabledItems.reduce((sum, item) => sum + item.frozen_monthly_target, 0);
-    const rollupTotal = rollup.enabled ? rollup.total_frozen_monthly : 0;
+    const rollupItems = items.filter((i) => i.is_in_rollup);
+    const rollupTotal = rollupItems.reduce((sum, item) => sum + item.frozen_monthly_target, 0);
     return itemsTotal + rollupTotal;
-  }, [items, rollup]);
+  }, [items]);
 
   // Calculate burndown data and stabilization in one pass - single source of truth
   const { stabilization, points: burndownPoints } = useMemo(
@@ -58,17 +73,24 @@ export function ReadyToAssign({ data, summary: _summary, items, rollup, variant 
 
   // Calculate monthly targets and progress for the widget
   // "saved" = total budgeted this month (planned_budget), "to go" = target - saved
+  // IMPORTANT: totalTargets must use items[] for rollup (same source as currentMonthlyCost)
   const monthlyTargets = useMemo(() => {
     const enabledItems = items.filter((i) => i.is_enabled && !i.is_in_rollup);
+    const rollupItems = items.filter((i) => i.is_in_rollup);
     const totalTargets =
-      enabledItems.reduce((sum, item) => sum + item.frozen_monthly_target, 0) + (rollup.enabled ? rollup.total_frozen_monthly : 0);
+      enabledItems.reduce((sum, item) => sum + item.frozen_monthly_target, 0) +
+      rollupItems.reduce((sum, item) => sum + item.frozen_monthly_target, 0);
     // "saved" is total budgeted this month across all categories
+    // Note: rollup.budgeted is the actual amount budgeted in the rollup category - this is correct
     const totalBudgeted =
       enabledItems.reduce((sum, item) => sum + item.planned_budget, 0) +
       (rollup.enabled ? rollup.budgeted : 0);
     const toGo = Math.max(0, totalTargets - totalBudgeted);
     return { totalTargets, totalBudgeted, toGo };
   }, [items, rollup]);
+
+  // Determine if monthly target is fully funded (to go <= 0)
+  const isMonthlyFunded = monthlyTargets.toGo <= 0;
 
   // Calculate untracked (disabled) recurring total
   const untrackedCategories = useMemo(() => {
@@ -91,11 +113,21 @@ export function ReadyToAssign({ data, summary: _summary, items, rollup, variant 
       const burndownPoint = burndownPoints.find((p) => p.month === monthLabel);
       const amount = burndownPoint?.amount ?? currentMonthlyCost;
       const showYear = year !== lastYear;
-      months.push({ month: monthLabel, year: `'${year.toString().slice(-2)}`, showYear, amount: Math.round(amount) });
+      months.push({
+        month: monthLabel,
+        year: `'${year.toString().slice(-2)}`,
+        showYear,
+        amount: Math.round(amount),
+      });
       lastYear = year;
     }
     return months;
-  }, [stabilization.hasCatchUp, stabilization.monthsUntilStable, burndownPoints, currentMonthlyCost]);
+  }, [
+    stabilization.hasCatchUp,
+    stabilization.monthsUntilStable,
+    burndownPoints,
+    currentMonthlyCost,
+  ]);
 
   // Mobile horizontal layout
   if (variant === 'mobile') {
@@ -107,7 +139,7 @@ export function ReadyToAssign({ data, summary: _summary, items, rollup, variant 
     <div className="stats-sidebar-content">
       {/* Monthly Targets */}
       <div
-        className={`rounded-xl px-4 pt-4 text-center bg-monarch-orange-light relative ${stabilization.hasCatchUp ? 'pb-4 rounded-b-none border-x border-t border-monarch-border' : 'pb-6'}`}
+        className={`rounded-xl px-4 pt-4 text-center relative ${isMonthlyFunded ? 'bg-(--monarch-success-bg)' : 'bg-monarch-orange-light'} ${stabilization.hasCatchUp ? 'pb-4 rounded-b-none border-x border-t border-monarch-border' : 'pb-6'}`}
         data-tour="current-monthly"
       >
         {/* Warning icon in top right corner when untracked categories exist */}
@@ -117,13 +149,27 @@ export function ReadyToAssign({ data, summary: _summary, items, rollup, variant 
               <>
                 <div className="font-medium">Excludes Untracked</div>
                 <div className="text-monarch-text-muted text-xs mt-1">
-                  {formatCurrency(untrackedCategories.total, { maximumFractionDigits: 0 })} in categories not linked to recurring items
+                  {formatCurrency(untrackedCategories.total, { maximumFractionDigits: 0 })} in
+                  categories not linked to recurring items
                 </div>
               </>
             }
           >
-            <span className="absolute top-3 right-3 cursor-help text-white" data-tour="untracked-warning">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <span
+              className="absolute top-3 right-3 cursor-help text-white"
+              data-tour="untracked-warning"
+            >
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
                 <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
                 <line x1="12" y1="9" x2="12" y2="13"></line>
                 <line x1="12" y1="17" x2="12.01" y2="17"></line>
@@ -133,9 +179,15 @@ export function ReadyToAssign({ data, summary: _summary, items, rollup, variant 
         )}
         {/* Centered target icon at top */}
         <div className="flex justify-center mb-2">
-          <TargetIcon size={28} className="text-monarch-orange" aria-hidden="true" />
+          <TargetIcon
+            size={28}
+            className={isMonthlyFunded ? 'text-(--monarch-success)' : 'text-monarch-orange'}
+            aria-hidden="true"
+          />
         </div>
-        <div className="text-2xl font-bold mb-1 text-monarch-orange">
+        <div
+          className={`text-2xl font-bold mb-1 ${isMonthlyFunded ? 'text-(--monarch-success)' : 'text-monarch-orange'}`}
+        >
           <span>{formatCurrency(monthlyTargets.totalTargets, { maximumFractionDigits: 0 })}</span>
         </div>
         <div className="text-sm text-monarch-text-dark">
@@ -146,20 +198,29 @@ export function ReadyToAssign({ data, summary: _summary, items, rollup, variant 
           <div className="mt-3">
             <div
               role="progressbar"
-              aria-valuenow={Math.round((monthlyTargets.totalBudgeted / monthlyTargets.totalTargets) * 100)}
+              aria-valuenow={Math.round(
+                (monthlyTargets.totalBudgeted / monthlyTargets.totalTargets) * 100
+              )}
               aria-valuemin={0}
               aria-valuemax={100}
               aria-label={`Monthly savings progress: ${formatCurrency(monthlyTargets.totalBudgeted, { maximumFractionDigits: 0 })} saved of ${formatCurrency(monthlyTargets.totalTargets, { maximumFractionDigits: 0 })} needed`}
               aria-describedby={progressBarId}
-              className="h-2 rounded-full overflow-hidden bg-monarch-orange/20"
+              className={`h-2 rounded-full overflow-hidden ${isMonthlyFunded ? 'bg-(--monarch-success)/20' : 'bg-monarch-orange/20'}`}
             >
               <div
-                className="h-full rounded-full transition-all bg-monarch-orange"
-                style={{ width: `${Math.min(100, (monthlyTargets.totalBudgeted / monthlyTargets.totalTargets) * 100)}%` }}
+                className={`h-full rounded-full transition-all ${isMonthlyFunded ? 'bg-(--monarch-success)' : 'bg-monarch-orange'}`}
+                style={{
+                  width: `${Math.min(100, (monthlyTargets.totalBudgeted / monthlyTargets.totalTargets) * 100)}%`,
+                }}
               />
             </div>
-            <div id={progressBarId} className="flex justify-between mt-1 text-xs text-monarch-text-dark">
-              <span>{formatCurrency(monthlyTargets.totalBudgeted, { maximumFractionDigits: 0 })} saved</span>
+            <div
+              id={progressBarId}
+              className="flex justify-between mt-1 text-xs text-monarch-text-dark"
+            >
+              <span>
+                {formatCurrency(monthlyTargets.totalBudgeted, { maximumFractionDigits: 0 })} saved
+              </span>
               <span>{formatCurrency(monthlyTargets.toGo, { maximumFractionDigits: 0 })} to go</span>
             </div>
           </div>

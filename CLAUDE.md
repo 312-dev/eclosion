@@ -304,7 +304,7 @@ The `round_monthly_rate()` helper uses standard rounding with a minimum of $1:
 - Reduces overbudgeting by ~27% compared to ceil() on small amounts
 
 ```typescript
-// Backend (Python) - services/frozen_target_calculator.py
+// Backend (Python) - services/occurrence_calculator.py
 def round_monthly_rate(rate: float) -> int:
     if rate <= 0:
         return 0
@@ -784,7 +784,7 @@ When demo mode calculates values like status, progress, or targets, it must impo
 |-------------|-----------------|----------|
 | Item status | `calculateItemDisplayStatus()` | `hooks/useItemDisplayStatus.ts` |
 | Rollup status | `calculateDisplayStatus()` | `utils/status.ts` |
-| Frozen target | `calculateFrozenTarget()` | `api/demo/demoItems.ts` (mirrors backend) |
+| Monthly target | `calculateMonthlyTarget()` | `utils/calculations.ts` (mirrors backend) |
 
 ```typescript
 // BAD - Reimplementing status logic in demo
@@ -796,7 +796,7 @@ import { calculateItemDisplayStatus } from '../../hooks/useItemDisplayStatus';
 const newStatus = calculateItemDisplayStatus(updatedItem);
 ```
 
-The `calculateFrozenTarget` function in demo code mirrors the backend Python logic in `services/frozen_target_calculator.py`. If the backend logic changes, the demo function must be updated to match.
+The `calculateMonthlyTarget` function mirrors the backend Python logic in `services/occurrence_calculator.py`. If the backend logic changes, the frontend function must be updated to match.
 
 ### Key Files
 

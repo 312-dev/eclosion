@@ -161,30 +161,6 @@ class MockRecurringService:
         return self.items
 
 
-class MockSavingsCalculator:
-    """Mock savings calculator for rollup tests."""
-
-    def calculate(
-        self,
-        target_amount,
-        current_balance,
-        months_until_due,
-        tracked_over_contribution=0,
-        frequency_months=1,
-    ):
-        result = MagicMock()
-        result.ideal_monthly_rate = (
-            target_amount / frequency_months if frequency_months > 0 else target_amount
-        )
-        result.monthly_contribution = max(0, target_amount - current_balance) / max(
-            1, months_until_due
-        )
-        result.status = MagicMock()
-        result.status.value = "on_track"
-        result.amount_needed_now = max(0, target_amount - current_balance)
-        return result
-
-
 @pytest.fixture
 def rollup_service():
     """Create a RollupService with mocked dependencies."""
@@ -193,7 +169,6 @@ def rollup_service():
     state_manager = MockStateManager()
     category_manager = MockCategoryManager()
     recurring_service = MockRecurringService()
-    savings_calculator = MockSavingsCalculator()
 
     # Make state.is_configured return True
     state_manager.state.is_configured = MagicMock(return_value=True)
@@ -203,7 +178,6 @@ def rollup_service():
         state_manager=state_manager,
         category_manager=category_manager,
         recurring_service=recurring_service,
-        savings_calculator=savings_calculator,
     )
 
     return service
@@ -467,13 +441,13 @@ class TestGetRollupData:
 
     @pytest.mark.asyncio
     async def test_get_rollup_data_empty(self, rollup_service) -> None:
-        """Should return empty rollup data."""
+        """Should return empty rollup data - frontend computes derived values."""
         result = await rollup_service.get_rollup_data()
 
         assert result["enabled"] is True
         assert result["items"] == []
-        assert result["total_ideal_rate"] == 0
         assert result["total_target"] == 0
+        assert result["current_balance"] == 0
 
     @pytest.mark.asyncio
     async def test_get_rollup_data_with_items(self, rollup_service) -> None:
@@ -515,5 +489,5 @@ class TestGetRollupData:
         assert result["enabled"] is True
         assert len(result["items"]) == 2
         assert result["total_target"] == pytest.approx(25.98, rel=0.01)  # 15.99 + 9.99
-        # total_saved = rollover + budgeted = 15 + 10 = 25
-        assert result["total_saved"] == 25.0
+        # current_balance from budget data
+        assert result["current_balance"] == pytest.approx(25.0)

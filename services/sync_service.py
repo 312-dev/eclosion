@@ -34,7 +34,6 @@ from .category_manager import CategoryManager
 from .credentials_service import CredentialsService
 from .recurring_service import RecurringItem, RecurringService
 from .rollup_service import RollupService
-from .savings_calculator import SavingsCalculator
 
 logger = logging.getLogger(__name__)
 
@@ -48,13 +47,11 @@ class SyncService:
         self.automation_creds = AutomationCredentialsManager()
         self.scheduler = SyncScheduler.get_instance()
         self.recurring_service = RecurringService()
-        self.savings_calculator = SavingsCalculator()
         self.category_manager = CategoryManager()
         self.rollup_service = RollupService(
             state_manager=self.state_manager,
             category_manager=self.category_manager,
             recurring_service=self.recurring_service,
-            savings_calculator=self.savings_calculator,
         )
         # Set up scheduler callback
         self.scheduler.set_sync_callback(self._automated_sync)
@@ -452,19 +449,7 @@ class SyncService:
             state.categories[recurring_id].emoji = emoji
             self.state_manager.save(state)
 
-        # Initialize frozen monthly target using new balance model
-        from .frozen_target_calculator import calculate_frozen_target as calc_frozen
-
-        calc_frozen(
-            recurring_id=recurring_id,
-            amount=item.amount,
-            frequency_months=item.frequency_months,
-            months_until_due=item.months_until_due,
-            rollover_amount=rollover_amount,
-            budgeted_this_month=budgeted_this_month,
-            next_due_date=item.next_due_date.isoformat(),
-            state_manager=self.state_manager,
-        )
+        # Note: No need to initialize frozen target - we now calculate stateless on demand
 
         # Enable tracking for this item
         self.state_manager.toggle_item_enabled(recurring_id, True)
@@ -824,35 +809,19 @@ class SyncService:
                         category_id, item.category_name, icon=emoji
                     )
 
-            # Check for new cycle
+            # Check for new cycle - if due date moved forward, it's a new cycle
             if cat_state.previous_due_date:
-                new_cycle = self.savings_calculator.detect_new_cycle(
-                    cat_state.previous_due_date,
-                    item.next_due_date.isoformat(),
-                    item.frequency_months,
-                )
-                if new_cycle:
+                prev_date = datetime.fromisoformat(cat_state.previous_due_date).date()
+                curr_date = item.next_due_date
+                if curr_date > prev_date:
                     # Reset over-contribution for new cycle
                     tracked_over_contribution = 0.0
 
             # Get current balance
             current_balance = all_balances.get(category_id, 0.0)
 
-            # Detect new over-contribution from user
-            # (if balance is higher than expected)
-            if cat_state.previous_due_date:
-                # Simple detection: if balance increased more than expected monthly
-                # This is a heuristic - in practice we'd track expected contributions
-                pass
-
-        # Calculate monthly contribution (for state tracking and display, not for setting budget)
-        calc = self.savings_calculator.calculate(
-            target_amount=item.amount,
-            current_balance=current_balance,
-            months_until_due=item.months_until_due,
-            tracked_over_contribution=tracked_over_contribution,
-            frequency_months=item.frequency_months,
-        )
+        # Calculate over-contribution (frontend will recalculate, but we track for state)
+        over_contribution = max(0.0, current_balance - item.amount)
 
         # Update state
         self.state_manager.update_category(
@@ -861,17 +830,15 @@ class SyncService:
             name=item.category_name,
             target_amount=item.amount,
             due_date=item.next_due_date.isoformat(),
-            over_contribution=calc.over_contribution,
+            over_contribution=over_contribution,
         )
 
         return {
             "name": item.name,
             "category_name": item.category_name,
             "created": created,
-            "monthly_contribution": calc.monthly_contribution,
             "current_balance": current_balance,
             "target_amount": item.amount,
-            "status": calc.status.value,
         }
 
     async def get_deletable_categories(self) -> dict[str, Any]:
@@ -1173,14 +1140,7 @@ class SyncService:
                 data_fetched = True
                 unconfigured_items_data: list[dict[str, Any]] = []
                 for item in recurring_items:
-                    # Calculate contribution for display
-                    calc = self.savings_calculator.calculate(
-                        target_amount=item.amount,
-                        current_balance=0,
-                        months_until_due=item.months_until_due,
-                        tracked_over_contribution=0,
-                        frequency_months=item.frequency_months,
-                    )
+                    # Return raw data - frontend computes derived values
                     unconfigured_items_data.append(
                         {
                             "id": item.id,
@@ -1195,8 +1155,8 @@ class SyncService:
                                 item.next_due_date.isoformat() if item.next_due_date else None
                             ),
                             "months_until_due": item.months_until_due,
-                            "monthly_contribution": calc.monthly_contribution,
-                            "ideal_monthly_rate": calc.ideal_monthly_rate,
+                            "current_balance": 0,
+                            "planned_budget": 0,
                             "is_enabled": False,
                             "is_in_rollup": False,
                         }
@@ -1313,8 +1273,10 @@ class SyncService:
                 category_missing = cat_info is None
             elif rollup_item_data:
                 # Rollup item: use pre-calculated values from rollup data
-                # These have correct proportional balance, not balance=0
-                rollover_amount = 0.0  # Not tracked individually
+                # These have correct proportional balance/rollover, not 0
+                # CRITICAL: Must use same rollover_amount as rollup.items to ensure
+                # frozen_monthly_target calculations match between items[] and rollup.items[]
+                rollover_amount = rollup_item_data.get("rollover_amount", 0.0)
                 budgeted_this_month = 0.0  # Budget is on rollup category
                 current_balance = rollup_item_data.get("current_balance", 0.0)
                 tracked_over = 0
@@ -1328,89 +1290,9 @@ class SyncService:
                 category_group_name = None
                 category_missing = False
 
-            # Calculate contribution
-            calc = self.savings_calculator.calculate(
-                target_amount=item.amount,
-                current_balance=current_balance,
-                months_until_due=item.months_until_due,
-                tracked_over_contribution=tracked_over,
-                frequency_months=item.frequency_months,
-            )
-
-            # Frozen monthly target logic - only recalculate at month boundaries OR if inputs changed
-            # Using new balance model: progress = rollover + budgeted this month
-            from .frozen_target_calculator import (
-                calculate_frozen_target as calc_frozen,
-            )
-            from .frozen_target_calculator import (
-                round_monthly_rate,
-            )
-
-            current_month = datetime.now().strftime("%Y-%m")
-
-            if is_enabled and cat_state:
-                # Use centralized frozen target calculator with new balance model
-                result = calc_frozen(
-                    recurring_id=item.id,
-                    amount=item.amount,
-                    frequency_months=item.frequency_months,
-                    months_until_due=item.months_until_due,
-                    rollover_amount=rollover_amount,
-                    budgeted_this_month=budgeted_this_month,
-                    next_due_date=item.next_due_date.isoformat(),
-                    state_manager=self.state_manager,
-                    current_month=current_month,
-                )
-                frozen_target = result.frozen_target
-                contributed_this_month = result.contributed_this_month
-                monthly_progress_percent = result.monthly_progress_percent
-            elif rollup_item_data:
-                # Rollup item: use pre-calculated values from rollup data
-                # These are calculated with correct proportional balance
-                frozen_target = rollup_item_data.get("frozen_monthly_target", 0)
-                contributed_this_month = rollup_item_data.get("contributed_this_month", 0)
-                monthly_progress_percent = rollup_item_data.get("monthly_progress_percent", 0)
-            else:
-                # For disabled items, still calculate what the frozen target would be
-                # so we can show if they'd need to catch up or are ahead if tracked
-                if item.frequency_months < 1:
-                    # Sub-monthly (weekly, bi-weekly) - use monthly equivalent
-                    monthly_equivalent = item.amount / item.frequency_months
-                    frozen_target = round_monthly_rate(max(0, monthly_equivalent - current_balance))
-                elif item.frequency_months == 1:
-                    # Monthly - would use ideal rate
-                    frozen_target = round_monthly_rate(calc.ideal_monthly_rate)
-                else:
-                    # Infrequent - calculate catch-up rate (balance is 0 for untracked)
-                    shortfall = max(0, item.amount - current_balance)
-                    months_remaining = max(1, item.months_until_due)
-                    frozen_target = (
-                        round_monthly_rate(shortfall / months_remaining) if shortfall > 0 else 0
-                    )
-                contributed_this_month = 0
-                monthly_progress_percent = 0
-
+            # Frontend computes all derived values (frozen_target, ideal_rate, status, etc.)
+            # Backend returns raw data only
             is_active = cat_state.is_active if cat_state else True
-
-            # Determine values based on item type (dedicated, rollup, or untracked)
-            if rollup_item_data:
-                # Rollup item: use values from rollup calculation
-                ideal_rate = rollup_item_data.get("ideal_monthly_rate", calc.ideal_monthly_rate)
-                progress = rollup_item_data.get("progress_percent", 0)
-                item_status = rollup_item_data.get("status", "on_track")
-                amount_needed = rollup_item_data.get("amount_needed_now", 0)
-            elif is_enabled:
-                # Dedicated item: use values from savings calculator
-                ideal_rate = calc.ideal_monthly_rate
-                progress = calc.progress_percent
-                item_status = calc.status.value
-                amount_needed = calc.amount_needed_now
-            else:
-                # Untracked item
-                ideal_rate = calc.ideal_monthly_rate
-                progress = 0
-                item_status = "disabled"
-                amount_needed = 0
 
             items_data.append(
                 {
@@ -1427,28 +1309,23 @@ class SyncService:
                     "frequency": item.frequency.value,
                     "frequency_months": item.frequency_months,
                     "next_due_date": item.next_due_date.isoformat(),
+                    "base_date": item.base_date.isoformat() if item.base_date else None,
                     "months_until_due": item.months_until_due,
                     "current_balance": current_balance,
-                    "planned_budget": (int(budgeted_this_month) if cat_state else 0),
-                    "monthly_contribution": (calc.monthly_contribution if is_enabled else 0),
-                    "over_contribution": calc.over_contribution,
-                    "progress_percent": progress,
-                    "status": item_status,
+                    "planned_budget": int(budgeted_this_month) if cat_state else 0,
+                    "rollover_amount": rollover_amount,  # Direct from Monarch (previousMonthRolloverAmount)
                     "is_active": is_active,
                     "is_enabled": is_enabled,
                     "is_stale": item.is_stale,
-                    "ideal_monthly_rate": ideal_rate,
-                    "amount_needed_now": amount_needed,
                     "is_in_rollup": is_in_rollup,
                     "emoji": cat_state.emoji if cat_state else "🔄",
-                    "frozen_monthly_target": frozen_target,
-                    "contributed_this_month": contributed_this_month,
-                    "monthly_progress_percent": monthly_progress_percent,
                 }
             )
 
             if is_enabled and is_active:
-                total_monthly += frozen_target
+                # Use ideal rate for summary - frontend recomputes actual totals
+                ideal_rate = item.amount / item.frequency_months if item.frequency_months > 0 else item.amount
+                total_monthly += ideal_rate
                 # Progress = rollover + budgeted (what's been allocated toward the goal)
                 total_saved += rollover_amount + budgeted_this_month
                 total_target += item.amount

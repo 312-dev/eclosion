@@ -13,7 +13,6 @@ if TYPE_CHECKING:
 
     from .category_manager import CategoryManager
     from .recurring_service import RecurringService
-    from .savings_calculator import SavingsCalculator
 
 
 class RollupService:
@@ -30,12 +29,10 @@ class RollupService:
         state_manager: "StateManager",
         category_manager: "CategoryManager",
         recurring_service: "RecurringService",
-        savings_calculator: "SavingsCalculator",
     ):
         self.state_manager = state_manager
         self.category_manager = category_manager
         self.recurring_service = recurring_service
-        self.savings_calculator = savings_calculator
 
     def _clear_all_rollup_frozen_targets(self) -> None:
         """
@@ -208,15 +205,8 @@ class RollupService:
         if not item:
             return {"success": False, "error": "Recurring item not found"}
 
-        # Calculate the monthly rate for this item
-        calc = self.savings_calculator.calculate(
-            target_amount=item.amount,
-            current_balance=0,
-            months_until_due=item.months_until_due,
-            tracked_over_contribution=0,
-            frequency_months=item.frequency_months,
-        )
-        monthly_rate = calc.ideal_monthly_rate
+        # Calculate ideal monthly rate (simple: amount / frequency_months)
+        monthly_rate = round(item.amount / item.frequency_months) if item.frequency_months > 0 else item.amount
 
         # Add to rollup (local state only - user controls Monarch budget via input)
         rollup = self.state_manager.add_to_rollup(recurring_id, monthly_rate)
@@ -248,15 +238,8 @@ class RollupService:
         if not item:
             return {"success": False, "error": "Recurring item not found"}
 
-        # Calculate the monthly rate for this item
-        calc = self.savings_calculator.calculate(
-            target_amount=item.amount,
-            current_balance=0,
-            months_until_due=item.months_until_due,
-            tracked_over_contribution=0,
-            frequency_months=item.frequency_months,
-        )
-        monthly_rate = calc.ideal_monthly_rate
+        # Calculate ideal monthly rate (simple: amount / frequency_months)
+        monthly_rate = round(item.amount / item.frequency_months) if item.frequency_months > 0 else item.amount
 
         # Remove from rollup (local state only - user controls Monarch budget via input)
         rollup = self.state_manager.remove_from_rollup(recurring_id, monthly_rate)
@@ -341,9 +324,7 @@ class RollupService:
         }
 
     async def get_rollup_data(self) -> dict[str, Any]:
-        """Get rollup state with computed data, including per-item catch-up calculations."""
-        from .frozen_target_calculator import calculate_frozen_target
-
+        """Get rollup state with raw data - frontend computes derived values."""
         state = self.state_manager.load()
         rollup = state.rollup
 
@@ -359,13 +340,9 @@ class RollupService:
             return {
                 "enabled": True,
                 "items": [],
-                "total_ideal_rate": 0,
-                "total_frozen_monthly": 0,
                 "total_target": 0,
-                "total_saved": 0,
                 "budgeted": rollup.total_budgeted,
                 "current_balance": 0,
-                "progress_percent": 0,
                 "category_id": rollup.monarch_category_id,
                 "emoji": rollup.emoji,
                 "category_name": category_name,
@@ -376,26 +353,20 @@ class RollupService:
         rollup_items = [i for i in recurring_items if i.id in rollup.item_ids]
 
         # Get budget data from Monarch (shared rollup category)
-        # Using new balance model: rollover + budgeted = progress
         rollover_amount = 0.0
-        budgeted_this_month = 0.0
         current_balance = 0.0
 
         if rollup.monarch_category_id:
             all_budget_data = await self.category_manager.get_all_category_budget_data()
             cat_data = all_budget_data.get(rollup.monarch_category_id, {})
             rollover_amount = cat_data.get("rollover", 0.0)
-            budgeted_this_month = cat_data.get("budgeted", 0.0)
             current_balance = cat_data.get("remaining", 0.0)
 
         # Calculate total target (sum of all item amounts)
         total_target = sum(item.amount for item in rollup_items)
 
-        # Calculate per-item statistics using same logic as standalone categories
-        total_ideal_rate = 0.0
-        total_frozen_monthly = 0.0
+        # Build raw item data - frontend computes frozen_target, ideal_rate, status, etc.
         items_data: list[dict[str, Any]] = []
-        current_month = datetime.now().strftime("%Y-%m")
 
         for item in rollup_items:
             # Calculate proportional share of budget data for this item
@@ -403,49 +374,8 @@ class RollupService:
             if total_target > 0:
                 proportion = item.amount / total_target
                 item_rollover = rollover_amount * proportion
-                item_budgeted = budgeted_this_month * proportion
-                item_balance = current_balance * proportion
             else:
                 item_rollover = 0
-                item_budgeted = 0
-                item_balance = 0
-
-            # Calculate savings using the same logic as standalone categories
-            calc = self.savings_calculator.calculate(
-                target_amount=item.amount,
-                current_balance=item_balance,
-                months_until_due=item.months_until_due,
-                tracked_over_contribution=0,
-                frequency_months=item.frequency_months,
-            )
-
-            ideal_monthly_rate = calc.ideal_monthly_rate
-
-            # Calculate frozen monthly target using centralized calculator
-            rollup_target_key = f"rollup_{item.id}"
-            result = calculate_frozen_target(
-                recurring_id=rollup_target_key,
-                amount=item.amount,
-                frequency_months=item.frequency_months,
-                months_until_due=item.months_until_due,
-                rollover_amount=item_rollover,
-                budgeted_this_month=item_budgeted,
-                next_due_date=item.next_due_date.isoformat(),
-                state_manager=self.state_manager,
-                current_month=current_month,
-            )
-
-            frozen_target = result.frozen_target
-            total_frozen_monthly += frozen_target
-
-            # Total ideal rate is the sum of all ideal_monthly_rate values
-            # This is the stable rate after all catch-up payments complete
-            total_ideal_rate += ideal_monthly_rate
-
-            # Calculate overall progress for this item
-            # Progress = rollover + budgeted this month
-            item_progress = item_rollover + item_budgeted
-            progress_percent = (item_progress / item.amount * 100) if item.amount > 0 else 100
 
             items_data.append(
                 {
@@ -457,33 +387,19 @@ class RollupService:
                     "frequency": item.frequency.value,
                     "frequency_months": item.frequency_months,
                     "next_due_date": item.next_due_date.isoformat(),
+                    "base_date": item.base_date.isoformat() if item.base_date else None,
                     "months_until_due": item.months_until_due,
-                    "current_balance": item_balance,
-                    "ideal_monthly_rate": ideal_monthly_rate,
-                    "frozen_monthly_target": frozen_target,
-                    "contributed_this_month": result.contributed_this_month,
-                    "monthly_progress_percent": result.monthly_progress_percent,
-                    "progress_percent": min(100, progress_percent),
-                    "status": calc.status.value,
-                    "amount_needed_now": calc.amount_needed_now,
+                    # Proportional rollover for frontend to compute frozen_target
+                    "rollover_amount": item_rollover,
                 }
             )
-
-        # Calculate overall progress toward total target
-        # Progress = rollover + budgeted this month
-        total_progress = rollover_amount + budgeted_this_month
-        overall_progress = (total_progress / total_target * 100) if total_target > 0 else 0
 
         return {
             "enabled": True,
             "items": items_data,
-            "total_ideal_rate": total_ideal_rate,
-            "total_frozen_monthly": total_frozen_monthly,
             "total_target": total_target,
-            "total_saved": total_progress,
             "budgeted": rollup.total_budgeted,
             "current_balance": current_balance,
-            "progress_percent": round(min(100, overall_progress), 1),
             "category_id": rollup.monarch_category_id,
             "emoji": rollup.emoji,
             "category_name": rollup.category_name,

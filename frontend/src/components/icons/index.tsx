@@ -12,7 +12,6 @@
  */
 
 import {
-  Anchor,
   Settings,
   RefreshCw,
   Loader2,
@@ -116,7 +115,7 @@ export interface IconProps extends SVGProps<SVGSVGElement> {
 // Core Icons (re-exports with our naming convention)
 // =============================================================================
 
-export const AnchorIcon = Anchor;
+export const AnchorIcon = Trophy;
 export const SettingsIcon = Settings;
 export const RefreshIcon = RefreshCw;
 export const SyncIcon = RefreshCw;

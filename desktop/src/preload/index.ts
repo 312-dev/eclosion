@@ -479,14 +479,11 @@ const electronAPI = {
       ipcRenderer.invoke('biometric:prompt-for-setup'),
 
     /**
-     * Validate credentials for fallback authentication when Touch ID fails.
+     * Validate password for fallback authentication when Touch ID fails.
      * Compares against stored credentials (works offline).
      */
-    validateFallback: (
-      email: string,
-      password: string
-    ): Promise<{ success: boolean; error?: string }> =>
-      ipcRenderer.invoke('biometric:validate-fallback', email, password),
+    validateFallback: (password: string): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('biometric:validate-fallback', password),
   },
 
   // =========================================================================

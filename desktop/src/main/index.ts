@@ -94,7 +94,7 @@ import {
   handleDeepLink,
 } from './deeplinks';
 import { recordMilestone, finalizeStartupMetrics } from './startup-metrics';
-import { initializeLockManager, cleanupLockManager, updateMainWindowRef } from './lock-manager';
+import { initializeLockManager, cleanupLockManager, updateMainWindowRef, getLockTrigger } from './lock-manager';
 import {
   getStoredPassphrase,
   getMonarchCredentials,
@@ -479,6 +479,19 @@ async function startBackendAndInitialize(): Promise<void> {
     const syncStatus = `Last sync: ${formatRelativeTime(lastSyncIso)}`;
     updateTrayMenu(handleSyncClick, syncStatus);
     updateHealthStatus(true, formatRelativeTime(lastSyncIso));
+  }
+
+  // Check if auto-lock is enabled - if so, don't restore session automatically
+  // User will need to unlock via the UnlockPage
+  const lockTrigger = getLockTrigger();
+  const autoLockEnabled = lockTrigger !== 'never';
+  const hasCredentials = hasMonarchCredentials();
+
+  if (autoLockEnabled && hasCredentials) {
+    debugLog(`Auto-lock enabled (${lockTrigger}) - starting locked, skipping session restore`);
+    // Session will be restored when user unlocks via the UnlockPage
+    // The frontend will detect this state via checkAuth and show unlock screen
+    return;
   }
 
   // Restore session from stored credentials

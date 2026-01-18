@@ -7,7 +7,7 @@
  * Note: Over-contributing is NOT factored into this projection.
  */
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   LineChart,
   Line,
@@ -17,7 +17,6 @@ import {
   ResponsiveContainer,
   Area,
 } from 'recharts';
-import { Portal } from '../Portal';
 import { Z_INDEX } from '../../constants';
 import { AnchorIcon } from '../icons';
 import type { BurndownPoint } from './burndownUtils';
@@ -36,108 +35,72 @@ interface CustomTooltipProps {
   active?: boolean;
   payload?: Array<{ payload: BurndownPoint }>;
   formatCurrency: FormatCurrencyFn;
-  coordinate?: { x: number; y: number };
-  data: BurndownPoint[];
 }
 
-// Store chart rect ref at module level so Portal-rendered tooltip can access it
-let chartRectCache: DOMRect | null = null;
-
-function CustomTooltip({ active, payload, formatCurrency, coordinate, data }: CustomTooltipProps) {
+function CustomTooltip({ active, payload, formatCurrency }: CustomTooltipProps) {
   const firstPayload = payload?.[0];
-  if (!active || !firstPayload || !coordinate || !chartRectCache) return null;
+  if (!active || !firstPayload) return null;
 
   const point = firstPayload.payload;
-  const chartRect = chartRectCache;
-  const tooltipWidth = 280;
-  const tooltipHeight = 120;
 
-  // Find the stabilization point - the last month where catch-up payments complete
-  const stabilizationIndex = data.reduce((lastIdx, p, i) => (p.hasChange ? i : lastIdx), -1);
-  const currentIndex = data.findIndex((p) => p.fullLabel === point.fullLabel);
-  const isStabilizationPoint = currentIndex === stabilizationIndex && stabilizationIndex !== -1;
-
-  let left = chartRect.left + coordinate.x + 10;
-  let top = chartRect.top + coordinate.y - 60;
-
-  // Check right edge - flip to left side if needed
-  if (left + tooltipWidth > window.innerWidth - 10) {
-    left = chartRect.left + coordinate.x - tooltipWidth - 10;
-  }
-  // Check bottom edge
-  if (top + tooltipHeight > window.innerHeight - 10) {
-    top = window.innerHeight - tooltipHeight - 10;
-  }
-  // Check top edge
-  if (top < 10) {
-    top = 10;
-  }
+  // Use the authoritative flag from the data point
+  const isStabilizationPoint = point.isStabilizationPoint;
 
   // Generate explanation based on completing items
-  let explanation = 'Monthly contribution rate';
+  let explanation = 'Monthly target';
   if (point.completingItems.length > 0) {
     const names = point.completingItems.slice(0, 3);
     if (point.completingItems.length > 3) {
-      explanation = `${names.join(', ')} and ${point.completingItems.length - 3} more complete catch-up`;
+      explanation = `${names.join(', ')} and ${point.completingItems.length - 3} more normalize`;
     } else {
-      explanation = `${names.join(', ')} ${names.length === 1 ? 'completes' : 'complete'} catch-up`;
+      explanation = `${names.join(', ')} ${names.length === 1 ? 'normalizes' : 'normalize'}`;
     }
-    // For stabilization point, add the steady-state message
+    // For stabilization point, add the normalized message
     if (isStabilizationPoint) {
-      explanation += '. Steady-state rate going forward.';
+      explanation += '. All savings rates normalized.';
     }
   } else if (isStabilizationPoint) {
-    explanation = 'Your steady-state monthly rate going forward';
+    explanation = 'All savings rates normalized. This is your normal monthly rate.';
   }
 
   return (
-    <Portal>
-      <div
-        className="rounded-md shadow-lg text-xs max-w-70 overflow-hidden"
-        style={{
-          backgroundColor: 'var(--monarch-bg-card)',
-          border: '1px solid var(--monarch-border)',
-          position: 'fixed',
-          top,
-          left,
-          zIndex: Z_INDEX.TOOLTIP,
-          pointerEvents: 'none',
-        }}
-      >
-        {isStabilizationPoint && (
-          <div
-            className="px-3 py-1.5 text-[11px] font-medium"
-            style={{
-              backgroundColor: 'var(--monarch-success)',
-              color: 'white',
-            }}
-          >
-            Stabilization point achieved. All caught up.
+    <div
+      className="rounded-md shadow-lg text-xs max-w-70 overflow-hidden"
+      style={{
+        backgroundColor: 'var(--monarch-bg-card)',
+        border: '1px solid var(--monarch-border)',
+      }}
+    >
+      {isStabilizationPoint && (
+        <div
+          className="px-3 py-1.5 text-[11px] font-medium"
+          style={{
+            backgroundColor: 'var(--monarch-success)',
+            color: 'white',
+          }}
+        >
+          Ideal rate achieved
+        </div>
+      )}
+      <div className="px-3 py-2">
+        <div className="flex justify-between items-baseline gap-3 mb-1.5">
+          <div className="font-medium" style={{ color: 'var(--monarch-text-dark)' }}>
+            {point.fullLabel}
           </div>
-        )}
-        <div className="px-3 py-2">
-          <div className="flex justify-between items-baseline gap-3 mb-1.5">
-            <div className="font-medium" style={{ color: 'var(--monarch-text-dark)' }}>
-              {point.fullLabel}
-            </div>
-            <div className="font-semibold" style={{ color: 'var(--monarch-success)' }}>
-              {formatCurrency(point.amount, { maximumFractionDigits: 0 })}/mo
-            </div>
-          </div>
-          {point.rollupAmount > 0 && (
-            <div className="text-[10px] mb-1.5" style={{ color: 'var(--monarch-text-muted)' }}>
-              incl. {formatCurrency(point.rollupAmount, { maximumFractionDigits: 0 })} rollup
-            </div>
-          )}
-          <div
-            className="text-[11px] leading-relaxed"
-            style={{ color: 'var(--monarch-text-muted)' }}
-          >
-            {explanation}
+          <div className="font-semibold" style={{ color: 'var(--monarch-success)' }}>
+            {formatCurrency(point.amount, { maximumFractionDigits: 0 })}/mo
           </div>
         </div>
+        {point.rollupAmount > 0 && (
+          <div className="text-[10px] mb-1.5" style={{ color: 'var(--monarch-text-muted)' }}>
+            incl. {formatCurrency(point.rollupAmount, { maximumFractionDigits: 0 })} rollup
+          </div>
+        )}
+        <div className="text-[11px] leading-relaxed" style={{ color: 'var(--monarch-text-muted)' }}>
+          {explanation}
+        </div>
       </div>
-    </Portal>
+    </div>
   );
 }
 
@@ -183,17 +146,6 @@ function useChartColors() {
 
 export function BurndownChart({ data, formatCurrency }: BurndownChartProps) {
   const colors = useChartColors();
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  // Update chart rect cache on mouse interaction so tooltip can calculate position
-  const updateChartRect = () => {
-    if (containerRef.current) {
-      const wrapper = containerRef.current.querySelector('.recharts-wrapper');
-      if (wrapper) {
-        chartRectCache = wrapper.getBoundingClientRect();
-      }
-    }
-  };
 
   if (data.length < 2) return null;
 
@@ -209,9 +161,7 @@ export function BurndownChart({ data, formatCurrency }: BurndownChartProps) {
 
   return (
     <div
-      ref={containerRef}
       className="mt-3"
-      onMouseMove={updateChartRect}
       style={{
         height: 180,
         overflowX: needsScroll ? 'auto' : 'visible',
@@ -245,10 +195,11 @@ export function BurndownChart({ data, formatCurrency }: BurndownChartProps) {
               orientation="left"
             />
             <RechartsTooltip
-              content={<CustomTooltip formatCurrency={formatCurrency} data={data} />}
+              content={<CustomTooltip formatCurrency={formatCurrency} />}
               cursor={{ stroke: colors.border, strokeDasharray: '3 3' }}
               allowEscapeViewBox={{ x: true, y: true }}
-              wrapperStyle={{ zIndex: Z_INDEX.TOOLTIP, pointerEvents: 'none' }}
+              wrapperStyle={{ zIndex: Z_INDEX.TOOLTIP }}
+              offset={20}
             />
             <Area type="monotone" dataKey="amount" stroke="none" fill="url(#burndownGradient)" />
             <Line
@@ -257,16 +208,8 @@ export function BurndownChart({ data, formatCurrency }: BurndownChartProps) {
               stroke={colors.success}
               strokeWidth={2}
               dot={({ cx, cy, index }) => {
-                const isEndpoint = index === 0 || index === data.length - 1;
                 const point = data[index];
-                const hasChange = point?.hasChange ?? false;
-
-                // Find the stabilization point - the last month where catch-up payments complete
-                const stabilizationIndex = data.reduce(
-                  (lastIdx, p, i) => (p.hasChange ? i : lastIdx),
-                  -1
-                );
-                const isStabilizationPoint = index === stabilizationIndex;
+                const isStabilizationPoint = point?.isStabilizationPoint ?? false;
 
                 // Use anchor icon for the stabilization point
                 if (isStabilizationPoint && cx !== undefined && cy !== undefined) {
@@ -289,19 +232,15 @@ export function BurndownChart({ data, formatCurrency }: BurndownChartProps) {
                     cx={cx}
                     cy={cy}
                     r={4}
-                    fill={isEndpoint || hasChange ? colors.success : colors.bgCard}
+                    fill={colors.success}
                     stroke={colors.success}
                     strokeWidth={2}
                   />
                 );
               }}
               activeDot={({ cx, cy, index }) => {
-                // Find the stabilization point - the last month where catch-up payments complete
-                const stabilizationIndex = data.reduce(
-                  (lastIdx, p, i) => (p.hasChange ? i : lastIdx),
-                  -1
-                );
-                const isStabilizationPoint = index === stabilizationIndex;
+                const point = data[index];
+                const isStabilizationPoint = point?.isStabilizationPoint ?? false;
 
                 if (isStabilizationPoint && cx !== undefined && cy !== undefined) {
                   const size = 22;

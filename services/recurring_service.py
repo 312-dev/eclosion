@@ -17,13 +17,17 @@ from monarch_utils import get_cache, get_mm, retry_with_backoff
 
 
 class Frequency(Enum):
-    """Recurring transaction frequency."""
+    """Recurring transaction frequency matching Monarch API values."""
 
     WEEKLY = "weekly"
-    EVERY_TWO_WEEKS = "every_two_weeks"
-    TWICE_A_MONTH = "twice_a_month"
+    BIWEEKLY = "biweekly"  # every 2 weeks
+    FOUR_WEEKLY = "four_weekly"  # every 4 weeks
+    SEMIMONTHLY_START_MID = "semimonthly_start_mid"  # 1st and 15th
+    SEMIMONTHLY_MID_END = "semimonthly_mid_end"  # 15th and last day
     MONTHLY = "monthly"
+    BIMONTHLY = "bimonthly"  # every 2 months
     QUARTERLY = "quarterly"
+    FOUR_MONTH = "four_month"  # every 4 months
     SEMIYEARLY = "semiyearly"
     YEARLY = "yearly"
 
@@ -33,10 +37,14 @@ class Frequency(Enum):
         # For sub-monthly frequencies, use accurate weeks-per-month (4.33)
         return {
             Frequency.WEEKLY: 7 / 30.44,  # ~0.23 months
-            Frequency.EVERY_TWO_WEEKS: 14 / 30.44,  # ~0.46 months
-            Frequency.TWICE_A_MONTH: 0.5,  # exactly 2x per month
+            Frequency.BIWEEKLY: 14 / 30.44,  # ~0.46 months
+            Frequency.FOUR_WEEKLY: 28 / 30.44,  # ~0.92 months
+            Frequency.SEMIMONTHLY_START_MID: 0.5,  # 1st and 15th
+            Frequency.SEMIMONTHLY_MID_END: 0.5,  # 15th and last day
             Frequency.MONTHLY: 1,
+            Frequency.BIMONTHLY: 2,
             Frequency.QUARTERLY: 3,
+            Frequency.FOUR_MONTH: 4,
             Frequency.SEMIYEARLY: 6,
             Frequency.YEARLY: 12,
         }[self]
@@ -46,10 +54,14 @@ class Frequency(Enum):
         """Return human-readable frequency label."""
         return {
             Frequency.WEEKLY: "Weekly",
-            Frequency.EVERY_TWO_WEEKS: "Bi-weekly",
-            Frequency.TWICE_A_MONTH: "2x/month",
+            Frequency.BIWEEKLY: "Bi-weekly",
+            Frequency.FOUR_WEEKLY: "Every 4 weeks",
+            Frequency.SEMIMONTHLY_START_MID: "1st & 15th",
+            Frequency.SEMIMONTHLY_MID_END: "15th & last",
             Frequency.MONTHLY: "Monthly",
+            Frequency.BIMONTHLY: "Every 2 months",
             Frequency.QUARTERLY: "Quarterly",
+            Frequency.FOUR_MONTH: "Every 4 months",
             Frequency.SEMIYEARLY: "6 months",
             Frequency.YEARLY: "Yearly",
         }[self]
@@ -66,6 +78,7 @@ class RecurringItem:
     amount: float  # Positive value
     frequency: Frequency
     next_due_date: date
+    base_date: date | None = None  # When the recurring pattern started (stable across renewals)
     is_stale: bool = False  # True if last expected charge was missed or >7 days off
     is_liability: bool = False
     is_active: bool = True
@@ -179,6 +192,11 @@ class RecurringService:
                 continue
 
             merchant = stream.get("merchant", {})
+
+            # Parse base_date (stable start date for recurring pattern)
+            base_date_str = stream.get("baseDate")
+            base_date = date.fromisoformat(base_date_str) if base_date_str else None
+
             items.append(
                 RecurringItem(
                     id=stream_id,
@@ -188,6 +206,7 @@ class RecurringService:
                     amount=abs(amount),  # Make positive
                     frequency=frequency,
                     next_due_date=date.fromisoformat(date_str),
+                    base_date=base_date,
                     is_stale=False,  # Will be set later by stale check
                     is_liability=stream.get("creditReportLiabilityAccount") is not None,
                     is_active=stream.get("isActive", True),

@@ -61,6 +61,17 @@ export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
       }
 
       if (!status.authenticated && !status.has_stored_credentials) {
+        // Backend has no stored credentials, but check if desktop app has them
+        // This happens when auto-lock is enabled - session isn't restored on startup
+        if (globalThis.electron?.credentials) {
+          const hasElectronCreds = await globalThis.electron.credentials.has();
+          if (hasElectronCreds) {
+            // Desktop mode with stored credentials but no session - show unlock
+            setNeedsUnlock(true);
+            setAuthenticated(false);
+            return false;
+          }
+        }
         // No credentials at all, need to login
         setAuthenticated(false);
         return false;

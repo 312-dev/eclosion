@@ -3,4 +3,4 @@
 #   pip install --require-hashes -r requirements.txt
 #   pip install --no-deps -r requirements-vcs.txt
 
-git+https://github.com/312-dev/monarchmoney.git@1365eaeb0933ce18b0e55d4cd2103eef23e9678e  # custom header support
+git+https://github.com/312-dev/monarchmoney.git@bfaf76a36b28588237ab8c575d368a41b894545c  # custom header support + baseDate field

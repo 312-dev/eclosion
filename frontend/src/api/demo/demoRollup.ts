@@ -21,7 +21,13 @@ export async function getRollupData(): Promise<RollupData> {
  */
 export async function addToRollup(
   recurringId: string
-): Promise<{ success: boolean; item_id?: string; monthly_rate?: number; total_budgeted?: number; error?: string }> {
+): Promise<{
+  success: boolean;
+  item_id?: string;
+  monthly_rate?: number;
+  total_budgeted?: number;
+  error?: string;
+}> {
   await simulateDelay(150);
 
   updateDemoState((state) => {
@@ -35,7 +41,10 @@ export async function addToRollup(
     const rollupItems = updatedItems.filter((i) => i.is_in_rollup);
     const totalRate = rollupItems.reduce((sum, i) => sum + i.ideal_monthly_rate, 0);
     // Total saved = current_balance (rollover) + contributed_this_month
-    const totalSaved = rollupItems.reduce((sum, i) => sum + i.current_balance + i.contributed_this_month, 0);
+    const totalSaved = rollupItems.reduce(
+      (sum, i) => sum + i.current_balance + i.contributed_this_month,
+      0
+    );
     const totalTarget = rollupItems.reduce((sum, i) => sum + i.amount, 0);
 
     return {
@@ -54,6 +63,7 @@ export async function addToRollup(
             frequency: i.frequency,
             frequency_months: i.frequency_months,
             next_due_date: i.next_due_date,
+            ...(i.base_date && { base_date: i.base_date }),
             months_until_due: i.months_until_due,
             ideal_monthly_rate: i.ideal_monthly_rate,
             frozen_monthly_target: i.frozen_monthly_target,
@@ -84,7 +94,13 @@ export async function addToRollup(
  */
 export async function removeFromRollup(
   recurringId: string
-): Promise<{ success: boolean; item_id?: string; monthly_rate?: number; total_budgeted?: number; error?: string }> {
+): Promise<{
+  success: boolean;
+  item_id?: string;
+  monthly_rate?: number;
+  total_budgeted?: number;
+  error?: string;
+}> {
   await simulateDelay(150);
 
   updateDemoState((state) => {
@@ -98,7 +114,10 @@ export async function removeFromRollup(
     const rollupItems = updatedItems.filter((i) => i.is_in_rollup);
     const totalRate = rollupItems.reduce((sum, i) => sum + i.ideal_monthly_rate, 0);
     // Total saved = current_balance (rollover) + contributed_this_month
-    const totalSaved = rollupItems.reduce((sum, i) => sum + i.current_balance + i.contributed_this_month, 0);
+    const totalSaved = rollupItems.reduce(
+      (sum, i) => sum + i.current_balance + i.contributed_this_month,
+      0
+    );
     const totalTarget = rollupItems.reduce((sum, i) => sum + i.amount, 0);
 
     return {
@@ -117,6 +136,7 @@ export async function removeFromRollup(
             frequency: i.frequency,
             frequency_months: i.frequency_months,
             next_due_date: i.next_due_date,
+            ...(i.base_date && { base_date: i.base_date }),
             months_until_due: i.months_until_due,
             ideal_monthly_rate: i.ideal_monthly_rate,
             frozen_monthly_target: i.frozen_monthly_target,
@@ -230,9 +250,7 @@ export async function updateRollupCategoryName(
 /**
  * Create a new rollup category in Monarch.
  */
-export async function createRollupCategory(
-  budget: number = 0
-): Promise<{
+export async function createRollupCategory(budget: number = 0): Promise<{
   success: boolean;
   category_id?: string;
   category_name?: string;

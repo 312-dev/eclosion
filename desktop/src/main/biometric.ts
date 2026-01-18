@@ -669,19 +669,15 @@ export interface FallbackValidationResult {
 }
 
 /**
- * Validate credentials for fallback authentication when Touch ID fails.
+ * Validate password for fallback authentication when Touch ID fails.
  * Compares against STORED credentials (works offline).
  *
  * Security: Never returns the actual stored credentials, only success/failure.
  *
- * @param email User-entered email
  * @param password User-entered password
  * @returns Validation result
  */
-export function validateCredentialsFallback(
-  email: string,
-  password: string
-): FallbackValidationResult {
+export function validatePasswordFallback(password: string): FallbackValidationResult {
   const stored = getMonarchCredentials();
 
   if (!stored) {
@@ -692,18 +688,14 @@ export function validateCredentialsFallback(
     };
   }
 
-  // Case-insensitive email comparison, exact password match
-  const emailMatch = stored.email.toLowerCase() === email.toLowerCase().trim();
-  const passwordMatch = stored.password === password;
-
-  if (emailMatch && passwordMatch) {
+  if (stored.password === password) {
     debugLog('Biometric: Fallback validation successful');
     return { success: true };
   }
 
-  debugLog('Biometric: Fallback validation failed - credentials mismatch');
+  debugLog('Biometric: Fallback validation failed - password mismatch');
   return {
     success: false,
-    error: 'Invalid credentials. Please use the email and password you last used with Eclosion.',
+    error: 'Incorrect password',
   };
 }

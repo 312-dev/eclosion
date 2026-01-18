@@ -5,9 +5,9 @@
  * Supports locking on system lock events or after idle time.
  *
  * Lock triggers:
- * - 'system-lock': Lock when the system locks (default, like 1Password)
+ * - 'system-lock': Lock when the system locks
  * - 'idle-X': Lock after X minutes of system idle
- * - 'never': Never auto-lock (user must manually lock)
+ * - 'never': Never auto-lock (default, user must manually lock or enable auto-lock)
  */
 
 import { powerMonitor, BrowserWindow } from 'electron';
@@ -25,7 +25,7 @@ const LOCK_TRIGGER_KEY = 'security.lockTrigger' as const;
 /**
  * Default lock trigger.
  */
-const DEFAULT_LOCK_TRIGGER: LockTrigger = 'system-lock';
+const DEFAULT_LOCK_TRIGGER: LockTrigger = 'never';
 
 /**
  * Idle check interval in milliseconds.

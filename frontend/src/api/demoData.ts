@@ -18,7 +18,7 @@ import type {
   ArchivedNote,
 } from '../types';
 import type { NotesCategoryGroup } from '../types/notes';
-import { roundMonthlyRate } from '../utils/calculations';
+import { calculateMonthlyTarget, type Frequency } from '../utils/calculations';
 
 // ============================================================================
 // Demo State Interface
@@ -64,46 +64,80 @@ function getNextDueDate(monthsFromNow: number): string {
   return isoDate ?? date.toISOString().substring(0, 10);
 }
 
+/**
+ * Calculate baseDate from next_due_date by working backwards.
+ * baseDate is when the recurring pattern started - it's stable across renewals.
+ * For demo purposes, we pick a date in the past that aligns with the frequency.
+ */
+function getBaseDate(frequency: Frequency, monthsFromNow: number): string {
+  const date = new Date();
+  // Set to first day of month for consistency
+  date.setDate(1);
+
+  // For demo, baseDate is set to match a cycle that ends at next_due_date
+  // We want baseDate in the past, so we subtract one full cycle from due date
+  switch (frequency) {
+    case 'weekly':
+    case 'biweekly':
+    case 'semimonthly_start_mid':
+      // Sub-monthly: set baseDate to same relative day in current month
+      date.setDate(15); // Pick a fixed day for consistency
+      break;
+    case 'monthly':
+      // Monthly: baseDate is current month's occurrence
+      date.setDate(15);
+      break;
+    case 'quarterly':
+      // Quarterly: baseDate is 3 months before next due
+      date.setMonth(date.getMonth() + monthsFromNow - 3);
+      date.setDate(15);
+      break;
+    case 'semiyearly':
+      // Semi-annual: baseDate is 6 months before next due
+      date.setMonth(date.getMonth() + monthsFromNow - 6);
+      date.setDate(15);
+      break;
+    case 'yearly':
+      // Annual: baseDate is 12 months before next due
+      date.setMonth(date.getMonth() + monthsFromNow - 12);
+      date.setDate(15);
+      break;
+    default:
+      date.setDate(15);
+  }
+
+  const isoDate = date.toISOString().split('T')[0];
+  return isoDate ?? date.toISOString().substring(0, 10);
+}
+
 function calculateProgress(saved: number, target: number): number {
   if (target === 0) return 100;
   return Math.min(100, Math.round((saved / target) * 100));
 }
 
 /**
- * Calculate the frozen monthly target for a recurring item.
- * This is calculated for ALL items (enabled or disabled) so the target is ready
- * when the item is enabled. Mirrors the logic from services/frozen_target_calculator.py
- *
- * For sub-monthly expenses: Target = monthly equivalent - what you have
- * For monthly expenses: Target = shortfall (what's still needed)
- * For infrequent expenses: Target = round(shortfall / months_remaining)
- *
- * Uses round() instead of ceil() to minimize overbudgeting.
- * Minimum $1/mo for any non-zero rate (prevents showing $0 for small expenses).
+ * Get the current month as an ISO string (first day of month).
  */
-function calculateFrozenTarget(
+function getCurrentMonth(): string {
+  const now = new Date();
+  const isoDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+  return isoDate ?? `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+}
+
+/**
+ * Calculate the frozen monthly target for a recurring item using baseDate.
+ * This mirrors the logic from services/occurrence_calculator.py
+ *
+ * Uses stateless calculation from stable inputs (baseDate, frequency, amount, rollover).
+ */
+function calculateDemoFrozenTarget(
+  baseDate: string,
+  frequency: Frequency,
   amount: number,
-  frequencyMonths: number,
-  monthsUntilDue: number,
-  currentBalance: number
+  rollover: number
 ): number {
-  if (frequencyMonths < 1) {
-    // Sub-monthly (weekly, bi-weekly): use monthly equivalent
-    // $78/week → $312/month
-    const monthlyEquivalent = amount / frequencyMonths;
-    return roundMonthlyRate(Math.max(0, monthlyEquivalent - currentBalance));
-  } else if (frequencyMonths === 1) {
-    // Monthly items: target is the shortfall (what's still needed)
-    return roundMonthlyRate(Math.max(0, amount - currentBalance));
-  } else {
-    // Non-monthly items: calculate catch-up rate
-    const shortfall = Math.max(0, amount - currentBalance);
-    const monthsRemaining = Math.max(1, monthsUntilDue);
-    if (shortfall > 0) {
-      return roundMonthlyRate(shortfall / monthsRemaining);
-    }
-    return 0;
-  }
+  const targetMonth = getCurrentMonth();
+  return calculateMonthlyTarget(baseDate, frequency, amount, rollover, targetMonth);
 }
 
 // ============================================================================
@@ -128,10 +162,10 @@ const DEMO_RECURRING_ITEMS: RecurringItem[] = [
   // ============================================================================
 
   // CATCH-UP EXAMPLE 1: Semi-annual expense, moderately behind
-  // current_balance = $160 (rollover from previous months)
+  // rollover_amount = $160 (start of month balance from previous months)
   // planned_budget = $160 (committed budget for this month)
   // contributed_this_month = $160 (matches budget - fully allocated)
-  // Total saved = $320, needs $720
+  // current_balance = rollover + budgeted = $320, needs $720
   // Tooltip: "$160 rolled over, $160 budgeted this month"
   {
     id: 'item-car-insurance',
@@ -146,12 +180,14 @@ const DEMO_RECURRING_ITEMS: RecurringItem[] = [
     category_group_name: 'Insurance',
     category_missing: false,
     amount: 720,
-    frequency: 'semi-annual',
+    frequency: 'semiyearly',
     frequency_months: 6,
     next_due_date: getNextDueDate(3),
+    base_date: getBaseDate('semiyearly', 3),
     months_until_due: 3,
-    current_balance: 160,
+    current_balance: 320,
     planned_budget: 160,
+    rollover_amount: 160,
     monthly_contribution: 160,
     over_contribution: 0,
     progress_percent: 44,
@@ -167,10 +203,10 @@ const DEMO_RECURRING_ITEMS: RecurringItem[] = [
   },
 
   // CATCH-UP EXAMPLE 2: Annual expense, significantly behind
-  // current_balance = $75 (rollover from previous months)
+  // rollover_amount = $75 (start of month balance from previous months)
   // planned_budget = $250 (committed budget for this month)
   // contributed_this_month = $250 (matches budget - fully allocated)
-  // Total saved = $325, needs $1200
+  // current_balance = rollover + budgeted = $325, needs $1200
   // Tooltip: "$75 rolled over, $250 budgeted this month"
   {
     id: 'item-home-insurance',
@@ -185,12 +221,14 @@ const DEMO_RECURRING_ITEMS: RecurringItem[] = [
     category_group_name: 'Insurance',
     category_missing: false,
     amount: 1200,
-    frequency: 'annual',
+    frequency: 'yearly',
     frequency_months: 12,
     next_due_date: getNextDueDate(4),
+    base_date: getBaseDate('yearly', 4),
     months_until_due: 4,
-    current_balance: 75,
+    current_balance: 325,
     planned_budget: 250,
+    rollover_amount: 75,
     monthly_contribution: 250,
     over_contribution: 0,
     progress_percent: 27,
@@ -222,6 +260,7 @@ const DEMO_RECURRING_ITEMS: RecurringItem[] = [
     frequency: 'monthly',
     frequency_months: 1,
     next_due_date: getNextDueDate(0),
+    base_date: getBaseDate('monthly', 0),
     months_until_due: 0,
     current_balance: 0,
     planned_budget: 95,
@@ -256,6 +295,7 @@ const DEMO_RECURRING_ITEMS: RecurringItem[] = [
     frequency: 'monthly',
     frequency_months: 1,
     next_due_date: getNextDueDate(0),
+    base_date: getBaseDate('monthly', 0),
     months_until_due: 0,
     current_balance: 0,
     planned_budget: 79.99,
@@ -273,9 +313,9 @@ const DEMO_RECURRING_ITEMS: RecurringItem[] = [
     monthly_progress_percent: 100,
   },
   // AHEAD EXAMPLE: Monthly expense with rollover (user is ahead)
-  // current_balance = $40 rollover (start of month)
+  // rollover_amount = $40 (start of month balance)
   // planned_budget = $50 (budgeting the full monthly amount)
-  // Total saved = $90, more than one month funded
+  // current_balance = rollover + budgeted = $90, more than one month funded
   // This user is "ahead" because they have $40 extra in the buffer
   {
     id: 'item-gym',
@@ -293,9 +333,11 @@ const DEMO_RECURRING_ITEMS: RecurringItem[] = [
     frequency: 'monthly',
     frequency_months: 1,
     next_due_date: getNextDueDate(0),
+    base_date: getBaseDate('monthly', 0),
     months_until_due: 0,
-    current_balance: 40,
+    current_balance: 90,
     planned_budget: 50,
+    rollover_amount: 40,
     monthly_contribution: 50,
     over_contribution: 0,
     progress_percent: 100,
@@ -330,6 +372,7 @@ const DEMO_RECURRING_ITEMS: RecurringItem[] = [
     frequency: 'monthly',
     frequency_months: 1,
     next_due_date: getNextDueDate(0),
+    base_date: getBaseDate('monthly', 0),
     months_until_due: 0,
     current_balance: 0,
     planned_budget: 15.99,
@@ -362,6 +405,7 @@ const DEMO_RECURRING_ITEMS: RecurringItem[] = [
     frequency: 'monthly',
     frequency_months: 1,
     next_due_date: getNextDueDate(0),
+    base_date: getBaseDate('monthly', 0),
     months_until_due: 0,
     current_balance: 0,
     planned_budget: 11.99,
@@ -394,6 +438,7 @@ const DEMO_RECURRING_ITEMS: RecurringItem[] = [
     frequency: 'monthly',
     frequency_months: 1,
     next_due_date: getNextDueDate(0),
+    base_date: getBaseDate('monthly', 0),
     months_until_due: 0,
     current_balance: 0,
     planned_budget: 13.99,
@@ -426,6 +471,7 @@ const DEMO_RECURRING_ITEMS: RecurringItem[] = [
     frequency: 'monthly',
     frequency_months: 1,
     next_due_date: getNextDueDate(0),
+    base_date: getBaseDate('monthly', 0),
     months_until_due: 0,
     current_balance: 0,
     planned_budget: 2.99,
@@ -458,6 +504,7 @@ const DEMO_RECURRING_ITEMS: RecurringItem[] = [
     frequency: 'monthly',
     frequency_months: 1,
     next_due_date: getNextDueDate(0),
+    base_date: getBaseDate('monthly', 0),
     months_until_due: 0,
     current_balance: 0,
     planned_budget: 17.99,
@@ -482,7 +529,8 @@ const DEMO_RECURRING_ITEMS: RecurringItem[] = [
   // CATCH-UP EXAMPLE 3: Annual expense, mildly behind
   // User has $30 saved for $139 annual expense with 5 months to go
   // Needs $109 in 5 months = ~$22/mo vs ~$12/mo ideal
-  // current_balance = total ($30), contributed_this_month = $22, rollover = $8
+  // rollover_amount = $8 (start of month balance)
+  // current_balance = rollover + budgeted = $30, contributed_this_month = $22
   {
     id: 'item-amazon-prime',
     merchant_id: 'merchant-amazon',
@@ -496,12 +544,14 @@ const DEMO_RECURRING_ITEMS: RecurringItem[] = [
     category_group_name: 'Subscriptions',
     category_missing: false,
     amount: 139,
-    frequency: 'annual',
+    frequency: 'yearly',
     frequency_months: 12,
     next_due_date: getNextDueDate(5),
+    base_date: getBaseDate('yearly', 5),
     months_until_due: 5,
     current_balance: 30,
     planned_budget: 22,
+    rollover_amount: 8,
     monthly_contribution: 22,
     over_contribution: 0,
     progress_percent: 22,
@@ -535,6 +585,7 @@ const DEMO_RECURRING_ITEMS: RecurringItem[] = [
     frequency: 'monthly',
     frequency_months: 1,
     next_due_date: getNextDueDate(0),
+    base_date: getBaseDate('monthly', 0),
     months_until_due: 0,
     current_balance: 0,
     planned_budget: 0,
@@ -567,6 +618,7 @@ const DEMO_RECURRING_ITEMS: RecurringItem[] = [
     frequency: 'monthly',
     frequency_months: 1,
     next_due_date: getNextDueDate(0),
+    base_date: getBaseDate('monthly', 0),
     months_until_due: 0,
     current_balance: 0,
     planned_budget: 0,
@@ -596,9 +648,10 @@ const DEMO_RECURRING_ITEMS: RecurringItem[] = [
     category_group_name: 'Subscriptions',
     category_missing: false,
     amount: 65,
-    frequency: 'annual',
+    frequency: 'yearly',
     frequency_months: 12,
     next_due_date: getNextDueDate(8),
+    base_date: getBaseDate('yearly', 8),
     months_until_due: 8,
     current_balance: 0,
     planned_budget: 0,
@@ -628,9 +681,10 @@ const DEMO_RECURRING_ITEMS: RecurringItem[] = [
     category_group_name: 'Insurance',
     category_missing: false,
     amount: 144,
-    frequency: 'annual',
+    frequency: 'yearly',
     frequency_months: 12,
     next_due_date: getNextDueDate(7),
+    base_date: getBaseDate('yearly', 7),
     months_until_due: 7,
     current_balance: 0,
     planned_budget: 0,
@@ -660,9 +714,10 @@ const DEMO_RECURRING_ITEMS: RecurringItem[] = [
     category_group_name: 'Insurance',
     category_missing: false,
     amount: 79,
-    frequency: 'annual',
+    frequency: 'yearly',
     frequency_months: 12,
     next_due_date: getNextDueDate(4),
+    base_date: getBaseDate('yearly', 4),
     months_until_due: 4,
     current_balance: 0,
     planned_budget: 0,
@@ -692,9 +747,10 @@ const DEMO_RECURRING_ITEMS: RecurringItem[] = [
     category_group_name: 'Subscriptions',
     category_missing: false,
     amount: 59.99,
-    frequency: 'annual',
+    frequency: 'yearly',
     frequency_months: 12,
     next_due_date: getNextDueDate(9),
+    base_date: getBaseDate('yearly', 9),
     months_until_due: 9,
     current_balance: 0,
     planned_budget: 0,
@@ -727,6 +783,7 @@ const DEMO_RECURRING_ITEMS: RecurringItem[] = [
     frequency: 'monthly',
     frequency_months: 1,
     next_due_date: getNextDueDate(0),
+    base_date: getBaseDate('monthly', 0),
     months_until_due: 0,
     current_balance: 0,
     planned_budget: 0,
@@ -759,6 +816,7 @@ const DEMO_RECURRING_ITEMS: RecurringItem[] = [
     frequency: 'monthly',
     frequency_months: 1,
     next_due_date: getNextDueDate(0),
+    base_date: getBaseDate('monthly', 0),
     months_until_due: 0,
     current_balance: 0,
     planned_budget: 0,
@@ -791,6 +849,7 @@ const DEMO_RECURRING_ITEMS: RecurringItem[] = [
     frequency: 'monthly',
     frequency_months: 1,
     next_due_date: getNextDueDate(0),
+    base_date: getBaseDate('monthly', 0),
     months_until_due: 0,
     current_balance: 0,
     planned_budget: 0,
@@ -820,9 +879,10 @@ const DEMO_RECURRING_ITEMS: RecurringItem[] = [
     category_group_name: 'Subscriptions',
     category_missing: false,
     amount: 100,
-    frequency: 'annual',
+    frequency: 'yearly',
     frequency_months: 12,
     next_due_date: getNextDueDate(6),
+    base_date: getBaseDate('yearly', 6),
     months_until_due: 6,
     current_balance: 0,
     planned_budget: 0,
@@ -855,6 +915,7 @@ const DEMO_RECURRING_ITEMS: RecurringItem[] = [
     frequency: 'monthly',
     frequency_months: 1,
     next_due_date: getNextDueDate(0),
+    base_date: getBaseDate('monthly', 0),
     months_until_due: 0,
     current_balance: 0,
     planned_budget: 0,
@@ -887,6 +948,7 @@ const DEMO_RECURRING_ITEMS: RecurringItem[] = [
     frequency: 'monthly',
     frequency_months: 1,
     next_due_date: getNextDueDate(0),
+    base_date: getBaseDate('monthly', 0),
     months_until_due: 0,
     current_balance: 0,
     planned_budget: 0,
@@ -919,6 +981,7 @@ const DEMO_RECURRING_ITEMS: RecurringItem[] = [
     frequency: 'quarterly',
     frequency_months: 3,
     next_due_date: getNextDueDate(2),
+    base_date: getBaseDate('quarterly', 2),
     months_until_due: 2,
     current_balance: 0,
     planned_budget: 0,
@@ -951,6 +1014,7 @@ const DEMO_RECURRING_ITEMS: RecurringItem[] = [
     frequency: 'monthly',
     frequency_months: 1,
     next_due_date: getNextDueDate(0),
+    base_date: getBaseDate('monthly', 0),
     months_until_due: 0,
     current_balance: 0,
     planned_budget: 0,
@@ -983,6 +1047,7 @@ const DEMO_RECURRING_ITEMS: RecurringItem[] = [
     frequency: 'monthly',
     frequency_months: 1,
     next_due_date: getNextDueDate(0),
+    base_date: getBaseDate('monthly', 0),
     months_until_due: 0,
     current_balance: 0,
     planned_budget: 0,
@@ -1015,6 +1080,7 @@ const DEMO_RECURRING_ITEMS: RecurringItem[] = [
     frequency: 'monthly',
     frequency_months: 1,
     next_due_date: getNextDueDate(0),
+    base_date: getBaseDate('monthly', 0),
     months_until_due: 0,
     current_balance: 0,
     planned_budget: 0,
@@ -1047,6 +1113,7 @@ const DEMO_RECURRING_ITEMS: RecurringItem[] = [
     frequency: 'monthly',
     frequency_months: 1,
     next_due_date: getNextDueDate(0),
+    base_date: getBaseDate('monthly', 0),
     months_until_due: 0,
     current_balance: 0,
     planned_budget: 0,
@@ -1072,25 +1139,28 @@ const DEMO_RECURRING_ITEMS: RecurringItem[] = [
 function createRollupData(items: RecurringItem[]): RollupData {
   const rollupItems = items.filter((item) => item.is_in_rollup);
 
-  const rollupItemsData: RollupItem[] = rollupItems.map((item) => ({
-    id: item.id,
-    name: item.name,
-    merchant_id: item.merchant_id,
-    logo_url: item.logo_url,
-    amount: item.amount,
-    frequency: item.frequency,
-    frequency_months: item.frequency_months,
-    next_due_date: item.next_due_date,
-    months_until_due: item.months_until_due,
-    ideal_monthly_rate: item.ideal_monthly_rate,
-    frozen_monthly_target: item.frozen_monthly_target,
-    status: item.status,
-  }));
+  const rollupItemsData: RollupItem[] = rollupItems.map((item) => {
+    const rollupItem: RollupItem = {
+      id: item.id,
+      name: item.name,
+      merchant_id: item.merchant_id,
+      logo_url: item.logo_url,
+      amount: item.amount,
+      frequency: item.frequency,
+      frequency_months: item.frequency_months,
+      next_due_date: item.next_due_date,
+      months_until_due: item.months_until_due,
+      ideal_monthly_rate: item.ideal_monthly_rate,
+      frozen_monthly_target: item.frozen_monthly_target,
+      status: item.status,
+    };
+    if (item.base_date) {
+      rollupItem.base_date = item.base_date;
+    }
+    return rollupItem;
+  });
 
-  const totalIdealRate = rollupItemsData.reduce(
-    (sum, item) => sum + item.ideal_monthly_rate,
-    0
-  );
+  const totalIdealRate = rollupItemsData.reduce((sum, item) => sum + item.ideal_monthly_rate, 0);
   const totalFrozenMonthly = rollupItemsData.reduce(
     (sum, item) => sum + item.frozen_monthly_target,
     0
@@ -1346,15 +1416,19 @@ export const DEMO_NOTES_CATEGORIES: NotesCategoryGroup[] = [
 function createDashboardData(items: RecurringItem[]): DashboardData {
   // Calculate frozen_monthly_target for items that don't have one yet (disabled items)
   // This ensures the target is ready when items are enabled
-  // Enabled items keep their curated values for demo purposes
+  // Uses baseDate-based calculation for consistency with backend
   const processedItems = items.map((item) => ({
     ...item,
-    frozen_monthly_target: item.frozen_monthly_target || calculateFrozenTarget(
-      item.amount,
-      item.frequency_months,
-      item.months_until_due,
-      item.current_balance
-    ),
+    frozen_monthly_target:
+      item.frozen_monthly_target ||
+      (item.base_date
+        ? calculateDemoFrozenTarget(
+            item.base_date,
+            item.frequency as Frequency,
+            item.amount,
+            item.rollover_amount ?? 0 // Use explicit rollover, not current_balance
+          )
+        : 0),
   }));
 
   const activeItems = processedItems.filter((item) => item.is_enabled);
@@ -1444,7 +1518,8 @@ function createInitialDemoNotes(): DemoNotesState {
           name: 'Subscriptions',
         },
         monthKey: twoMonthsAgo,
-        content: '**Review all streaming services** this quarter.\n\n- Check for price increases\n- Consider bundling options\n- Cancel unused services',
+        content:
+          '**Review all streaming services** this quarter.\n\n- Check for price increases\n- Consider bundling options\n- Cancel unused services',
         createdAt: now,
         updatedAt: now,
       },
@@ -1458,7 +1533,8 @@ function createInitialDemoNotes(): DemoNotesState {
           groupName: 'Subscriptions',
         },
         monthKey: prevMonth,
-        content: 'Consider switching to annual plan - saves $20/year.\n\nCurrent: $14.99/mo = $179.88/yr\nAnnual: $139/yr\n\n**Savings: $40.88/yr**',
+        content:
+          'Consider switching to annual plan - saves $20/year.\n\nCurrent: $14.99/mo = $179.88/yr\nAnnual: $139/yr\n\n**Savings: $40.88/yr**',
         createdAt: now,
         updatedAt: now,
       },
@@ -1470,7 +1546,8 @@ function createInitialDemoNotes(): DemoNotesState {
           name: 'Insurance',
         },
         monthKey: currentMonth,
-        content: '## Annual Review\n\nCompare rates from:\n1. Progressive\n2. Geico\n3. State Farm\n\nCurrent policy expires in 3 months.',
+        content:
+          '## Annual Review\n\nCompare rates from:\n1. Progressive\n2. Geico\n3. State Farm\n\nCurrent policy expires in 3 months.',
         createdAt: now,
         updatedAt: now,
       },
@@ -1479,7 +1556,8 @@ function createInitialDemoNotes(): DemoNotesState {
       [currentMonth]: {
         id: 'demo-general-1',
         monthKey: currentMonth,
-        content: '## Monthly Budget Check-in\n\n- [ ] Review all recurring expenses\n- [ ] Check subscription usage\n- [ ] Update insurance quotes\n\n*Total subscription cost this month: ~$85*',
+        content:
+          '## Monthly Budget Check-in\n\n- [ ] Review all recurring expenses\n- [ ] Check subscription usage\n- [ ] Update insurance quotes\n\n*Total subscription cost this month: ~$85*',
         createdAt: now,
         updatedAt: now,
       },

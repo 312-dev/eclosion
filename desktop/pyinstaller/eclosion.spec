@@ -56,6 +56,8 @@ a = Analysis(
         'pyotp',
         'cachetools',
         'certifi',
+        'dateutil',
+        'dateutil.relativedelta',
 
         # Monarch Money client dependencies
         'aiohttp',

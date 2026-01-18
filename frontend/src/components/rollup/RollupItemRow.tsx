@@ -7,7 +7,13 @@
 import { memo, useState, useCallback } from 'react';
 import type { RollupItem } from '../../types';
 import { Tooltip } from '../ui/Tooltip';
-import { formatCurrency, formatDateRelative, formatFrequencyShort, decodeHtmlEntities } from '../../utils';
+import {
+  formatCurrency,
+  formatDateRelative,
+  formatFrequencyShort,
+  decodeHtmlEntities,
+  getNormalizationDate,
+} from '../../utils';
 import { MerchantIcon, LoadingSpinner } from '../ui';
 import { TrendUpIcon, TrendDownIcon, XIcon, AnchorIcon } from '../icons';
 import { useIsRateLimited } from '../../context/RateLimitContext';
@@ -62,16 +68,14 @@ export const RollupItemRow = memo(function RollupItemRow({
       {/* Date column */}
       <td className="py-2 px-3 text-sm">
         <div className="text-monarch-text-dark">{date}</div>
-        {relative && (
-          <div className="text-xs text-monarch-text-light">
-            {relative}
-          </div>
-        )}
+        {relative && <div className="text-xs text-monarch-text-light">{relative}</div>}
       </td>
       {/* Amount */}
       <td className="py-2 px-3 text-right text-sm">
         <div className="flex flex-col items-end">
-          <span className="text-monarch-text-dark">{formatCurrency(item.amount, { maximumFractionDigits: 0 })}</span>
+          <span className="text-monarch-text-dark">
+            {formatCurrency(item.amount, { maximumFractionDigits: 0 })}
+          </span>
           {item.frequency !== 'monthly' && (
             <div className="text-xs text-monarch-text-light mt-0.5">
               {formatFrequencyShort(item.frequency)}
@@ -86,52 +90,79 @@ export const RollupItemRow = memo(function RollupItemRow({
             {formatCurrency(target, { maximumFractionDigits: 0 })}/mo
           </span>
           {isCatchingUp && (
-            <Tooltip content={
-              <>
-                <div className="font-medium flex items-center gap-1"><TrendUpIcon size={12} strokeWidth={2.5} className="text-monarch-error" /> Catching Up</div>
-                <div>
-                  <span className="text-monarch-orange">{formatCurrency(target, { maximumFractionDigits: 0 })}/mo</span>
-                  <span className="text-monarch-text-muted"> → </span>
-                  <span className="text-monarch-success">{formatCurrency(idealRate, { maximumFractionDigits: 0 })}/mo</span>
-                </div>
-                <div className="text-monarch-text-muted text-xs mt-1">
-                  {item.frequency_months < 1 ? 'Normalizes as buffer builds' : 'Normalizes next month'}
-                </div>
-              </>
-            }>
+            <Tooltip
+              content={
+                <>
+                  <div className="font-medium flex items-center gap-1">
+                    <TrendUpIcon size={12} strokeWidth={2.5} className="text-monarch-error" />{' '}
+                    Catching Up
+                  </div>
+                  <div>
+                    <span className="text-monarch-orange">
+                      {formatCurrency(target, { maximumFractionDigits: 0 })}/mo
+                    </span>
+                    <span className="text-monarch-text-muted"> → </span>
+                    <span className="text-monarch-success">
+                      {formatCurrency(idealRate, { maximumFractionDigits: 0 })}/mo
+                    </span>
+                  </div>
+                  <div className="text-monarch-text-muted text-xs mt-1">
+                    {item.frequency_months < 1
+                      ? 'Normalizes as buffer builds'
+                      : `Normalizes ${getNormalizationDate(item.next_due_date)}`}
+                  </div>
+                </>
+              }
+            >
               <span className="cursor-help text-monarch-error">
                 <TrendUpIcon size={10} strokeWidth={2.5} />
               </span>
             </Tooltip>
           )}
           {isAhead && (
-            <Tooltip content={
-              <>
-                <div className="font-medium flex items-center gap-1"><TrendDownIcon size={12} strokeWidth={2.5} className="text-monarch-success" /> Ahead of Schedule</div>
-                <div>
-                  <span className="text-monarch-success">{formatCurrency(target, { maximumFractionDigits: 0 })}/mo</span>
-                  <span className="text-monarch-text-muted"> → </span>
-                  <span className="text-monarch-orange">{formatCurrency(idealRate, { maximumFractionDigits: 0 })}/mo</span>
-                </div>
-                <div className="text-monarch-text-muted text-xs mt-1">
-                  {item.frequency_months < 1 ? 'Normalizes as buffer depletes' : 'Normalizes next month'}
-                </div>
-              </>
-            }>
+            <Tooltip
+              content={
+                <>
+                  <div className="font-medium flex items-center gap-1">
+                    <TrendDownIcon size={12} strokeWidth={2.5} className="text-monarch-success" />{' '}
+                    Ahead of Schedule
+                  </div>
+                  <div>
+                    <span className="text-monarch-success">
+                      {formatCurrency(target, { maximumFractionDigits: 0 })}/mo
+                    </span>
+                    <span className="text-monarch-text-muted"> → </span>
+                    <span className="text-monarch-orange">
+                      {formatCurrency(idealRate, { maximumFractionDigits: 0 })}/mo
+                    </span>
+                  </div>
+                  <div className="text-monarch-text-muted text-xs mt-1">
+                    {item.frequency_months < 1
+                      ? 'Normalizes as buffer depletes'
+                      : `Normalizes ${getNormalizationDate(item.next_due_date)}`}
+                  </div>
+                </>
+              }
+            >
               <span className="cursor-help text-monarch-success">
                 <TrendDownIcon size={10} strokeWidth={2.5} />
               </span>
             </Tooltip>
           )}
           {isStable && (
-            <Tooltip content={
-              <>
-                <div className="font-medium flex items-center gap-1"><AnchorIcon size={12} strokeWidth={2.5} className="text-monarch-text-muted" /> Stable Target</div>
-                <div className="text-monarch-text-muted text-xs">
-                  This is the stable monthly target for this subscription
-                </div>
-              </>
-            }>
+            <Tooltip
+              content={
+                <>
+                  <div className="font-medium flex items-center gap-1">
+                    <AnchorIcon size={12} strokeWidth={2.5} className="text-monarch-text-muted" />{' '}
+                    Stable Target
+                  </div>
+                  <div className="text-monarch-text-muted text-xs">
+                    This is the stable monthly target for this subscription
+                  </div>
+                </>
+              }
+            >
               <span className="cursor-help text-monarch-text-muted">
                 <AnchorIcon size={10} strokeWidth={2.5} />
               </span>

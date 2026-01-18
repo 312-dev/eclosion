@@ -481,7 +481,12 @@ export class BackendManager extends EventEmitter {
    * Trigger a manual sync via the backend.
    * @param passphrase Optional passphrase to unlock credentials if locked (legacy mode)
    */
-  async triggerSync(passphrase?: string): Promise<{ success: boolean; error?: string }> {
+  async triggerSync(passphrase?: string): Promise<{
+    success: boolean;
+    error?: string;
+    rateLimited?: boolean;
+    retryAfter?: number;
+  }> {
     try {
       const body: { passphrase?: string } = {};
       if (passphrase) {
@@ -499,7 +504,15 @@ export class BackendManager extends EventEmitter {
 
       if (!response.ok) {
         const data = await response.json().catch(() => ({})) as { error?: string };
-        return { success: false, error: data.error || 'Sync failed' };
+        const isRateLimit = response.status === 429;
+        return {
+          success: false,
+          error: data.error || 'Sync failed',
+          rateLimited: isRateLimit,
+          retryAfter: isRateLimit
+            ? Number.parseInt(response.headers.get('Retry-After') || '60', 10)
+            : undefined,
+        };
       }
 
       return { success: true };

@@ -402,8 +402,8 @@ export interface BiometricAPI {
   storeForSync: (passphrase: string) => Promise<boolean>;
   /** Prompt Touch ID during setup to verify user can use it */
   promptForSetup: () => Promise<TouchIdSetupResult>;
-  /** Validate credentials for fallback authentication when Touch ID fails */
-  validateFallback: (email: string, password: string) => Promise<FallbackValidationResult>;
+  /** Validate password for fallback authentication when Touch ID fails */
+  validateFallback: (password: string) => Promise<FallbackValidationResult>;
 }
 
 export interface ElectronAPI {

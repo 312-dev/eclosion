@@ -210,7 +210,7 @@ export function RecurringTab() {
         {/* Catch-up Burndown Chart */}
         {burndownPoints.length >= 2 && (
           <div
-            className="rounded-xl shadow-sm overflow-hidden mb-4"
+            className="rounded-xl shadow-sm mb-4"
             style={{
               backgroundColor: 'var(--monarch-bg-card)',
               border: '1px solid var(--monarch-border)',

@@ -25,12 +25,7 @@ export {
   type RelativeDateResult,
 } from './formatters';
 
-export {
-  getErrorMessage,
-  handleApiError,
-  isRateLimitError,
-  getRetryAfter,
-} from './errors';
+export { getErrorMessage, handleApiError, isRateLimitError, getRetryAfter } from './errors';
 
 export {
   getStatusLabel,
@@ -54,7 +49,7 @@ export {
 
 export { evaluateMathExpression } from './mathEvaluator';
 
-export { calculateFrozenTarget } from './calculations';
+export { getNormalizationDate, calculateMonthlyTarget } from './calculations';
 
 export {
   buildCategoryGroupsWithNotes,

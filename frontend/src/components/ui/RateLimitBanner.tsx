@@ -3,24 +3,17 @@
  *
  * Warning banner shown when rate limited by Monarch API or Eclosion's internal cooldown.
  * Displays countdown to next ping check and auto-dismisses when rate limit clears.
- *
- * Shows different messages based on source:
- * - Eclosion cooldown: Internal 5-minute sync cooldown to protect Monarch account
- * - Monarch rate limit: External API rate limit from Monarch
  */
 
 import { useState, useEffect } from 'react';
-import { AlertTriangle, Clock } from 'lucide-react';
+import { Clock } from 'lucide-react';
 import { useRateLimit } from '../../context/RateLimitContext';
 import { UI } from '../../constants';
 
 export function RateLimitBanner() {
-  const { isRateLimited, nextPingAt, triggerPing, source } = useRateLimit();
+  const { isRateLimited, nextPingAt, triggerPing } = useRateLimit();
   const [timeUntilPing, setTimeUntilPing] = useState<string>('');
   const [isChecking, setIsChecking] = useState(false);
-
-  // Determine if this is Eclosion's internal sync cooldown
-  const isEclosionCooldown = source === 'eclosion_sync_cooldown';
 
   // Update countdown timer
   useEffect(() => {
@@ -65,12 +58,7 @@ export function RateLimitBanner() {
   // Hide banner while checking (per user request)
   if (!isRateLimited || isChecking) return null;
 
-  // Different messages based on source
-  const message = isEclosionCooldown
-    ? 'Sync is on cooldown.'
-    : 'Monarch sync paused due to too many requests.';
-
-  const Icon = isEclosionCooldown ? Clock : AlertTriangle;
+  const message = 'Sync paused due to rate limiting.';
 
   return (
     <div
@@ -85,7 +73,7 @@ export function RateLimitBanner() {
       }}
     >
       <div className="flex items-center gap-2">
-        <Icon size={16} className="shrink-0" aria-hidden="true" />
+        <Clock size={16} className="shrink-0" aria-hidden="true" />
         <span>
           {message}
           {timeUntilPing === 'checking...'

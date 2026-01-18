@@ -6,8 +6,17 @@
 
 import type { AllocateResult } from '../../types';
 import { calculateItemDisplayStatus } from '../../hooks/useItemDisplayStatus';
-import { calculateFrozenTarget } from '../../utils/calculations';
+import { calculateMonthlyTarget, type Frequency } from '../../utils/calculations';
 import { getDemoState, updateDemoState, simulateDelay } from './demoState';
+
+/**
+ * Get the current month as an ISO string (first day of month).
+ */
+function getCurrentMonth(): string {
+  const now = new Date();
+  const isoDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+  return isoDate ?? `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+}
 
 /**
  * Toggle tracking for a recurring item.
@@ -27,13 +36,19 @@ export async function toggleItemTracking(
         if (item.id !== recurringId) return item;
 
         if (enabled) {
-          // Calculate frozen_monthly_target when enabling
-          const frozenTarget = calculateFrozenTarget(
-            item.amount,
-            item.frequency_months,
-            item.months_until_due,
-            item.current_balance
-          );
+          // Calculate frozen_monthly_target when enabling using baseDate
+          const targetMonth = getCurrentMonth();
+          // Use explicit rollover_amount (start of month balance), not current_balance
+          const rollover = item.rollover_amount ?? 0;
+          const frozenTarget = item.base_date
+            ? calculateMonthlyTarget(
+                item.base_date,
+                item.frequency as Frequency,
+                item.amount,
+                rollover,
+                targetMonth
+              )
+            : 0;
           return {
             ...item,
             is_enabled: true,

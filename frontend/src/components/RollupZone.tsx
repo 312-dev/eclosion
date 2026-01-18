@@ -25,7 +25,13 @@ interface RollupZoneProps {
 const ROLLUP_COLLAPSED_KEY = 'rollup-collapsed';
 const DEFAULT_ROLLUP_NAME = 'Rollup Category';
 
-export function RollupZone({ rollup, onRemoveItem, onBudgetChange, onEmojiChange, onNameChange }: RollupZoneProps) {
+export function RollupZone({
+  rollup,
+  onRemoveItem,
+  onBudgetChange,
+  onEmojiChange,
+  onNameChange,
+}: RollupZoneProps) {
   // Collapse state
   const [isCollapsed, setIsCollapsed] = useState(() => {
     const saved = sessionStorage.getItem(ROLLUP_COLLAPSED_KEY);
@@ -49,7 +55,7 @@ export function RollupZone({ rollup, onRemoveItem, onBudgetChange, onEmojiChange
   useEffect(() => {
     if (isHoveringName || isEditingName) return;
     const interval = setInterval(() => {
-      setShowAlternateName(prev => !prev);
+      setShowAlternateName((prev) => !prev);
     }, UI.INTERVAL.FLIP_ANIMATION);
     return () => clearInterval(interval);
   }, [isHoveringName, isEditingName]);
@@ -124,8 +130,12 @@ export function RollupZone({ rollup, onRemoveItem, onBudgetChange, onEmojiChange
   const totalMonthly = rollup.total_frozen_monthly;
   const totalStable = rollup.total_ideal_rate;
 
-  const anyCatchingUp = rollup.items.some(item => item.frozen_monthly_target > item.ideal_monthly_rate);
-  const anyAhead = rollup.items.some(item => item.frozen_monthly_target < item.ideal_monthly_rate && item.frozen_monthly_target > 0);
+  const anyCatchingUp = rollup.items.some(
+    (item) => item.frozen_monthly_target > item.ideal_monthly_rate
+  );
+  const anyAhead = rollup.items.some(
+    (item) => item.frozen_monthly_target < item.ideal_monthly_rate && item.frozen_monthly_target > 0
+  );
 
   const rollupStatus = calculateDisplayStatus({
     frozen_monthly_target: totalMonthly,
@@ -144,7 +154,7 @@ export function RollupZone({ rollup, onRemoveItem, onBudgetChange, onEmojiChange
         tabIndex={0}
         aria-expanded={!isCollapsed}
         aria-label={`Rollup category section. ${isCollapsed ? 'Click to expand' : 'Click to collapse'}`}
-        className={`px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 cursor-pointer select-none bg-monarch-orange-light ${isCollapsed ? '' : 'border-b border-monarch-border'} relative`}
+        className={`px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 cursor-pointer select-none ${rollupStatus === 'funded' || rollupStatus === 'on_track' ? 'bg-(--monarch-success-bg)' : 'bg-monarch-orange-light'} ${isCollapsed ? '' : 'border-b border-monarch-border'} relative`}
         onClick={toggleCollapsed}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
@@ -166,7 +176,10 @@ export function RollupZone({ rollup, onRemoveItem, onBudgetChange, onEmojiChange
         <div className="flex items-center gap-2 min-w-0">
           <button
             type="button"
-            onClick={(e) => { e.stopPropagation(); toggleCollapsed(); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleCollapsed();
+            }}
             className="p-0.5 rounded hover:bg-black/5 transition-colors self-start mt-1"
             aria-label={isCollapsed ? 'Expand rollup items' : 'Collapse rollup items'}
             aria-expanded={!isCollapsed}
@@ -179,10 +192,7 @@ export function RollupZone({ rollup, onRemoveItem, onBudgetChange, onEmojiChange
             />
           </button>
           <span onClick={(e) => e.stopPropagation()} className="self-start mt-0.5">
-            <EmojiPicker
-              currentEmoji={rollup.emoji || '🔄'}
-              onSelect={onEmojiChange}
-            />
+            <EmojiPicker currentEmoji={rollup.emoji || '🔄'} onSelect={onEmojiChange} />
           </span>
           <RollupNameEditor
             isEditing={isEditingName}

@@ -9,18 +9,27 @@ import { useDemo } from '../../context/DemoContext';
 import * as api from '../client';
 import * as demoApi from '../demoClient';
 import { queryKeys, getQueryKey } from './keys';
+import { transformDashboardData } from '../../utils/itemCalculations';
 
 /**
  * Dashboard data - the main data source shared across all tabs
  * Contains: items, summary, config, ready_to_assign, rollup, last_sync
+ *
+ * All computed values (frozen_monthly_target, ideal_monthly_rate, status, etc.)
+ * are recomputed on the frontend using transformDashboardData to ensure
+ * a single source of truth for calculations.
  */
 export function useDashboardQuery(options?: { enabled?: boolean }) {
   const isDemo = useDemo();
   return useQuery({
     queryKey: getQueryKey(queryKeys.dashboard, isDemo),
-    queryFn: isDemo ? demoApi.getDashboard : api.getDashboard,
+    queryFn: async () => {
+      const data = isDemo ? await demoApi.getDashboard() : await api.getDashboard();
+      // Recompute all derived values on frontend - single source of truth
+      return transformDashboardData(data);
+    },
     staleTime: 2 * 60 * 1000, // Consider fresh for 2 minutes
-    gcTime: 10 * 60 * 1000,   // Keep in cache for 10 minutes
+    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
     ...options,
   });
 }
@@ -57,9 +66,7 @@ export function useDeletableCategoriesQuery(options?: { enabled?: boolean }) {
   // Demo mode doesn't support deletable categories
   return useQuery({
     queryKey: getQueryKey(queryKeys.deletableCategories, isDemo),
-    queryFn: isDemo
-      ? async () => ({ categories: [], count: 0 })
-      : api.getDeletableCategories,
+    queryFn: isDemo ? async () => ({ categories: [], count: 0 }) : api.getDeletableCategories,
     staleTime: 30 * 1000,
     ...options,
   });

@@ -36,6 +36,22 @@ export function UnlockPage() {
   // Get the intended destination
   const from = (location.state as { from?: Location })?.from?.pathname || '/';
 
+  // Set compact window size on mount and when stage changes
+  useEffect(() => {
+    if (!isDesktopMode()) return;
+
+    // Height varies by stage:
+    // - passphrase: 600px (Touch ID button + fallback link)
+    // - fallback: 600px (email/password form)
+    // - credential_update: handled by CredentialUpdateForm
+    if (stage === 'credential_update') return;
+
+    const height = 600;
+    globalThis.electron?.windowMode?.setCompactSize(height).catch(() => {
+      // Ignore errors - window sizing is a UX enhancement
+    });
+  }, [stage]);
+
   // Set page title (no user name on unlock page)
   usePageTitle('Unlock');
 
@@ -120,6 +136,7 @@ export function UnlockPage() {
             setAuthenticated={setAuthenticated}
             setNeedsUnlock={setNeedsUnlock}
             biometricDisplayName={biometric.displayName}
+            biometricEnrolled={biometric.enrolled}
           />
         </div>
       </div>

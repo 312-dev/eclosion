@@ -22,9 +22,11 @@ export interface RecurringItem {
   frequency: string;
   frequency_months: number;
   next_due_date: string;
+  base_date?: string; // When the recurring pattern started (stable across renewals)
   months_until_due: number;
   current_balance: number;
   planned_budget: number;
+  rollover_amount?: number; // Direct from Monarch (previousMonthRolloverAmount)
   monthly_contribution: number;
   over_contribution: number;
   progress_percent: number;
@@ -48,6 +50,7 @@ export interface RollupItem {
   frequency: string;
   frequency_months: number;
   next_due_date: string;
+  base_date?: string; // When the recurring pattern started (stable across renewals)
   months_until_due: number;
   ideal_monthly_rate: number;
   frozen_monthly_target: number;

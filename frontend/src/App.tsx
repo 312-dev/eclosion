@@ -24,6 +24,7 @@ import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { DemoProvider, isGlobalDemoMode } from './context/DemoContext';
 import { RateLimitProvider } from './context/RateLimitContext';
+import { RateLimitToastBridge } from './components/RateLimitToastBridge';
 import { DemoAuthProvider } from './context/DemoAuthContext';
 import { MonthTransitionProvider } from './context/MonthTransitionContext';
 import { AppShell } from './components/layout/AppShell';
@@ -372,6 +373,7 @@ export default function App() {
               <MacOSDragRegion />
               <ScrollToTop />
               <RateLimitProvider>
+                <RateLimitToastBridge />
                 <DemoProvider>
                   <MonthTransitionProvider>
                     <UpdateProvider>

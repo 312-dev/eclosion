@@ -12,14 +12,8 @@ from .category_operations import (
     update_category_name_if_changed,
 )
 from .credentials_service import CredentialsService
-from .frozen_target_calculator import (
-    FrozenTargetResult,
-    calculate_frozen_target,
-    calculate_rate_after_catchup,
-)
 from .recurring_service import RecurringService
 from .rollup_service import RollupService
-from .savings_calculator import SavingsCalculator
 from .sync_service import SyncService
 
 __all__ = [
@@ -27,13 +21,9 @@ __all__ = [
     "CategoryManager",
     "CategoryNameParts",
     "CredentialsService",
-    "FrozenTargetResult",
     "RecurringService",
     "RollupService",
-    "SavingsCalculator",
     "SyncService",
-    "calculate_frozen_target",
-    "calculate_rate_after_catchup",
     "create_tracked_category",
     "ensure_category_exists",
     "extract_emoji_from_category",

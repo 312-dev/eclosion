@@ -24,11 +24,12 @@ class TestFrequencyEnum:
 
     def test_biweekly_months(self) -> None:
         """Bi-weekly frequency should be approximately 0.46 months."""
-        assert abs(Frequency.EVERY_TWO_WEEKS.months - (14 / 30.44)) < 0.01
+        assert abs(Frequency.BIWEEKLY.months - (14 / 30.44)) < 0.01
 
-    def test_twice_monthly_months(self) -> None:
-        """Twice monthly frequency should be 0.5 months."""
-        assert Frequency.TWICE_A_MONTH.months == 0.5
+    def test_semimonthly_months(self) -> None:
+        """Semimonthly frequency should be 0.5 months."""
+        assert abs(Frequency.SEMIMONTHLY_START_MID.months - 0.5) < 0.01
+        assert abs(Frequency.SEMIMONTHLY_MID_END.months - 0.5) < 0.01
 
     def test_monthly_months(self) -> None:
         """Monthly frequency should be 1 month."""
@@ -52,11 +53,12 @@ class TestFrequencyEnum:
 
     def test_biweekly_label(self) -> None:
         """Bi-weekly label should be 'Bi-weekly'."""
-        assert Frequency.EVERY_TWO_WEEKS.label == "Bi-weekly"
+        assert Frequency.BIWEEKLY.label == "Bi-weekly"
 
-    def test_twice_monthly_label(self) -> None:
-        """Twice monthly label should be '2x/month'."""
-        assert Frequency.TWICE_A_MONTH.label == "2x/month"
+    def test_semimonthly_label(self) -> None:
+        """Semimonthly labels."""
+        assert Frequency.SEMIMONTHLY_START_MID.label == "1st & 15th"
+        assert Frequency.SEMIMONTHLY_MID_END.label == "15th & last"
 
     def test_monthly_label(self) -> None:
         """Monthly label should be 'Monthly'."""
@@ -351,14 +353,18 @@ class TestRecurringServiceParsing:
         assert result[0].is_liability is True
 
     def test_parse_recurring_items_all_frequencies(self) -> None:
-        """Should parse all supported frequencies."""
+        """Should parse all supported Monarch API frequencies."""
         service = RecurringService()
         frequencies = [
             ("weekly", Frequency.WEEKLY),
-            ("every_two_weeks", Frequency.EVERY_TWO_WEEKS),
-            ("twice_a_month", Frequency.TWICE_A_MONTH),
+            ("biweekly", Frequency.BIWEEKLY),
+            ("four_weekly", Frequency.FOUR_WEEKLY),
+            ("semimonthly_start_mid", Frequency.SEMIMONTHLY_START_MID),
+            ("semimonthly_mid_end", Frequency.SEMIMONTHLY_MID_END),
             ("monthly", Frequency.MONTHLY),
+            ("bimonthly", Frequency.BIMONTHLY),
             ("quarterly", Frequency.QUARTERLY),
+            ("four_month", Frequency.FOUR_MONTH),
             ("semiyearly", Frequency.SEMIYEARLY),
             ("yearly", Frequency.YEARLY),
         ]

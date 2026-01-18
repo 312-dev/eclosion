@@ -79,7 +79,6 @@ def sync_service(mock_credentials_service):
         patch("services.sync_service.AutomationCredentialsManager"),
         patch("services.sync_service.SyncScheduler") as mock_scheduler,
         patch("services.sync_service.RecurringService"),
-        patch("services.sync_service.SavingsCalculator"),
         patch("services.sync_service.CategoryManager"),
         patch("services.sync_service.RollupService"),
     ):
@@ -263,7 +262,6 @@ class TestSyncServiceInitialization:
             patch("services.sync_service.AutomationCredentialsManager") as MockAutoCreds,
             patch("services.sync_service.SyncScheduler") as MockScheduler,
             patch("services.sync_service.RecurringService") as MockRecurring,
-            patch("services.sync_service.SavingsCalculator") as MockCalc,
             patch("services.sync_service.CategoryManager") as MockCatMgr,
             patch("services.sync_service.RollupService") as MockRollup,
         ):
@@ -278,7 +276,6 @@ class TestSyncServiceInitialization:
             MockCredService.assert_called_once()
             MockAutoCreds.assert_called_once()
             MockRecurring.assert_called_once()
-            MockCalc.assert_called_once()
             MockCatMgr.assert_called_once()
             MockRollup.assert_called_once()
 
@@ -291,7 +288,6 @@ class TestSyncServiceInitialization:
             patch("services.sync_service.AutomationCredentialsManager"),
             patch("services.sync_service.SyncScheduler") as MockScheduler,
             patch("services.sync_service.RecurringService"),
-            patch("services.sync_service.SavingsCalculator"),
             patch("services.sync_service.CategoryManager"),
             patch("services.sync_service.RollupService"),
         ):

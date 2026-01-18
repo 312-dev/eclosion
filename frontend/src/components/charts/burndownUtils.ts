@@ -6,6 +6,11 @@
  */
 
 import type { RecurringItem } from '../../types';
+import {
+  countOccurrencesInMonth,
+  nextOccurrenceInOrAfter,
+  type Frequency,
+} from '../../utils/calculations';
 
 /**
  * Parse a due date string and return its UTC year and month.
@@ -20,6 +25,69 @@ import type { RecurringItem } from '../../types';
 function getDueDateMonth(dateStr: string): { year: number; month: number } {
   const date = new Date(dateStr);
   return { year: date.getUTCFullYear(), month: date.getUTCMonth() };
+}
+
+/**
+ * Format a Date as an ISO date string (YYYY-MM-DD) in local time.
+ * Avoids timezone issues that occur with toISOString() which converts to UTC.
+ */
+function formatLocalDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Parse a date string (YYYY-MM-DD) as a local date.
+ * Avoids timezone issues that occur with new Date(string) which parses as UTC.
+ */
+function parseLocalDate(dateStr: string): Date {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  return new Date(year!, month! - 1, day);
+}
+
+/**
+ * Check if an item has an occurrence in the target month using base_date + frequency pattern.
+ * Falls back to next_due_date if base_date is not available.
+ */
+function hasOccurrenceInMonth(item: RecurringItem, targetMonth: Date): boolean {
+  const targetMonthStr = formatLocalDate(targetMonth);
+
+  // Use base_date + frequency pattern if available (stable across renewals)
+  if (item.base_date) {
+    const occurrences = countOccurrencesInMonth(
+      item.base_date,
+      item.frequency as Frequency,
+      targetMonthStr
+    );
+    return occurrences > 0;
+  }
+
+  // Fallback to next_due_date for items without base_date
+  const due = getDueDateMonth(item.next_due_date);
+  return due.year === targetMonth.getFullYear() && due.month === targetMonth.getMonth();
+}
+
+/**
+ * Find the next occurrence date for an item using base_date + frequency pattern.
+ * Falls back to next_due_date if base_date is not available.
+ */
+function getNextOccurrence(item: RecurringItem, afterMonth: Date): Date {
+  const afterMonthStr = formatLocalDate(afterMonth);
+
+  // Use base_date + frequency pattern if available (stable across renewals)
+  if (item.base_date) {
+    const nextOccStr = nextOccurrenceInOrAfter(
+      item.base_date,
+      item.frequency as Frequency,
+      afterMonthStr
+    );
+    return parseLocalDate(nextOccStr);
+  }
+
+  // Fallback to next_due_date for items without base_date
+  return parseLocalDate(item.next_due_date);
 }
 
 /**
@@ -43,6 +111,8 @@ export interface BurndownPoint {
   rollupAmount: number;
   hasChange: boolean;
   completingItems: string[];
+  /** True for the first month at the stable rate (the stabilization point) */
+  isStabilizationPoint: boolean;
 }
 
 export interface BurndownData {
@@ -57,13 +127,17 @@ export interface BurndownData {
  * all items with frozen_monthly_target > ideal_monthly_rate have had their
  * bills hit and reset to ideal rates.
  *
+ * Note: The starting cost is calculated internally using max(frozen, ideal) for
+ * each item. This ensures overfunded items (frozen < ideal) don't artificially
+ * lower the starting point - being ahead shouldn't make costs look lower.
+ *
  * Note: Over-contributing is NOT factored in. This projection assumes the user
  * budgets exactly the frozen target each month.
  */
 // eslint-disable-next-line sonarjs/cognitive-complexity -- Chart projection requires iterating through months with bill events, catch-up logic, and rollup aggregation
 export function calculateBurndownData(
   items: RecurringItem[],
-  currentMonthlyCost: number
+  _currentMonthlyCost: number // Unused - starting cost is calculated internally
 ): BurndownData {
   const now = new Date();
   const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -104,23 +178,20 @@ export function calculateBurndownData(
     };
   }
 
-  // Find the latest due date among items with catch-up
-  // Use UTC to avoid timezone issues (e.g., May 1st UTC midnight becoming April 30th in PST)
-  let latestDueDateStr = itemsWithCatchUp[0]!.next_due_date;
-  let latestDueTime = new Date(latestDueDateStr).getTime();
+  // Find the latest occurrence date among items with catch-up
+  // Use base_date + frequency pattern for stable calculation
+  let latestOccurrence = getNextOccurrence(itemsWithCatchUp[0]!, currentMonth);
   for (const item of itemsWithCatchUp) {
-    const dueTime = new Date(item.next_due_date).getTime();
-    if (dueTime > latestDueTime) {
-      latestDueTime = dueTime;
-      latestDueDateStr = item.next_due_date;
+    const nextOcc = getNextOccurrence(item, currentMonth);
+    if (nextOcc.getTime() > latestOccurrence.getTime()) {
+      latestOccurrence = nextOcc;
     }
   }
 
-  // Calculate stabilization info using UTC month/year from the due date string
+  // Calculate stabilization info
   // Stabilization is when you first reach the stable rate at the START of a month.
   // This is the month AFTER the last catch-up completes (since catch-ups drop at end of month).
-  const latestDue = getDueDateMonth(latestDueDateStr);
-  const lastCatchUpMonth = new Date(latestDue.year, latestDue.month, 1);
+  const lastCatchUpMonth = new Date(latestOccurrence.getFullYear(), latestOccurrence.getMonth(), 1);
   const stabilizationMonth = new Date(
     lastCatchUpMonth.getFullYear(),
     lastCatchUpMonth.getMonth() + 1,
@@ -142,37 +213,47 @@ export function calculateBurndownData(
   };
 
   // Generate burndown points
+  // Sort items by their next occurrence date using base_date + frequency pattern
   const sortedItems = [...allTrackedItems].sort(
-    (a, b) => new Date(a.next_due_date).getTime() - new Date(b.next_due_date).getTime()
+    (a, b) =>
+      getNextOccurrence(a, currentMonth).getTime() - getNextOccurrence(b, currentMonth).getTime()
   );
 
   // End at stabilization month (first month at stable rate), ensure at least 6 months shown
   const minEndMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 6, 1);
   const endMonth = new Date(Math.max(stabilizationMonth.getTime(), minEndMonth.getTime()));
 
-  let rollupRunningTotal = rollupItems.reduce(
-    (sum, item) => sum + (item.frozen_monthly_target || item.ideal_monthly_rate),
-    0
-  );
+  // Calculate effective rates using max(frozen, ideal) for each item.
+  // This ensures overfunded items (frozen < ideal) don't pull down the starting point.
+  // Being ahead on an item shouldn't make the chart show artificially low costs.
+  const getEffectiveRate = (item: RecurringItem) => {
+    const frozen = item.frozen_monthly_target || 0;
+    const ideal = item.ideal_monthly_rate || 0;
+    return Math.max(frozen, ideal);
+  };
+
+  let rollupRunningTotal = rollupItems.reduce((sum, item) => sum + getEffectiveRate(item), 0);
   const points: BurndownPoint[] = [];
-  let runningTotal = currentMonthlyCost;
+  // Use effective starting cost (max of frozen/ideal per item) instead of passed-in currentMonthlyCost
+  let runningTotal = allTrackedItems.reduce((sum, item) => sum + getEffectiveRate(item), 0);
   let iterMonth = new Date(currentMonth);
   const processedItems = new Set<string>();
 
   while (iterMonth <= endMonth) {
     // Check which items complete in this month (bill hits, catch-up ends)
+    // Uses base_date + frequency pattern for stable occurrence detection
     const completingThisMonth = sortedItems.filter((item) => {
       if (processedItems.has(item.id)) return false;
-      // Use UTC to get the correct month from the due date string
-      const due = getDueDateMonth(item.next_due_date);
-      const dueMonth = new Date(due.year, due.month, 1);
 
-      // On first month, also catch any overdue items (due before start)
-      if (points.length === 0 && dueMonth < currentMonth) {
-        return true;
+      // Check if this item has an occurrence in the current iteration month
+      // On first month, also catch any overdue items (occurrence before start)
+      if (points.length === 0) {
+        const nextOcc = getNextOccurrence(item, currentMonth);
+        const nextOccMonth = new Date(nextOcc.getFullYear(), nextOcc.getMonth(), 1);
+        return nextOccMonth < currentMonth || hasOccurrenceInMonth(item, iterMonth);
       }
 
-      return due.year === iterMonth.getFullYear() && due.month === iterMonth.getMonth();
+      return hasOccurrenceInMonth(item, iterMonth);
     });
 
     const isStabilizationMonth = iterMonth.getTime() === stabilizationMonth.getTime();
@@ -182,7 +263,7 @@ export function calculateBurndownData(
     // Record point FIRST with current running total (beginning-of-month state)
     // This ensures the tooltip shows what you need to budget IN this month,
     // not what the state will be after this month's bills hit.
-    const amount = isStabilizationMonth ? stableMonthlyRate : Math.max(0, Math.round(runningTotal));
+    const amount = isStabilizationMonth ? stableMonthlyRate : Math.round(runningTotal);
     const rollupAmount = isStabilizationMonth
       ? Math.round(lowestRollupCost)
       : Math.max(0, Math.round(rollupRunningTotal));
@@ -194,13 +275,15 @@ export function calculateBurndownData(
       rollupAmount,
       hasChange: completingThisMonth.length > 0,
       completingItems: completingThisMonth.map((i) => i.name),
+      isStabilizationPoint: isStabilizationMonth,
     });
 
     // THEN subtract catch-up amounts for items completing this month
     // This affects the NEXT month's beginning-of-month state
+    // Use effectiveRate (max of frozen/ideal) to match what we started with
     for (const item of completingThisMonth) {
-      const currentRate = item.frozen_monthly_target || item.ideal_monthly_rate || 0;
-      const catchUpAmount = currentRate - item.ideal_monthly_rate;
+      const effectiveRate = getEffectiveRate(item);
+      const catchUpAmount = effectiveRate - item.ideal_monthly_rate;
       if (catchUpAmount > 0) {
         runningTotal -= catchUpAmount;
         if (item.is_in_rollup) {
