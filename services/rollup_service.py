@@ -5,7 +5,6 @@ Handles the rollup feature which allows multiple small recurring expenses
 to be bundled into a single shared category in Monarch Money.
 """
 
-from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:

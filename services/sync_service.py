@@ -426,12 +426,6 @@ class SyncService:
             else:
                 display_name = existing_name
 
-        # Get budget data for frozen target initialization
-        all_budget_data = await self.category_manager.get_all_category_budget_data()
-        budget_data = all_budget_data.get(category_id, {})
-        rollover_amount = budget_data.get("rollover", 0.0)
-        budgeted_this_month = budget_data.get("budgeted", 0.0)
-
         # Update state with the linked category
         self.state_manager.update_category(
             recurring_id=recurring_id,
@@ -784,10 +778,8 @@ class SyncService:
             )
             created = True
             current_balance = 0.0
-            tracked_over_contribution = 0.0
         else:
             category_id = cat_state.monarch_category_id
-            tracked_over_contribution = cat_state.over_contribution
             emoji = cat_state.emoji
 
             # Check if category still exists (using cached data instead of API call)
@@ -801,21 +793,12 @@ class SyncService:
                     icon=emoji,
                 )
                 created = True
-                tracked_over_contribution = 0.0
             else:
                 # Check if merchant/category name changed - auto-rename if so
                 if cat_state.name != item.category_name:
                     await self.category_manager.rename_category(
                         category_id, item.category_name, icon=emoji
                     )
-
-            # Check for new cycle - if due date moved forward, it's a new cycle
-            if cat_state.previous_due_date:
-                prev_date = datetime.fromisoformat(cat_state.previous_due_date).date()
-                curr_date = item.next_due_date
-                if curr_date > prev_date:
-                    # Reset over-contribution for new cycle
-                    tracked_over_contribution = 0.0
 
             # Get current balance
             current_balance = all_balances.get(category_id, 0.0)
@@ -1258,7 +1241,6 @@ class SyncService:
                 rollover_amount = budget_data.get("rollover", 0.0)
                 budgeted_this_month = budget_data.get("budgeted", 0.0)
                 current_balance = budget_data.get("remaining", 0.0)
-                tracked_over = cat_state.over_contribution
                 cat_info = all_category_info.get(cat_state.monarch_category_id)
                 # Debug: log balance lookup
                 if current_balance == 0 and cat_state.monarch_category_id in all_budget_data:
@@ -1279,14 +1261,12 @@ class SyncService:
                 rollover_amount = rollup_item_data.get("rollover_amount", 0.0)
                 budgeted_this_month = 0.0  # Budget is on rollup category
                 current_balance = rollup_item_data.get("current_balance", 0.0)
-                tracked_over = 0
                 category_group_name = None
                 category_missing = False
             else:
                 rollover_amount = 0.0
                 budgeted_this_month = 0.0
                 current_balance = 0
-                tracked_over = 0
                 category_group_name = None
                 category_missing = False
 
