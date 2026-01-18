@@ -10,6 +10,10 @@ import { HelpDropdown } from './HelpDropdown';
 import { LeftToBudgetBadge } from '../LeftToBudgetBadge';
 import { AppIcon } from '../wizards/WizardComponents';
 import { RateLimitBanner } from '../ui/RateLimitBanner';
+import { UpdateBanner } from '../UpdateBanner';
+import { DesktopUpdateBanner } from '../update';
+import { MonthTransitionBanner } from '../ui/MonthTransitionBanner';
+import { OfflineIndicator } from '../OfflineIndicator';
 import type { ReadyToAssign } from '../../types';
 
 interface AppHeaderProps {
@@ -142,6 +146,10 @@ export function AppHeader({
         </div>
       </div>
       <RateLimitBanner />
+      <UpdateBanner />
+      <DesktopUpdateBanner />
+      <MonthTransitionBanner />
+      <OfflineIndicator />
     </header>
   );
 }
