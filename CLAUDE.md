@@ -63,6 +63,47 @@ Semantic HTML:
 - All custom hooks must have tests
 - Critical user flows need integration tests
 
+### Test Utilities
+
+**Use the custom test utilities for consistent provider wrapping.**
+
+The `frontend/src/test/` directory provides utilities that wrap components with all required providers.
+
+**Custom render function:**
+
+```typescript
+// In your test file
+import { render, screen } from '../test/test-utils';
+
+describe('MyComponent', () => {
+  it('renders correctly', () => {
+    render(<MyComponent />);
+    expect(screen.getByText('Hello')).toBeInTheDocument();
+  });
+});
+```
+
+The custom `render()` automatically wraps components with:
+- `QueryClientProvider` (React Query)
+- `BrowserRouter` (React Router)
+- `ThemeProvider`
+- `ToastProvider`
+- `TooltipProvider`
+
+**Test setup (`test/setup.ts`):**
+
+- Mocks `localStorage` for isolated tests
+- Mocks `window.matchMedia` for responsive tests
+- Injects `__APP_VERSION__` global
+- Auto-cleans up after each test
+
+**Key files:**
+
+| File | Purpose |
+|------|---------|
+| `test/test-utils.tsx` | Custom render with providers |
+| `test/setup.ts` | Global test environment setup |
+
 ## Testing Strategy
 
 This project uses a multi-layer testing approach to ensure reliability:
@@ -363,14 +404,56 @@ See `frontend/src/hooks/useItemDisplayStatus.ts` for full implementation with de
 **Use standardized error utilities.**
 
 ```typescript
-import { getErrorMessage, handleApiError } from '../utils/errors';
+import { getErrorMessage, handleApiError, isRateLimitError } from '../utils/errors';
 
 // In catch blocks
 catch (error) {
   const message = handleApiError(error, 'Failed to load data');
   setError(message);
 }
+
+// Check for rate limits specifically
+if (isRateLimitError(error)) {
+  const waitSeconds = error.retryAfter;
+}
 ```
+
+### Toast Notifications
+
+**Use the global toast system for user feedback, not custom modals or alerts.**
+
+The `ToastContext` provides a global notification system via the `useToast()` hook.
+
+```typescript
+import { useToast } from '../context/ToastContext';
+
+function MyComponent() {
+  const toast = useToast();
+
+  const handleSave = async () => {
+    try {
+      await saveData();
+      toast.success('Item saved!');           // 3 second duration
+    } catch (error) {
+      toast.error('Failed to save');          // 5 second duration
+    }
+  };
+
+  // Other toast types
+  toast.warning('Unsaved changes');           // 4 second duration
+  toast.info('Processing...', 10000);         // Custom duration (ms)
+  toast.info('Permanent message', 0);         // 0 = must be dismissed manually
+}
+```
+
+**When to use toasts vs other feedback:**
+
+| Feedback Type | Use Case |
+|---------------|----------|
+| Toast | Success confirmations, errors, warnings |
+| Inline error | Form validation errors (show near the field) |
+| Modal | Destructive confirmations, complex decisions |
+| Loading spinner | Operations taking >200ms |
 
 ### Rate Limit Handling
 
@@ -414,6 +497,52 @@ function MyComponent({ onSave, isSaving }) {
 - Budget inputs (`RecurringItemBudget.tsx`, `RollupStats.tsx`)
 - Item actions (`ActionsDropdown.tsx` - toggle, recreate, refresh, add to rollup)
 - Destructive actions (`UninstallModalFooter.tsx`, `RecurringResetModal.tsx`)
+
+### API Core Patterns
+
+**Use `fetchApi()` from `api/core/` instead of raw fetch calls.**
+
+The API core layer provides request deduplication, rate limit handling, and desktop authentication.
+
+**Key features of `api/core/fetchApi.ts`:**
+
+| Feature | Description |
+|---------|-------------|
+| Request deduplication | Multiple concurrent GET requests to the same endpoint are deduplicated |
+| Rate limit handling | Throws `RateLimitError` with `retryAfter` info on 429 responses |
+| Desktop authentication | Adds `X-Desktop-Secret` and `X-Notes-Key` headers in Electron |
+| Custom events | Emits `monarch-rate-limited` and `auth-required` events for global handling |
+
+**Custom events for global state:**
+
+```typescript
+// These events are dispatched by fetchApi and listened to by contexts
+window.addEventListener('monarch-rate-limited', (e) => {
+  // RateLimitContext handles this automatically
+});
+
+window.addEventListener('auth-required', (e) => {
+  // AuthContext handles this automatically
+});
+```
+
+**Desktop mode headers:**
+
+In Electron, the API client adds authentication headers that bypass cookie-based auth:
+
+```typescript
+// Automatically added by fetchApi in desktop mode
+headers: {
+  'X-Desktop-Secret': '...',  // Main auth for desktop
+  'X-Notes-Key': '...',       // Separate key for notes endpoints
+}
+```
+
+**When adding new API endpoints:**
+
+1. Add the endpoint function to `api/client.ts` (production) and `api/demo/*.ts` (demo mode)
+2. Use the existing `fetchApi()` helper - don't use raw `fetch()`
+3. Create a React Query hook in `api/queries/` that routes based on `useDemo()`
 
 ### TypeScript
 
@@ -808,6 +937,69 @@ The `calculateMonthlyTarget` function mirrors the backend Python logic in `servi
 | `frontend/src/api/demoData.ts` | Initial seed data for demo |
 | `frontend/src/api/queries.ts` | Routes queries/mutations based on demo mode |
 | `frontend/src/context/DemoAuthContext.tsx` | Auth bypass for demo mode |
+
+## Environment Detection
+
+**Use the environment utilities to detect beta, desktop, and demo modes.**
+
+The app runs in multiple environments with different capabilities. Use these utilities instead of checking URLs or user agents directly.
+
+### Environment Utilities
+
+From `utils/environment.ts`:
+
+```typescript
+import {
+  isBetaEnvironment,
+  getDocsBaseUrl,
+  getSiteBaseUrl,
+} from '../utils/environment';
+
+// Check if running on beta (beta.eclosion.app, Cloudflare preview, or localStorage override)
+if (isBetaEnvironment()) {
+  // Show beta-specific features
+}
+
+// Get environment-appropriate URLs
+const docsUrl = getDocsBaseUrl();  // https://docs.eclosion.app or https://beta-docs.eclosion.app
+const siteUrl = getSiteBaseUrl();  // https://eclosion.app or https://beta.eclosion.app
+```
+
+### Desktop Detection
+
+```typescript
+// Check if running in Electron
+const isDesktop = typeof window !== 'undefined' && !!window.electron;
+
+// Access Electron APIs (only in desktop)
+if (window.electron) {
+  window.electron.ipcRenderer.send('some-event', data);
+}
+```
+
+### Build-Time Globals
+
+These globals are injected by Vite at build time:
+
+```typescript
+declare const __APP_VERSION__: string;   // e.g., "1.0.5" or "1.1.0-beta.20260115.1"
+declare const __BUILD_TIME__: string;    // ISO timestamp
+declare const __DEMO_MODE__: boolean;    // true if VITE_DEMO_MODE=true
+declare const __CHANGELOG__: object;     // Parsed changelog data
+```
+
+### localStorage Keys Convention
+
+Use the `eclosion-` prefix for all localStorage keys:
+
+| Key | Purpose |
+|-----|---------|
+| `eclosion-theme-preference` | User's theme choice (light/dark/system) |
+| `eclosion-demo-data` | Demo mode persisted state |
+| `eclosion-beta-mode` | Manual beta mode override |
+| `eclosion-desktop-beta` | Desktop beta channel flag |
+
+**Important:** Don't hardcode localStorage keys. If adding new persistent state, follow this naming convention and consider adding a constant to `constants/index.ts`.
 
 ## Normalized Data Stores
 
