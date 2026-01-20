@@ -30,7 +30,7 @@ import { WishlistCategoryModal } from './WishlistCategoryModal';
 import type { CategorySelection } from './WishlistCategoryModal';
 import { useToast } from '../../context/ToastContext';
 import { useIsRateLimited } from '../../context/RateLimitContext';
-import { handleApiError } from '../../utils';
+import { handleApiError, getSafeHref } from '../../utils';
 import {
   calculateWishlistMonthlyTarget,
   getQuickPickDates,
@@ -468,9 +468,9 @@ export function EditWishlistModal({
                 color: 'var(--monarch-text)',
               }}
             />
-            {url && (
+            {getSafeHref(url) && (
               <a
-                href={url}
+                href={getSafeHref(url)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center justify-center w-10 rounded-md hover:opacity-70"

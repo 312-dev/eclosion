@@ -23,7 +23,7 @@ import { useDemo } from '../../context/DemoContext';
 import { useToast } from '../../context/ToastContext';
 import { useIsRateLimited } from '../../context/RateLimitContext';
 import { useWishlistImageUpload } from '../../hooks';
-import { handleApiError } from '../../utils';
+import { handleApiError, getSafeHref } from '../../utils';
 import {
   calculateWishlistMonthlyTarget,
   getQuickPickDates,
@@ -510,9 +510,9 @@ export function NewWishlistModal({
                 color: 'var(--monarch-text)',
               }}
             />
-            {url && (
+            {getSafeHref(url) && (
               <a
-                href={url}
+                href={getSafeHref(url)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center justify-center w-10 rounded-md hover:opacity-70"
