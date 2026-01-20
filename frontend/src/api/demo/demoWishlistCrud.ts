@@ -226,6 +226,7 @@ export async function unarchiveWishlistItem(
 
 /**
  * Delete a wishlist item.
+ * When deleteCategory is true, the budget is freed up and returned to "Left to Budget".
  */
 export async function deleteWishlistItem(
   id: string,
@@ -234,14 +235,33 @@ export async function deleteWishlistItem(
   await simulateDelay();
 
   updateDemoState((state) => {
+    // Find the item to get its budget before deletion
+    const itemToDelete =
+      state.wishlist.items.find((item) => item.id === id) ||
+      state.wishlist.archived_items.find((item) => item.id === id);
+
     const newItems = state.wishlist.items.filter((item) => item.id !== id);
     const newArchived = state.wishlist.archived_items.filter((item) => item.id !== id);
+
+    // If deleting category, free up the budgeted amount
+    const budgetToFree = deleteCategory && itemToDelete ? itemToDelete.planned_budget : 0;
+
     return {
       ...state,
       wishlist: recomputeTotals({
         ...state.wishlist,
         items: newItems,
         archived_items: newArchived,
+      }),
+      // Update ready_to_assign to reflect freed budget
+      ...(budgetToFree > 0 && {
+        dashboard: {
+          ...state.dashboard,
+          ready_to_assign: {
+            ...state.dashboard.ready_to_assign,
+            ready_to_assign: state.dashboard.ready_to_assign.ready_to_assign + budgetToFree,
+          },
+        },
       }),
     };
   });

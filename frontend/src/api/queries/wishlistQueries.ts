@@ -154,8 +154,12 @@ export function useDeleteWishlistMutation() {
       isDemo
         ? demoApi.deleteWishlistItem(id, deleteCategory)
         : api.deleteWishlistItem(id, deleteCategory),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.wishlist, isDemo) });
+      // If category was deleted, invalidate dashboard to update Left to Budget badge
+      if (variables.deleteCategory) {
+        queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.dashboard, isDemo) });
+      }
     },
   });
 }
