@@ -237,11 +237,7 @@ html,
 body {
   height: 100%;
   margin: 0;
-}
-
-html {
-  /* Prevent layout shift when scrollbar appears/disappears */
-  scrollbar-gutter: stable;
+  overflow: hidden;
 }
 
 body {
@@ -561,6 +557,28 @@ input[type='radio'] {
   flex-direction: column;
   flex: 1;
   min-width: 0;
+  overflow-y: auto;
+  /* Thin scrollbar styling (Firefox) */
+  scrollbar-width: thin;
+  scrollbar-color: var(--monarch-border) transparent;
+}
+
+/* Thin scrollbar styling (Webkit/Blink - Chrome, Electron, Safari) */
+.app-content-wrapper::-webkit-scrollbar {
+  width: 8px;
+}
+
+.app-content-wrapper::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.app-content-wrapper::-webkit-scrollbar-thumb {
+  background: var(--monarch-border);
+  border-radius: 4px;
+}
+
+.app-content-wrapper::-webkit-scrollbar-thumb:hover {
+  background: var(--monarch-text-muted);
 }
 
 .app-main {
