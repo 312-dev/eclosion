@@ -523,7 +523,9 @@ async def convert_pending_bookmark(bookmark_id: str):
     service = get_wishlist_service()
     sanitized_id = sanitize_id(bookmark_id)
     data = request.get_json(silent=True) or {}
-    wishlist_item_id = sanitize_id(data.get("wishlist_item_id")) if data.get("wishlist_item_id") else None
+    wishlist_item_id = (
+        sanitize_id(data.get("wishlist_item_id")) if data.get("wishlist_item_id") else None
+    )
 
     if not sanitized_id:
         raise ValidationError("Invalid bookmark ID")

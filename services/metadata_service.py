@@ -86,8 +86,7 @@ def _is_shortener_url(url: str) -> bool:
             return False
         hostname = hostname.lower()
         return any(
-            hostname == domain or hostname.endswith(f".{domain}")
-            for domain in SHORTENER_DOMAINS
+            hostname == domain or hostname.endswith(f".{domain}") for domain in SHORTENER_DOMAINS
         )
     except Exception:
         return False
@@ -166,9 +165,7 @@ async def _expand_shortened_url(
     try:
         current_url = url
         for _ in range(max_redirects):
-            async with session.get(
-                current_url, allow_redirects=False
-            ) as response:
+            async with session.get(current_url, allow_redirects=False) as response:
                 if response.status >= 300 and response.status < 400:
                     location = response.headers.get("Location")
                     if not location:
@@ -183,9 +180,7 @@ async def _expand_shortened_url(
         return None
 
 
-async def _extract_og_image_url(
-    session: aiohttp.ClientSession, url: str
-) -> str | None:
+async def _extract_og_image_url(session: aiohttp.ClientSession, url: str) -> str | None:
     """Extract og:image URL from a webpage."""
     try:
         async with session.get(url, allow_redirects=True) as response:
@@ -217,9 +212,7 @@ async def _extract_og_image_url(
         return None
 
 
-async def _download_and_encode_image(
-    session: aiohttp.ClientSession, image_url: str
-) -> str | None:
+async def _download_and_encode_image(session: aiohttp.ClientSession, image_url: str) -> str | None:
     """Download an image and return as base64 data URL."""
     try:
         async with session.get(image_url, allow_redirects=True) as response:

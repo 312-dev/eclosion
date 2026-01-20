@@ -17,7 +17,6 @@ import { app } from 'electron';
 import { URL } from 'node:url';
 
 // Sentry module - loaded dynamically only in packaged builds
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let Sentry: typeof import('@sentry/electron/main') | null = null;
 
 let sentryInitialized = false;
@@ -54,7 +53,7 @@ export function initSentry(): boolean {
 
   try {
     // Dynamic import to avoid @sentry/electron's eager initialization in dev mode
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    // eslint-disable-next-line @typescript-eslint/no-require-imports, no-undef
     Sentry = require('@sentry/electron/main');
     if (!Sentry) {
       console.error('Sentry: Failed to load module');

@@ -223,7 +223,9 @@ class WishlistService:
             months_remaining = months_between(current_month, item["target_date"])
 
             # Calculate status
-            status = get_item_status(current_balance, item["amount"], planned_budget, monthly_target)
+            status = get_item_status(
+                current_balance, item["amount"], planned_budget, monthly_target
+            )
 
             result_item = {
                 "type": "wishlist",
@@ -602,9 +604,15 @@ class WishlistService:
             Success status with category info
         """
         if not category_group_id and not existing_category_id:
-            return {"success": False, "error": "Must provide category_group_id or existing_category_id"}
+            return {
+                "success": False,
+                "error": "Must provide category_group_id or existing_category_id",
+            }
         if category_group_id and existing_category_id:
-            return {"success": False, "error": "Cannot provide both category_group_id and existing_category_id"}
+            return {
+                "success": False,
+                "error": "Cannot provide both category_group_id and existing_category_id",
+            }
 
         with db_session() as session:
             repo = TrackerRepository(session)

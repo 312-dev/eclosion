@@ -650,9 +650,7 @@ class TrackerRepository:
     def get_pending_bookmarks_count(self) -> int:
         """Get count of pending bookmarks."""
         return (
-            self.session.query(PendingBookmark)
-            .filter(PendingBookmark.status == "pending")
-            .count()
+            self.session.query(PendingBookmark).filter(PendingBookmark.status == "pending").count()
         )
 
     def get_pending_bookmark_by_id(self, bookmark_id: str) -> PendingBookmark | None:
@@ -755,7 +753,9 @@ class TrackerRepository:
 
     def delete_pending_bookmark(self, bookmark_id: str) -> bool:
         """Delete a pending bookmark."""
-        result = self.session.query(PendingBookmark).filter(PendingBookmark.id == bookmark_id).delete()
+        result = (
+            self.session.query(PendingBookmark).filter(PendingBookmark.id == bookmark_id).delete()
+        )
         return result > 0
 
     def clear_unconverted_bookmarks(self) -> int:
