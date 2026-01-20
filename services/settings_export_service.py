@@ -75,12 +75,12 @@ class SettingsExportService:
     def __init__(
         self,
         state_manager: StateManager | None = None,
-        db_session: "Session | None" = None,
+        db_session: Session | None = None,
     ):
         self.state_manager = state_manager or StateManager()
         self._db_session = db_session
 
-    def _get_notes_repo(self) -> "NotesRepository":
+    def _get_notes_repo(self) -> NotesRepository:
         """Get NotesRepository, creating session if needed."""
         from state.db import get_session
         from state.db.repositories.notes_repo import NotesRepository
@@ -88,7 +88,7 @@ class SettingsExportService:
         session = self._db_session or get_session()
         return NotesRepository(session)
 
-    def _get_tracker_repo(self) -> "TrackerRepository":
+    def _get_tracker_repo(self) -> TrackerRepository:
         """Get TrackerRepository, creating session if needed."""
         from state.db import get_session
         from state.db.repositories.tracker_repo import TrackerRepository
@@ -473,7 +473,7 @@ class SettingsExportService:
         }
 
     def _export_all_checkbox_states(
-        self, repo: "NotesRepository"
+        self, repo: NotesRepository
     ) -> dict[str, list[bool]]:
         """
         Export all checkbox states from the database.
@@ -580,7 +580,7 @@ class SettingsExportService:
 
     def _import_archived_note(
         self,
-        repo: "NotesRepository",
+        repo: NotesRepository,
         note: dict[str, Any],
         passphrase: str,
     ) -> None:
@@ -618,7 +618,7 @@ class SettingsExportService:
 
     def _import_checkbox_states(
         self,
-        repo: "NotesRepository",
+        repo: NotesRepository,
         checkbox_states: dict[str, list[bool]],
         note_id_map: dict[str, str],
         general_note_month_map: dict[str, str],
