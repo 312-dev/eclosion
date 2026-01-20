@@ -9,12 +9,37 @@ import logging
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, TypedDict
 
 from monarch_utils import clear_cache
 from services.category_manager import CategoryManager
 from state.db import db_session
 from state.db.repositories import TrackerRepository
+
+
+class WishlistItemDict(TypedDict):
+    """Type definition for wishlist item dictionaries."""
+
+    id: str
+    name: str
+    amount: float
+    target_date: str
+    emoji: str | None
+    monarch_category_id: str | None
+    category_group_id: str | None
+    category_group_name: str | None
+    source_url: str | None
+    source_bookmark_id: str | None
+    logo_url: str | None
+    custom_image_path: str | None
+    is_archived: bool
+    archived_at: datetime | None
+    created_at: datetime | None
+    grid_x: int | None
+    grid_y: int | None
+    col_span: int | None
+    row_span: int | None
+
 
 logger = logging.getLogger(__name__)
 
@@ -131,29 +156,28 @@ class WishlistService:
             repo = TrackerRepository(session)
             db_items = repo.get_all_wishlist_items()
             # Convert to dicts while session is still open
-            items = [
-                {
-                    "id": item.id,
-                    "name": item.name,
-                    "amount": item.amount,
-                    "target_date": item.target_date,
-                    "emoji": item.emoji,
-                    "monarch_category_id": item.monarch_category_id,
-                    "category_group_id": item.category_group_id,
-                    "category_group_name": item.category_group_name,
-                    "source_url": item.source_url,
-                    "source_bookmark_id": item.source_bookmark_id,
-                    "logo_url": item.logo_url,
-                    "custom_image_path": item.custom_image_path,
-                    "is_archived": item.is_archived,
-                    "archived_at": item.archived_at,
-                    "created_at": item.created_at,
-                    # Grid layout fields
-                    "grid_x": item.grid_x,
-                    "grid_y": item.grid_y,
-                    "col_span": item.col_span,
-                    "row_span": item.row_span,
-                }
+            items: list[WishlistItemDict] = [
+                WishlistItemDict(
+                    id=item.id,
+                    name=item.name,
+                    amount=item.amount,
+                    target_date=item.target_date,
+                    emoji=item.emoji,
+                    monarch_category_id=item.monarch_category_id,
+                    category_group_id=item.category_group_id,
+                    category_group_name=item.category_group_name,
+                    source_url=item.source_url,
+                    source_bookmark_id=item.source_bookmark_id,
+                    logo_url=item.logo_url,
+                    custom_image_path=item.custom_image_path,
+                    is_archived=item.is_archived,
+                    archived_at=item.archived_at,
+                    created_at=item.created_at,
+                    grid_x=item.grid_x,
+                    grid_y=item.grid_y,
+                    col_span=item.col_span,
+                    row_span=item.row_span,
+                )
                 for item in db_items
             ]
 
@@ -665,6 +689,10 @@ class WishlistService:
 
             if not group_name:
                 return {"success": False, "error": "Category group not found"}
+
+            # At this point category_group_id is guaranteed to be a string
+            # (checked at function start and we're in the else branch)
+            assert category_group_id is not None
 
             # Create Monarch category
             category_id = await self.category_manager.create_category(

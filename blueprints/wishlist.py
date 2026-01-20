@@ -193,13 +193,13 @@ async def update_item(item_id: str):
     - custom_image_path: Path to custom image
     """
     service = get_wishlist_service()
-    item_id = sanitize_id(item_id)
+    item_id = sanitize_id(item_id)  # type: ignore[assignment]
 
     if not item_id:
         raise ValidationError("Invalid item ID")
 
     data = request.get_json()
-    updates = {}
+    updates: dict[str, str | float | None] = {}
 
     if "name" in data:
         updates["name"] = sanitize_name(data["name"])
@@ -231,7 +231,7 @@ async def delete_item(item_id: str):
     - delete_category: If true, also delete the Monarch category (default: false)
     """
     service = get_wishlist_service()
-    item_id = sanitize_id(item_id)
+    item_id = sanitize_id(item_id)  # type: ignore[assignment]
 
     if not item_id:
         raise ValidationError("Invalid item ID")
@@ -247,7 +247,7 @@ async def delete_item(item_id: str):
 async def archive_item(item_id: str):
     """Archive a wishlist item (mark as completed)."""
     service = get_wishlist_service()
-    item_id = sanitize_id(item_id)
+    item_id = sanitize_id(item_id)  # type: ignore[assignment]
 
     if not item_id:
         raise ValidationError("Invalid item ID")
@@ -261,7 +261,7 @@ async def archive_item(item_id: str):
 async def unarchive_item(item_id: str):
     """Unarchive a wishlist item."""
     service = get_wishlist_service()
-    item_id = sanitize_id(item_id)
+    item_id = sanitize_id(item_id)  # type: ignore[assignment]
 
     if not item_id:
         raise ValidationError("Invalid item ID")
@@ -283,7 +283,7 @@ async def allocate_funds(item_id: str):
     - amount: Budget amount (integer, sets the absolute budget)
     """
     service = get_wishlist_service()
-    item_id = sanitize_id(item_id)
+    item_id = sanitize_id(item_id)  # type: ignore[assignment]
 
     if not item_id:
         raise ValidationError("Invalid item ID")
@@ -309,7 +309,7 @@ async def change_category_group(item_id: str):
     - group_name: New category group name
     """
     service = get_wishlist_service()
-    item_id = sanitize_id(item_id)
+    item_id = sanitize_id(item_id)  # type: ignore[assignment]
     data = request.get_json()
 
     new_group_id = sanitize_id(data.get("group_id"))
@@ -338,7 +338,7 @@ async def link_category(item_id: str):
     - existing_category_id: Existing category ID to link to (mutually exclusive with category_group_id)
     """
     service = get_wishlist_service()
-    item_id = sanitize_id(item_id)
+    item_id = sanitize_id(item_id)  # type: ignore[assignment]
     data = request.get_json()
 
     category_group_id = sanitize_id(data.get("category_group_id"))
@@ -404,7 +404,7 @@ async def update_config():
     service = get_wishlist_service()
     data = request.get_json()
 
-    updates = {}
+    updates: dict[str, str | bool | None] = {}
 
     # Category group settings
     if "default_category_group_id" in data:
@@ -499,7 +499,7 @@ async def skip_pending_bookmark(bookmark_id: str):
     in pending review again even if the bookmark is re-added.
     """
     service = get_wishlist_service()
-    bookmark_id = sanitize_id(bookmark_id)
+    bookmark_id = sanitize_id(bookmark_id)  # type: ignore[assignment]
 
     if not bookmark_id:
         raise ValidationError("Invalid bookmark ID")

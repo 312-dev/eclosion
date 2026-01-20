@@ -198,12 +198,12 @@ async def _extract_og_image_url(session: aiohttp.ClientSession, url: str) -> str
             # Try og:image first
             og_tag = soup.find("meta", property="og:image")
             if og_tag and og_tag.get("content"):
-                return og_tag["content"]
+                return str(og_tag["content"])
 
             # Fallback to twitter:image
             twitter_tag = soup.find("meta", attrs={"name": "twitter:image"})
             if twitter_tag and twitter_tag.get("content"):
-                return twitter_tag["content"]
+                return str(twitter_tag["content"])
 
             return None
 
