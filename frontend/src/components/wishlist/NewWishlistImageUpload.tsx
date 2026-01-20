@@ -51,10 +51,18 @@ export function NewWishlistImageUpload({
   const [isFetchingOgImage, setIsFetchingOgImage] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const ogFetchIdRef = useRef(0);
+  // Track if user explicitly dismissed the auto-fetched image
+  const userDismissedImageRef = useRef(false);
+
+  // Reset dismissed state when sourceUrl changes (new URL should trigger fresh fetch)
+  useEffect(() => {
+    userDismissedImageRef.current = false;
+  }, [sourceUrl]);
 
   // Auto-fetch og:image when component mounts with a URL (desktop only)
   useEffect(() => {
-    if (!sourceUrl || isDemo || selectedImage) return;
+    // Don't fetch if user explicitly dismissed the image
+    if (!sourceUrl || isDemo || selectedImage || userDismissedImageRef.current) return;
 
     const currentFetchId = ++ogFetchIdRef.current;
     setIsFetchingOgImage(true);
@@ -119,6 +127,8 @@ export function NewWishlistImageUpload({
       e.stopPropagation();
       ogFetchIdRef.current++;
       setIsFetchingOgImage(false);
+      // Mark as user-dismissed to prevent re-fetching
+      userDismissedImageRef.current = true;
       onImageRemove();
       onPreviewChange(null);
     },
@@ -192,6 +202,15 @@ export function NewWishlistImageUpload({
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
           {isFetchingOgImage ? (
             <>
+              <button
+                type="button"
+                onClick={handleRemove}
+                className="absolute top-2 right-2 p-1 rounded-full transition-colors z-10"
+                style={{ backgroundColor: 'rgba(0, 0, 0, 0.6)', color: 'white' }}
+                aria-label="Cancel image fetch"
+              >
+                <Icons.X size={16} />
+              </button>
               <Icons.Refresh
                 size={24}
                 className="animate-spin"

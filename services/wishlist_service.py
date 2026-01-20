@@ -377,7 +377,7 @@ class WishlistService:
             group_id = category_group_id
             current_balance = 0.0
 
-        # Calculate initial monthly target and set budget
+        # Calculate initial monthly target
         current_month = datetime.now().strftime("%Y-%m-01")
         monthly_target = calculate_wishlist_monthly_target(
             amount=amount,
@@ -386,8 +386,9 @@ class WishlistService:
             current_month=current_month,
         )
 
-        # Set initial budget (only if creating new or target > 0)
-        if monthly_target > 0:
+        # Set initial budget only for existing categories
+        # New categories start with $0 budgeted so users can decide when to fund
+        if existing_category_id and monthly_target > 0:
             await self.category_manager.set_category_budget(category_id, monthly_target)
 
         # Store in database
@@ -701,7 +702,8 @@ class WishlistService:
                 icon=item_emoji,
             )
 
-            # Calculate and set initial budget
+            # Calculate monthly target for return value (but don't set budget)
+            # New categories start with $0 budgeted so users can decide when to fund
             current_month = datetime.now().strftime("%Y-%m-01")
             monthly_target = calculate_wishlist_monthly_target(
                 amount=item_amount,
@@ -709,9 +711,6 @@ class WishlistService:
                 target_date=item_target_date,
                 current_month=current_month,
             )
-
-            if monthly_target > 0:
-                await self.category_manager.set_category_budget(category_id, monthly_target)
 
             # Update database with category info
             with db_session() as session:
