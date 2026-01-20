@@ -62,7 +62,10 @@ export function WishlistBudgetInput({
   const target = Math.round(monthlyTarget);
 
   return (
-    <div className="flex items-center whitespace-nowrap rounded bg-monarch-bg-card border border-monarch-border px-2 py-1 focus-within:border-monarch-orange">
+    <div
+      className="flex items-center whitespace-nowrap rounded bg-monarch-bg-card border border-monarch-border px-2 py-1 focus-within:border-monarch-orange"
+      data-no-dnd="true"
+    >
       <span className="font-medium text-monarch-text-dark">$</span>
       <input
         type="number"
@@ -75,12 +78,9 @@ export function WishlistBudgetInput({
         aria-label="Budget amount"
         className="w-12 text-right font-medium text-monarch-text-dark bg-transparent font-inherit disabled:opacity-50 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
       />
-      <Tooltip
-          content="Monthly savings target to reach your goal by the target date"
-          side="bottom"
-        >
-          <span className="text-monarch-text-muted ml-1 cursor-help">/ {target}</span>
-        </Tooltip>
+      <Tooltip content="Monthly savings target to reach your goal by the target date" side="bottom">
+        <span className="text-monarch-text-muted ml-1 cursor-help">/ {target}</span>
+      </Tooltip>
     </div>
   );
 }
