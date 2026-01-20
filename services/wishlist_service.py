@@ -11,6 +11,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from monarch_utils import clear_cache
+from services.category_manager import CategoryManager
+from state.db import db_session
+from state.db.repositories import TrackerRepository
+
 logger = logging.getLogger(__name__)
 
 # Debug: Add file handler for dev.log
@@ -19,11 +24,6 @@ _dev_handler = logging.FileHandler(str(_dev_log_path))
 _dev_handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
 logger.addHandler(_dev_handler)
 logger.setLevel(logging.DEBUG)
-
-from monarch_utils import clear_cache, get_mm, get_month_range, retry_with_backoff
-from services.category_manager import CategoryManager
-from state.db import db_session
-from state.db.repositories import TrackerRepository
 
 
 def round_monthly_rate(rate: float) -> int:

@@ -56,10 +56,7 @@ IPV4_PRIVATE_PATTERNS = [
 
 def _is_private_ip(ip: str) -> bool:
     """Check if an IP address is in a private/reserved range."""
-    for pattern in IPV4_PRIVATE_PATTERNS:
-        if pattern.match(ip):
-            return True
-    return False
+    return any(pattern.match(ip) for pattern in IPV4_PRIVATE_PATTERNS)
 
 
 def _is_url_safe(url: str) -> bool:
