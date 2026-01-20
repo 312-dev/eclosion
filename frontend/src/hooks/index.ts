@@ -113,3 +113,5 @@ export {
 } from './useWishlistImageUpload';
 
 export { useWishlistSync } from './useWishlistSync';
+
+export { useAppTour } from './useAppTour';

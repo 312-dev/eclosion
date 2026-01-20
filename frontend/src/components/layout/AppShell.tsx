@@ -10,7 +10,7 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
+import { Outlet } from 'react-router-dom';
 import { TourProvider } from '@reactour/tour';
 import { SidebarNavigation } from './SidebarNavigation';
 import { AppHeader } from './AppHeader';
@@ -38,19 +38,11 @@ import { useToast } from '../../context/ToastContext';
 import { getErrorMessage, isRateLimitError } from '../../utils';
 import { isDesktopMode } from '../../utils/apiBase';
 import { TourController } from '../wizards/WizardComponents';
-import {
-  useMacOSElectron,
-  useWindowsElectron,
-  useRecurringTour,
-  useNotesTour,
-  useWishlistTour,
-} from '../../hooks';
+import { useMacOSElectron, useWindowsElectron, useAppTour } from '../../hooks';
 
 export function AppShell() {
   const [showSecurityInfo, setShowSecurityInfo] = useState(false);
-  const [showTour, setShowTour] = useState(false);
 
-  const location = useLocation();
   const { lock } = useAuth();
   const isDemo = useDemo();
   const isDesktop = isDesktopMode();
@@ -65,116 +57,20 @@ export function AppShell() {
   const { data: wishlistConfig } = useWishlistConfigQuery();
   const { data: pendingCount = 0 } = usePendingCountQuery();
 
-  // Get recurring tour steps and state
-  const {
-    steps: recurringTourSteps,
-    hasSeenTour: hasSeenRecurringTour,
-    markAsSeen: markRecurringTourSeen,
-    hasTourSteps: hasRecurringTourSteps,
-  } = useRecurringTour(data);
-
-  // Get notes tour steps and state
-  const {
-    steps: notesTourSteps,
-    hasSeenTour: hasSeenNotesTour,
-    markAsSeen: markNotesTourSeen,
-    hasTourSteps: hasNotesTourSteps,
-  } = useNotesTour();
-
-  // Get wishlist tour steps and state
-  const {
-    steps: wishlistTourSteps,
-    hasSeenTour: hasSeenWishlistTour,
-    markAsSeen: markWishlistTourSeen,
-    hasTourSteps: hasWishlistTourSteps,
-  } = useWishlistTour({
-    itemCount: wishlistData?.items?.length ?? 0,
-    pendingCount,
-    isBrowserConfigured: !!wishlistConfig?.selectedBrowser,
-    isDesktop,
-  });
-
-  // Demo-aware path prefix
-  const pathPrefix = isDemo ? '/demo' : '';
-
-  // Check which tour is available for current route
-  const isRecurringPage =
-    location.pathname === '/recurring' || location.pathname === '/demo/recurring';
-  const isNotesPage = location.pathname === '/notes' || location.pathname === '/demo/notes';
-  const isWishlistPage =
-    location.pathname === '/wishlist' || location.pathname === '/demo/wishlist';
-  const hasTour = isRecurringPage || isNotesPage || isWishlistPage;
-
-  // Check if recurring is configured (setup wizard completed)
-  const isRecurringConfigured = data?.config.target_group_id != null;
-
-  // Get the correct tour state based on current page
-  const getTourConfig = () => {
-    if (isWishlistPage)
-      return {
-        steps: wishlistTourSteps,
-        seen: hasSeenWishlistTour,
-        hasSteps: hasWishlistTourSteps,
-      };
-    if (isNotesPage)
-      return { steps: notesTourSteps, seen: hasSeenNotesTour, hasSteps: hasNotesTourSteps };
-    return {
-      steps: recurringTourSteps,
-      seen: hasSeenRecurringTour,
-      hasSteps: hasRecurringTourSteps,
-    };
-  };
-  const {
-    steps: currentTourSteps,
-    seen: hasSeenCurrentTour,
-    hasSteps: hasCurrentTourSteps,
-  } = getTourConfig();
-
-  // Auto-start tour on first visit to a page with a tour
-  useEffect(() => {
-    // Don't start recurring tour if setup wizard is still showing
-    if (isRecurringPage && !isRecurringConfigured) return;
-
-    if (hasTour && hasCurrentTourSteps && !hasSeenCurrentTour) {
-      // Get the first step's selector to wait for it to exist
-      const firstStepSelector = currentTourSteps[0]?.selector;
-      if (!firstStepSelector) return;
-
-      // Poll for the target element to exist before starting tour
-      // This handles cases where the element hasn't rendered yet (e.g., first login in Electron)
-      let attempts = 0;
-      const maxAttempts = 50; // 5 seconds max wait
-      const pollInterval = 100;
-
-      const checkElement = () => {
-        attempts++;
-        const element = document.querySelector(firstStepSelector);
-        if (element) {
-          setShowTour(true);
-        } else if (attempts < maxAttempts) {
-          timerId = setTimeout(checkElement, pollInterval);
-        }
-      };
-
-      let timerId = setTimeout(checkElement, pollInterval);
-      return () => clearTimeout(timerId);
-    }
-  }, [
-    hasTour,
-    hasCurrentTourSteps,
-    hasSeenCurrentTour,
-    isRecurringPage,
-    isNotesPage,
-    isWishlistPage,
-    isRecurringConfigured,
-    currentTourSteps,
-  ]);
+  // Use the app tour hook for all tour-related logic
+  const { showTour, setShowTour, currentTourSteps, tourKey, hasTour, handleTourClose, pathPrefix } =
+    useAppTour({
+      dashboardData: data,
+      wishlistItemCount: wishlistData?.items?.length ?? 0,
+      pendingCount,
+      isBrowserConfigured: !!wishlistConfig?.selectedBrowser,
+      isDesktop,
+    });
 
   // Track if we've already notified the tray (only notify once on initial load)
   const hasNotifiedTray = useRef(false);
 
   // Sync tray menu with dashboard last_sync on initial load (desktop only)
-  // Only runs once when data first loads to avoid excessive tray menu rebuilds
   useEffect(() => {
     if (
       !hasNotifiedTray.current &&
@@ -183,52 +79,25 @@ export function AppShell() {
       globalThis.electron?.pendingSync?.notifyCompleted
     ) {
       hasNotifiedTray.current = true;
-      globalThis.electron.pendingSync.notifyCompleted(data.last_sync).catch(() => {
-        // Ignore errors - this is just for tray menu updates
-      });
+      globalThis.electron.pendingSync.notifyCompleted(data.last_sync).catch(() => {});
     }
   }, [isDemo, data?.last_sync]);
 
   // Expand window to full size and activate full menu when main app loads (desktop only)
-  // The app starts in compact mode with minimal menu for loading/login screens, then expands here
   useEffect(() => {
     if (isDesktop && data) {
-      // Expand window to full size
-      globalThis.electron?.windowMode?.setMode('full').catch(() => {
-        // Ignore errors - window mode is a UX enhancement, not critical
-      });
-      // Switch to full application menu (macOS only, no-op on Windows/Linux)
-      globalThis.electron?.menu?.setFull().catch(() => {
-        // Ignore errors - menu is a UX enhancement, not critical
-      });
+      globalThis.electron?.windowMode?.setMode('full').catch(() => {});
+      globalThis.electron?.menu?.setFull().catch(() => {});
     }
   }, [isDesktop, data]);
 
-  // Handle tour close - mark as seen
-  const handleTourClose = () => {
-    setShowTour(false);
-    if (isWishlistPage) {
-      markWishlistTourSeen();
-    } else if (isNotesPage) {
-      markNotesTourSeen();
-    } else if (isRecurringPage) {
-      markRecurringTourSeen();
-    }
-  };
-
-  const handleLock = () => {
-    lock();
-  };
+  const handleLock = () => lock();
 
   const handleSync = async () => {
     try {
       await syncMutation.mutateAsync();
     } catch (err) {
-      if (isRateLimitError(err)) {
-        toast.error(err.message);
-      } else {
-        toast.error(getErrorMessage(err));
-      }
+      toast.error(isRateLimitError(err) ? err.message : getErrorMessage(err));
     }
   };
 
@@ -246,7 +115,6 @@ export function AppShell() {
 
   // Error state (no cached data)
   if (error) {
-    const errorMessage = getErrorMessage(error);
     return (
       <div
         className="min-h-screen flex items-center justify-center p-4"
@@ -261,7 +129,7 @@ export function AppShell() {
           }}
         >
           <div className="mb-4" style={{ color: 'var(--monarch-error)' }}>
-            {errorMessage}
+            {getErrorMessage(error)}
           </div>
           <button
             type="button"
@@ -275,14 +143,6 @@ export function AppShell() {
       </div>
     );
   }
-
-  // Key to force TourProvider remount when switching between tour types
-  const getTourKey = () => {
-    if (isWishlistPage) return 'wishlist-tour';
-    if (isNotesPage) return 'notes-tour';
-    return 'recurring-tour';
-  };
-  const tourKey = getTourKey();
 
   return (
     <TourProvider
@@ -304,13 +164,10 @@ export function AppShell() {
         className="app-layout"
         style={{
           backgroundColor: 'var(--monarch-bg-page)',
-          // Increase header height on desktop Electron to account for title bar integration
           ...(isMacOSElectron && ({ '--header-height': '73px' } as React.CSSProperties)),
-          // Windows: 52px base + 10px top padding + 10px bottom padding + border = ~73px
           ...(isWindowsElectron && ({ '--header-height': '73px' } as React.CSSProperties)),
         }}
       >
-        {/* Skip to main content link for keyboard users */}
         <a href="#main-content" className="skip-link">
           Skip to main content
         </a>
@@ -330,32 +187,20 @@ export function AppShell() {
           onStartTour={() => setShowTour(true)}
         />
 
-        {/* Update notification banners - sticky below header for visibility on all pages */}
         <div className="app-notification-banners">
-          {/* Web users: UpdateBanner shows dismissible web update notification */}
           <UpdateBanner />
-          {/* Desktop users: DesktopUpdateBanner shows non-dismissible download/ready status */}
           <DesktopUpdateBanner />
           <MonthTransitionBanner />
           <OfflineIndicator />
         </div>
 
         <SecurityInfo isOpen={showSecurityInfo} onClose={() => setShowSecurityInfo(false)} />
-
-        {/* What's New modal - shows on first open after upgrade */}
         <WhatsNewModal />
 
-        {/* Main Layout: Sidebar + Content + Stats */}
         <div className="app-body">
-          {/* Left Sidebar Navigation */}
           <SidebarNavigation onLock={handleLock} />
-
-          {/* Main content wrapper */}
           <div className="app-content-wrapper">
-            {/* Security Alert Banner - shown if failed login attempts detected (hidden on desktop) */}
             {!isDesktop && <SecurityAlertBanner />}
-
-            {/* Notices - announced to screen readers */}
             {data.notices && data.notices.length > 0 && (
               <section className="px-4 pt-6" aria-label="Notifications">
                 {data.notices.map((notice) => (
@@ -363,8 +208,6 @@ export function AppShell() {
                 ))}
               </section>
             )}
-
-            {/* Main content area - renders the active tab */}
             <main id="main-content" className="app-main" role="main" aria-label="Main content">
               <Outlet />
             </main>
