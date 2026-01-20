@@ -451,11 +451,61 @@ jobs:
           echo "## Screenshots Published" >> $GITHUB_STEP_SUMMARY
           echo "Uploaded screenshots to release $TAG" >> $GITHUB_STEP_SUMMARY
 
+  # Create docs version snapshot (production only)
+  # Runs BEFORE deploy-cloudflare so the new version is included in the Docusaurus build
+  create-docs-version:
+    name: "Stage 4: Create Docs Version"
+    needs: [validate-builds]
+    if: inputs.release_type == 'production'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Generate app token
+        id: app-token
+        uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2
+        with:
+          app-id: ${{ secrets.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Pull latest
+        run: git pull origin main
+
+      - name: Setup Node.js
+        uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: docusaurus/package-lock.json
+
+      - name: Create docs version
+        run: |
+          cd docusaurus
+          npm ci
+          npm run version -- "${{ inputs.version }}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add versions.json versioned_docs versioned_sidebars
+          git diff --staged --quiet && echo "No version changes" && exit 0
+          git commit -m "docs: create version ${{ inputs.version }}"
+          git push
+
   # Deploy to Cloudflare Pages
   # Runs AFTER desktop and docker publishing to ensure all artifacts succeed before going live
+  # For production releases, also waits for docs version to be created
   deploy-cloudflare:
     name: "Stage 4: Deploy Cloudflare"
-    needs: [validate-builds, build-frontend, publish-docker, publish-desktop]
+    needs: [validate-builds, build-frontend, publish-docker, publish-desktop, create-docs-version]
+    if: always() && needs.validate-builds.result == 'success' && needs.build-frontend.result == 'success' && needs.publish-docker.result == 'success' && needs.publish-desktop.result == 'success' && (needs.create-docs-version.result == 'success' || needs.create-docs-version.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: ${{ inputs.release_type }}
@@ -465,6 +515,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+        with:
+          ref: main
+
+      - name: Pull latest (includes new docs version)
+        run: git pull origin main
 
       - name: Download frontend artifact
         uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
@@ -529,44 +584,11 @@ jobs:
   # ===========================================================================
   finalize:
     name: "Stage 5: Finalize Release"
-    needs: [publish-docker, publish-desktop, deploy-cloudflare]
+    needs: [publish-docker, publish-desktop, deploy-cloudflare, create-docs-version]
+    if: always() && needs.publish-docker.result == 'success' && needs.publish-desktop.result == 'success' && needs.deploy-cloudflare.result == 'success' && (needs.create-docs-version.result == 'success' || needs.create-docs-version.result == 'skipped')
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: write
+    timeout-minutes: 5
     steps:
-      - name: Generate app token
-        id: app-token
-        if: inputs.release_type == 'production'
-        uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2
-        with:
-          app-id: ${{ secrets.RELEASE_APP_ID }}
-          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
-
-      - name: Checkout
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
-        with:
-          ref: main
-          fetch-depth: 0
-          token: ${{ steps.app-token.outputs.token || github.token }}
-
-      - name: Pull latest
-        run: git pull origin main
-
-      - name: Create docs version (production only)
-        if: inputs.release_type == 'production'
-        run: |
-          cd docusaurus
-          npm ci
-          npm run version -- "${{ inputs.version }}"
-
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add versions.json versioned_docs versioned_sidebars
-          git diff --staged --quiet && echo "No version changes" && exit 0
-          git commit -m "docs: create version ${{ inputs.version }}"
-          git push
-
       - name: Release Summary
         run: |
           echo "## 🎉 Release Complete!" >> $GITHUB_STEP_SUMMARY

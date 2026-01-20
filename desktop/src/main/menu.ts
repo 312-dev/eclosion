@@ -51,16 +51,15 @@ function isDeveloperMode(): boolean {
 /**
  * Get the documentation URL based on whether this is a beta or stable build.
  * - Beta builds link to beta.eclosion.app/docs (no version path, shows current docs)
- * - Stable builds link to versioned docs matching the app version (e.g., /docs/1.1/)
+ * - Stable builds link to versioned docs matching the app version (e.g., /docs/1.0.5/)
  */
 function getDocsUrl(): string {
   if (isBetaBuild()) {
     return 'https://beta.eclosion.app/docs';
   }
-  // Extract major.minor from version (e.g., "1.1.0" -> "1.1")
+  // Use full version to match Docusaurus versioned docs (e.g., "1.0.5" -> "/docs/1.0.5")
   const version = app.getVersion();
-  const [major, minor] = version.split('.');
-  return `https://eclosion.app/docs/${major}.${minor}`;
+  return `https://eclosion.app/docs/${version}`;
 }
 
 /**

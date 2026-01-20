@@ -157,6 +157,8 @@ function countIntervalOccurrences(
 
 /**
  * Check if a monthly-interval pattern has an occurrence in target month.
+ *
+ * Uses O(1) modular arithmetic instead of iteration to handle dates far in the past.
  */
 function hasOccurrenceInMonth(baseDate: Date, intervalMonths: number, targetMonth: Date): boolean {
   const targetYear = targetMonth.getFullYear();
@@ -170,18 +172,13 @@ function hasOccurrenceInMonth(baseDate: Date, intervalMonths: number, targetMont
     return false;
   }
 
-  // Step forward until we reach or pass targetMonth
-  let current = new Date(baseDate);
-  while (
-    current.getFullYear() < targetYear ||
-    (current.getFullYear() === targetYear && current.getMonth() < targetMonthNum)
-  ) {
-    current = new Date(current);
-    current.setMonth(current.getMonth() + intervalMonths);
-  }
+  // Calculate months difference using O(1) math instead of iteration
+  const monthsDiff =
+    (targetYear - baseDate.getFullYear()) * 12 + (targetMonthNum - baseDate.getMonth());
 
-  // Check if current is in targetMonth
-  return current.getFullYear() === targetYear && current.getMonth() === targetMonthNum;
+  // Check if targetMonth aligns with the interval pattern
+  // An occurrence exists if monthsDiff is evenly divisible by intervalMonths
+  return monthsDiff % intervalMonths === 0;
 }
 
 /**
@@ -232,16 +229,36 @@ export function countOccurrencesInMonth(
 
 /**
  * Find the next monthly-interval occurrence on or after a date.
+ *
+ * Uses O(1) math instead of iteration to handle dates far in the past.
+ * Clamps day to last valid day of target month to avoid rollover bugs
+ * (e.g., Aug 29 + 6 months = Feb 28, not Mar 1).
  */
 function nextMonthlyOccurrence(baseDate: Date, intervalMonths: number, afterDate: Date): Date {
-  let current = new Date(baseDate);
-
-  while (current < afterDate) {
-    current = new Date(current);
-    current.setMonth(current.getMonth() + intervalMonths);
+  // If baseDate is already on or after afterDate, return it
+  if (baseDate >= afterDate) {
+    return new Date(baseDate);
   }
 
-  return current;
+  // Calculate months difference
+  const monthsDiff =
+    (afterDate.getFullYear() - baseDate.getFullYear()) * 12 +
+    (afterDate.getMonth() - baseDate.getMonth());
+
+  // Calculate how many intervals we need to skip (round up to ensure >= afterDate)
+  const intervalsToSkip = Math.ceil(monthsDiff / intervalMonths);
+
+  // Calculate target month/year using math (avoids setMonth date rollover bug)
+  const totalMonths = baseDate.getMonth() + intervalsToSkip * intervalMonths;
+  const targetYear = baseDate.getFullYear() + Math.floor(totalMonths / 12);
+  const targetMonth = totalMonths % 12;
+
+  // Clamp day to last valid day of target month (fixes Aug 29 → Feb 28, not Mar 1)
+  const originalDay = baseDate.getDate();
+  const lastDayOfTargetMonth = getLastDayOfMonth(targetYear, targetMonth);
+  const clampedDay = Math.min(originalDay, lastDayOfTargetMonth);
+
+  return new Date(targetYear, targetMonth, clampedDay);
 }
 
 /**

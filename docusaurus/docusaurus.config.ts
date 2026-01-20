@@ -212,10 +212,6 @@ const config: Config = {
           title: 'Community',
           items: [
             {
-              label: 'Reddit',
-              href: 'https://www.reddit.com/r/Eclosion/',
-            },
-            {
               label: 'Discussions',
               href: 'https://github.com/312-dev/eclosion/discussions',
             },
