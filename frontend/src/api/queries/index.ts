@@ -154,7 +154,6 @@ export {
   useChangeWishlistGroupMutation,
   useLinkWishlistCategoryMutation,
   useWishlistSyncMutation,
-  useReorderWishlistMutation,
   useUpdateWishlistLayoutMutation,
   useInvalidateWishlist,
   // Pending bookmarks

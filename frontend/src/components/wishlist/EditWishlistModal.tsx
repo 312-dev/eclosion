@@ -10,7 +10,7 @@
  * - Live monthly savings calculation
  */
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Modal } from '../ui/Modal';
 import { Tooltip } from '../ui/Tooltip';
