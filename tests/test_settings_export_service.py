@@ -45,7 +45,7 @@ class TestExportSettings:
         assert result.error is None
 
         # Check metadata
-        assert result.data["eclosion_export"]["version"] == "1.0"
+        assert result.data["eclosion_export"]["version"] == "1.1"
         assert result.data["eclosion_export"]["source_mode"] == "production"
         assert "exported_at" in result.data["eclosion_export"]
 
@@ -265,7 +265,7 @@ class TestExportPreview:
         assert export_result.data is not None
         preview = service.get_export_preview(export_result.data)
 
-        assert preview["version"] == "1.0"
+        assert preview["version"] == "1.1"
         assert "recurring" in preview["tools"]
 
         recurring = preview["tools"]["recurring"]
