@@ -197,7 +197,9 @@ export function NewWishlistForm({
         )}
       </div>
 
-      {renderFooter({ isDisabled, isSubmitting, onSubmit: validateAndOpenCategory })}
+      <div className="flex items-center justify-end gap-2 mt-6 pt-4 border-t border-(--monarch-border)">
+        {renderFooter({ isDisabled, isSubmitting, onSubmit: validateAndOpenCategory })}
+      </div>
 
       <WishlistCategoryModal
         isOpen={isCategoryModalOpen}
