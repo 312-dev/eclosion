@@ -70,13 +70,147 @@ export interface AppSettingsExport {
   landing_page?: string;
 }
 
+// ============================================================================
+// Notes Export Types
+// ============================================================================
+
+/**
+ * Category or group note in export format.
+ * Note: content is decrypted for export.
+ */
+export interface NotesExportCategoryNote {
+  id: string;
+  category_type: 'group' | 'category';
+  category_id: string;
+  category_name: string;
+  group_id: string | null;
+  group_name: string | null;
+  month_key: string;
+  content: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * General (monthly) note in export format.
+ */
+export interface NotesExportGeneralNote {
+  id: string;
+  month_key: string;
+  content: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Archived note in export format.
+ */
+export interface NotesExportArchivedNote extends NotesExportCategoryNote {
+  archived_at: string;
+  original_category_name: string;
+  original_group_name: string | null;
+}
+
+/**
+ * Complete notes tool export data.
+ *
+ * SECURITY: Notes content is decrypted in the export JSON.
+ * This should only be included in encrypted exports (auto-backups).
+ */
+export interface NotesExport {
+  config: Record<string, unknown>;
+  category_notes: NotesExportCategoryNote[];
+  general_notes: NotesExportGeneralNote[];
+  archived_notes: NotesExportArchivedNote[];
+  /** Checkbox states keyed by "{noteId}:{viewingMonth}" or "general:{sourceMonth}:{viewingMonth}" */
+  checkbox_states: Record<string, boolean[]>;
+}
+
+// ============================================================================
+// Wishlist Export Types
+// ============================================================================
+
+/**
+ * Wishlist configuration in export format.
+ */
+export interface WishlistExportConfig {
+  is_configured: boolean;
+  default_category_group_id: string | null;
+  default_category_group_name: string | null;
+  selected_browser: string | null;
+  selected_folder_ids: string[];
+  selected_folder_names: string[];
+  auto_archive_on_bookmark_delete: boolean;
+  auto_archive_on_goal_met: boolean;
+}
+
+/**
+ * Wishlist item in export format.
+ * Note: custom_image_path is excluded (not portable).
+ */
+export interface WishlistExportItem {
+  id: string;
+  name: string;
+  amount: number;
+  target_date: string;
+  emoji: string;
+  monarch_category_id: string | null;
+  category_group_id: string | null;
+  category_group_name: string | null;
+  source_url: string | null;
+  source_bookmark_id: string | null;
+  logo_url: string | null;
+  is_archived: boolean;
+  archived_at: string | null;
+  created_at: string | null;
+  grid_x: number;
+  grid_y: number;
+  col_span: number;
+  row_span: number;
+}
+
+/**
+ * Pending bookmark in export format.
+ */
+export interface WishlistExportBookmark {
+  url: string;
+  name: string;
+  bookmark_id: string;
+  browser_type: string;
+  logo_url: string | null;
+  status: 'pending' | 'skipped' | 'converted';
+  wishlist_item_id: string | null;
+  created_at: string | null;
+}
+
+/**
+ * Complete wishlist tool export data.
+ */
+export interface WishlistExport {
+  config: WishlistExportConfig;
+  items: WishlistExportItem[];
+  pending_bookmarks: WishlistExportBookmark[];
+}
+
+// ============================================================================
+// Complete Export Structure
+// ============================================================================
+
 /**
  * Complete export file structure.
+ *
+ * Version history:
+ * - 1.0: Initial version (recurring tool only)
+ * - 1.1: Added notes and wishlist tools
  */
 export interface EclosionExport {
   eclosion_export: EclosionExportMetadata;
   tools: {
     recurring?: RecurringExport;
+    /** Notes tool data. Only included in encrypted exports for security. */
+    notes?: NotesExport;
+    /** Wishlist tool data. */
+    wishlist?: WishlistExport;
   };
   app_settings: AppSettingsExport;
 }
@@ -90,7 +224,9 @@ export interface EclosionExport {
  */
 export interface ImportOptions {
   /** Specific tools to import. If not provided, all tools are imported. */
-  tools?: string[];
+  tools?: ('recurring' | 'notes' | 'wishlist')[];
+  /** Passphrase for notes re-encryption. Required if importing notes. */
+  passphrase?: string;
 }
 
 /**
@@ -105,6 +241,7 @@ export interface ImportResult {
 
 /**
  * Preview of what an export file contains.
+ * NOTE: Does not include sensitive content (note text, etc.)
  */
 export interface ImportPreview {
   version: string;
@@ -117,6 +254,18 @@ export interface ImportPreview {
       categories_count: number;
       has_rollup: boolean;
       rollup_items_count: number;
+    };
+    notes?: {
+      category_notes_count: number;
+      general_notes_count: number;
+      archived_notes_count: number;
+      has_checkbox_states: boolean;
+    };
+    wishlist?: {
+      has_config: boolean;
+      items_count: number;
+      archived_items_count: number;
+      pending_bookmarks_count: number;
     };
   };
 }

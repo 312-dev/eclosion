@@ -237,17 +237,37 @@ html,
 body {
   height: 100%;
   margin: 0;
-}
-
-html {
-  /* Prevent layout shift when scrollbar appears/disappears */
-  scrollbar-gutter: stable;
+  overflow: hidden;
 }
 
 body {
   font-family: var(--monarch-font);
   color: var(--monarch-text-dark);
   background-color: var(--monarch-bg-page);
+}
+
+/* Global thin scrollbar styling */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--monarch-border) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--monarch-border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--monarch-text-muted);
 }
 
 /* Headings - Figtree */
@@ -510,10 +530,12 @@ input[type='radio'] {
   --header-height: 55px;
   --rate-limit-banner-height: 40px;
   --footer-height: 45px; /* Match .app-footer height */
-  min-height: 100vh;
+  height: 100vh;
   padding-top: var(--header-height);
   padding-bottom: var(--footer-height);
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
 }
 
 /* When rate limit banner is visible inside header, increase effective header height */
@@ -554,6 +576,8 @@ input[type='radio'] {
   max-width: 1400px;
   margin: 0 auto;
   width: 100%;
+  flex: 1;
+  min-height: 0; /* Allow flex children to shrink below content size */
 }
 
 .app-content-wrapper {
@@ -561,6 +585,7 @@ input[type='radio'] {
   flex-direction: column;
   flex: 1;
   min-width: 0;
+  overflow-y: auto;
 }
 
 .app-main {

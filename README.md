@@ -10,7 +10,7 @@
   <a href="https://scorecard.dev/viewer/?uri=github.com/312-dev/eclosion"><img src="https://api.scorecard.dev/projects/github.com/312-dev/eclosion/badge" alt="OpenSSF Scorecard"></a>
   <a href="https://www.bestpractices.dev/projects/11728"><img src="https://www.bestpractices.dev/projects/11728/badge" alt="OpenSSF Best Practices"></a>
   <a href="https://github.com/312-dev/eclosion/releases/latest"><img src="https://img.shields.io/github/v/release/312-dev/eclosion?label=stable" alt="Stable Release"></a>
-  <a href="https://github.com/312-dev/eclosion/releases"><img src="https://img.shields.io/github/v/release/312-dev/eclosion?include_prereleases&label=beta" alt="Beta Release"></a>
+  <a href="https://github.com/312-dev/eclosion/releases"><img src="https://img.shields.io/github/v/release/312-dev/eclosion?include_prereleases&filter=*-beta*&label=beta" alt="Beta Release"></a>
   <a href="https://github.com/312-dev/eclosion/blob/main/LICENSE"><img src="https://img.shields.io/github/license/312-dev/eclosion" alt="License"></a>
 </p>
 

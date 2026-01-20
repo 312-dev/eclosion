@@ -219,15 +219,17 @@ export function EditWishlistForm({
         )}
       </div>
 
-      {renderFooter({
-        isArchived: item.is_archived,
-        isDisabled,
-        isSubmitting,
-        onArchive: handleArchive,
-        onDelete: () => setShowDeleteModal(true),
-        onSaveAndRestore: handleSaveAndRestore,
-        onSubmit: handleSubmit,
-      })}
+      <div className="flex items-center justify-end gap-2 mt-6 pt-4 border-t border-(--monarch-border)">
+        {renderFooter({
+          isArchived: item.is_archived,
+          isDisabled,
+          isSubmitting,
+          onArchive: handleArchive,
+          onDelete: () => setShowDeleteModal(true),
+          onSaveAndRestore: handleSaveAndRestore,
+          onSubmit: handleSubmit,
+        })}
+      </div>
 
       <DeleteWishlistConfirmModal
         isOpen={showDeleteModal}
