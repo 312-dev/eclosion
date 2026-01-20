@@ -237,6 +237,11 @@ html,
 body {
   height: 100%;
   margin: 0;
+}
+
+/* Prevent page scrolling for app layout (app has internal scroll containers).
+   Marketing pages need normal page scrolling, so only apply when app is present. */
+html:has(.app-layout) {
   overflow: hidden;
 }
 
