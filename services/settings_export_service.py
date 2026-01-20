@@ -472,9 +472,7 @@ class SettingsExportService:
             "checkbox_states": checkbox_states,
         }
 
-    def _export_all_checkbox_states(
-        self, repo: NotesRepository
-    ) -> dict[str, list[bool]]:
+    def _export_all_checkbox_states(self, repo: NotesRepository) -> dict[str, list[bool]]:
         """
         Export all checkbox states from the database.
 
@@ -569,9 +567,7 @@ class SettingsExportService:
         # Import checkbox states with ID remapping
         checkbox_states = notes_data.get("checkbox_states", {})
         if checkbox_states:
-            self._import_checkbox_states(
-                repo, checkbox_states, note_id_map, general_note_month_map
-            )
+            self._import_checkbox_states(repo, checkbox_states, note_id_map, general_note_month_map)
 
         # Commit the session
         repo.session.commit()
