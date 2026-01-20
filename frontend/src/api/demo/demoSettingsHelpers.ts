@@ -1,0 +1,60 @@
+/**
+ * Demo Settings Helpers
+ *
+ * Shared utility functions for demo settings export/import.
+ */
+
+import type { CategoryReference, WishlistExportItem, WishlistItem } from '../../types';
+
+/** Build CategoryReference without undefined values (required for exactOptionalPropertyTypes) */
+export function buildCategoryRef(
+  type: 'group' | 'category',
+  id: string,
+  name: string,
+  groupId: string | null,
+  groupName: string | null
+): CategoryReference {
+  const ref: CategoryReference = { type, id, name };
+  if (type === 'category' && groupId) ref.groupId = groupId;
+  if (type === 'category' && groupName) ref.groupName = groupName;
+  return ref;
+}
+
+/** Build WishlistItem with optional properties conditionally set */
+export function buildWishlistItem(
+  item: WishlistExportItem,
+  index: number,
+  baseOrder: number,
+  isArchived: boolean
+): WishlistItem {
+  const wishlistItem: WishlistItem = {
+    type: 'wishlist',
+    id: `imported-${item.id}`,
+    name: item.name,
+    amount: item.amount,
+    target_date: item.target_date,
+    emoji: item.emoji,
+    category_id: null,
+    category_name: 'Unlinked',
+    category_group_id: null,
+    category_group_name: item.category_group_name ?? null,
+    is_archived: isArchived,
+    is_enabled: !isArchived,
+    status: 'behind',
+    progress_percent: 0,
+    months_remaining: isArchived ? 0 : 12,
+    current_balance: 0,
+    planned_budget: 0,
+    monthly_target: isArchived ? 0 : Math.ceil(item.amount / 12),
+    shortfall: item.amount,
+    sort_order: baseOrder + index,
+    grid_x: item.grid_x,
+    grid_y: item.grid_y,
+    col_span: item.col_span,
+    row_span: item.row_span,
+  };
+  if (item.source_url) wishlistItem.source_url = item.source_url;
+  if (item.logo_url) wishlistItem.logo_url = item.logo_url;
+  if (isArchived) wishlistItem.archived_at = item.archived_at ?? new Date().toISOString();
+  return wishlistItem;
+}
