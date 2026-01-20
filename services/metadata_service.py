@@ -15,6 +15,17 @@ from bs4 import BeautifulSoup
 
 logger = logging.getLogger(__name__)
 
+
+def _sanitize_url_for_logging(url: str) -> str:
+    """Sanitize a URL for safe logging to prevent log injection."""
+    # Remove newlines, carriage returns, and other control characters
+    sanitized = "".join(c if c.isprintable() and c not in "\n\r\t" else "?" for c in url)
+    # Truncate very long URLs
+    if len(sanitized) > 200:
+        sanitized = sanitized[:200] + "..."
+    return sanitized
+
+
 # Constants
 FETCH_TIMEOUT = 10.0  # seconds
 MAX_IMAGE_SIZE = 5 * 1024 * 1024  # 5MB
@@ -114,7 +125,7 @@ async def fetch_og_image(url: str, timeout: float = FETCH_TIMEOUT) -> str | None
 
         # SSRF protection
         if not _is_url_safe(url):
-            logger.debug("Blocked request to private IP: %s", url)
+            logger.debug("Blocked request to private IP: %s", _sanitize_url_for_logging(url))
             return None
 
         connector = aiohttp.TCPConnector(ssl=False)
@@ -141,20 +152,25 @@ async def fetch_og_image(url: str, timeout: float = FETCH_TIMEOUT) -> str | None
 
             # SSRF check for image URL
             if not _is_url_safe(og_image_url):
-                logger.debug("Blocked image request to private IP: %s", og_image_url)
+                logger.debug(
+                    "Blocked image request to private IP: %s",
+                    _sanitize_url_for_logging(og_image_url),
+                )
                 return None
 
             # Download and encode the image
             return await _download_and_encode_image(session, og_image_url)
 
     except TimeoutError:
-        logger.debug("Timeout fetching og:image from %s", url)
+        logger.debug("Timeout fetching og:image from %s", _sanitize_url_for_logging(url))
         return None
     except aiohttp.ClientError as e:
-        logger.debug("HTTP error fetching og:image from %s: %s", url, e)
+        logger.debug("HTTP error fetching og:image from %s: %s", _sanitize_url_for_logging(url), e)
         return None
     except Exception as e:
-        logger.debug("Unexpected error fetching og:image from %s: %s", url, e)
+        logger.debug(
+            "Unexpected error fetching og:image from %s: %s", _sanitize_url_for_logging(url), e
+        )
         return None
 
 
@@ -208,7 +224,7 @@ async def _extract_og_image_url(session: aiohttp.ClientSession, url: str) -> str
             return None
 
     except Exception as e:
-        logger.debug("Error extracting og:image from %s: %s", url, e)
+        logger.debug("Error extracting og:image from %s: %s", _sanitize_url_for_logging(url), e)
         return None
 
 
@@ -239,5 +255,5 @@ async def _download_and_encode_image(session: aiohttp.ClientSession, image_url: 
             return f"data:{content_type};base64,{b64}"
 
     except Exception as e:
-        logger.debug("Error downloading image from %s: %s", image_url, e)
+        logger.debug("Error downloading image from %s: %s", _sanitize_url_for_logging(image_url), e)
         return None

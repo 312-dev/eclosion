@@ -26,12 +26,16 @@ let changeCallback: ChangeCallback | null = null;
 
 /**
  * Get browser type from a file path.
+ * Normalizes path separators for cross-platform comparison.
  */
 function getBrowserTypeFromPath(filePath: string): BrowserType | null {
+  // Normalize path separators to forward slashes for comparison
+  const normalizedPath = filePath.replaceAll('\\', '/');
+
   for (const config of BROWSER_CONFIGS) {
     for (const platform of ['darwin', 'win32', 'linux'] as const) {
       const paths = config.paths[platform];
-      if (paths?.some((p) => filePath.includes(p.replace(/\//g, '/')))) {
+      if (paths?.some((p) => normalizedPath.includes(p))) {
         return config.type;
       }
     }

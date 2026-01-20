@@ -9,6 +9,7 @@ import { app, dialog, shell } from 'electron';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
+import * as crypto from 'node:crypto';
 import { exec } from 'node:child_process';
 import { getAllLogFiles, getAllRedactedLogFiles, getLogDir, debugLog } from './logger';
 import { getUpdateChannel } from './updater';
@@ -306,13 +307,19 @@ export async function openEmailWithDiagnostics(
     // macOS: Use AppleScript to open Mail with attachment
     // Write script to temp file to avoid shell escaping issues
     return new Promise((resolve) => {
-      const scriptPath = path.join(os.tmpdir(), 'eclosion-mail-script.scpt');
+      // Use a random suffix to prevent predictable temp file attacks
+      const randomSuffix = crypto.randomBytes(8).toString('hex');
+      const scriptPath = path.join(os.tmpdir(), `eclosion-mail-script-${randomSuffix}.scpt`);
+
+      // Escape both backslashes and double quotes for AppleScript strings
+      const escapeForAppleScript = (str: string): string =>
+        str.replaceAll('\\', '\\\\').replaceAll('"', '\\"');
 
       const appleScript = `
 tell application "Mail"
-  set newMessage to make new outgoing message with properties {subject:"${subject.replace(/"/g, '\\"')}", visible:true}
+  set newMessage to make new outgoing message with properties {subject:"${escapeForAppleScript(subject)}", visible:true}
   tell newMessage
-    make new to recipient at end of to recipients with properties {address:"${recipient.replace(/"/g, '\\"')}"}
+    make new to recipient at end of to recipients with properties {address:"${escapeForAppleScript(recipient)}"}
     make new attachment with properties {file name:POSIX file "${filePath}"} at after the last paragraph
   end tell
   activate
