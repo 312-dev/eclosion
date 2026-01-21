@@ -170,7 +170,7 @@ class CategoryManager:
         """
         Enable rollover on an existing category.
 
-        This ensures categories linked to Recurring or Wishlist items
+        This ensures categories linked to Recurring or Stash items
         have rollover enabled for proper budget tracking.
 
         Args:

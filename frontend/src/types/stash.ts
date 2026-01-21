@@ -1,0 +1,176 @@
+/**
+ * Stash Types
+ *
+ * Types for stash items - savings goals synced from browser bookmarks.
+ *
+ * Goal types:
+ * - one_time: Save up to buy something. Progress = total ever budgeted (immune to spending).
+ *             When completed, archived with completion timestamp.
+ * - savings_buffer: Ongoing fund to dip into and refill. Progress = current balance.
+ *                   Spending immediately reduces progress.
+ */
+
+import type { ItemStatus } from './common';
+
+/**
+ * Goal type for stash items.
+ *
+ * - one_time: Save up to buy something once. Progress = total budgeted.
+ *             Spending doesn't reduce progress until marked complete.
+ * - savings_buffer: Ongoing fund. Progress = current balance.
+ *                   Spending immediately reduces progress.
+ */
+export type StashGoalType = 'one_time' | 'savings_buffer';
+
+/**
+ * A stash item represents a savings goal.
+ * Items can be synced from browser bookmarks and linked to Monarch categories.
+ */
+export interface StashItem {
+  type: 'stash';
+  id: string;
+  name: string;
+  amount: number; // Target amount to save
+  current_balance: number; // Total saved so far
+  planned_budget: number; // Budget allocated this month
+  category_id: string | null;
+  category_name: string;
+  category_group_id: string | null;
+  category_group_name: string | null;
+  is_enabled: boolean;
+  status: ItemStatus;
+  progress_percent: number; // current_balance / amount * 100
+  emoji?: string;
+
+  // Stash-specific fields
+  target_date: string; // User-specified goal date (ISO format)
+  months_remaining: number; // Computed from target_date
+  source_url?: string; // Original bookmark URL
+  source_bookmark_id?: string; // For tracking sync
+  logo_url?: string; // Favicon from URL
+  custom_image_path?: string; // User-uploaded image path
+
+  // Computed values (frontend single source of truth)
+  monthly_target: number; // What to save this month
+  shortfall: number; // amount - current_balance
+
+  // Archive state
+  is_archived: boolean;
+  archived_at?: string; // ISO timestamp
+
+  // Sort order for drag/drop reordering (legacy)
+  sort_order: number;
+
+  // Grid layout for widget-style resizable cards
+  grid_x: number; // Column position (0-based)
+  grid_y: number; // Row position (0-based)
+  col_span: number; // Width in grid units (1-3)
+  row_span: number; // Height in grid units (1-2)
+
+  /**
+   * How progress is calculated for this goal.
+   * @default 'one_time'
+   */
+  goal_type: StashGoalType;
+
+  /**
+   * When this item was marked as purchased (one_time goals only).
+   * Null if not completed. ISO timestamp if completed.
+   */
+  completed_at?: string;
+
+  /**
+   * When this stash item was created.
+   * Used as default start date for aggregate queries.
+   */
+  created_at?: string;
+
+  /**
+   * Custom start date for tracking progress (one_time goals only).
+   * If set, aggregate queries use this instead of created_at.
+   * Useful when linking a pre-existing category with old transactions.
+   */
+  tracking_start_date?: string;
+
+  /**
+   * Current spendable balance in the category (one_time goals only).
+   * Shown as "available to spend" when different from progress.
+   */
+  available_to_spend?: number;
+}
+
+/**
+ * Data needed to create a new stash item.
+ * Amount and target_date are required, others have defaults.
+ *
+ * Category selection (mutually exclusive):
+ * - category_group_id: Creates a new category in this group
+ * - existing_category_id: Links to an existing Monarch category
+ */
+export interface CreateStashItemRequest {
+  name: string;
+  amount: number;
+  target_date: string;
+  /** Creates a new category in this group (mutually exclusive with existing_category_id) */
+  category_group_id?: string;
+  /** Links to an existing category (mutually exclusive with category_group_id) */
+  existing_category_id?: string;
+  source_url?: string;
+  source_bookmark_id?: string;
+  emoji?: string;
+  custom_image_path?: string;
+  /** Goal type: 'one_time' (default) or 'savings_buffer' */
+  goal_type?: StashGoalType;
+  /** Custom start date for tracking (one_time goals only, YYYY-MM-DD) */
+  tracking_start_date?: string;
+}
+
+/**
+ * Data for updating an existing stash item.
+ */
+export interface UpdateStashItemRequest {
+  name?: string;
+  amount?: number;
+  target_date?: string;
+  emoji?: string;
+  is_enabled?: boolean;
+  custom_image_path?: string | null;
+  source_url?: string | null;
+  /** Goal type: 'one_time' or 'savings_buffer' */
+  goal_type?: StashGoalType;
+  /** Custom start date for tracking (one_time goals only, YYYY-MM-DD) */
+  tracking_start_date?: string | null;
+}
+
+/**
+ * Layout update for a single stash item.
+ * Used for batch layout updates from drag/resize operations.
+ */
+export interface StashLayoutUpdate {
+  id: string;
+  grid_x: number;
+  grid_y: number;
+  col_span: number;
+  row_span: number;
+}
+
+/**
+ * Result of a stash sync operation.
+ */
+export interface StashSyncResult {
+  success: boolean;
+  items_updated: number;
+  newly_funded: string[]; // IDs of items that became funded
+  error?: string;
+}
+
+/**
+ * Dashboard-style data for the stashes tab.
+ */
+export interface StashData {
+  items: StashItem[];
+  archived_items: StashItem[];
+  total_target: number; // Sum of all item amounts
+  total_saved: number; // Sum of all current_balance
+  total_monthly_target: number; // Sum of all monthly_target
+}

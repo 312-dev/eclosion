@@ -26,7 +26,7 @@ import {
   AlertTriangle,
   RotateCcw,
 } from 'lucide-react';
-import { RecurringIcon, NotesIcon, WishlistIcon, AppIcon } from '../wizards/WizardComponents';
+import { RecurringIcon, NotesIcon, StashIcon, AppIcon } from '../wizards/WizardComponents';
 import { Tooltip } from '../ui/Tooltip';
 import { Icons } from '../icons';
 import { useDemo } from '../../context/DemoContext';
@@ -95,10 +95,10 @@ function getNavItems(isDemo: boolean): {
         settingsHash: '#recurring',
       },
       {
-        path: `${prefix}/wishlist`,
-        label: 'Wishlist',
-        icon: <WishlistIcon size={20} />,
-        settingsHash: '#wishlist',
+        path: `${prefix}/stash`,
+        label: 'Stashes',
+        icon: <StashIcon size={20} />,
+        settingsHash: '#stash',
       },
     ],
     otherItems: [{ path: `${prefix}/settings`, label: 'Settings', icon: <Settings size={20} /> }],

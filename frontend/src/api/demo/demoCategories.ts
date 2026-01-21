@@ -36,20 +36,20 @@ export async function setConfig(groupId: string, groupName: string): Promise<voi
 }
 
 /**
- * Get categories not yet linked to recurring or wishlist items.
+ * Get categories not yet linked to recurring or stash items.
  */
 export async function getUnmappedCategories(): Promise<UnmappedCategory[]> {
   await simulateDelay(50);
   const state = getDemoState();
 
-  // Get category IDs used by wishlist items
-  const wishlistCategoryIds = new Set(
-    state.wishlist.items.filter((item) => item.category_id).map((item) => item.category_id)
+  // Get category IDs used by stash items
+  const stashCategoryIds = new Set(
+    state.stash.items.filter((item) => item.category_id).map((item) => item.category_id)
   );
 
-  // Filter out categories used by wishlist items
+  // Filter out categories used by stash items
   // (recurring items are already excluded when linking happens)
-  return state.unmappedCategories.filter((cat) => !wishlistCategoryIds.has(cat.id));
+  return state.unmappedCategories.filter((cat) => !stashCategoryIds.has(cat.id));
 }
 
 /**

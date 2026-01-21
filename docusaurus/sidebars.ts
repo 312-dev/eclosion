@@ -38,11 +38,11 @@ const sidebars: SidebarsConfig = {
         },
         {
           type: 'category',
-          label: 'Wishlist',
+          label: 'Stashes',
           collapsed: false,
           link: {
             type: 'doc',
-            id: 'wishlist/overview',
+            id: 'stashes/overview',
           },
           items: [],
         },

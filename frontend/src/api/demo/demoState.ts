@@ -6,8 +6,8 @@
 
 import {
   createInitialDemoState,
-  createInitialWishlistData,
-  createInitialWishlistConfig,
+  createInitialStashData,
+  createInitialStashConfig,
   createInitialPendingBookmarks,
   type DemoState,
 } from '../demoData';
@@ -48,12 +48,12 @@ function migrateItemFrequencies(items: { frequency?: string }[]): boolean {
 /** Add missing state properties for new features. Returns true if any added. */
 function addMissingProperties(state: DemoState): boolean {
   let added = false;
-  if (!state.wishlist) {
-    state.wishlist = createInitialWishlistData();
+  if (!state.stash) {
+    state.stash = createInitialStashData();
     added = true;
   }
-  if (!state.wishlistConfig) {
-    state.wishlistConfig = createInitialWishlistConfig();
+  if (!state.stashConfig) {
+    state.stashConfig = createInitialStashConfig();
     added = true;
   }
   if (!state.pendingBookmarks) {

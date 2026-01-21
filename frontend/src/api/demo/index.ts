@@ -103,24 +103,26 @@ export {
   type AllNotesResponse,
 } from './demoNotes';
 
-// Wishlist
+// Stash
 export {
-  getWishlist,
-  createWishlistItem,
-  updateWishlistItem,
-  archiveWishlistItem,
-  unarchiveWishlistItem,
-  deleteWishlistItem,
-  allocateWishlistFunds,
-  changeWishlistGroup,
-  linkWishlistCategory,
-  syncWishlist,
+  getStash,
+  createStashItem,
+  updateStashItem,
+  archiveStashItem,
+  unarchiveStashItem,
+  deleteStashItem,
+  completeStashItem,
+  uncompleteStashItem,
+  allocateStashFunds,
+  changeStashGroup,
+  linkStashCategory,
+  syncStash,
   fetchOgImage,
-  reorderWishlistItems,
-  updateWishlistLayouts,
-  getWishlistCategoryGroups,
-  getWishlistConfig,
-  updateWishlistConfig,
+  reorderStashItems,
+  updateStashLayouts,
+  getStashCategoryGroups,
+  getStashConfig,
+  updateStashConfig,
   // Pending bookmarks
   getPendingBookmarks,
   getPendingCount,
@@ -129,4 +131,4 @@ export {
   convertPendingBookmark,
   importBookmarks,
   clearUnconvertedBookmarks,
-} from './demoWishlist';
+} from './demoStash';

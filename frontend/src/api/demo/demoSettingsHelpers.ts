@@ -4,7 +4,7 @@
  * Shared utility functions for demo settings export/import.
  */
 
-import type { CategoryReference, WishlistExportItem, WishlistItem } from '../../types';
+import type { CategoryReference, StashExportItem, StashItem } from '../../types';
 
 /** Build CategoryReference without undefined values (required for exactOptionalPropertyTypes) */
 export function buildCategoryRef(
@@ -20,15 +20,15 @@ export function buildCategoryRef(
   return ref;
 }
 
-/** Build WishlistItem with optional properties conditionally set */
-export function buildWishlistItem(
-  item: WishlistExportItem,
+/** Build StashItem with optional properties conditionally set */
+export function buildStashItem(
+  item: StashExportItem,
   index: number,
   baseOrder: number,
   isArchived: boolean
-): WishlistItem {
-  const wishlistItem: WishlistItem = {
-    type: 'wishlist',
+): StashItem {
+  const stashItem: StashItem = {
+    type: 'stash',
     id: `imported-${item.id}`,
     name: item.name,
     amount: item.amount,
@@ -52,9 +52,11 @@ export function buildWishlistItem(
     grid_y: item.grid_y,
     col_span: item.col_span,
     row_span: item.row_span,
+    goal_type: 'one_time',
+    created_at: new Date().toISOString(),
   };
-  if (item.source_url) wishlistItem.source_url = item.source_url;
-  if (item.logo_url) wishlistItem.logo_url = item.logo_url;
-  if (isArchived) wishlistItem.archived_at = item.archived_at ?? new Date().toISOString();
-  return wishlistItem;
+  if (item.source_url) stashItem.source_url = item.source_url;
+  if (item.logo_url) stashItem.logo_url = item.logo_url;
+  if (isArchived) stashItem.archived_at = item.archived_at ?? new Date().toISOString();
+  return stashItem;
 }

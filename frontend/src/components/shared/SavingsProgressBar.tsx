@@ -1,7 +1,7 @@
 /**
  * SavingsProgressBar - Shared progress bar for savings goals
  *
- * Used by both Recurring items and Wishlist items to display
+ * Used by both Recurring items and Stash items to display
  * savings progress with consistent styling.
  */
 

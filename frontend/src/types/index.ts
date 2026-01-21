@@ -10,27 +10,28 @@
 // Common types (shared across domains)
 export type { ItemStatus } from './common';
 
-// Savings goal base types (shared between recurring and wishlist)
+// Savings goal base types (shared between recurring and stash)
 export type { SavingsGoalBase, SavingsGoalComputed } from './savingsGoal';
 
-// Wishlist items
+// Stash items (savings goals)
 export type {
-  WishlistItem,
-  CreateWishlistItemRequest,
-  UpdateWishlistItemRequest,
-  WishlistSyncResult,
-  WishlistLayoutUpdate,
-  WishlistData,
-} from './wishlist';
+  StashGoalType,
+  StashItem,
+  CreateStashItemRequest,
+  UpdateStashItemRequest,
+  StashSyncResult,
+  StashLayoutUpdate,
+  StashData,
+} from './stash';
 
-// Wishlist configuration
+// Stash configuration
 export type {
-  WishlistConfig,
-  WishlistWizardState,
+  StashConfig,
+  StashWizardState,
   CategoryMappingChoice,
   CategoryMappingRequest,
-  WishlistImageUploadResult,
-} from './wishlistConfig';
+  StashImageUploadResult,
+} from './stashConfig';
 
 // Recurring items and rollup
 export type { RecurringItem, RollupItem, RollupData } from './recurring';
@@ -101,10 +102,10 @@ export type {
   NotesExportGeneralNote,
   NotesExportArchivedNote,
   NotesExport,
-  WishlistExportConfig,
-  WishlistExportItem,
-  WishlistExportBookmark,
-  WishlistExport,
+  StashExportConfig,
+  StashExportItem,
+  StashExportBookmark,
+  StashExport,
   EclosionExport,
   ImportOptions,
   ImportResult,

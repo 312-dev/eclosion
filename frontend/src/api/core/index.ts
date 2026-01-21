@@ -140,23 +140,25 @@ export {
   type BackupsResponse,
 } from './misc';
 
-// Wishlist
+// Stash
 export {
-  getWishlist,
-  createWishlistItem,
-  updateWishlistItem,
-  archiveWishlistItem,
-  unarchiveWishlistItem,
-  deleteWishlistItem,
-  allocateWishlistFunds,
-  changeWishlistGroup,
-  linkWishlistCategory,
-  syncWishlist,
-  reorderWishlistItems,
-  updateWishlistLayouts,
-  getWishlistCategoryGroups,
-  getWishlistConfig,
-  updateWishlistConfig,
+  getStash,
+  createStashItem,
+  updateStashItem,
+  archiveStashItem,
+  unarchiveStashItem,
+  completeStashItem,
+  uncompleteStashItem,
+  deleteStashItem,
+  allocateStashFunds,
+  changeStashGroup,
+  linkStashCategory,
+  syncStash,
+  reorderStashItems,
+  updateStashLayouts,
+  getStashCategoryGroups,
+  getStashConfig,
+  updateStashConfig,
   // Pending bookmarks
   getPendingBookmarks,
   getPendingCount,
@@ -165,4 +167,4 @@ export {
   convertPendingBookmark,
   importBookmarks,
   clearUnconvertedBookmarks,
-} from './wishlist';
+} from './stash';

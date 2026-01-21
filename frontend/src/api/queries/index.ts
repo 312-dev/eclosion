@@ -138,24 +138,26 @@ export {
   useUpdateConfigInCache,
 } from './configStoreQueries';
 
-// Wishlist queries
+// Stash queries
 export {
-  useWishlistQuery,
-  useWishlistConfigQuery,
-  useWishlistCategoryGroupsQuery,
-  useUpdateWishlistConfigMutation,
-  useIsWishlistConfigured,
-  useCreateWishlistMutation,
-  useUpdateWishlistMutation,
-  useArchiveWishlistMutation,
-  useUnarchiveWishlistMutation,
-  useDeleteWishlistMutation,
-  useAllocateWishlistMutation,
-  useChangeWishlistGroupMutation,
-  useLinkWishlistCategoryMutation,
-  useWishlistSyncMutation,
-  useUpdateWishlistLayoutMutation,
-  useInvalidateWishlist,
+  useStashQuery,
+  useStashConfigQuery,
+  useStashCategoryGroupsQuery,
+  useUpdateStashConfigMutation,
+  useIsStashConfigured,
+  useCreateStashMutation,
+  useUpdateStashMutation,
+  useArchiveStashMutation,
+  useUnarchiveStashMutation,
+  useCompleteStashMutation,
+  useUncompleteStashMutation,
+  useDeleteStashMutation,
+  useAllocateStashMutation,
+  useChangeStashGroupMutation,
+  useLinkStashCategoryMutation,
+  useStashSyncMutation,
+  useUpdateStashLayoutMutation,
+  useInvalidateStash,
   // Pending bookmarks
   usePendingBookmarksQuery,
   usePendingCountQuery,
@@ -165,4 +167,4 @@ export {
   useImportBookmarksMutation,
   useClearUnconvertedBookmarksMutation,
   useInvalidatePendingBookmarks,
-} from './wishlistQueries';
+} from './stashQueries';

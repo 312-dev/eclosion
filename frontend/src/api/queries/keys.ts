@@ -25,10 +25,10 @@ export const queryKeys = {
   checkboxStates: ['checkboxStates'] as const,
   // Shared stores (normalized caches)
   categoryStore: ['categoryStore'] as const,
-  // Wishlist
-  wishlist: ['wishlist'] as const,
-  wishlistConfig: ['wishlistConfig'] as const,
-  wishlistCategoryGroups: ['wishlistCategoryGroups'] as const,
+  // Stash
+  stash: ['stash'] as const,
+  stashConfig: ['stashConfig'] as const,
+  stashCategoryGroups: ['stashCategoryGroups'] as const,
   pendingBookmarks: ['pendingBookmarks'] as const,
   pendingBookmarksCount: ['pendingBookmarksCount'] as const,
   skippedBookmarks: ['skippedBookmarks'] as const,

@@ -28,8 +28,8 @@ import { PageLoadingSpinner } from '../ui/LoadingSpinner';
 import {
   useDashboardQuery,
   useSyncMutation,
-  useWishlistQuery,
-  useWishlistConfigQuery,
+  useStashQuery,
+  useStashConfigQuery,
   usePendingCountQuery,
 } from '../../api/queries';
 import { useAuth } from '../../context/AuthContext';
@@ -52,18 +52,18 @@ export function AppShell() {
   const isMacOSElectron = useMacOSElectron();
   const isWindowsElectron = useWindowsElectron();
 
-  // Wishlist data for tour (lightweight queries)
-  const { data: wishlistData } = useWishlistQuery();
-  const { data: wishlistConfig } = useWishlistConfigQuery();
+  // Stash data for tour (lightweight queries)
+  const { data: stashData } = useStashQuery();
+  const { data: stashConfig } = useStashConfigQuery();
   const { data: pendingCount = 0 } = usePendingCountQuery();
 
   // Use the app tour hook for all tour-related logic
   const { showTour, setShowTour, currentTourSteps, tourKey, hasTour, handleTourClose, pathPrefix } =
     useAppTour({
       dashboardData: data,
-      wishlistItemCount: wishlistData?.items?.length ?? 0,
+      stashItemCount: stashData?.items?.length ?? 0,
       pendingCount,
-      isBrowserConfigured: !!wishlistConfig?.selectedBrowser,
+      isBrowserConfigured: !!stashConfig?.selectedBrowser,
       isDesktop,
     });
 

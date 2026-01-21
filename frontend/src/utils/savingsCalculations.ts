@@ -1,7 +1,7 @@
 /**
  * Savings Calculation Utilities
  *
- * Shared calculation functions for both Recurring items and Wishlist items.
+ * Shared calculation functions for both Recurring items and Stash items.
  * These handle the core "save towards a goal" calculations.
  *
  * Rounding Policy (same as recurring):
@@ -60,7 +60,7 @@ export function monthsBetween(fromDateStr: string, toDateStr: string): number {
 }
 
 /**
- * Calculate the monthly savings target for a wishlist item (date-based goal).
+ * Calculate the monthly savings target for a stash item (date-based goal).
  *
  * This is simpler than recurring items because there's no frequency -
  * just a target date to reach.
@@ -76,7 +76,7 @@ export function monthsBetween(fromDateStr: string, toDateStr: string): number {
  * @param currentMonth - Current month start date (ISO string, defaults to now)
  * @returns Monthly target in whole dollars (rounded, minimum $1 for non-zero)
  */
-export function calculateWishlistMonthlyTarget(
+export function calculateStashMonthlyTarget(
   amount: number,
   currentBalance: number,
   targetDate: string,

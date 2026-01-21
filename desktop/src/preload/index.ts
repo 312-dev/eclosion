@@ -1204,38 +1204,38 @@ const electronAPI = {
   },
 
   // =========================================================================
-  // Wishlist
+  // Stash
   // =========================================================================
 
   /**
-   * Wishlist feature API for custom image storage.
+   * Stash feature API for custom image storage.
    */
-  wishlist: {
+  stash: {
     /**
-     * Save a custom image for a wishlist item.
+     * Save a custom image for a stash item.
      * Accepts base64-encoded image data and stores it locally.
-     * @param itemId - The wishlist item ID
+     * @param itemId - The stash item ID
      * @param base64Data - The image as base64 (with or without data URL prefix)
      */
     saveImage: (
       itemId: string,
       base64Data: string
     ): Promise<{ success: boolean; path?: string; error?: string }> =>
-      ipcRenderer.invoke('wishlist:save-image', itemId, base64Data),
+      ipcRenderer.invoke('stash:save-image', itemId, base64Data),
 
     /**
-     * Delete a custom image for a wishlist item.
+     * Delete a custom image for a stash item.
      * @param imagePath - The full path to the image file
      */
     deleteImage: (imagePath: string): Promise<boolean> =>
-      ipcRenderer.invoke('wishlist:delete-image', imagePath),
+      ipcRenderer.invoke('stash:delete-image', imagePath),
 
     /**
      * Get the file:// URL for displaying a local image.
      * @param imagePath - The full path to the image file
      */
     getImageUrl: (imagePath: string): Promise<string> =>
-      ipcRenderer.invoke('wishlist:get-image-url', imagePath),
+      ipcRenderer.invoke('stash:get-image-url', imagePath),
   },
 
   // =========================================================================

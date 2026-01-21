@@ -2,7 +2,7 @@
  * Demo Settings Import Functions
  *
  * Handles import and preview of settings in demo mode.
- * Supports recurring, notes, and wishlist tools.
+ * Supports recurring, notes, and stash tools.
  */
 
 import type {
@@ -17,9 +17,9 @@ import type {
   ImportPreview,
 } from '../../types';
 import { updateDemoState, simulateDelay } from './demoState';
-import { buildCategoryRef, buildWishlistItem } from './demoSettingsHelpers';
+import { buildCategoryRef, buildStashItem } from './demoSettingsHelpers';
 
-/** Import settings from a backup file. Supports recurring, notes, and wishlist tools. */
+/** Import settings from a backup file. Supports recurring, notes, and stash tools. */
 export async function importSettings(
   data: EclosionExport,
   options?: ImportOptions
@@ -37,7 +37,7 @@ export async function importSettings(
 
   const imported: Record<string, boolean> = {};
   const warnings: string[] = [];
-  const toolsToImport = options?.tools ?? ['recurring', 'notes', 'wishlist'];
+  const toolsToImport = options?.tools ?? ['recurring', 'notes', 'stash'];
 
   // Import Recurring
   if (toolsToImport.includes('recurring') && data.tools.recurring) {
@@ -49,9 +49,9 @@ export async function importSettings(
     importNotesTool(data, imported);
   }
 
-  // Import Wishlist
-  if (toolsToImport.includes('wishlist') && data.tools.wishlist) {
-    importWishlistTool(data, imported, warnings);
+  // Import Stash
+  if (toolsToImport.includes('stash') && data.tools.stash) {
+    importStashTool(data, imported, warnings);
   }
 
   return { success: true, imported, warnings };
@@ -165,43 +165,43 @@ function importNotesTool(data: EclosionExport, imported: Record<string, boolean>
   imported['notes'] = true;
 }
 
-function importWishlistTool(
+function importStashTool(
   data: EclosionExport,
   imported: Record<string, boolean>,
   warnings: string[]
 ): void {
-  const wishlistData = data.tools.wishlist!;
+  const stashData = data.tools.stash!;
   updateDemoState((state) => {
-    const newItems = wishlistData.items
+    const newItems = stashData.items
       .filter((i) => !i.is_archived)
-      .map((item, index) => buildWishlistItem(item, index, state.wishlist.items.length, false));
-    const newArchivedItems = wishlistData.items
+      .map((item, index) => buildStashItem(item, index, state.stash.items.length, false));
+    const newArchivedItems = stashData.items
       .filter((i) => i.is_archived)
       .map((item, index) =>
-        buildWishlistItem(item, index, state.wishlist.archived_items.length, true)
+        buildStashItem(item, index, state.stash.archived_items.length, true)
       );
     return {
       ...state,
-      wishlist: {
-        ...state.wishlist,
-        items: [...state.wishlist.items, ...newItems],
-        archived_items: [...state.wishlist.archived_items, ...newArchivedItems],
+      stash: {
+        ...state.stash,
+        items: [...state.stash.items, ...newItems],
+        archived_items: [...state.stash.archived_items, ...newArchivedItems],
       },
-      wishlistConfig: {
-        ...state.wishlistConfig,
-        isConfigured: wishlistData.config.is_configured,
-        defaultCategoryGroupName: wishlistData.config.default_category_group_name ?? null,
-        selectedBrowser: (wishlistData.config.selected_browser ?? null) as BrowserType | null,
-        selectedFolderNames: wishlistData.config.selected_folder_names,
-        autoArchiveOnBookmarkDelete: wishlistData.config.auto_archive_on_bookmark_delete,
-        autoArchiveOnGoalMet: wishlistData.config.auto_archive_on_goal_met,
+      stashConfig: {
+        ...state.stashConfig,
+        isConfigured: stashData.config.is_configured,
+        defaultCategoryGroupName: stashData.config.default_category_group_name ?? null,
+        selectedBrowser: (stashData.config.selected_browser ?? null) as BrowserType | null,
+        selectedFolderNames: stashData.config.selected_folder_names,
+        autoArchiveOnBookmarkDelete: stashData.config.auto_archive_on_bookmark_delete,
+        autoArchiveOnGoalMet: stashData.config.auto_archive_on_goal_met,
       },
     };
   });
-  imported['wishlist'] = true;
-  if (wishlistData.items.length > 0)
+  imported['stash'] = true;
+  if (stashData.items.length > 0)
     warnings.push(
-      `Imported ${wishlistData.items.length} wishlist item(s). Items are unlinked and need to be connected to Monarch categories.`
+      `Imported ${stashData.items.length} stash(es). Stashes are unlinked and need to be connected to Monarch categories.`
     );
 }
 
@@ -237,14 +237,14 @@ export async function previewImport(data: EclosionExport): Promise<ImportPreview
       has_checkbox_states: Object.keys(data.tools.notes.checkbox_states).length > 0,
     };
   }
-  if (data.tools.wishlist) {
-    const activeItems = data.tools.wishlist.items.filter((i) => !i.is_archived);
-    const archivedItems = data.tools.wishlist.items.filter((i) => i.is_archived);
-    preview.tools.wishlist = {
-      has_config: !!data.tools.wishlist.config,
+  if (data.tools.stash) {
+    const activeItems = data.tools.stash.items.filter((i) => !i.is_archived);
+    const archivedItems = data.tools.stash.items.filter((i) => i.is_archived);
+    preview.tools.stash = {
+      has_config: !!data.tools.stash.config,
       items_count: activeItems.length,
       archived_items_count: archivedItems.length,
-      pending_bookmarks_count: data.tools.wishlist.pending_bookmarks.length,
+      pending_bookmarks_count: data.tools.stash.pending_bookmarks.length,
     };
   }
 

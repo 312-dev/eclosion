@@ -1,5 +1,5 @@
 /**
- * useBrowserSelection - Hook for browser selection in wishlist wizard
+ * useBrowserSelection - Hook for browser selection in stash wizard
  *
  * Wraps useBookmarks to provide browser detection and selection state.
  * Handles Safari permission flow with user guidance.

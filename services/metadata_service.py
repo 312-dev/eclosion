@@ -1,7 +1,7 @@
 """
 Metadata Service
 
-Fetches Open Graph metadata from URLs for wishlist item images.
+Fetches Open Graph metadata from URLs for stash item images.
 """
 
 import base64

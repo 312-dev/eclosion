@@ -1,14 +1,14 @@
 /**
  * Savings Goal Types
  *
- * Shared base types for both Recurring items and Wishlist items.
+ * Shared base types for both Recurring items and Stash items.
  * These represent any "save towards a target" goal in the app.
  */
 
 import type { ItemStatus } from './common';
 
 /**
- * Base interface for any savings goal (recurring or wishlist).
+ * Base interface for any savings goal (recurring or stash).
  * Contains the minimal fields needed for shared calculations and display.
  */
 export interface SavingsGoalBase {

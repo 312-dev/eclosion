@@ -438,18 +438,18 @@ class TrackerRepository:
                 )
         return deletable
 
-    # === Wishlist ===
+    # === Stash ===
 
-    def get_wishlist_item(self, item_id: str) -> WishlistItem | None:
-        """Get wishlist item by ID."""
+    def get_stash_item(self, item_id: str) -> WishlistItem | None:
+        """Get stash item by ID."""
         return self.session.query(WishlistItem).filter(WishlistItem.id == item_id).first()
 
-    def get_all_wishlist_items(self) -> list[WishlistItem]:
-        """Get all wishlist items."""
+    def get_all_stash_items(self) -> list[WishlistItem]:
+        """Get all stash items."""
         return self.session.query(WishlistItem).order_by(WishlistItem.created_at.desc()).all()
 
-    def get_active_wishlist_items(self) -> list[WishlistItem]:
-        """Get non-archived wishlist items."""
+    def get_active_stash_items(self) -> list[WishlistItem]:
+        """Get non-archived stash items."""
         return (
             self.session.query(WishlistItem)
             .filter(WishlistItem.is_archived.is_(False))
@@ -457,8 +457,8 @@ class TrackerRepository:
             .all()
         )
 
-    def get_archived_wishlist_items(self) -> list[WishlistItem]:
-        """Get archived wishlist items."""
+    def get_archived_stash_items(self) -> list[WishlistItem]:
+        """Get archived stash items."""
         return (
             self.session.query(WishlistItem)
             .filter(WishlistItem.is_archived.is_(True))
@@ -466,7 +466,7 @@ class TrackerRepository:
             .all()
         )
 
-    def create_wishlist_item(
+    def create_stash_item(
         self,
         item_id: str,
         name: str,
@@ -476,7 +476,7 @@ class TrackerRepository:
         category_group_name: str | None = None,
         **kwargs,
     ) -> WishlistItem:
-        """Create a new wishlist item."""
+        """Create a new stash item."""
         item = WishlistItem(
             id=item_id,
             name=name,
@@ -490,13 +490,13 @@ class TrackerRepository:
         self.session.add(item)
         return item
 
-    def update_wishlist_item(
+    def update_stash_item(
         self,
         item_id: str,
         **kwargs,
     ) -> WishlistItem | None:
-        """Update wishlist item fields."""
-        item = self.get_wishlist_item(item_id)
+        """Update stash item fields."""
+        item = self.get_stash_item(item_id)
         if not item:
             return None
 
@@ -507,74 +507,74 @@ class TrackerRepository:
         item.updated_at = datetime.utcnow()
         return item
 
-    def delete_wishlist_item(self, item_id: str) -> bool:
-        """Delete a wishlist item."""
+    def delete_stash_item(self, item_id: str) -> bool:
+        """Delete a stash item."""
         result = self.session.query(WishlistItem).filter(WishlistItem.id == item_id).delete()
         return result > 0
 
-    def archive_wishlist_item(self, item_id: str) -> WishlistItem | None:
-        """Archive a wishlist item."""
-        item = self.get_wishlist_item(item_id)
+    def archive_stash_item(self, item_id: str) -> WishlistItem | None:
+        """Archive a stash item."""
+        item = self.get_stash_item(item_id)
         if item:
             item.is_archived = True
             item.archived_at = datetime.utcnow()
             item.updated_at = datetime.utcnow()
         return item
 
-    def unarchive_wishlist_item(self, item_id: str) -> WishlistItem | None:
-        """Unarchive a wishlist item."""
-        item = self.get_wishlist_item(item_id)
+    def unarchive_stash_item(self, item_id: str) -> WishlistItem | None:
+        """Unarchive a stash item."""
+        item = self.get_stash_item(item_id)
         if item:
             item.is_archived = False
             item.archived_at = None
             item.updated_at = datetime.utcnow()
         return item
 
-    def set_wishlist_category(
+    def set_stash_category(
         self,
         item_id: str,
         monarch_category_id: str,
     ) -> WishlistItem | None:
-        """Set the Monarch category ID for a wishlist item."""
-        item = self.get_wishlist_item(item_id)
+        """Set the Monarch category ID for a stash item."""
+        item = self.get_stash_item(item_id)
         if item:
             item.monarch_category_id = monarch_category_id
             item.updated_at = datetime.utcnow()
         return item
 
-    def update_wishlist_group(
+    def update_stash_group(
         self,
         item_id: str,
         group_id: str,
         group_name: str,
     ) -> WishlistItem | None:
-        """Update the category group for a wishlist item."""
-        item = self.get_wishlist_item(item_id)
+        """Update the category group for a stash item."""
+        item = self.get_stash_item(item_id)
         if item:
             item.category_group_id = group_id
             item.category_group_name = group_name
             item.updated_at = datetime.utcnow()
         return item
 
-    def get_wishlist_items_by_category_id(self, category_id: str) -> list[WishlistItem]:
-        """Get wishlist items by Monarch category ID."""
+    def get_stash_items_by_category_id(self, category_id: str) -> list[WishlistItem]:
+        """Get stash items by Monarch category ID."""
         return (
             self.session.query(WishlistItem)
             .filter(WishlistItem.monarch_category_id == category_id)
             .all()
         )
 
-    def get_wishlist_items_by_bookmark_id(self, bookmark_id: str) -> list[WishlistItem]:
-        """Get wishlist items by source bookmark ID."""
+    def get_stash_items_by_bookmark_id(self, bookmark_id: str) -> list[WishlistItem]:
+        """Get stash items by source bookmark ID."""
         return (
             self.session.query(WishlistItem)
             .filter(WishlistItem.source_bookmark_id == bookmark_id)
             .all()
         )
 
-    def update_wishlist_layouts(self, layouts: list[dict]) -> int:
+    def update_stash_layouts(self, layouts: list[dict]) -> int:
         """
-        Update grid layout positions for multiple wishlist items.
+        Update grid layout positions for multiple stash items.
 
         Args:
             layouts: List of dicts with id, grid_x, grid_y, col_span, row_span
@@ -584,7 +584,7 @@ class TrackerRepository:
         """
         updated = 0
         for layout in layouts:
-            item = self.get_wishlist_item(layout["id"])
+            item = self.get_stash_item(layout["id"])
             if item:
                 item.grid_x = layout.get("grid_x", 0)
                 item.grid_y = layout.get("grid_y", 0)
@@ -594,10 +594,10 @@ class TrackerRepository:
                 updated += 1
         return updated
 
-    # === Wishlist Config ===
+    # === Stash Config ===
 
-    def get_wishlist_config(self) -> WishlistConfig:
-        """Get or create wishlist configuration."""
+    def get_stash_config(self) -> WishlistConfig:
+        """Get or create stash configuration."""
         config = self.session.query(WishlistConfig).first()
         if not config:
             config = WishlistConfig(id=1)
@@ -605,28 +605,28 @@ class TrackerRepository:
             self.session.flush()
         return config
 
-    def update_wishlist_config(self, **kwargs) -> WishlistConfig:
-        """Update wishlist configuration fields."""
-        config = self.get_wishlist_config()
+    def update_stash_config(self, **kwargs) -> WishlistConfig:
+        """Update stash configuration fields."""
+        config = self.get_stash_config()
         for key, value in kwargs.items():
             if hasattr(config, key):
                 setattr(config, key, value)
         return config
 
-    def is_wishlist_configured(self) -> bool:
-        """Check if wishlist has been configured."""
+    def is_stash_configured(self) -> bool:
+        """Check if stash has been configured."""
         config = self.session.query(WishlistConfig).first()
         return config is not None and config.is_configured
 
-    def mark_wishlist_configured(self) -> WishlistConfig:
-        """Mark wishlist as configured."""
-        config = self.get_wishlist_config()
+    def mark_stash_configured(self) -> WishlistConfig:
+        """Mark stash as configured."""
+        config = self.get_stash_config()
         config.is_configured = True
         return config
 
-    def reset_wishlist_config(self) -> dict:
-        """Reset wishlist configuration to defaults."""
-        config = self.get_wishlist_config()
+    def reset_stash_config(self) -> dict:
+        """Reset stash configuration to defaults."""
+        config = self.get_stash_config()
         config.default_category_group_id = None
         config.default_category_group_name = None
         config.selected_browser = None

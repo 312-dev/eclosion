@@ -333,10 +333,10 @@ class SyncService:
 
     async def get_unmapped_categories(self) -> list[dict[str, Any]]:
         """
-        Get all categories that are not mapped to any recurring or wishlist item.
+        Get all categories that are not mapped to any recurring or stash item.
 
         Used when linking a disabled recurring item to an existing category,
-        or when linking a wishlist item to an existing category.
+        or when linking a stash item to an existing category.
         """
         state = self.state_manager.load()
 
@@ -347,14 +347,14 @@ class SyncService:
         if state.rollup.monarch_category_id:
             mapped_ids.append(state.rollup.monarch_category_id)
 
-        # Also exclude wishlist item categories
+        # Also exclude stash item categories
         from state.db import db_session
         from state.db.repositories import TrackerRepository
 
         with db_session() as session:
             repo = TrackerRepository(session)
-            wishlist_items = repo.get_all_wishlist_items()
-            for item in wishlist_items:
+            stash_items = repo.get_all_stash_items()
+            for item in stash_items:
                 if item.monarch_category_id:
                     mapped_ids.append(item.monarch_category_id)
 
@@ -1306,7 +1306,7 @@ class SyncService:
                     "next_due_date": item.next_due_date.isoformat(),
                     "base_date": item.base_date.isoformat() if item.base_date else None,
                     "months_until_due": item.months_until_due,
-                    "current_balance": current_balance,
+                    "current_balance": rollover_amount + budgeted_this_month,
                     "planned_budget": int(budgeted_this_month) if cat_state else 0,
                     "rollover_amount": rollover_amount,  # Direct from Monarch (previousMonthRolloverAmount)
                     "is_active": is_active,

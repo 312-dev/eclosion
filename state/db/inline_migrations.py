@@ -20,7 +20,7 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 # Current schema version - bump when adding migrations
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 5
 
 
 def column_exists(conn: sqlite3.Connection, table: str, column: str) -> bool:
@@ -64,6 +64,64 @@ def migrate_v3_frozen_target(conn: sqlite3.Connection) -> None:
     """)
 
     conn.commit()
+
+
+def migrate_v4_wishlist_subtract_spending(conn: sqlite3.Connection) -> None:
+    """
+    Migration v4: Add subtract_spending column to wishlist_items.
+
+    This column controls how progress is calculated:
+    - False (default): progress = rollover + budgeted (spending doesn't reduce progress)
+    - True: progress = remaining (spending reduces progress)
+    """
+    if not column_exists(conn, "wishlist_items", "subtract_spending"):
+        cursor = conn.cursor()
+        cursor.execute(
+            "ALTER TABLE wishlist_items ADD COLUMN subtract_spending BOOLEAN NOT NULL DEFAULT 0"
+        )
+        conn.commit()
+
+
+def migrate_v5_wishlist_goal_type(conn: sqlite3.Connection) -> None:
+    """
+    Migration v5: Replace subtract_spending with goal_type enum.
+
+    Goal types:
+    - 'one_time': Save up to buy something, mark complete when done.
+                  Progress = total ever budgeted (immune to spending).
+    - 'savings_buffer': Ongoing fund that can be spent and refilled.
+                        Progress = current remaining balance.
+
+    Also adds:
+    - completed_at: When a one-time purchase was marked as done
+    - tracking_start_date: Custom start date for aggregate queries
+    """
+    cursor = conn.cursor()
+
+    # Add goal_type column (default 'one_time')
+    if not column_exists(conn, "wishlist_items", "goal_type"):
+        cursor.execute(
+            "ALTER TABLE wishlist_items ADD COLUMN goal_type VARCHAR(20) NOT NULL DEFAULT 'one_time'"
+        )
+
+    # Add completed_at column
+    if not column_exists(conn, "wishlist_items", "completed_at"):
+        cursor.execute("ALTER TABLE wishlist_items ADD COLUMN completed_at DATETIME")
+
+    # Add tracking_start_date column
+    if not column_exists(conn, "wishlist_items", "tracking_start_date"):
+        cursor.execute("ALTER TABLE wishlist_items ADD COLUMN tracking_start_date DATE")
+
+    # Migrate existing subtract_spending=true to goal_type='savings_buffer'
+    if column_exists(conn, "wishlist_items", "subtract_spending"):
+        cursor.execute(
+            "UPDATE wishlist_items SET goal_type = 'savings_buffer' WHERE subtract_spending = 1"
+        )
+
+    conn.commit()
+
+    # Note: We don't drop subtract_spending here because SQLite < 3.35 doesn't support DROP COLUMN.
+    # The column will remain but be unused. The model simply won't map to it.
 
 
 # Migration definitions
@@ -113,6 +171,20 @@ MIGRATIONS = [
         "version": 3,
         "description": "Improved frozen target calculation with rollover tracking",
         "sql": migrate_v3_frozen_target,  # Callable for idempotent migration
+    },
+    # Version 4: Add subtract_spending column to wishlist_items
+    # Controls whether spending reduces progress (default: False)
+    {
+        "version": 4,
+        "description": "Add subtract_spending to wishlist items",
+        "sql": migrate_v4_wishlist_subtract_spending,
+    },
+    # Version 5: Replace subtract_spending with goal_type enum
+    # Adds completion tracking and tracking start date
+    {
+        "version": 5,
+        "description": "Wishlist goal types with completion tracking",
+        "sql": migrate_v5_wishlist_goal_type,
     },
 ]
 

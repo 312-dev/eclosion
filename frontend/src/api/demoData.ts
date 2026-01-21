@@ -16,9 +16,9 @@ import type {
   Note,
   GeneralMonthNote,
   ArchivedNote,
-  WishlistItem,
-  WishlistData,
-  WishlistConfig,
+  StashItem,
+  StashData,
+  StashConfig,
   PendingBookmark,
 } from '../types';
 import type { NotesCategoryGroup } from '../types/notes';
@@ -55,8 +55,8 @@ export interface DemoState {
     show_category_group: boolean;
   };
   notes: DemoNotesState;
-  wishlist: WishlistData;
-  wishlistConfig: WishlistConfig;
+  stash: StashData;
+  stashConfig: StashConfig;
   pendingBookmarks: PendingBookmark[];
 }
 
@@ -1584,7 +1584,7 @@ function createInitialDemoNotes(): DemoNotesState {
 }
 
 // ============================================================================
-// Wishlist Seed Data
+// Stash Seed Data
 // ============================================================================
 
 function getTargetDate(monthsFromNow: number): string {
@@ -1596,19 +1596,19 @@ function getTargetDate(monthsFromNow: number): string {
   return isoDate ?? date.toISOString().substring(0, 10);
 }
 
-const DEMO_WISHLIST_ITEMS: WishlistItem[] = [
-  // Funded item - ready to purchase
+const DEMO_STASH_ITEMS: StashItem[] = [
+  // Funded item - ready to purchase (one-time purchase goal)
   {
-    type: 'wishlist',
-    id: 'wishlist-headphones',
+    type: 'stash',
+    id: 'stash-headphones',
     name: 'Sony WH-1000XM5',
     amount: 350,
     current_balance: 350,
     planned_budget: 0,
-    category_id: 'cat-wishlist-headphones',
+    category_id: 'cat-stash-headphones',
     category_name: 'Sony WH-1000XM5',
-    category_group_id: 'group-wishlist',
-    category_group_name: 'Wishlist',
+    category_group_id: 'group-stash',
+    category_group_name: 'Stashes',
     is_enabled: true,
     status: 'funded',
     progress_percent: 100,
@@ -1625,19 +1625,21 @@ const DEMO_WISHLIST_ITEMS: WishlistItem[] = [
     grid_y: 0,
     col_span: 1,
     row_span: 1,
+    goal_type: 'one_time',
+    created_at: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString(), // 60 days ago
   },
-  // On track - saving steadily
+  // On track - saving steadily (one-time purchase goal)
   {
-    type: 'wishlist',
-    id: 'wishlist-guitar',
+    type: 'stash',
+    id: 'stash-guitar',
     name: 'Fender Player Stratocaster',
     amount: 850,
     current_balance: 425,
     planned_budget: 142,
-    category_id: 'cat-wishlist-guitar',
+    category_id: 'cat-stash-guitar',
     category_name: 'Fender Guitar',
-    category_group_id: 'group-wishlist',
-    category_group_name: 'Wishlist',
+    category_group_id: 'group-stash',
+    category_group_name: 'Stashes',
     is_enabled: true,
     status: 'on_track',
     progress_percent: 50,
@@ -1653,19 +1655,21 @@ const DEMO_WISHLIST_ITEMS: WishlistItem[] = [
     grid_y: 0,
     col_span: 1,
     row_span: 1,
+    goal_type: 'one_time',
+    created_at: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString(), // 90 days ago
   },
-  // Behind - needs to catch up
+  // Behind - needs to catch up (savings buffer goal - emergency fund style)
   {
-    type: 'wishlist',
-    id: 'wishlist-camera',
+    type: 'stash',
+    id: 'stash-camera',
     name: 'Sony A7 IV',
     amount: 2500,
     current_balance: 800,
     planned_budget: 200,
-    category_id: 'cat-wishlist-camera',
+    category_id: 'cat-stash-camera',
     category_name: 'Sony A7 IV',
-    category_group_id: 'group-wishlist',
-    category_group_name: 'Wishlist',
+    category_group_id: 'group-stash',
+    category_group_name: 'Stashes',
     is_enabled: true,
     status: 'behind',
     progress_percent: 32,
@@ -1681,21 +1685,23 @@ const DEMO_WISHLIST_ITEMS: WishlistItem[] = [
     grid_y: 0,
     col_span: 1,
     row_span: 1,
+    goal_type: 'one_time',
+    created_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days ago
   },
 ];
 
-const DEMO_ARCHIVED_WISHLIST: WishlistItem[] = [
+const DEMO_ARCHIVED_STASH: StashItem[] = [
   {
-    type: 'wishlist',
-    id: 'wishlist-keyboard',
+    type: 'stash',
+    id: 'stash-keyboard',
     name: 'Keychron Q1 Pro',
     amount: 200,
     current_balance: 200,
     planned_budget: 0,
-    category_id: 'cat-wishlist-keyboard',
+    category_id: 'cat-stash-keyboard',
     category_name: 'Keychron Q1 Pro',
-    category_group_id: 'group-wishlist',
-    category_group_name: 'Wishlist',
+    category_group_id: 'group-stash',
+    category_group_name: 'Stashes',
     is_enabled: true,
     status: 'funded',
     progress_percent: 100,
@@ -1713,12 +1719,15 @@ const DEMO_ARCHIVED_WISHLIST: WishlistItem[] = [
     grid_y: 0,
     col_span: 1,
     row_span: 1,
+    goal_type: 'one_time',
+    created_at: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000).toISOString(), // 45 days ago
+    completed_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), // Completed 1 week ago
   },
 ];
 
-export function createInitialWishlistData(): WishlistData {
-  const items = DEMO_WISHLIST_ITEMS;
-  const archivedItems = DEMO_ARCHIVED_WISHLIST;
+export function createInitialStashData(): StashData {
+  const items = DEMO_STASH_ITEMS;
+  const archivedItems = DEMO_ARCHIVED_STASH;
 
   return {
     items,
@@ -1729,7 +1738,7 @@ export function createInitialWishlistData(): WishlistData {
   };
 }
 
-export function createInitialWishlistConfig(): WishlistConfig {
+export function createInitialStashConfig(): StashConfig {
   return {
     isConfigured: false,
     defaultCategoryGroupId: null,
@@ -1794,8 +1803,8 @@ export function createInitialDemoState(): DemoState {
       show_category_group: true,
     },
     notes: createInitialDemoNotes(),
-    wishlist: createInitialWishlistData(),
-    wishlistConfig: createInitialWishlistConfig(),
+    stash: createInitialStashData(),
+    stashConfig: createInitialStashConfig(),
     pendingBookmarks: createInitialPendingBookmarks(),
   };
 }

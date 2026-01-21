@@ -5,9 +5,9 @@ These store the recurring expense tracking configuration and state.
 No encryption needed - contains only IDs, amounts, and preferences.
 """
 
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, CheckConstraint, Date, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
@@ -205,6 +205,22 @@ class WishlistItem(Base):
     grid_y: Mapped[int] = mapped_column(Integer, default=0)
     col_span: Mapped[int] = mapped_column(Integer, default=1)
     row_span: Mapped[int] = mapped_column(Integer, default=1)
+
+    # Goal type determines how progress is calculated
+    # - 'one_time': Save up to buy something, mark complete when done.
+    #               Progress = total ever budgeted (immune to spending).
+    # - 'savings_buffer': Ongoing fund that can be spent and refilled.
+    #                     Progress = current remaining balance.
+    goal_type: Mapped[str] = mapped_column(String(20), default="one_time")
+
+    # When the one-time purchase was marked as completed (archived)
+    # Null = not completed, timestamp = completed
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    # Custom start date for tracking progress (one_time goals only)
+    # Used as startDate filter in Monarch aggregate query
+    # Null = use 1st of created_at month
+    tracking_start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
 
 
 class WishlistConfig(Base):

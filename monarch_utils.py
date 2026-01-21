@@ -552,6 +552,66 @@ def get_user_first_name(profile: dict[str, Any]) -> str:
     return ""
 
 
+# Cache for aggregate data (spending totals)
+_aggregates_cache: TTLCache = TTLCache(maxsize=100, ttl=_CACHE_TTL)
+
+
+async def get_category_aggregates(
+    mm, category_id: str, start_date: str, end_date: str
+) -> dict[str, Any]:
+    """
+    Get aggregate spending data for a category over a date range.
+
+    Uses Monarch's GetAggregates query to fetch total income and expenses
+    for a specific category. This is useful for calculating "total ever budgeted"
+    for one-time purchase goals.
+
+    Args:
+        mm: Authenticated MonarchMoney client
+        category_id: The category ID to get aggregates for
+        start_date: Start date in YYYY-MM-DD format
+        end_date: End date in YYYY-MM-DD format
+
+    Returns:
+        dict with 'sumExpense' and 'sumIncome' (both are floats, expense is negative)
+    """
+    cache_key = f"aggregates_{category_id}_{start_date}_{end_date}"
+    if cache_key in _aggregates_cache:
+        cached: dict[str, Any] = _aggregates_cache[cache_key]
+        return cached
+
+    query = gql("""
+        query GetAggregates($filters: TransactionFilterInput!) {
+            aggregates(filters: $filters) {
+                summary {
+                    sumExpense
+                    sumIncome
+                }
+            }
+        }
+    """)
+
+    result = await mm.gql_call(
+        operation="GetAggregates",
+        graphql_query=query,
+        variables={
+            "filters": {
+                "categories": [category_id],
+                "startDate": start_date,
+                "endDate": end_date,
+            }
+        },
+    )
+
+    summary = result.get("aggregates", {}).get("summary", {})
+    aggregates: dict[str, Any] = {
+        "sumExpense": summary.get("sumExpense", 0.0),
+        "sumIncome": summary.get("sumIncome", 0.0),
+    }
+    _aggregates_cache[cache_key] = aggregates
+    return aggregates
+
+
 # Helper to build category id<->name maps and monthly lookup
 def build_category_maps(budgets):
     cat_id_to_name_categories = {}

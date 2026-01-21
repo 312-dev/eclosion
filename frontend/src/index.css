@@ -1412,11 +1412,11 @@ input[type='radio'] {
 }
 
 /* ============================================================================
-   Wishlist Widget Grid - react-grid-layout Customizations
+   Stash Widget Grid - react-grid-layout Customizations
    ============================================================================ */
 
 /* Grid container - must take full width for proper measurement */
-.wishlist-widget-grid {
+.stash-widget-grid {
   display: block;
   box-sizing: border-box;
   width: 100%;
@@ -1425,12 +1425,12 @@ input[type='radio'] {
 }
 
 /* Ensure react-grid-layout takes full container width */
-.wishlist-widget-grid .react-grid-layout {
+.stash-widget-grid .react-grid-layout {
   width: 100% !important;
 }
 
 /* Individual grid item */
-.wishlist-grid-item {
+.stash-grid-item {
   height: 100%;
 }
 
@@ -1458,7 +1458,7 @@ span.react-resizable-handle.react-resizable-handle-se:hover {
 
 /* Apple-style resize indicator - SVG arc with rounded stroke caps */
 /* Override default react-resizable ::after styling and apply our custom arc */
-.wishlist-widget-grid .react-grid-item > .react-resizable-handle::after {
+.stash-widget-grid .react-grid-item > .react-resizable-handle::after {
   content: '' !important;
   position: absolute !important;
   right: 0 !important;
@@ -1472,7 +1472,7 @@ span.react-resizable-handle.react-resizable-handle-se:hover {
 }
 
 /* Grab cursor on image banner hover */
-.wishlist-card-image {
+.stash-card-image {
   cursor: grab;
 }
 
@@ -1485,12 +1485,12 @@ span.react-resizable-handle.react-resizable-handle-se:hover {
 }
 
 /* Grabbing cursor on entire grid while dragging (keeps cursor while moving to drop point) */
-.wishlist-widget-grid:has(.react-draggable-dragging) {
+.stash-widget-grid:has(.react-draggable-dragging) {
   cursor: grabbing;
 }
 
 /* Grabbing cursor propagates to all children while dragging */
-.wishlist-widget-grid:has(.react-draggable-dragging) * {
+.stash-widget-grid:has(.react-draggable-dragging) * {
   cursor: grabbing !important;
 }
 

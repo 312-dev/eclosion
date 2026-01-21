@@ -73,10 +73,10 @@ export { useRecurringTour, TOUR_STATE_KEY, type UseRecurringTourReturn } from '.
 export { useNotesTour, NOTES_TOUR_STATE_KEY, type UseNotesTourReturn } from './useNotesTour';
 
 export {
-  useWishlistTour,
-  WISHLIST_TOUR_STATE_KEY,
-  type UseWishlistTourReturn,
-} from './useWishlistTour';
+  useStashTour,
+  STASH_TOUR_STATE_KEY,
+  type UseStashTourReturn,
+} from './useStashTour';
 
 export { useBiometric, type UseBiometricReturn } from './useBiometric';
 
@@ -108,10 +108,10 @@ export { useBrowserSelection, type UseBrowserSelectionResult } from './wizard/us
 export { useFolderSelection, type UseFolderSelectionResult } from './wizard/useFolderSelection';
 
 export {
-  useWishlistImageUpload,
-  type UseWishlistImageUploadResult,
-} from './useWishlistImageUpload';
+  useStashImageUpload,
+  type UseStashImageUploadResult,
+} from './useStashImageUpload';
 
-export { useWishlistSync } from './useWishlistSync';
+export { useStashSync } from './useStashSync';
 
 export { useAppTour } from './useAppTour';

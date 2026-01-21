@@ -171,7 +171,7 @@ export function Modal({
     // Backdrop overlay - click to close is handled via onClick
     // Keyboard closing is handled via Escape key in handleKeyDown
     <div
-      className="fixed inset-0 z-(--z-index-modal) flex items-center justify-center p-4"
+      className="fixed inset-0 z-(--z-index-modal) flex items-center justify-center p-4 backdrop-blur-sm"
       style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
       onClick={handleBackdropClick}
     >
@@ -182,8 +182,11 @@ export function Modal({
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={description ? descriptionId : undefined}
-        className={`relative w-full ${MAX_WIDTH_CLASSES[maxWidth]} max-h-[90vh] flex flex-col rounded-lg shadow-xl p-0 m-0`}
-        style={{ backgroundColor: 'var(--monarch-bg-card)' }}
+        className={`relative w-full ${MAX_WIDTH_CLASSES[maxWidth]} max-h-[90vh] flex flex-col rounded-lg p-0 m-0`}
+        style={{
+          backgroundColor: 'var(--monarch-bg-card)',
+          boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.1), 0 10px 30px -5px rgba(0, 0, 0, 0.5), 0 20px 50px -10px rgba(0, 0, 0, 0.4)',
+        }}
       >
         {/* Header */}
         <div

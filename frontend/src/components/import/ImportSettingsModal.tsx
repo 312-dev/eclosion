@@ -88,7 +88,7 @@ export function ImportSettingsModal({ isOpen, onClose }: ImportSettingsModalProp
 
     try {
       const result = await client.importSettings(exportData, {
-        tools: Array.from(selectedTools) as ('recurring' | 'notes' | 'wishlist')[],
+        tools: Array.from(selectedTools) as ('recurring' | 'notes' | 'stash')[],
       });
 
       if (!result.success) {

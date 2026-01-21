@@ -79,11 +79,11 @@ function NotesPreviewDetails({ info }: { info: NonNullable<ImportPreview['tools'
   );
 }
 
-/** Render preview details for the wishlist tool */
-function WishlistPreviewDetails({
+/** Render preview details for the stash tool */
+function StashPreviewDetails({
   info,
 }: {
-  info: NonNullable<ImportPreview['tools']['wishlist']>;
+  info: NonNullable<ImportPreview['tools']['stash']>;
 }) {
   return (
     <>
@@ -94,7 +94,7 @@ function WishlistPreviewDetails({
       )}
       {info.items_count > 0 && (
         <div className="flex items-center gap-1">
-          <Check size={12} /> {info.items_count} wishlist item{info.items_count === 1 ? '' : 's'}
+          <Check size={12} /> {info.items_count} stash{info.items_count === 1 ? '' : 'es'}
         </div>
       )}
       {info.archived_items_count > 0 && (
@@ -121,8 +121,8 @@ function ToolPreviewDetails({ tool, preview }: { tool: string; preview: ImportPr
   if (tool === 'notes' && preview.tools.notes) {
     return <NotesPreviewDetails info={preview.tools.notes} />;
   }
-  if (tool === 'wishlist' && preview.tools.wishlist) {
-    return <WishlistPreviewDetails info={preview.tools.wishlist} />;
+  if (tool === 'stash' && preview.tools.stash) {
+    return <StashPreviewDetails info={preview.tools.stash} />;
   }
   return null;
 }
