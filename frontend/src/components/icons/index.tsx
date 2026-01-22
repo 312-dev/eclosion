@@ -104,6 +104,8 @@ import {
   Wallet,
   Square,
   CheckSquare,
+  Landmark,
+  Maximize2,
 } from 'lucide-react';
 import type { SVGProps } from 'react';
 
@@ -520,6 +522,7 @@ export const Icons = {
   SearchAlert: SearchAlertIcon,
   Filter: FilterIcon,
   MoreVertical: MoreVerticalIcon,
+  Maximize2,
 
   // Calendar
   Calendar: CalendarIcon,
@@ -608,6 +611,7 @@ export const Icons = {
   Award: AwardIcon,
   PiggyBank: PiggyBankIcon,
   Coins: CoinsIcon,
+  Landmark,
   Wallet: WalletIcon,
 
   // Selection
