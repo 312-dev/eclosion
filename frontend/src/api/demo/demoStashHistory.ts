@@ -40,7 +40,7 @@ function generateItemHistory(
     amount: number;
     current_balance: number;
     monthly_target: number;
-    created_at?: string | null;
+    created_at?: string | null | undefined;
   },
   months: string[]
 ): StashHistoryItem {

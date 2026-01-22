@@ -102,6 +102,7 @@ export function useCreateStashMutation() {
       isDemo ? demoApi.createStashItem(request) : api.createStashItem(request),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.stash, isDemo) });
+      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.availableToStash, isDemo) });
     },
   });
 }
@@ -155,6 +156,7 @@ export function useCompleteStashMutation() {
         : api.completeStashItem(id, releaseFunds),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.stash, isDemo) });
+      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.availableToStash, isDemo) });
       // If funds were released, invalidate dashboard to update Left to Budget badge
       if (variables.releaseFunds) {
         queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.dashboard, isDemo) });
@@ -187,6 +189,7 @@ export function useDeleteStashMutation() {
         : api.deleteStashItem(id, deleteCategory),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.stash, isDemo) });
+      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.availableToStash, isDemo) });
       // If category was deleted, invalidate dashboard to update Left to Budget badge
       if (variables.deleteCategory) {
         queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.dashboard, isDemo) });
@@ -206,6 +209,8 @@ export function useAllocateStashMutation() {
       queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.stash, isDemo) });
       // Invalidate dashboard to update Left to Budget badge
       queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.dashboard, isDemo) });
+      // Invalidate available-to-stash since stash balances changed
+      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.availableToStash, isDemo) });
     },
   });
 }
@@ -258,6 +263,9 @@ export function useStashSyncMutation() {
     mutationFn: () => (isDemo ? demoApi.syncStash() : api.syncStash()),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.stash, isDemo) });
+      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.availableToStash, isDemo) });
+      // Invalidate history so Reports tab refreshes after sync
+      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.stashHistory, isDemo) });
     },
   });
 }

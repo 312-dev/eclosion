@@ -97,6 +97,18 @@ export interface StashItem {
    * Shown as "available to spend" when different from progress.
    */
   available_to_spend?: number;
+
+  /**
+   * Amount rolled over from previous months (from Monarch).
+   * Used for balance breakdown tooltip.
+   */
+  rollover_amount?: number;
+
+  /**
+   * Positive transactions (credits/inflows) in the current month.
+   * Used for balance breakdown tooltip to distinguish from rollover.
+   */
+  credits_this_month?: number;
 }
 
 /**

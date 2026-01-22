@@ -69,6 +69,8 @@ export async function createStashItem(request: CreateStashItemRequest): Promise<
     amount: request.amount,
     current_balance: 0,
     planned_budget: 0,
+    rollover_amount: 0,
+    credits_this_month: 0,
     category_id: categoryId,
     category_name: request.name,
     category_group_id: categoryGroupId,
@@ -126,6 +128,35 @@ export async function createStashItem(request: CreateStashItemRequest): Promise<
 }
 
 /**
+ * Apply updates to a stash item, handling nullable fields correctly.
+ */
+function applyStashUpdates(item: StashItem, updates: UpdateStashItemRequest): StashItem {
+  const merged = { ...item };
+
+  // Simple field updates
+  if (updates.name !== undefined) merged.name = updates.name;
+  if (updates.amount !== undefined) merged.amount = updates.amount;
+  if (updates.target_date !== undefined) merged.target_date = updates.target_date;
+  if (updates.emoji !== undefined) merged.emoji = updates.emoji;
+  if (updates.is_enabled !== undefined) merged.is_enabled = updates.is_enabled;
+  if (updates.goal_type !== undefined) merged.goal_type = updates.goal_type;
+
+  // Nullable fields (null means delete, undefined means unchanged)
+  if (updates.source_url === null) delete merged.source_url;
+  else if (updates.source_url !== undefined) merged.source_url = updates.source_url;
+
+  if (updates.custom_image_path === null) delete merged.custom_image_path;
+  else if (updates.custom_image_path !== undefined)
+    merged.custom_image_path = updates.custom_image_path;
+
+  if (updates.tracking_start_date === null) delete merged.tracking_start_date;
+  else if (updates.tracking_start_date !== undefined)
+    merged.tracking_start_date = updates.tracking_start_date;
+
+  return merged;
+}
+
+/**
  * Update a stash item.
  */
 export async function updateStashItem(
@@ -139,29 +170,7 @@ export async function updateStashItem(
     if (itemIndex === -1) throw new Error(`Stash not found: ${id}`);
 
     const item = state.stash.items[itemIndex]!;
-    const merged = { ...item };
-
-    if (updates.name !== undefined) merged.name = updates.name;
-    if (updates.amount !== undefined) merged.amount = updates.amount;
-    if (updates.target_date !== undefined) merged.target_date = updates.target_date;
-    if (updates.emoji !== undefined) merged.emoji = updates.emoji;
-    if (updates.is_enabled !== undefined) merged.is_enabled = updates.is_enabled;
-
-    if (updates.source_url !== undefined) {
-      if (updates.source_url === null) delete merged.source_url;
-      else merged.source_url = updates.source_url;
-    }
-    if (updates.custom_image_path !== undefined) {
-      if (updates.custom_image_path === null) delete merged.custom_image_path;
-      else merged.custom_image_path = updates.custom_image_path;
-    }
-    if (updates.goal_type !== undefined) {
-      merged.goal_type = updates.goal_type;
-    }
-    if (updates.tracking_start_date !== undefined) {
-      if (updates.tracking_start_date === null) delete merged.tracking_start_date;
-      else merged.tracking_start_date = updates.tracking_start_date;
-    }
+    const merged = applyStashUpdates(item, updates);
 
     const newItems = [...state.stash.items];
     newItems[itemIndex] = recomputeItem(merged);

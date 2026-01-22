@@ -45,6 +45,8 @@ export function buildStashItem(
     months_remaining: isArchived ? 0 : 12,
     current_balance: 0,
     planned_budget: 0,
+    rollover_amount: 0,
+    credits_this_month: 0,
     monthly_target: isArchived ? 0 : Math.ceil(item.amount / 12),
     shortfall: item.amount,
     sort_order: baseOrder + index,
