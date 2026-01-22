@@ -10,13 +10,13 @@ import { useStashConfigQuery } from '../../api/queries';
 import { StashCategoryModal, type CategorySelection } from './StashCategoryModal';
 import { useToast } from '../../context/ToastContext';
 import { useIsRateLimited } from '../../context/RateLimitContext';
-import { calculateStashMonthlyTarget, getQuickPickDates } from '../../utils/savingsCalculations';
+import { calculateStashMonthlyTarget } from '../../utils/savingsCalculations';
 import { StashImageUpload } from './StashImageUpload';
 import { EditStashProgress } from './EditStashProgress';
 import { DeleteStashConfirmModal } from './DeleteStashConfirmModal';
 import {
   NameInputWithEmoji,
-  UrlInput,
+  UrlDisplay,
   AmountInput,
   TargetDateInput,
   GoalTypeSelector,
@@ -55,12 +55,7 @@ interface EditStashFormProps {
   }) => React.ReactNode;
 }
 
-export function EditStashForm({
-  item,
-  onSuccess,
-  onClose,
-  renderFooter,
-}: EditStashFormProps) {
+export function EditStashForm({ item, onSuccess, onClose, renderFooter }: EditStashFormProps) {
   const toast = useToast();
   const isRateLimited = useIsRateLimited();
   const { data: stashConfig } = useStashConfigQuery();
@@ -78,16 +73,15 @@ export function EditStashForm({
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [categoryMissingItemId, setCategoryMissingItemId] = useState<string | null>(null);
   const [goalType, setGoalType] = useState<StashGoalType>(item.goal_type ?? 'one_time');
-
-  const quickPicks = useMemo(() => getQuickPickDates(), []);
+  const [isNameFocused, setIsNameFocused] = useState(false);
 
   const monthlyTarget = useMemo(() => {
     const amountNum = Number.parseFloat(amount) || 0;
     const isValid = amountNum > 0 && targetDate;
-    return isValid
-      ? calculateStashMonthlyTarget(amountNum, item.current_balance, targetDate)
-      : 0;
-  }, [amount, targetDate, item.current_balance]);
+    // Use current_balance minus planned_budget so inflows reduce target but budget doesn't
+    const effectiveBalance = item.current_balance - item.planned_budget;
+    return isValid ? calculateStashMonthlyTarget(amountNum, effectiveBalance, targetDate) : 0;
+  }, [amount, targetDate, item.current_balance, item.planned_budget]);
 
   const handleImageUploaded = useCallback((imagePath: string) => setCustomImagePath(imagePath), []);
   const handleImageRemoved = useCallback(() => setCustomImagePath(null), []);
@@ -150,12 +144,6 @@ export function EditStashForm({
   const today = useMemo(() => new Date().toISOString().split('T')[0], []);
   const amountNum = Number.parseFloat(amount) || 0;
 
-  const editQuickPicks = [
-    { label: '3mo', date: quickPicks.threeMonths },
-    { label: '6mo', date: quickPicks.sixMonths },
-    { label: '1yr', date: quickPicks.oneYear },
-  ];
-
   const onCategoryConfirm = (selection: CategorySelection) =>
     handleCategorySelection(selection, categoryMissingItemId);
   const onCategoryClose = () => {
@@ -165,7 +153,7 @@ export function EditStashForm({
 
   return (
     <>
-      <div className="space-y-4">
+      <div className="space-y-3">
         <div>
           <StashImageUpload
             itemId={item.id}
@@ -180,71 +168,74 @@ export function EditStashForm({
           )}
         </div>
 
-        <NameInputWithEmoji
-          id="edit-stash-name"
-          value={name}
-          onChange={setName}
-          emoji={emoji}
-          onEmojiChange={setEmoji}
-        />
-        <UrlInput id="edit-stash-url" value={url} onChange={setUrl} />
-
-        {/* Sentence-style intention input: "Save $[amount] by [date] as a [goal type]" */}
-        <div className="space-y-3">
-          {/* "Save $[amount] by [date]" */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <span
-              className="text-sm font-medium whitespace-nowrap"
-              style={{ color: 'var(--monarch-text)' }}
-            >
-              Save
-            </span>
-            <div className="w-28">
-              <AmountInput id="edit-stash-amount" value={amount} onChange={setAmount} hideLabel />
-            </div>
-            <span
-              className="text-sm font-medium whitespace-nowrap"
-              style={{ color: 'var(--monarch-text)' }}
-            >
-              by
-            </span>
-            <div className="flex-1 min-w-32">
-              <TargetDateInput
-                id="edit-stash-date"
-                value={targetDate}
-                onChange={setTargetDate}
-                minDate={today}
-                quickPickOptions={editQuickPicks}
-                hideLabel
-              />
-            </div>
-          </div>
-
-          {/* "as a [goal type]" */}
-          <div className="flex items-center gap-2">
-            <span
-              className="text-sm font-medium whitespace-nowrap"
-              style={{ color: 'var(--monarch-text)' }}
-            >
-              as a
-            </span>
-            <div className="flex-1">
-              <GoalTypeSelector value={goalType} onChange={setGoalType} hideLabel />
-            </div>
+        <div>
+          <NameInputWithEmoji
+            id="edit-stash-name"
+            value={name}
+            onChange={setName}
+            emoji={emoji}
+            onEmojiChange={setEmoji}
+            onFocusChange={setIsNameFocused}
+          />
+          {/* Aligned with text input (after emoji picker w-12 + gap-2) */}
+          <div
+            className={`mt-1 pl-14 transition-all duration-200 ${
+              isNameFocused || url
+                ? 'opacity-100 translate-y-0'
+                : 'opacity-0 -translate-y-1 pointer-events-none'
+            }`}
+          >
+            <UrlDisplay value={url} onChange={setUrl} />
           </div>
         </div>
 
-        {/* Progress section - edit-specific */}
-        {amount && amountNum > 0 && targetDate && (
-          <EditStashProgress
-            item={item}
-            goalAmount={amountNum}
-            monthlyTarget={monthlyTarget}
-            onComplete={handleComplete}
-            onUncomplete={handleUncomplete}
-            isCompletingItem={isCompletingItem}
-          />
-        )}
+        {/* Goal container - intention inputs + progress */}
+        <div
+          className="p-4 rounded-lg space-y-4"
+          style={{
+            backgroundColor: 'var(--monarch-bg-page)',
+            border: '1px solid var(--monarch-border)',
+          }}
+        >
+          {/* Sentence-style intention input: "Save $[amount] as a [goal type] by [date]" */}
+          <div className="flex items-center gap-x-2 gap-y-1 flex-wrap justify-center">
+            <span className="py-2" style={{ color: 'var(--monarch-text-muted)' }}>
+              I intend to save
+            </span>
+            <AmountInput id="edit-stash-amount" value={amount} onChange={setAmount} hideLabel />
+            <span className="py-2" style={{ color: 'var(--monarch-text-muted)' }}>
+              {goalType === 'one_time' ? 'for a' : 'as a'}
+            </span>
+            <div className="basis-full h-0" />
+            <GoalTypeSelector value={goalType} onChange={setGoalType} hideLabel />
+            <span className="py-2" style={{ color: 'var(--monarch-text-muted)' }}>
+              by
+            </span>
+            <TargetDateInput
+              id="edit-stash-date"
+              value={targetDate}
+              onChange={setTargetDate}
+              minDate={today}
+              quickPickOptions={[]}
+              hideLabel
+            />
+          </div>
+
+          {/* Progress section - edit-specific */}
+          {amount && amountNum > 0 && targetDate && (
+            <>
+              <div className="border-t" style={{ borderColor: 'var(--monarch-border)' }} />
+              <EditStashProgress
+                item={item}
+                goalAmount={amountNum}
+                monthlyTarget={monthlyTarget}
+                onComplete={handleComplete}
+                onUncomplete={handleUncomplete}
+                isCompletingItem={isCompletingItem}
+              />
+            </>
+          )}
+        </div>
 
         {/* Category info - edit-specific */}
         {item.category_name && item.category_id && (

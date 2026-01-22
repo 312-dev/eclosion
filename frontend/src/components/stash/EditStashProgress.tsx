@@ -8,10 +8,7 @@
 import { useMemo } from 'react';
 import { SavingsProgressBar } from '../shared';
 import { Icons } from '../icons';
-import {
-  formatMonthsRemaining,
-  calculateMonthsRemaining,
-} from '../../utils/savingsCalculations';
+import { formatMonthsRemaining, calculateMonthsRemaining } from '../../utils/savingsCalculations';
 import type { StashItem, ItemStatus } from '../../types';
 
 interface EditStashProgressProps {
@@ -38,7 +35,10 @@ export function EditStashProgress({
   const progressPercent =
     goalAmount > 0 ? Math.min(100, (item.current_balance / goalAmount) * 100) : 0;
   const displayStatus: ItemStatus = item.status;
-  const rolloverAmount = Math.max(0, item.current_balance - item.planned_budget);
+  // Use actual rollover from Monarch, falling back to calculated value for backwards compatibility
+  const rolloverAmount =
+    item.rollover_amount ?? Math.max(0, item.current_balance - item.planned_budget);
+  const creditsThisMonth = item.credits_this_month ?? 0;
   const goalType = item.goal_type ?? 'one_time';
 
   // For one-time goals with spending, show available balance info
@@ -48,13 +48,7 @@ export function EditStashProgress({
     item.available_to_spend !== item.current_balance;
 
   return (
-    <div
-      className="p-4 rounded-lg space-y-4"
-      style={{
-        backgroundColor: 'var(--monarch-bg-page)',
-        border: '1px solid var(--monarch-border)',
-      }}
-    >
+    <>
       {/* Progress Bar Section */}
       <div>
         <SavingsProgressBar
@@ -65,6 +59,7 @@ export function EditStashProgress({
           isEnabled={true}
           rolloverAmount={rolloverAmount}
           budgetedThisMonth={item.planned_budget}
+          creditsThisMonth={creditsThisMonth}
         />
 
         {/* Available balance info for one-time goals with spending */}
@@ -114,10 +109,7 @@ export function EditStashProgress({
 
       {/* Completed State (for already completed items) */}
       {item.completed_at && (
-        <div
-          className="pt-3 border-t"
-          style={{ borderColor: 'var(--monarch-border)' }}
-        >
+        <div className="pt-3 border-t" style={{ borderColor: 'var(--monarch-border)' }}>
           <div
             className="p-3 rounded-lg flex items-center justify-between"
             style={{
@@ -150,6 +142,6 @@ export function EditStashProgress({
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

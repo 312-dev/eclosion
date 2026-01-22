@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- Complex chart component with tooltip, hooks, and rendering logic */
 /**
  * StashProgressChart - Progress visualization for stash items
  *

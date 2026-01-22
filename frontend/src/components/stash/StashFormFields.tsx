@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- Form components with multiple field types require significant code */
 /**
  * Stash Form Field Components
  *
@@ -26,6 +27,7 @@ interface NameInputProps {
   emoji: string;
   onEmojiChange: (emoji: string) => void;
   placeholder?: string;
+  onFocusChange?: (isFocused: boolean) => void;
 }
 
 export function NameInputWithEmoji({
@@ -35,6 +37,7 @@ export function NameInputWithEmoji({
   emoji,
   onEmojiChange,
   placeholder = 'What are you saving for?',
+  onFocusChange,
 }: NameInputProps) {
   const handleEmojiSelect = useCallback(
     async (selectedEmoji: string) => {
@@ -54,7 +57,7 @@ export function NameInputWithEmoji({
       </label>
       <div className="flex gap-2 items-center">
         <div
-          className="w-12 h-10 flex items-center justify-center text-lg rounded-md"
+          className="w-12 h-10 flex items-center justify-center text-lg rounded-md shrink-0"
           style={{
             backgroundColor: 'var(--monarch-bg-page)',
             border: '1px solid var(--monarch-border)',
@@ -67,6 +70,8 @@ export function NameInputWithEmoji({
           type="text"
           value={value}
           onChange={(e) => onChange(e.target.value)}
+          onFocus={() => onFocusChange?.(true)}
+          onBlur={() => onFocusChange?.(false)}
           placeholder={placeholder}
           className="flex-1 px-3 py-2 rounded-md"
           style={{
@@ -86,6 +91,7 @@ interface UrlInputProps {
   onChange: (value: string) => void;
 }
 
+/** @deprecated Use UrlDisplay instead */
 export function UrlInput({ id, value, onChange }: UrlInputProps) {
   const safeHref = getSafeHref(value);
   return (
@@ -129,6 +135,236 @@ export function UrlInput({ id, value, onChange }: UrlInputProps) {
         )}
       </div>
     </div>
+  );
+}
+
+interface UrlDisplayProps {
+  value: string;
+  onChange: (value: string) => void;
+}
+
+/**
+ * Inner content of the URL edit modal.
+ * Separated to reset state when modal reopens via key prop.
+ */
+function UrlEditModalContent({
+  value,
+  onSave,
+  onClose,
+}: {
+  value: string;
+  onSave: (url: string) => void;
+  onClose: () => void;
+}) {
+  const [inputValue, setInputValue] = useState(value);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Focus input on mount
+  useEffect(() => {
+    const timer = setTimeout(() => inputRef.current?.focus(), 50);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const handleSave = () => {
+    onSave(inputValue.trim());
+    onClose();
+  };
+
+  const handleRemove = () => {
+    onSave('');
+    onClose();
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSave();
+    }
+  };
+
+  return (
+    <>
+      <h3 className="text-lg font-medium mb-3" style={{ color: 'var(--monarch-text)' }}>
+        {value ? 'Edit Link' : 'Add Link'}
+      </h3>
+      <input
+        ref={inputRef}
+        type="url"
+        value={inputValue}
+        onChange={(e) => setInputValue(e.target.value)}
+        onKeyDown={handleKeyDown}
+        placeholder="https://example.com/product"
+        className="w-full px-3 py-2 rounded-md mb-4"
+        style={{
+          backgroundColor: 'var(--monarch-bg-page)',
+          border: '1px solid var(--monarch-border)',
+          color: 'var(--monarch-text)',
+        }}
+      />
+      <div className="flex justify-between">
+        {value && (
+          <button
+            type="button"
+            onClick={handleRemove}
+            className="px-3 py-1.5 text-sm rounded-md transition-colors"
+            style={{ color: 'var(--monarch-error)' }}
+          >
+            Remove Link
+          </button>
+        )}
+        <div className={`flex gap-2 ${value ? '' : 'ml-auto'}`}>
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-3 py-1.5 text-sm rounded-md transition-colors"
+            style={{
+              backgroundColor: 'var(--monarch-bg-page)',
+              color: 'var(--monarch-text-muted)',
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            className="px-3 py-1.5 text-sm rounded-md font-medium transition-colors"
+            style={{
+              backgroundColor: 'var(--monarch-teal)',
+              color: 'white',
+            }}
+          >
+            Save
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function UrlEditModal({
+  isOpen,
+  onClose,
+  value,
+  onSave,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  value: string;
+  onSave: (url: string) => void;
+}) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+
+  // Control dialog open/close via ref
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+
+    if (isOpen && !dialog.open) {
+      dialog.showModal();
+    } else if (!isOpen && dialog.open) {
+      dialog.close();
+    }
+  }, [isOpen]);
+
+  // Handle native dialog close (e.g., Escape key)
+  const handleDialogClose = useCallback(() => {
+    onClose();
+  }, [onClose]);
+
+  // Handle backdrop click
+  const handleBackdropClick = useCallback(
+    (e: React.MouseEvent<HTMLDialogElement>) => {
+      // Only close if clicking the backdrop (dialog element itself)
+      if (e.target === dialogRef.current) {
+        onClose();
+      }
+    },
+    [onClose]
+  );
+
+  return createPortal(
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions -- Dialog backdrop click-to-close is standard UX; keyboard close via Escape is handled natively
+    <dialog
+      ref={dialogRef}
+      onClose={handleDialogClose}
+      onClick={handleBackdropClick}
+      className="w-full max-w-md p-4 rounded-lg shadow-lg backdrop:bg-black/50"
+      style={{
+        backgroundColor: 'var(--monarch-bg-card)',
+        border: '1px solid var(--monarch-border)',
+      }}
+    >
+      {/* Use key to reset content state when modal opens */}
+      {isOpen && <UrlEditModalContent value={value} onSave={onSave} onClose={onClose} />}
+    </dialog>,
+    document.body
+  );
+}
+
+export function UrlDisplay({ value, onChange }: UrlDisplayProps) {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const safeHref = getSafeHref(value);
+
+  if (!value) {
+    return (
+      <>
+        <button
+          type="button"
+          onClick={() => setIsModalOpen(true)}
+          className="text-xs hover:underline"
+          style={{ color: 'var(--monarch-orange)' }}
+        >
+          ↳ Add link
+        </button>
+        <UrlEditModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          value={value}
+          onSave={onChange}
+        />
+      </>
+    );
+  }
+
+  // Truncate URL for display
+  const displayUrl = value.length > 40 ? `${value.slice(0, 37)}...` : value;
+
+  return (
+    <>
+      <div className="flex items-center gap-2 text-sm">
+        {safeHref ? (
+          <a
+            href={safeHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:underline truncate"
+            style={{ color: 'var(--monarch-teal)' }}
+            title={value}
+          >
+            {displayUrl}
+          </a>
+        ) : (
+          <span className="truncate" style={{ color: 'var(--monarch-text-muted)' }} title={value}>
+            {displayUrl}
+          </span>
+        )}
+        <button
+          type="button"
+          onClick={() => setIsModalOpen(true)}
+          className="shrink-0 p-1 rounded hover:bg-(--monarch-bg-page)"
+          style={{ color: 'var(--monarch-text-muted)' }}
+          aria-label="Edit link"
+        >
+          <Icons.Edit className="w-3.5 h-3.5" />
+        </button>
+      </div>
+      <UrlEditModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        value={value}
+        onSave={onChange}
+      />
+    </>
   );
 }
 
@@ -246,31 +482,49 @@ export function TargetDateInput({
           Deadline
         </label>
       )}
-      <div className="relative">
-        <button
-          type="button"
-          className="w-full px-3 py-2 rounded-md cursor-pointer text-left"
-          style={{
-            backgroundColor: 'var(--monarch-bg-page)',
-            border: '1px solid var(--monarch-border)',
-            color: value ? 'var(--monarch-text)' : 'var(--monarch-text-muted)',
-          }}
-          onClick={handleContainerClick}
-        >
-          {formattedDate || 'Select date'}
-        </button>
-        <input
-          ref={inputRef}
-          id={id}
-          type="date"
-          value={value}
-          min={minDate}
-          onChange={(e) => onChange(e.target.value)}
-          className="absolute inset-0 opacity-0 pointer-events-none"
-          tabIndex={-1}
-          aria-hidden="true"
-        />
-      </div>
+      {hideLabel ? (
+        <div className="inline-flex">
+          <input
+            id={id}
+            type="date"
+            value={value}
+            min={minDate}
+            onChange={(e) => onChange(e.target.value)}
+            className="px-3 py-2 rounded-md leading-normal"
+            style={{
+              backgroundColor: 'var(--monarch-bg-page)',
+              border: '1px solid var(--monarch-border)',
+              color: value ? 'var(--monarch-text)' : 'var(--monarch-text-muted)',
+            }}
+          />
+        </div>
+      ) : (
+        <div className="relative">
+          <button
+            type="button"
+            className="w-full px-3 py-2 rounded-md cursor-pointer text-left"
+            style={{
+              backgroundColor: 'var(--monarch-bg-page)',
+              border: '1px solid var(--monarch-border)',
+              color: value ? 'var(--monarch-text)' : 'var(--monarch-text-muted)',
+            }}
+            onClick={handleContainerClick}
+          >
+            {formattedDate || 'Select date'}
+          </button>
+          <input
+            ref={inputRef}
+            id={id}
+            type="date"
+            value={value}
+            min={minDate}
+            onChange={(e) => onChange(e.target.value)}
+            className="absolute inset-0 opacity-0 pointer-events-none"
+            tabIndex={-1}
+            aria-hidden="true"
+          />
+        </div>
+      )}
       <div className="flex flex-wrap gap-2 mt-2">
         {picks.map((pick) => (
           <button
@@ -309,7 +563,7 @@ const GOAL_TYPE_OPTIONS: Array<{
 }> = [
   {
     value: 'one_time',
-    title: 'one-time purchase',
+    title: 'purchase',
     description: 'Save up to buy something. Mark complete when done.',
     examples: 'e.g. New laptop, vacation, furniture',
     icon: 'Gift',
@@ -325,7 +579,7 @@ const GOAL_TYPE_OPTIONS: Array<{
 
 /**
  * Goal type selector dropdown for stash items.
- * Allows choosing between one-time purchase and savings buffer goals.
+ * Allows choosing between purchase and savings buffer goals.
  */
 export function GoalTypeSelector({ value, onChange, hideLabel = false }: GoalTypeSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -333,27 +587,22 @@ export function GoalTypeSelector({ value, onChange, hideLabel = false }: GoalTyp
   const triggerRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const selectedOption = GOAL_TYPE_OPTIONS.find((opt) => opt.value === value) ?? GOAL_TYPE_OPTIONS[0]!;
+  const selectedOption =
+    GOAL_TYPE_OPTIONS.find((opt) => opt.value === value) ?? GOAL_TYPE_OPTIONS[0]!;
 
   // Calculate dropdown position when opening - useLayoutEffect for synchronous DOM measurements
   useLayoutEffect(() => {
     if (isOpen && triggerRef.current) {
       const triggerRect = triggerRef.current.getBoundingClientRect();
       const dropdownHeight = 220; // Approximate height of dropdown
+      const dropdownWidth = 280; // Fixed width for dropdown content
       const spaceBelow = window.innerHeight - triggerRect.bottom;
       const spaceAbove = triggerRect.top;
       const openUpward = spaceBelow < dropdownHeight && spaceAbove > spaceBelow;
 
-      // Find parent row container to get full width
-      const parentRow = triggerRef.current.closest('.flex.gap-3')?.parentElement;
-      const parentRect = parentRow?.getBoundingClientRect();
-      const dropdownLeft = parentRect?.left ?? triggerRect.left;
-      const dropdownWidth = parentRect?.width ?? triggerRect.width;
-
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- useLayoutEffect is correct for synchronous DOM measurements
       setDropdownStyle({
         position: 'fixed',
-        left: dropdownLeft,
+        left: triggerRect.left,
         width: dropdownWidth,
         ...(openUpward
           ? { bottom: window.innerHeight - triggerRect.top + 4 }
@@ -421,10 +670,7 @@ export function GoalTypeSelector({ value, onChange, hideLabel = false }: GoalTyp
                 }}
               >
                 <div className="flex items-start gap-3">
-                  <IconComponent
-                    className="w-5 h-5 mt-0.5 shrink-0"
-                    style={{ color: iconColor }}
-                  />
+                  <IconComponent className="w-5 h-5 mt-0.5 shrink-0" style={{ color: iconColor }} />
                   <div className="flex-1">
                     <div className="font-medium" style={{ color: 'var(--monarch-text-dark)' }}>
                       {option.title}
@@ -437,7 +683,10 @@ export function GoalTypeSelector({ value, onChange, hideLabel = false }: GoalTyp
                     </div>
                   </div>
                   {isSelected && (
-                    <Icons.Check className="w-4 h-4 mt-0.5" style={{ color: 'var(--monarch-teal)' }} />
+                    <Icons.Check
+                      className="w-4 h-4 mt-0.5"
+                      style={{ color: 'var(--monarch-teal)' }}
+                    />
                   )}
                 </div>
               </button>
@@ -466,7 +715,7 @@ export function GoalTypeSelector({ value, onChange, hideLabel = false }: GoalTyp
           id="goal-type-selector"
           type="button"
           onClick={() => setIsOpen(!isOpen)}
-          className="w-full px-3 py-2 rounded-md text-left flex items-center justify-between"
+          className={`${hideLabel ? '' : 'w-full justify-between'} px-3 py-2 rounded-md text-left flex items-center gap-2`}
           style={{
             backgroundColor: 'var(--monarch-bg-page)',
             border: '1px solid var(--monarch-border)',
@@ -475,14 +724,12 @@ export function GoalTypeSelector({ value, onChange, hideLabel = false }: GoalTyp
           aria-haspopup="true"
           aria-expanded={isOpen}
         >
-          <span className="flex items-center gap-2">
-            {selectedOption.icon === 'Gift' ? (
-              <Icons.Gift className="w-4 h-4" style={{ color: '#60a5fa' }} />
-            ) : (
-              <Icons.PiggyBank className="w-4 h-4" style={{ color: '#a78bfa' }} />
-            )}
-            {selectedOption.title}
-          </span>
+          {selectedOption.icon === 'Gift' ? (
+            <Icons.Gift className="w-4 h-4" style={{ color: '#60a5fa' }} />
+          ) : (
+            <Icons.PiggyBank className="w-4 h-4" style={{ color: '#a78bfa' }} />
+          )}
+          {selectedOption.title}
           <Icons.ChevronDown
             className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`}
             style={{ color: 'var(--monarch-text-muted)' }}

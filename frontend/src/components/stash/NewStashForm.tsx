@@ -22,7 +22,7 @@ import { NewStashImageUpload } from './NewStashImageUpload';
 import { SavingsProgressBar } from '../shared';
 import {
   NameInputWithEmoji,
-  UrlInput,
+  UrlDisplay,
   AmountInput,
   TargetDateInput,
   GoalTypeSelector,
@@ -73,14 +73,13 @@ export function NewStashForm({
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isNameFocused, setIsNameFocused] = useState(false);
 
   const today = useMemo(() => new Date().toISOString().split('T')[0], []);
 
   const monthlyTarget = useMemo(() => {
     const amountNum = Number.parseFloat(amount) || 0;
-    return amountNum > 0 && targetDate
-      ? calculateStashMonthlyTarget(amountNum, 0, targetDate)
-      : 0;
+    return amountNum > 0 && targetDate ? calculateStashMonthlyTarget(amountNum, 0, targetDate) : 0;
   }, [amount, targetDate]);
 
   const monthsRemaining = useMemo(
@@ -171,15 +170,9 @@ export function NewStashForm({
   const isFormValid = name.trim() && amountNum > 0 && targetDate && monthlyTarget >= 1;
   const isDisabled = isSubmitting || isRateLimited || !isFormValid;
 
-  const newQuickPicks = [
-    { label: '3mo', date: quickPicks.threeMonths },
-    { label: '6mo', date: quickPicks.sixMonths },
-    { label: '1yr', date: quickPicks.oneYear },
-  ];
-
   return (
     <>
-      <div className="space-y-4">
+      <div className="space-y-3">
         <NewStashImageUpload
           sourceUrl={prefill?.sourceUrl}
           selectedImage={selectedImage}
@@ -189,30 +182,47 @@ export function NewStashForm({
           onPreviewChange={setImagePreview}
         />
 
-        <NameInputWithEmoji
-          id="stash-name"
-          value={name}
-          onChange={setName}
-          emoji={emoji}
-          onEmojiChange={setEmoji}
-        />
-        <UrlInput id="stash-url" value={url} onChange={setUrl} />
+        <div>
+          <NameInputWithEmoji
+            id="stash-name"
+            value={name}
+            onChange={setName}
+            emoji={emoji}
+            onEmojiChange={setEmoji}
+            onFocusChange={setIsNameFocused}
+          />
+          {/* Aligned with text input (after emoji picker w-12 + gap-2) */}
+          <div
+            className={`mt-1 pl-14 transition-all duration-200 ${
+              isNameFocused || url
+                ? 'opacity-100 translate-y-0'
+                : 'opacity-0 -translate-y-1 pointer-events-none'
+            }`}
+          >
+            <UrlDisplay value={url} onChange={setUrl} />
+          </div>
+        </div>
 
-        {/* Sentence-style intention input: "Save $X by [date] as a [type]" */}
-        <div className="space-y-2">
-          {/* "Save $[amount] by [date]" - flows as sentence */}
-          <div className="flex items-start gap-2 flex-wrap">
-            <span
-              className="text-sm font-medium py-2"
-              style={{ color: 'var(--monarch-text)' }}
-            >
-              Save
+        {/* Goal container - intention inputs + progress preview */}
+        <div
+          className="p-4 rounded-lg"
+          style={{
+            backgroundColor: 'var(--monarch-bg-page)',
+            border: '1px solid var(--monarch-border)',
+          }}
+        >
+          {/* Sentence-style intention input: "Save $X as a [type] by [date]" */}
+          <div className="flex items-center gap-x-2 gap-y-1 flex-wrap justify-center">
+            <span className="py-2" style={{ color: 'var(--monarch-text-muted)' }}>
+              I intend to save
             </span>
             <AmountInput id="stash-amount" value={amount} onChange={setAmount} hideLabel />
-            <span
-              className="text-sm font-medium py-2"
-              style={{ color: 'var(--monarch-text)' }}
-            >
+            <span className="py-2" style={{ color: 'var(--monarch-text-muted)' }}>
+              {goalType === 'one_time' ? 'for a' : 'as a'}
+            </span>
+            <div className="basis-full h-0" />
+            <GoalTypeSelector value={goalType} onChange={setGoalType} hideLabel />
+            <span className="py-2" style={{ color: 'var(--monarch-text-muted)' }}>
               by
             </span>
             <TargetDateInput
@@ -220,57 +230,39 @@ export function NewStashForm({
               value={targetDate}
               onChange={setTargetDate}
               minDate={today}
-              quickPickOptions={newQuickPicks}
+              quickPickOptions={[]}
               hideLabel
             />
           </div>
 
-          {/* "as a [goal type]" */}
-          <div className="flex items-center gap-2">
-            <span
-              className="text-sm font-medium"
-              style={{ color: 'var(--monarch-text)' }}
-            >
-              as a
-            </span>
-            <div className="flex-1">
-              <GoalTypeSelector value={goalType} onChange={setGoalType} hideLabel />
-            </div>
-          </div>
+          {/* Progress Preview - shows calculated monthly rate and timeline */}
+          {amountNum > 0 && targetDate && (
+            <>
+              <div className="my-3 border-t" style={{ borderColor: 'var(--monarch-border)' }} />
+              <SavingsProgressBar
+                totalSaved={0}
+                targetAmount={amountNum}
+                progressPercent={0}
+                displayStatus="behind"
+                isEnabled={true}
+              />
+              <div
+                className="flex justify-between text-sm mt-3 pt-3 border-t"
+                style={{ borderColor: 'var(--monarch-border)' }}
+              >
+                <div>
+                  <span style={{ color: 'var(--monarch-text-muted)' }}>Monthly: </span>
+                  <span style={{ color: 'var(--monarch-teal)', fontWeight: 500 }}>
+                    ${monthlyTarget}/mo
+                  </span>
+                </div>
+                <div style={{ color: 'var(--monarch-text-muted)' }}>
+                  {formatMonthsRemaining(monthsRemaining)} to go
+                </div>
+              </div>
+            </>
+          )}
         </div>
-
-        {/* Progress Preview - shows calculated monthly rate and timeline */}
-        {amountNum > 0 && targetDate && (
-          <div
-            className="p-4 rounded-lg"
-            style={{
-              backgroundColor: 'var(--monarch-bg-page)',
-              border: '1px solid var(--monarch-border)',
-            }}
-          >
-            <SavingsProgressBar
-              totalSaved={0}
-              targetAmount={amountNum}
-              progressPercent={0}
-              displayStatus="behind"
-              isEnabled={true}
-            />
-            <div
-              className="flex justify-between text-sm mt-3 pt-3 border-t"
-              style={{ borderColor: 'var(--monarch-border)' }}
-            >
-              <div>
-                <span style={{ color: 'var(--monarch-text-muted)' }}>Monthly: </span>
-                <span style={{ color: 'var(--monarch-teal)', fontWeight: 500 }}>
-                  ${monthlyTarget}/mo
-                </span>
-              </div>
-              <div style={{ color: 'var(--monarch-text-muted)' }}>
-                {formatMonthsRemaining(monthsRemaining)} to go
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       <div className="flex items-center justify-end gap-2 mt-6 pt-4 border-t border-(--monarch-border)">

@@ -70,6 +70,7 @@ import {
   Inbox,
   Package,
   Ban,
+  BarChart2,
   Eye,
   EyeOff,
   Download,
@@ -182,6 +183,7 @@ export const NewspaperIcon = Newspaper;
 export const RepeatIcon = Repeat;
 export const InboxIcon = Inbox;
 export const PackageIcon = Package;
+export const BarChart2Icon = BarChart2;
 export const BlockedIcon = Ban;
 export const EyeIcon = Eye;
 export const EyeOffIcon = EyeOff;
@@ -563,6 +565,7 @@ export const Icons = {
   Blocked: BlockedIcon,
 
   // Misc
+  BarChart2: BarChart2Icon,
   Eye: EyeIcon,
   EyeOff: EyeOffIcon,
   Download: DownloadIcon,
