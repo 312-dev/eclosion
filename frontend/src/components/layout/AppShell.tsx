@@ -17,10 +17,6 @@ import { AppHeader } from './AppHeader';
 import { AppFooter } from './AppFooter';
 import { appTourStyles } from './appShellTour';
 import { SecurityInfo } from '../SecurityInfo';
-import { UpdateBanner } from '../UpdateBanner';
-import { DesktopUpdateBanner } from '../update';
-import { OfflineIndicator } from '../OfflineIndicator';
-import { MonthTransitionBanner } from '../ui/MonthTransitionBanner';
 import { WhatsNewModal } from '../WhatsNewModal';
 import { NoticeBanner } from '../ui/NoticeBanner';
 import { SecurityAlertBanner } from '../SecurityAlertBanner';
@@ -186,13 +182,6 @@ export function AppShell() {
           onSync={handleSync}
           onStartTour={() => setShowTour(true)}
         />
-
-        <div className="app-notification-banners">
-          <UpdateBanner />
-          <DesktopUpdateBanner />
-          <MonthTransitionBanner />
-          <OfflineIndicator />
-        </div>
 
         <SecurityInfo isOpen={showSecurityInfo} onClose={() => setShowSecurityInfo(false)} />
         <WhatsNewModal />

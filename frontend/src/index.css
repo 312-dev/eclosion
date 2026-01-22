@@ -549,10 +549,6 @@ input[type='radio'] {
   padding-top: calc(var(--header-height) + var(--rate-limit-banner-height));
 }
 
-.app-layout:has(.app-header .rate-limit-banner) .app-notification-banners {
-  top: calc(var(--header-height) + var(--rate-limit-banner-height));
-}
-
 .app-layout:has(.app-header .rate-limit-banner) .sidebar-nav {
   top: calc(var(--header-height) + var(--rate-limit-banner-height));
   max-height: calc(
@@ -560,21 +556,64 @@ input[type='radio'] {
   );
 }
 
-/* Notification banners container - fixed below header for reliable positioning
- * Changed from sticky to fixed to ensure visibility on all platforms,
- * especially Windows where the banner was appearing "tucked under" the header.
- */
-.app-notification-banners {
-  position: fixed;
-  top: var(--header-height);
-  left: 0;
-  right: 0;
-  z-index: 19; /* Just below header (20) but above everything else */
+/* When offline banner is visible inside header, increase effective header height */
+.app-layout:has(.app-header .offline-banner) {
+  padding-top: calc(var(--header-height) + var(--rate-limit-banner-height));
 }
 
-/* Add margin-top to app-body when banners might be present */
-.app-notification-banners:not(:empty) + .app-body {
-  margin-top: 40px; /* Approximate height of one banner */
+.app-layout:has(.app-header .offline-banner) .sidebar-nav {
+  top: calc(var(--header-height) + var(--rate-limit-banner-height));
+  max-height: calc(
+    100vh - var(--header-height) - var(--rate-limit-banner-height) - var(--footer-height)
+  );
+}
+
+/* When both rate-limit and offline banners are visible */
+.app-layout:has(.app-header .rate-limit-banner):has(.app-header .offline-banner) {
+  padding-top: calc(var(--header-height) + var(--rate-limit-banner-height) * 2);
+}
+
+.app-layout:has(.app-header .rate-limit-banner):has(.app-header .offline-banner) .sidebar-nav {
+  top: calc(var(--header-height) + var(--rate-limit-banner-height) * 2);
+  max-height: calc(
+    100vh - var(--header-height) - var(--rate-limit-banner-height) * 2 - var(--footer-height)
+  );
+}
+
+/* When update banner is visible inside header */
+.app-layout:has(.app-header .update-banner) {
+  padding-top: calc(var(--header-height) + var(--rate-limit-banner-height));
+}
+
+.app-layout:has(.app-header .update-banner) .sidebar-nav {
+  top: calc(var(--header-height) + var(--rate-limit-banner-height));
+  max-height: calc(
+    100vh - var(--header-height) - var(--rate-limit-banner-height) - var(--footer-height)
+  );
+}
+
+/* When desktop update banner is visible inside header */
+.app-layout:has(.app-header .desktop-update-banner) {
+  padding-top: calc(var(--header-height) + var(--rate-limit-banner-height));
+}
+
+.app-layout:has(.app-header .desktop-update-banner) .sidebar-nav {
+  top: calc(var(--header-height) + var(--rate-limit-banner-height));
+  max-height: calc(
+    100vh - var(--header-height) - var(--rate-limit-banner-height) - var(--footer-height)
+  );
+}
+
+/* When month transition banner is visible inside header */
+.app-layout:has(.app-header .month-transition-banner) {
+  padding-top: calc(var(--header-height) + var(--rate-limit-banner-height));
+}
+
+.app-layout:has(.app-header .month-transition-banner) .sidebar-nav {
+  top: calc(var(--header-height) + var(--rate-limit-banner-height));
+  max-height: calc(
+    100vh - var(--header-height) - var(--rate-limit-banner-height) - var(--footer-height)
+  );
 }
 
 .app-body {
@@ -1573,23 +1612,6 @@ span.react-resizable-handle.react-resizable-handle-se:hover {
   animation:
     shake 0.3s ease-in-out,
     fadeIn 0.2s ease-out;
-}
-
-/* ============================================================================
-   Update Banner
-   ============================================================================ */
-
-.update-banner {
-  background-color: var(--monarch-orange);
-  color: white;
-  padding: 0.75rem 1rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  z-index: var(--z-index-toast);
-  flex-shrink: 0; /* Don't compress banners */
-  animation: slideDown 0.3s ease-out;
 }
 
 /* Progress bar styling for update downloads */
