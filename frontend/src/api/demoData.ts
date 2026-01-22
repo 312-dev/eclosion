@@ -1598,6 +1598,7 @@ function getTargetDate(monthsFromNow: number): string {
 
 const DEMO_STASH_ITEMS: StashItem[] = [
   // Funded item - ready to purchase (one-time purchase goal)
+  // All $350 came from previous months (rollover), no credits this month
   {
     type: 'stash',
     id: 'stash-headphones',
@@ -1605,6 +1606,8 @@ const DEMO_STASH_ITEMS: StashItem[] = [
     amount: 350,
     current_balance: 350,
     planned_budget: 0,
+    rollover_amount: 350,
+    credits_this_month: 0,
     category_id: 'cat-stash-headphones',
     category_name: 'Sony WH-1000XM5',
     category_group_id: 'group-stash',
@@ -1629,6 +1632,8 @@ const DEMO_STASH_ITEMS: StashItem[] = [
     created_at: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString(), // 60 days ago
   },
   // On track - saving steadily (one-time purchase goal)
+  // $425 = $233 rollover + $50 credits (refund) + $142 budgeted this month
+  // Tooltip shows: "$233 rolled over, $50 from credits, $142 budgeted this month"
   {
     type: 'stash',
     id: 'stash-guitar',
@@ -1636,6 +1641,8 @@ const DEMO_STASH_ITEMS: StashItem[] = [
     amount: 850,
     current_balance: 425,
     planned_budget: 142,
+    rollover_amount: 233,
+    credits_this_month: 50,
     category_id: 'cat-stash-guitar',
     category_name: 'Fender Guitar',
     category_group_id: 'group-stash',
@@ -1659,6 +1666,7 @@ const DEMO_STASH_ITEMS: StashItem[] = [
     created_at: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString(), // 90 days ago
   },
   // Behind - needs to catch up (savings buffer goal - emergency fund style)
+  // $800 = $600 rollover + $200 budgeted this month (no credits)
   {
     type: 'stash',
     id: 'stash-camera',
@@ -1666,6 +1674,8 @@ const DEMO_STASH_ITEMS: StashItem[] = [
     amount: 2500,
     current_balance: 800,
     planned_budget: 200,
+    rollover_amount: 600,
+    credits_this_month: 0,
     category_id: 'cat-stash-camera',
     category_name: 'Sony A7 IV',
     category_group_id: 'group-stash',
@@ -1698,6 +1708,8 @@ const DEMO_ARCHIVED_STASH: StashItem[] = [
     amount: 200,
     current_balance: 200,
     planned_budget: 0,
+    rollover_amount: 200,
+    credits_this_month: 0,
     category_id: 'cat-stash-keyboard',
     category_name: 'Keychron Q1 Pro',
     category_group_id: 'group-stash',

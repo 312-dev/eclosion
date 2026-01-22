@@ -17,6 +17,7 @@ import type {
   ImportBookmark,
   ImportBookmarksResponse,
   PendingBookmarkActionResponse,
+  StashHistoryResponse,
 } from '../../types';
 
 /**
@@ -314,4 +315,17 @@ export async function clearUnconvertedBookmarks(): Promise<{
   return fetchApi<{ success: boolean; deleted_count: number }>('/stash/pending/clear-unconverted', {
     method: 'POST',
   });
+}
+
+// === Stash History (Reports) ===
+
+/**
+ * Get monthly history for all stash items.
+ * Used for the Reports tab to show progress charts over time.
+ *
+ * @param months - Number of months of history (default: 12, max: 36)
+ * @returns Stash items with monthly balance/contribution history
+ */
+export async function getStashHistory(months = 12): Promise<StashHistoryResponse> {
+  return fetchApi<StashHistoryResponse>(`/stash/history?months=${months}`);
 }

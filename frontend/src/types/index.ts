@@ -169,3 +169,32 @@ export type {
   ImportBookmarksResponse,
   PendingBookmarkActionResponse,
 } from './pendingBookmark';
+
+// Available to Stash calculation
+export type {
+  AccountBalance,
+  CategoryBudget,
+  GoalBalance,
+  StashItemBalance,
+  AvailableToStashData,
+  AvailableToStashOptions,
+  AvailableToStashResult,
+  BreakdownLineItem,
+  DetailedBreakdown,
+} from './availableToStash';
+export {
+  CASH_ACCOUNT_TYPES,
+  CREDIT_CARD_ACCOUNT_TYPES,
+  isCashAccount,
+  isCreditCardAccount,
+} from './availableToStash';
+
+// Stash history and reports
+export type {
+  StashMonthData,
+  StashHistoryItem,
+  StashHistoryResponse,
+  StashReportTimeRange,
+  StashReportSettings,
+} from './stashHistory';
+export { DEFAULT_REPORT_SETTINGS, timeRangeToMonths } from './stashHistory';

@@ -6,7 +6,13 @@
  */
 
 import { getDemoState, updateDemoState, simulateDelay } from './demoState';
-import type { StashData, StashItem, StashLayoutUpdate, StashSyncResult } from '../../types';
+import type {
+  StashData,
+  StashItem,
+  StashLayoutUpdate,
+  StashSyncResult,
+  AvailableToStashData,
+} from '../../types';
 import { calculateProgressPercent, calculateShortfall } from '../../utils/savingsCalculations';
 import { recomputeItem, recomputeTotals } from './demoStashUtils';
 
@@ -293,4 +299,128 @@ export async function syncStash(): Promise<StashSyncResult> {
   }));
 
   return { success: true, items_updated: updatedItems.length, newly_funded: newlyFunded };
+}
+
+/**
+ * Get data needed for Available to Stash calculation.
+ *
+ * Demo mode returns realistic simulated data:
+ * - Cash accounts: Checking ($5,200) + Savings ($8,500)
+ * - Credit card: Chase Sapphire ($1,850)
+ * - Category budgets derived from dashboard ready_to_assign
+ * - Goals: Emergency Fund ($3,000), Vacation Fund ($1,200)
+ * - Stash balances from current stash state
+ */
+export async function getAvailableToStashData(): Promise<AvailableToStashData> {
+  await simulateDelay();
+
+  const state = getDemoState();
+  const readyToAssign = state.dashboard.ready_to_assign;
+
+  // Calculate total stash balances
+  const stashBalances = state.stash.items.reduce((sum, item) => sum + item.current_balance, 0);
+
+  return {
+    accounts: [
+      // Cash accounts
+      {
+        id: 'demo-checking',
+        name: 'Chase Checking',
+        balance: 5200,
+        accountType: 'checking',
+        isEnabled: true,
+      },
+      {
+        id: 'demo-savings',
+        name: 'Ally Savings',
+        balance: 8500,
+        accountType: 'savings',
+        isEnabled: true,
+      },
+      // Credit card (positive balance = debt owed)
+      {
+        id: 'demo-credit',
+        name: 'Chase Sapphire',
+        balance: 1850,
+        accountType: 'credit_card',
+        isEnabled: true,
+      },
+    ],
+    categoryBudgets: [
+      // Expense categories (derived from demo dashboard data)
+      // remaining = budgeted - spent (unspent portion)
+      {
+        id: 'cat-groceries',
+        name: 'Groceries',
+        budgeted: 600,
+        spent: 423,
+        remaining: 177,
+        isExpense: true,
+      },
+      {
+        id: 'cat-dining',
+        name: 'Dining Out',
+        budgeted: 200,
+        spent: 156,
+        remaining: 44,
+        isExpense: true,
+      },
+      {
+        id: 'cat-transport',
+        name: 'Transportation',
+        budgeted: 300,
+        spent: 187,
+        remaining: 113,
+        isExpense: true,
+      },
+      {
+        id: 'cat-utilities',
+        name: 'Utilities',
+        budgeted: 250,
+        spent: 198,
+        remaining: 52,
+        isExpense: true,
+      },
+      {
+        id: 'cat-entertainment',
+        name: 'Entertainment',
+        budgeted: 150,
+        spent: 89,
+        remaining: 61,
+        isExpense: true,
+      },
+      {
+        id: 'cat-shopping',
+        name: 'Shopping',
+        budgeted: 200,
+        spent: 134,
+        remaining: 66,
+        isExpense: true,
+      },
+      {
+        id: 'cat-personal',
+        name: 'Personal Care',
+        budgeted: 100,
+        spent: 67,
+        remaining: 33,
+        isExpense: true,
+      },
+      // Income category (should be filtered out)
+      {
+        id: 'cat-income',
+        name: 'Salary',
+        budgeted: 5000,
+        spent: 4876,
+        remaining: 124,
+        isExpense: false,
+      },
+    ],
+    goals: [
+      { id: 'goal-emergency', name: 'Emergency Fund', balance: 3000 },
+      { id: 'goal-vacation', name: 'Vacation Fund', balance: 1200 },
+    ],
+    plannedIncome: readyToAssign.planned_income,
+    actualIncome: readyToAssign.actual_income,
+    stashBalances,
+  };
 }

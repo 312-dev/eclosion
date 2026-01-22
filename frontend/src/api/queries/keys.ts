@@ -32,6 +32,10 @@ export const queryKeys = {
   pendingBookmarks: ['pendingBookmarks'] as const,
   pendingBookmarksCount: ['pendingBookmarksCount'] as const,
   skippedBookmarks: ['skippedBookmarks'] as const,
+  // Available to Stash
+  availableToStash: ['availableToStash'] as const,
+  // Stash History (Reports)
+  stashHistory: ['stashHistory'] as const,
 };
 
 /**

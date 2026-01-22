@@ -17,9 +17,12 @@ import {
  */
 export function recomputeItem(item: StashItem): StashItem {
   const monthsRemaining = calculateMonthsRemaining(item.target_date);
+  // Use current_balance minus planned_budget for target calculation
+  // This way transaction inflows reduce the target, but budget allocations don't
+  const effectiveBalanceForTarget = item.current_balance - item.planned_budget;
   const monthlyTarget = calculateStashMonthlyTarget(
     item.amount,
-    item.current_balance,
+    effectiveBalanceForTarget,
     item.target_date
   );
   const progressPercent = calculateProgressPercent(item.current_balance, item.amount);
@@ -42,6 +45,9 @@ export function recomputeItem(item: StashItem): StashItem {
     progress_percent: progressPercent,
     shortfall,
     status,
+    // Preserve rollover_amount and credits_this_month (set in demo data or mutations)
+    rollover_amount: item.rollover_amount ?? 0,
+    credits_this_month: item.credits_this_month ?? 0,
   };
 }
 

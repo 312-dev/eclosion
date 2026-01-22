@@ -140,6 +140,9 @@ export {
   type BackupsResponse,
 } from './misc';
 
+// Available to Stash
+export { getAvailableToStashData } from './availableToStash';
+
 // Stash
 export {
   getStash,
@@ -167,4 +170,6 @@ export {
   convertPendingBookmark,
   importBookmarks,
   clearUnconvertedBookmarks,
+  // Stash history (reports)
+  getStashHistory,
 } from './stash';

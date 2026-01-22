@@ -123,6 +123,8 @@ export {
   getStashCategoryGroups,
   getStashConfig,
   updateStashConfig,
+  // Available to Stash
+  getAvailableToStashData,
   // Pending bookmarks
   getPendingBookmarks,
   getPendingCount,
@@ -132,3 +134,6 @@ export {
   importBookmarks,
   clearUnconvertedBookmarks,
 } from './demoStash';
+
+// Stash History (Reports)
+export { getStashHistory } from './demoStashHistory';

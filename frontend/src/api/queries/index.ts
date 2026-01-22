@@ -168,3 +168,13 @@ export {
   useClearUnconvertedBookmarksMutation,
   useInvalidatePendingBookmarks,
 } from './stashQueries';
+
+// Available to Stash queries
+export {
+  useAvailableToStashDataQuery,
+  useAvailableToStash,
+  useAvailableAmount,
+} from './availableToStashQueries';
+
+// Stash History (Reports) queries
+export { useStashHistoryQuery, useInvalidateStashHistory } from './stashHistoryQueries';
