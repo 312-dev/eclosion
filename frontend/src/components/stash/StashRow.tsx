@@ -89,8 +89,11 @@ export const StashRow = memo(function StashRow({
   const displayStatus: ItemStatus = item.status;
 
   // Calculate rollover for progress bar tooltip
-  const rolloverAmount = Math.max(0, item.current_balance - item.planned_budget);
+  // Use actual rollover from Monarch, falling back to calculated value for backwards compatibility
+  const rolloverAmount =
+    item.rollover_amount ?? Math.max(0, item.current_balance - item.planned_budget);
   const budgetedThisMonth = item.planned_budget;
+  const creditsThisMonth = item.credits_this_month ?? 0;
 
   const handleChangeGroup = useCallback(
     async (groupId: string, groupName: string) => {
@@ -261,6 +264,7 @@ export const StashRow = memo(function StashRow({
                 isEnabled={true}
                 rolloverAmount={rolloverAmount}
                 budgetedThisMonth={budgetedThisMonth}
+                creditsThisMonth={creditsThisMonth}
               />
             </div>
           </div>

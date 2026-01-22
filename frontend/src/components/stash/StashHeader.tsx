@@ -34,7 +34,7 @@ export function StashHeader({
             Stashes
           </h1>
           <p className="text-sm" style={{ color: 'var(--monarch-text-muted)' }}>
-            Save for things you want to buy
+            Save for what's ahead
           </p>
         </div>
       </div>

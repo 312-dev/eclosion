@@ -20,10 +20,12 @@ interface SavingsProgressBarProps {
   readonly displayStatus: ItemStatus;
   /** Whether the item is enabled */
   readonly isEnabled: boolean;
-  /** Optional rollover amount from previous month */
+  /** Optional rollover amount from previous month (from Monarch) */
   readonly rolloverAmount?: number;
   /** Optional budgeted amount this month */
   readonly budgetedThisMonth?: number;
+  /** Optional credits (positive transactions) this month */
+  readonly creditsThisMonth?: number;
   /** Optional label for saved text (default: "saved") */
   readonly savedLabel?: string;
 }
@@ -36,9 +38,10 @@ export function SavingsProgressBar({
   isEnabled,
   rolloverAmount = 0,
   budgetedThisMonth = 0,
+  creditsThisMonth = 0,
   savedLabel = 'saved',
 }: SavingsProgressBarProps) {
-  const hasRollover = rolloverAmount > 0;
+  const hasBreakdown = rolloverAmount > 0 || creditsThisMonth > 0;
 
   if (!isEnabled) {
     return null;
@@ -56,13 +59,20 @@ export function SavingsProgressBar({
         />
       </div>
       <div className="text-xs mt-0.5 flex justify-between">
-        {hasRollover ? (
+        {hasBreakdown ? (
           <Tooltip
             content={
               <>
-                <div>
-                  {formatCurrency(rolloverAmount, { maximumFractionDigits: 0 })} rolled over
-                </div>
+                {rolloverAmount > 0 && (
+                  <div>
+                    {formatCurrency(rolloverAmount, { maximumFractionDigits: 0 })} rolled over
+                  </div>
+                )}
+                {creditsThisMonth > 0 && (
+                  <div>
+                    {formatCurrency(creditsThisMonth, { maximumFractionDigits: 0 })} from credits
+                  </div>
+                )}
                 <div>
                   {formatCurrency(budgetedThisMonth, { maximumFractionDigits: 0 })} budgeted this
                   month
@@ -80,7 +90,8 @@ export function SavingsProgressBar({
           </span>
         )}
         <span className="text-monarch-text-light">
-          {formatCurrency(Math.max(0, targetAmount - totalSaved), { maximumFractionDigits: 0 })} to go
+          {formatCurrency(Math.max(0, targetAmount - totalSaved), { maximumFractionDigits: 0 })} to
+          go
         </span>
       </div>
     </div>

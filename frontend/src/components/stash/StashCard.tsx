@@ -153,8 +153,11 @@ export const StashCard = memo(function StashCard({
   const hasImage = Boolean(item.custom_image_path || item.logo_url);
 
   // Calculate rollover for progress bar tooltip
-  const rolloverAmount = Math.max(0, item.current_balance - item.planned_budget);
+  // Use actual rollover from Monarch, falling back to calculated value for backwards compatibility
+  const rolloverAmount =
+    item.rollover_amount ?? Math.max(0, item.current_balance - item.planned_budget);
   const budgetedThisMonth = item.planned_budget;
+  const creditsThisMonth = item.credits_this_month ?? 0;
 
   // Handle double-click to open edit modal (unless clicking on a text field)
   const handleDoubleClick = useCallback(
@@ -252,7 +255,7 @@ export const StashCard = memo(function StashCard({
                   href={item.source_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="font-medium truncate hover:underline"
+                  className="text-base font-bold truncate hover:underline"
                   style={{ color: 'var(--monarch-text-dark)' }}
                   title={item.name}
                 >
@@ -261,7 +264,7 @@ export const StashCard = memo(function StashCard({
                 </a>
               ) : (
                 <h3
-                  className="font-medium truncate"
+                  className="text-base font-bold truncate"
                   style={{ color: 'var(--monarch-text-dark)' }}
                   title={item.name}
                 >
@@ -334,6 +337,7 @@ export const StashCard = memo(function StashCard({
             isEnabled={true}
             rolloverAmount={rolloverAmount}
             budgetedThisMonth={budgetedThisMonth}
+            creditsThisMonth={creditsThisMonth}
           />
         )}
       </div>

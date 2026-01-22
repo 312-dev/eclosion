@@ -2,11 +2,14 @@
  * Tooltip - Custom tooltip component using Radix UI
  *
  * Replaces native browser tooltips with styled, accessible tooltips.
+ * For non-interactive content only (text hints, labels).
  *
  * Usage:
  *   <Tooltip content="Helpful text">
  *     <button>Hover me</button>
  *   </Tooltip>
+ *
+ * For interactive content (scrollable lists, buttons), use HoverCard instead.
  */
 
 import * as RadixTooltip from '@radix-ui/react-tooltip';
@@ -14,17 +17,17 @@ import type { ReactNode } from 'react';
 
 export interface TooltipProps {
   /** The content to display in the tooltip */
-  content: ReactNode;
+  readonly content: ReactNode;
   /** The element that triggers the tooltip */
-  children: ReactNode;
+  readonly children: ReactNode;
   /** Side of the trigger to show the tooltip */
-  side?: 'top' | 'right' | 'bottom' | 'left';
+  readonly side?: 'top' | 'right' | 'bottom' | 'left';
   /** Alignment relative to the trigger */
-  align?: 'start' | 'center' | 'end';
+  readonly align?: 'start' | 'center' | 'end';
   /** Delay before showing (ms) */
-  delayDuration?: number;
+  readonly delayDuration?: number;
   /** Whether the tooltip is disabled */
-  disabled?: boolean;
+  readonly disabled?: boolean;
 }
 
 export function Tooltip({
