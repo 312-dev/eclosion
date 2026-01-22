@@ -507,6 +507,46 @@ async def get_savings_goals(mm, start_month: str, end_month: str) -> list[Any]:
     return goals
 
 
+# Cache for goal balances (from savingsGoals query)
+_goal_balances_cache: TTLCache = TTLCache(maxsize=10, ttl=_CACHE_TTL)
+
+
+async def get_goal_balances(mm) -> list[dict[str, Any]]:
+    """
+    Fetch Monarch savings goal balances using the library's get_savings_goals().
+
+    This returns the actual goal balances (currentBalance), not the monthly
+    contribution amounts. Used for the Available to Stash calculation.
+
+    Returns:
+        List of dicts with 'id', 'name', 'balance' for each active goal
+    """
+    cache_key = "goal_balances"
+    if cache_key in _goal_balances_cache:
+        cached: list[dict[str, Any]] = _goal_balances_cache[cache_key]
+        return cached
+
+    # Use the library's get_savings_goals() which returns full goal data
+    result = await mm.get_savings_goals()
+    raw_goals = result.get("savingsGoals", [])
+
+    # Extract just the balance info we need, filtering out archived/completed
+    balances: list[dict[str, Any]] = []
+    for goal in raw_goals:
+        # Skip archived or completed goals
+        if goal.get("archivedAt") or goal.get("completedAt"):
+            continue
+
+        balances.append({
+            "id": goal.get("id"),
+            "name": goal.get("name"),
+            "balance": goal.get("currentBalance", 0),
+        })
+
+    _goal_balances_cache[cache_key] = balances
+    return balances
+
+
 # Cache for user profile
 _user_profile_cache: TTLCache = TTLCache(maxsize=1, ttl=_CACHE_TTL)
 

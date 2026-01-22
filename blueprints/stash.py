@@ -55,6 +55,43 @@ async def stash_sync():
     return sanitize_api_result(result, "Sync failed. Please try again.")
 
 
+@stash_bp.route("/history", methods=["GET"])
+@api_handler(handle_mfa=True)
+async def get_stash_history():
+    """
+    Get monthly history for all stash items.
+
+    Query params:
+    - months: Number of months of history (default: 12, max: 36)
+
+    Returns:
+    - items: List of stash items with monthly balance/contribution history
+    - months: List of month strings (e.g., ["2025-01", "2025-02", ...])
+
+    Used for the Reports tab to show progress charts over time.
+    """
+    service = get_stash_service()
+    months = request.args.get("months", 12, type=int)
+    # Clamp to reasonable range
+    months = max(1, min(36, months))
+    return await service.get_stash_history(months)
+
+
+@stash_bp.route("/available-to-stash", methods=["GET"])
+@api_handler(handle_mfa=True)
+async def get_available_to_stash():
+    """
+    Get data needed for Available to Stash calculation.
+
+    Returns aggregated data from Monarch accounts, budgets, and goals,
+    plus stash balances. The frontend performs the actual calculation.
+
+    See .claude/rules/available-to-stash.md for the formula.
+    """
+    service = get_stash_service()
+    return await service.get_available_to_stash_data()
+
+
 @stash_bp.route("/fetch-og-image", methods=["GET"])
 @api_handler(handle_mfa=False)
 async def fetch_og_image_endpoint():

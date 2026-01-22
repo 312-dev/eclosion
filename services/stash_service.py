@@ -17,7 +17,7 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, TypedDict
 
-from monarch_utils import clear_cache, get_category_aggregates, get_mm
+from monarch_utils import clear_cache, get_category_aggregates, get_goal_balances, get_mm, get_month_range
 from services.category_manager import CategoryManager
 from state.db import db_session
 from state.db.repositories import TrackerRepository
@@ -280,12 +280,16 @@ class StashService:
         total_target = 0.0
         total_saved = 0.0
 
+        # Get current month range for credit queries
+        month_start, month_end = get_month_range()
+
         for item in items:
             # Get balance and budget from Monarch if category exists
             current_balance = 0.0
             rollover_balance = 0.0
             remaining_balance = 0.0
             planned_budget = 0
+            credits_this_month = 0.0
             available_to_spend: float | None = None
             goal_type = item.get("goal_type", "one_time")
             is_completed = item.get("completed_at") is not None
@@ -316,11 +320,26 @@ class StashService:
                     # Available to spend is the actual remaining balance
                     available_to_spend = remaining_balance
 
+                # Get credits (positive transactions) for current month
+                try:
+                    mm = await get_mm()
+                    aggregates = await get_category_aggregates(
+                        mm,
+                        category_id=item["monarch_category_id"],
+                        start_date=month_start,
+                        end_date=month_end,
+                    )
+                    credits_this_month = aggregates.get("sumIncome", 0.0)
+                except Exception as e:
+                    logger.warning(f"Failed to get credits for {item['name']}: {e}")
+                    credits_this_month = 0.0
+
                 # Debug: log balance retrieval for all items
                 logger.info(
                     f"[Stash] {item['name']}: goal_type={goal_type}, "
                     f"current_balance={current_balance}, remaining={remaining_balance}, "
-                    f"rollover={rollover_balance}, budgeted={planned_budget}"
+                    f"rollover={rollover_balance}, budgeted={planned_budget}, "
+                    f"credits_this_month={credits_this_month}"
                 )
             elif item["monarch_category_id"]:
                 # Category ID exists but not found in budget data
@@ -332,11 +351,14 @@ class StashService:
                 # No category linked
                 logger.debug(f"[Stash] {item['name']}: no monarch_category_id linked")
 
-            # Calculate monthly target using rollover (start of month balance)
-            # This ensures the target doesn't change when you budget
+            # Calculate monthly target using current_balance minus planned_budget
+            # This way:
+            # - Transaction inflows (credits, refunds) reduce the target
+            # - Budget allocations don't affect the target (only status)
+            effective_balance_for_target = current_balance - planned_budget
             monthly_target = calculate_stash_monthly_target(
                 amount=item["amount"],
-                current_balance=rollover_balance,
+                current_balance=effective_balance_for_target,
                 target_date=item["target_date"],
                 current_month=current_month,
             )
@@ -396,6 +418,9 @@ class StashService:
                 "is_enabled": item["monarch_category_id"] is not None,
                 # Available to spend (for one_time goals, shows actual remaining balance)
                 "available_to_spend": available_to_spend,
+                # Balance breakdown for tooltip
+                "rollover_amount": rollover_balance,
+                "credits_this_month": credits_this_month,
                 # Grid layout fields (sort_order is legacy, grid fields are primary)
                 "sort_order": 0,
                 "grid_x": item["grid_x"],
@@ -1160,3 +1185,252 @@ class StashService:
                     for bm in skipped
                 ]
             }
+
+    async def get_available_to_stash_data(self) -> dict[str, Any]:
+        """
+        Get data needed for Available to Stash calculation.
+
+        Returns aggregated data from Monarch:
+        - accounts: Account balances with type info
+        - categoryBudgets: Current month's budgets and spending
+        - goals: Monarch savings goal balances
+        - plannedIncome: Planned income for the month
+        - actualIncome: Actual income received
+        - stashBalances: Total balance in stash items
+
+        See .claude/rules/available-to-stash.md for the calculation formula.
+        """
+        mm = await get_mm()
+        start, _ = get_month_range()
+        # Monarch returns months in YYYY-MM-DD format (e.g., "2026-01-01")
+        month_key = start  # Full date for matching
+
+        # Fetch all required data in parallel
+        import asyncio
+
+        accounts_task = asyncio.create_task(mm.get_accounts())
+        budgets_task = asyncio.create_task(mm.get_budgets(start, start))
+        goals_task = asyncio.create_task(get_goal_balances(mm))
+        stash_task = asyncio.create_task(self.get_dashboard_data())
+
+        accounts_result, budgets_result, goals_result, stash_data = await asyncio.gather(
+            accounts_task, budgets_task, goals_task, stash_task
+        )
+
+        # Process accounts
+        accounts_list = []
+        for account in accounts_result.get("accounts", []):
+            # Only include accounts that are not hidden
+            if account.get("isHidden"):
+                continue
+            accounts_list.append({
+                "id": account.get("id"),
+                "name": account.get("displayName") or account.get("name"),
+                "balance": account.get("currentBalance", 0),
+                "accountType": account.get("type", {}).get("name", "unknown"),
+                "isEnabled": not account.get("isHidden", False),
+            })
+
+        # Build lookups for category info from categoryGroups
+        category_group_types: dict[str, str] = {}
+        category_names: dict[str, str] = {}
+        for group in budgets_result.get("categoryGroups", []):
+            group_id = group.get("id")
+            group_type = group.get("type", "")
+            if group_id:
+                category_group_types[group_id] = group_type
+            # Map category IDs to their group type and name
+            for cat in group.get("categories", []):
+                cat_id = cat.get("id")
+                if cat_id:
+                    category_group_types[cat_id] = group_type
+                    category_names[cat_id] = cat.get("name", "")
+
+        # Get stash-linked category IDs to exclude from unspent budgets
+        # (they're already counted in stash balances)
+        stash_category_ids = {
+            item.get("category_id")
+            for item in stash_data.get("items", [])
+            if item.get("category_id")
+        }
+
+        # Process category budgets from monthlyAmountsByCategory
+        category_budgets = []
+        monthly_by_category = budgets_result.get("budgetData", {}).get("monthlyAmountsByCategory", [])
+        for entry in monthly_by_category:
+            category = entry.get("category", {})
+            cat_id = category.get("id")
+            cat_name = category_names.get(cat_id, "")
+            group_type = category_group_types.get(cat_id, "expense")
+
+            # Skip income categories
+            if group_type == "income":
+                continue
+
+            # Skip stash-linked categories (already counted in stash balances)
+            if cat_id in stash_category_ids:
+                continue
+
+            # Find the current month's amounts
+            budgeted = 0
+            spent = 0
+            remaining = 0
+            for month_data in entry.get("monthlyAmounts", []):
+                if month_data.get("month") == month_key:
+                    budgeted = month_data.get("plannedCashFlowAmount", 0) or 0
+                    actual = month_data.get("actualAmount", 0) or 0
+                    # remainingAmount already includes rollover:
+                    # remaining = previousMonthRollover + budgeted - spent
+                    remaining = month_data.get("remainingAmount", 0) or 0
+                    spent = abs(actual)
+                    break
+
+            category_budgets.append({
+                "id": cat_id,
+                "name": cat_name,
+                "budgeted": budgeted,
+                "spent": spent,
+                "remaining": remaining,  # Use this for unspent calculation (includes rollover)
+                "isExpense": True,
+            })
+
+        # Get income data from budget totals
+        planned_income = 0
+        actual_income = 0
+        totals_by_month = budgets_result.get("budgetData", {}).get("totalsByMonth", [])
+        for totals in totals_by_month:
+            if totals.get("month") == month_key:
+                income_data = totals.get("totalIncome", {})
+                planned_income = income_data.get("plannedAmount", 0)
+                actual_income = income_data.get("actualAmount", 0)
+                break
+
+        # Get stash items with balances
+        stash_items = [
+            {"id": item.get("id"), "name": item.get("name"), "balance": item.get("current_balance", 0)}
+            for item in stash_data.get("items", [])
+            if item.get("current_balance", 0) > 0
+        ]
+        stash_balances = stash_data.get("total_saved", 0)
+
+        return {
+            "accounts": accounts_list,
+            "categoryBudgets": category_budgets,
+            "goals": goals_result,
+            "plannedIncome": planned_income,
+            "actualIncome": actual_income,
+            "stashBalances": stash_balances,
+            "stashItems": stash_items,
+        }
+
+    def _get_active_stash_items_for_history(self) -> list[dict[str, Any]]:
+        """Get active stash items with their category IDs for history queries."""
+        with db_session() as session:
+            repo = TrackerRepository(session)
+            db_items = repo.get_all_stash_items()
+            return [
+                {
+                    "id": item.id,
+                    "name": item.name,
+                    "amount": item.amount,
+                    "monarch_category_id": item.monarch_category_id,
+                }
+                for item in db_items
+                if not item.is_archived and item.monarch_category_id
+            ]
+
+    def _build_monthly_lookup(
+        self, budgets_result: dict[str, Any]
+    ) -> tuple[dict[tuple[str, str], dict], list[str]]:
+        """Build lookup dict from budget data and return sorted months list."""
+        monthly_by_category = budgets_result.get("budgetData", {}).get("monthlyAmountsByCategory", [])
+        monthly_lookup: dict[tuple[str, str], dict] = {}
+        all_months: set[str] = set()
+
+        for entry in monthly_by_category:
+            cat_id = entry.get("category", {}).get("id")
+            if not cat_id:
+                continue
+            for month_data in entry.get("monthlyAmounts", []):
+                month_str = month_data.get("month", "")[:7]  # "2025-01-01" -> "2025-01"
+                if month_str:
+                    monthly_lookup[(cat_id, month_str)] = month_data
+                    all_months.add(month_str)
+
+        return monthly_lookup, sorted(all_months)
+
+    def _build_item_history(
+        self,
+        item: dict[str, Any],
+        sorted_months: list[str],
+        monthly_lookup: dict[tuple[str, str], dict],
+    ) -> dict[str, Any]:
+        """Build history data for a single stash item."""
+        cat_id = item["monarch_category_id"]
+        item_months = []
+        prev_balance = 0.0
+
+        for month in sorted_months:
+            month_data = monthly_lookup.get((cat_id, month))
+            balance = (month_data.get("remainingAmount", 0) or 0) if month_data else 0
+            contribution = balance - prev_balance
+
+            item_months.append({
+                "month": month,
+                "balance": balance,
+                "contribution": contribution,
+            })
+            prev_balance = balance
+
+        return {
+            "id": item["id"],
+            "name": item["name"],
+            "target_amount": item["amount"],
+            "months": item_months,
+        }
+
+    async def get_stash_history(self, months: int = 12) -> dict[str, Any]:
+        """
+        Get monthly history for all stash items.
+
+        Returns balance and contribution data for each stash item over the
+        requested number of months.
+
+        Args:
+            months: Number of months of history to return (default 12)
+
+        Returns:
+            Dictionary with:
+            - items: List of stash items with monthly history
+            - months: List of month strings in the response (e.g., ["2025-01", "2025-02", ...])
+        """
+        from calendar import monthrange
+        from dateutil.relativedelta import relativedelta
+
+        items_data = self._get_active_stash_items_for_history()
+        if not items_data:
+            return {"items": [], "months": []}
+
+        # Calculate date range
+        today = date.today()
+        start_date = (today.replace(day=1) - relativedelta(months=months - 1)).isoformat()
+        _, last_day = monthrange(today.year, today.month)
+        end_date = today.replace(day=last_day).isoformat()
+
+        # Get budget data for the full date range
+        mm = await get_mm()
+        budgets_result = await mm.get_budgets(start_date, end_date)
+
+        # Build lookup and get sorted months
+        monthly_lookup, sorted_months = self._build_monthly_lookup(budgets_result)
+
+        # Build history for each stash item
+        result_items = [
+            self._build_item_history(item, sorted_months, monthly_lookup)
+            for item in items_data
+        ]
+
+        return {
+            "items": result_items,
+            "months": sorted_months,
+        }
