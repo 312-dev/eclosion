@@ -13,6 +13,7 @@ export { StashCardGrid } from './StashCardGrid';
 export { StashWidgetGrid } from './StashWidgetGrid';
 export { StashImageUpload } from './StashImageUpload';
 export { StashHeader } from './StashHeader';
+export { AvailableToStash } from './AvailableToStash';
 export { ArchivedItemsSection } from './ArchivedItemsSection';
 export { BrowserSetupModal } from './BrowserSetupModal';
 
@@ -21,6 +22,13 @@ export { PendingReviewBanner } from './PendingReviewBanner';
 export { PendingReviewSection } from './PendingReviewSection';
 export { PendingReviewRow } from './PendingReviewRow';
 export { IgnoredBookmarksSection } from './IgnoredBookmarksSection';
+
+// Reports components
+export { StashReportsView } from './StashReportsView';
+export { StashProgressChart } from './StashProgressChart';
+
+// Hooks
+export { useReportSettings } from './useReportSettings';
 
 // Utilities
 export { getBrowserName, decodeHtmlEntities, collectBookmarksFromFolder } from './utils';

@@ -16,6 +16,8 @@ import {
   StashHeader,
   ArchivedItemsSection,
   BrowserSetupModal,
+  AvailableToStash,
+  StashReportsView,
   decodeHtmlEntities,
 } from '../stash';
 import { Icons } from '../icons';
@@ -44,6 +46,9 @@ interface ModalPrefill {
 export function StashTab() {
   usePageTitle('Stashes');
   const toast = useToast();
+
+  // Tab state
+  const [activeView, setActiveView] = useState<'stashes' | 'reports'>('stashes');
 
   // Queries
   const { data: configData, isLoading: configLoading } = useStashConfigQuery();
@@ -219,40 +224,84 @@ export function StashTab() {
         onSyncBookmarks={syncBookmarks}
         onAddItem={() => setIsAddModalOpen(true)}
       />
-      {pendingBookmarks.length > 0 && (
-        <div ref={pendingSectionRef}>
-          <PendingReviewSection
-            isExpanded={isPendingExpanded}
-            onToggle={() => setIsPendingExpanded(!isPendingExpanded)}
-            pendingItems={pendingBookmarks}
-            onSkip={handleSkipPending}
-            onCreateTarget={handleCreateTarget}
-            skippingIds={skippingIds}
-          />
-        </div>
-      )}
-      <div className="mb-6 w-full">
-        <StashWidgetGrid
-          items={activeItems}
-          onEdit={handleEdit}
-          onAllocate={handleAllocate}
-          onLayoutChange={handleLayoutChange}
-          allocatingItemId={allocatingItemId}
-          emptyMessage="No stashes yet. Start your first stash to begin saving!"
-        />
+
+      {/* Tab navigation */}
+      <div className="flex gap-1 mb-6 border-b" style={{ borderColor: 'var(--monarch-border)' }}>
+        <button
+          onClick={() => setActiveView('stashes')}
+          className="px-4 py-2 text-sm font-medium transition-colors"
+          style={{
+            color:
+              activeView === 'stashes' ? 'var(--monarch-text-dark)' : 'var(--monarch-text-muted)',
+            borderBottom:
+              activeView === 'stashes'
+                ? '2px solid var(--monarch-primary)'
+                : '2px solid transparent',
+            marginBottom: '-1px',
+          }}
+        >
+          Stashes
+        </button>
+        <button
+          onClick={() => setActiveView('reports')}
+          className="px-4 py-2 text-sm font-medium transition-colors"
+          style={{
+            color:
+              activeView === 'reports' ? 'var(--monarch-text-dark)' : 'var(--monarch-text-muted)',
+            borderBottom:
+              activeView === 'reports'
+                ? '2px solid var(--monarch-primary)'
+                : '2px solid transparent',
+            marginBottom: '-1px',
+          }}
+        >
+          Reports
+        </button>
       </div>
-      <ArchivedItemsSection
-        items={archivedItems}
-        onEdit={handleEdit}
-        onAllocate={handleAllocate}
-        allocatingItemId={allocatingItemId}
-      />
-      <IgnoredBookmarksSection
-        items={skippedBookmarks}
-        onCreateTarget={handleCreateTarget}
-        isExpanded={isIgnoredExpanded}
-        onToggle={() => setIsIgnoredExpanded(!isIgnoredExpanded)}
-      />
+
+      {activeView === 'stashes' ? (
+        <>
+          <div className="mb-6">
+            <AvailableToStash />
+          </div>
+          {pendingBookmarks.length > 0 && (
+            <div ref={pendingSectionRef}>
+              <PendingReviewSection
+                isExpanded={isPendingExpanded}
+                onToggle={() => setIsPendingExpanded(!isPendingExpanded)}
+                pendingItems={pendingBookmarks}
+                onSkip={handleSkipPending}
+                onCreateTarget={handleCreateTarget}
+                skippingIds={skippingIds}
+              />
+            </div>
+          )}
+          <div className="mb-6 w-full">
+            <StashWidgetGrid
+              items={activeItems}
+              onEdit={handleEdit}
+              onAllocate={handleAllocate}
+              onLayoutChange={handleLayoutChange}
+              allocatingItemId={allocatingItemId}
+              emptyMessage="No stashes yet. Start your first stash to begin saving!"
+            />
+          </div>
+          <ArchivedItemsSection
+            items={archivedItems}
+            onEdit={handleEdit}
+            onAllocate={handleAllocate}
+            allocatingItemId={allocatingItemId}
+          />
+          <IgnoredBookmarksSection
+            items={skippedBookmarks}
+            onCreateTarget={handleCreateTarget}
+            isExpanded={isIgnoredExpanded}
+            onToggle={() => setIsIgnoredExpanded(!isIgnoredExpanded)}
+          />
+        </>
+      ) : (
+        <StashReportsView />
+      )}
       <NewStashModal
         isOpen={isAddModalOpen}
         onClose={() => {
