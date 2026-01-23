@@ -120,6 +120,26 @@ export interface DetailedBreakdown {
 }
 
 /**
+ * Breakdown of calculation components for Available Funds.
+ */
+export interface AvailableToStashBreakdown {
+  /** Sum of cash accounts (checking, savings, PayPal/Venmo) */
+  cashOnHand: number;
+  /** Expected income not yet received (0 if toggle is off) */
+  expectedIncome: number;
+  /** Current credit card balances */
+  creditCardDebt: number;
+  /** Sum of max(0, budget - spent) for expense categories */
+  unspentBudgets: number;
+  /** Sum of Monarch goal balances */
+  goalBalances: number;
+  /** Sum of Stash item balances */
+  stashBalances: number;
+  /** Reserved buffer amount (0 if not set) */
+  bufferAmount: number;
+}
+
+/**
  * Result of the Available Funds calculation.
  * Includes the final value and a breakdown for transparency.
  */
@@ -127,22 +147,7 @@ export interface AvailableToStashResult {
   /** The final available amount */
   available: number;
   /** Breakdown of the calculation components */
-  breakdown: {
-    /** Sum of cash accounts (checking, savings, PayPal/Venmo) */
-    cashOnHand: number;
-    /** Expected income not yet received (0 if toggle is off) */
-    expectedIncome: number;
-    /** Current credit card balances */
-    creditCardDebt: number;
-    /** Sum of max(0, budget - spent) for expense categories */
-    unspentBudgets: number;
-    /** Sum of Monarch goal balances */
-    goalBalances: number;
-    /** Sum of Stash item balances */
-    stashBalances: number;
-    /** Reserved buffer amount (0 if not set) */
-    bufferAmount: number;
-  };
+  breakdown: AvailableToStashBreakdown;
   /** Detailed breakdown showing individual items */
   detailedBreakdown: DetailedBreakdown;
   /** Whether expected income was included */

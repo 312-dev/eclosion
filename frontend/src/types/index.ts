@@ -181,6 +181,7 @@ export type {
   StashItemBalance,
   AvailableToStashData,
   AvailableToStashOptions,
+  AvailableToStashBreakdown,
   AvailableToStashResult,
   BreakdownLineItem,
   DetailedBreakdown,
