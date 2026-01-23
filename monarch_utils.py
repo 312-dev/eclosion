@@ -516,7 +516,7 @@ async def get_goal_balances(mm) -> list[dict[str, Any]]:
     Fetch Monarch savings goal balances using the library's get_savings_goals().
 
     This returns the actual goal balances (currentBalance), not the monthly
-    contribution amounts. Used for the Available to Stash calculation.
+    contribution amounts. Used for the Available Funds calculation.
 
     Returns:
         List of dicts with 'id', 'name', 'balance' for each active goal
@@ -545,6 +545,68 @@ async def get_goal_balances(mm) -> list[dict[str, Any]]:
 
     _goal_balances_cache[cache_key] = balances
     return balances
+
+
+# Cache for full goals data
+_full_goals_cache: TTLCache = TTLCache(maxsize=10, ttl=_CACHE_TTL)
+
+
+async def get_savings_goals_full(mm) -> list[dict[str, Any]]:
+    """
+    Fetch full Monarch savings goal data for display in Stash grid.
+
+    Returns complete goal information including financial data, time-based
+    forecasting, and display metadata. Used when rendering goals as cards
+    alongside Stash items.
+
+    Unlike get_goal_balances() which returns minimal data for calculations,
+    this returns all fields needed for the goal card UI.
+
+    Returns:
+        List of dicts with complete goal data for each active (non-archived) goal
+    """
+    cache_key = "full_goals"
+    if cache_key in _full_goals_cache:
+        cached: list[dict[str, Any]] = _full_goals_cache[cache_key]
+        return cached
+
+    # Use the library's get_savings_goals() which returns full goal data
+    result = await mm.get_savings_goals()
+    raw_goals = result.get("savingsGoals", [])
+
+    # Extract full goal info, filtering out archived (but keeping completed - they show in UI)
+    goals: list[dict[str, Any]] = []
+    for goal in raw_goals:
+        # Skip archived goals (but include completed ones)
+        if goal.get("archivedAt"):
+            continue
+
+        goals.append({
+            "id": goal.get("id"),
+            "name": goal.get("name"),
+            # Financial data
+            "current_balance": goal.get("currentBalance", 0),
+            "net_contribution": goal.get("netContribution", 0),  # Total amount saved (for display)
+            "target_amount": goal.get("targetAmount"),  # Can be None
+            "target_date": goal.get("targetDate"),  # Can be None
+            "progress": goal.get("progress", 0),
+            # Time-based forecasting
+            "estimated_months_until_completion": goal.get("estimatedMonthsUntilCompletion"),
+            "forecasted_completion_date": goal.get("forecastedCompletionDate"),
+            "planned_monthly_contribution": goal.get("plannedMonthlyContribution", 0),
+            # Status from Monarch API (can be null, "ahead", "on_track", "at_risk", "completed")
+            "status": goal.get("status"),
+            # State flags
+            # Goal is completed if EITHER completedAt is set OR status is "completed"
+            # (status="completed" means balance >= target, even if user hasn't manually marked it)
+            "is_completed": bool(goal.get("completedAt")) or goal.get("status") == "completed",
+            # Image data
+            "image_storage_provider": goal.get("imageStorageProvider"),
+            "image_storage_provider_id": goal.get("imageStorageProviderId"),
+        })
+
+    _full_goals_cache[cache_key] = goals
+    return goals
 
 
 # Cache for user profile
@@ -643,13 +705,69 @@ async def get_category_aggregates(
         },
     )
 
-    summary = result.get("aggregates", {}).get("summary", {})
+    # Handle both list and dict responses from the API
+    aggregates_data = result.get("aggregates", {})
+    if isinstance(aggregates_data, list):
+        # If it's a list, get the first item's summary
+        summary = aggregates_data[0].get("summary", {}) if aggregates_data else {}
+    else:
+        summary = aggregates_data.get("summary", {})
+
     aggregates: dict[str, Any] = {
         "sumExpense": summary.get("sumExpense", 0.0),
         "sumIncome": summary.get("sumIncome", 0.0),
     }
     _aggregates_cache[cache_key] = aggregates
     return aggregates
+
+
+async def get_category_transactions(
+    mm: MonarchMoney,
+    category_id: str,
+    start_date: str,
+    end_date: str,
+) -> list[dict[str, Any]]:
+    """
+    Get transactions for a category within a date range.
+
+    Args:
+        mm: MonarchMoney client instance
+        category_id: Category ID to get transactions for
+        start_date: Start date (YYYY-MM-DD)
+        end_date: End date (YYYY-MM-DD)
+
+    Returns:
+        List of transaction dicts with 'amount', 'date', etc.
+    """
+    query = """
+    query Web_GetTransactionsList($filters: TransactionFilterInput, $limit: Int) {
+      allTransactions(filters: $filters) {
+        results(limit: $limit) {
+          id
+          amount
+          date
+          pending
+          __typename
+        }
+        __typename
+      }
+    }
+    """
+
+    result = await mm.gql_call(
+        operation="Web_GetTransactionsList",
+        graphql_query=query,
+        variables={
+            "filters": {
+                "categories": [category_id],
+                "startDate": start_date,
+                "endDate": end_date,
+            },
+            "limit": 1000,  # Max transactions to fetch
+        },
+    )
+
+    return result.get("allTransactions", {}).get("results", [])
 
 
 # Helper to build category id<->name maps and monthly lookup
@@ -697,3 +815,117 @@ def build_category_maps(budgets):
             "categoryGroups": monthly_category_groups_lookup,
         },
     )
+
+
+async def update_category_rollover_balance(
+    category_id: str,
+    amount_to_add: int,
+) -> dict[str, Any]:
+    """
+    Add funds to a category's rollover starting balance.
+
+    This is used by the Distribute wizard to allocate "available to stash"
+    funds that exceed "left to budget". The excess goes into the category's
+    rollover starting balance, effectively adding savings to that category.
+
+    If the category doesn't have rollover enabled, this will enable it with
+    monthly rollover type and set the starting month to the current month.
+
+    Args:
+        category_id: The Monarch category ID to update
+        amount_to_add: Amount (in dollars) to add to the starting balance
+
+    Returns:
+        dict with the updated category data
+    """
+    mm = await get_mm()
+
+    # First, get the current category to check existing rollover settings
+    query = gql("""
+        query GetCategoryRollover($id: UUID!) {
+            category(id: $id) {
+                id
+                name
+                rolloverPeriod {
+                    id
+                    startMonth
+                    startingBalance
+                    type
+                    frequency
+                }
+            }
+        }
+    """)
+
+    current = await mm.gql_call(
+        operation="GetCategoryRollover",
+        graphql_query=query,
+        variables={"id": category_id},
+    )
+
+    category_data = current.get("category", {})
+    rollover_period = category_data.get("rolloverPeriod")
+
+    # Calculate new starting balance
+    current_balance = 0
+    if rollover_period:
+        current_balance = rollover_period.get("startingBalance", 0) or 0
+
+    new_balance = current_balance + amount_to_add
+
+    # Build the update input
+    # Use current month as start month if enabling rollover for first time
+    current_month = datetime.now().replace(day=1).strftime("%Y-%m-%d")
+
+    input_data: dict[str, Any] = {
+        "id": category_id,
+        "rolloverEnabled": True,
+        "rolloverStartingBalance": new_balance,
+        "rolloverType": "monthly",
+        "rolloverFrequency": "monthly",
+    }
+
+    # Only set start month if this is a new rollover setup
+    if not rollover_period:
+        input_data["rolloverStartMonth"] = current_month
+
+    # Update the category
+    mutation = gql("""
+        mutation UpdateCategoryRollover($input: UpdateCategoryInput!) {
+            updateCategory(input: $input) {
+                category {
+                    id
+                    name
+                    rolloverPeriod {
+                        id
+                        startMonth
+                        startingBalance
+                        type
+                        frequency
+                    }
+                }
+                errors {
+                    message
+                    fieldErrors {
+                        field
+                        messages
+                    }
+                }
+            }
+        }
+    """)
+
+    result = await retry_with_backoff(
+        lambda: mm.gql_call(
+            operation="UpdateCategoryRollover",
+            graphql_query=mutation,
+            variables={"input": input_data},
+        )
+    )
+
+    # Clear caches after mutation
+    clear_cache("category")
+    clear_cache("budget")
+
+    result_dict: dict[str, Any] = result if isinstance(result, dict) else {}
+    return result_dict

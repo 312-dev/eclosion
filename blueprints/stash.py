@@ -81,7 +81,7 @@ async def get_stash_history():
 @api_handler(handle_mfa=True)
 async def get_available_to_stash():
     """
-    Get data needed for Available to Stash calculation.
+    Get data needed for Available Funds calculation.
 
     Returns aggregated data from Monarch accounts, budgets, and goals,
     plus stash balances. The frontend performs the actual calculation.
@@ -148,6 +148,51 @@ async def update_layout():
 
     result = await service.update_layouts(layouts)
     return sanitize_api_result(result, "Failed to update layout.")
+
+
+@stash_bp.route("/monarch-goals", methods=["GET"])
+@api_handler(handle_mfa=True)
+async def get_monarch_goals():
+    """
+    Get Monarch savings goals with grid layout data.
+
+    Returns full goal data from Monarch API merged with stored grid positions.
+    Goals are filtered to active (non-archived) only.
+
+    Response:
+    - goals: Array of goal objects with financial data, layout, and status
+    """
+    service = get_stash_service()
+    return await service.get_monarch_goals()
+
+
+@stash_bp.route("/monarch-goals/layout", methods=["PUT"])
+@api_handler(handle_mfa=False)
+async def update_monarch_goal_layouts():
+    """
+    Update grid layout positions for Monarch goals.
+
+    Request body:
+    - layouts: Array of {goal_id, grid_x, grid_y, col_span, row_span}
+
+    Used for drag-drop reordering and widget resizing of goal cards.
+    """
+    service = get_stash_service()
+    data = request.get_json()
+
+    layouts = data.get("layouts", [])
+    if not isinstance(layouts, list):
+        raise ValidationError("'layouts' must be an array")
+
+    # Validate each layout entry
+    for layout in layouts:
+        if not isinstance(layout, dict):
+            raise ValidationError("Each layout entry must be an object")
+        if "goal_id" not in layout:
+            raise ValidationError("Each layout entry must have a 'goal_id'")
+
+    result = await service.update_monarch_goal_layouts(layouts)
+    return sanitize_api_result(result, "Failed to update goal layouts.")
 
 
 # ---- ITEM MANAGEMENT ENDPOINTS ----
@@ -390,6 +435,101 @@ async def allocate_funds(item_id: str):
     return sanitize_api_result(result, "Failed to allocate funds.")
 
 
+@stash_bp.route("/allocate-batch", methods=["POST"])
+@api_handler(handle_mfa=True)
+async def allocate_funds_batch():
+    """
+    Set budget amounts for multiple stash items in a single request.
+
+    Request body:
+    - allocations: Array of {id, budget} objects
+
+    Used by the Distribute feature to update all stash budgets at once.
+    """
+    service = get_stash_service()
+    data = request.get_json()
+
+    allocations = data.get("allocations", [])
+    if not isinstance(allocations, list):
+        raise ValidationError("'allocations' must be an array")
+
+    if not allocations:
+        raise ValidationError("'allocations' cannot be empty")
+
+    # Validate and sanitize each allocation
+    validated_allocations = []
+    for allocation in allocations:
+        if not isinstance(allocation, dict):
+            raise ValidationError("Each allocation must be an object")
+        if "id" not in allocation:
+            raise ValidationError("Each allocation must have an 'id'")
+        if "budget" not in allocation:
+            raise ValidationError("Each allocation must have a 'budget'")
+
+        item_id = sanitize_id(allocation["id"])
+        if not item_id:
+            raise ValidationError("Invalid item ID in allocations")
+
+        budget = allocation["budget"]
+        if not isinstance(budget, (int, float)) or budget < 0:
+            raise ValidationError("'budget' must be a non-negative number")
+
+        validated_allocations.append({"id": item_id, "budget": int(budget)})
+
+    result = await service.allocate_funds_batch(validated_allocations)
+    return sanitize_api_result(result, "Failed to update budgets.")
+
+
+@stash_bp.route("/update-rollover-balance", methods=["POST"])
+@api_handler(handle_mfa=True)
+async def update_rollover_balance():
+    """
+    Add funds to a category's rollover starting balance.
+
+    Used by the Distribute wizard to allocate the "rollover portion" of
+    available funds (Available to Stash - Left to Budget) to categories.
+    This effectively adds savings to a category that persists month-to-month.
+
+    Request body:
+    - category_id: The Monarch category ID to update
+    - amount: Amount (integer) to add to the rollover starting balance
+
+    Returns:
+    - success: boolean
+    - category: updated category data from Monarch
+    """
+    from monarch_utils import update_category_rollover_balance
+
+    data = request.get_json()
+
+    category_id = sanitize_id(data.get("category_id"))
+    amount = data.get("amount")
+
+    if not category_id:
+        raise ValidationError("Missing 'category_id'")
+    if amount is None:
+        raise ValidationError("Missing 'amount'")
+
+    try:
+        amount_int = int(amount)
+    except (ValueError, TypeError):
+        raise ValidationError("'amount' must be an integer")
+
+    result = await update_category_rollover_balance(category_id, amount_int)
+
+    # Check for errors in the response
+    update_result = result.get("updateCategory", {})
+    errors = update_result.get("errors")
+    if errors:
+        error_msg = errors.get("message", "Failed to update rollover balance")
+        raise ValidationError(error_msg)
+
+    return jsonify({
+        "success": True,
+        "category": update_result.get("category"),
+    })
+
+
 @stash_bp.route("/<item_id>/change-group", methods=["POST"])
 @api_handler(handle_mfa=True)
 async def change_category_group(item_id: str):
@@ -489,6 +629,7 @@ async def update_config():
     - default_category_group_name: Default group name
     - selected_browser: Browser for bookmark sync (chrome/edge/brave/safari)
     - selected_folder_ids: JSON array of bookmark folder IDs
+    - selected_cash_account_ids: JSON array of cash account IDs for Available to Stash
     - auto_archive_on_bookmark_delete: Auto-archive when bookmark removed
     - auto_archive_on_goal_met: Auto-archive when goal completed
     - is_configured: Mark setup as complete
@@ -533,6 +674,30 @@ async def update_config():
         updates["auto_archive_on_bookmark_delete"] = bool(data["auto_archive_on_bookmark_delete"])
     if "auto_archive_on_goal_met" in data:
         updates["auto_archive_on_goal_met"] = bool(data["auto_archive_on_goal_met"])
+
+    # Available to Stash calculation settings
+    if "include_expected_income" in data:
+        updates["include_expected_income"] = bool(data["include_expected_income"])
+    if "selected_cash_account_ids" in data:
+        # Store as JSON string
+        import json
+
+        account_ids = data["selected_cash_account_ids"]
+        if account_ids is not None:
+            updates["selected_cash_account_ids"] = json.dumps(account_ids) if account_ids else None
+        else:
+            updates["selected_cash_account_ids"] = None
+
+    # Display settings
+    if "show_monarch_goals" in data:
+        updates["show_monarch_goals"] = bool(data["show_monarch_goals"])
+
+    # Buffer settings
+    if "buffer_amount" in data:
+        buffer = data["buffer_amount"]
+        if not isinstance(buffer, (int, float)) or buffer < 0:
+            raise ValidationError("'buffer_amount' must be a non-negative number")
+        updates["buffer_amount"] = int(buffer)
 
     # Configuration state
     if "is_configured" in data:

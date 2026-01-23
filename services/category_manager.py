@@ -508,6 +508,40 @@ class CategoryManager:
 
         return planned
 
+    async def get_last_month_planned_budgets(self) -> dict[str, int]:
+        """
+        Get planned budget amounts for all categories from the PREVIOUS month.
+
+        Used by the Distribute wizard to calculate fallback ratios when
+        Available to Stash is <= 0.
+
+        Returns dict: category_id -> plannedCashFlowAmount (as int) for last month
+        """
+        from datetime import datetime, timedelta
+
+        # Calculate previous month's date range
+        now = datetime.now()
+        first_of_this_month = now.replace(day=1)
+        last_of_prev_month = first_of_this_month - timedelta(days=1)
+        prev_month_start = last_of_prev_month.replace(day=1).strftime("%Y-%m-%d")
+
+        mm = await get_mm()
+        # Fetch budget data for previous month only
+        budgets: dict[str, Any] = await retry_with_backoff(
+            lambda: mm.get_budgets(prev_month_start, prev_month_start)
+        )
+
+        planned: dict[str, int] = {}
+        for entry in budgets.get("budgetData", {}).get("monthlyAmountsByCategory", []):
+            cat_id = entry.get("category", {}).get("id")
+            if cat_id:
+                for month in entry.get("monthlyAmounts", []):
+                    if month.get("month") == prev_month_start:
+                        planned[cat_id] = int(month.get("plannedCashFlowAmount", 0))
+                        break
+
+        return planned
+
     async def get_all_category_rollovers(self) -> dict[str, float]:
         """
         Get rollover amounts (start of month balance) for all categories.

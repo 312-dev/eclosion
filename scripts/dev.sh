@@ -69,9 +69,10 @@ fi
 
 echo -e "${GREEN}Selected ports: Flask=$FLASK_PORT, Vite=$VITE_PORT${NC}"
 
-# Export ports for Electron to read
+# Export env vars for Electron
 export DEV_FLASK_PORT=$FLASK_PORT
 export DEV_VITE_PORT=$VITE_PORT
+export ECLOSION_DEV_MODE=1  # Skip singleton lock for hot reload
 
 echo -e "${YELLOW}Eclosion Dev Mode${NC}"
 echo "=================="

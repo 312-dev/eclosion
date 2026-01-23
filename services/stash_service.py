@@ -17,7 +17,15 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, TypedDict
 
-from monarch_utils import clear_cache, get_category_aggregates, get_goal_balances, get_mm, get_month_range
+from monarch_utils import (
+    clear_cache,
+    get_category_aggregates,
+    get_category_transactions,
+    get_goal_balances,
+    get_mm,
+    get_month_range,
+    get_savings_goals_full,
+)
 from services.category_manager import CategoryManager
 from state.db import db_session
 from state.db.repositories import TrackerRepository
@@ -205,7 +213,14 @@ async def calculate_total_budgeted(
         sum_income = aggregates.get("sumIncome", 0.0)
         net_spending = sum_expense - sum_income
 
-        return remaining + net_spending
+        total_budgeted = remaining + net_spending
+        logger.info(
+            f"[Stash] calculate_total_budgeted for {category_id}: "
+            f"sumExpense={sum_expense}, sumIncome={sum_income}, "
+            f"net_spending={net_spending}, remaining={remaining}, "
+            f"total_budgeted={total_budgeted}, start_date={start_date}"
+        )
+        return total_budgeted
     except Exception as e:
         # If aggregate query fails, fall back to remaining balance
         logger.warning(f"Failed to get aggregates for {category_id}: {e}")
@@ -270,8 +285,9 @@ class StashService:
                 "total_monthly_target": 0,
             }
 
-        # Get budget data for all categories
+        # Get budget data for all categories (current and previous month)
         budget_data = await self.category_manager.get_all_category_budget_data()
+        last_month_budgets = await self.category_manager.get_last_month_planned_budgets()
         current_month = datetime.now().strftime("%Y-%m-01")
 
         active_items = []
@@ -280,25 +296,61 @@ class StashService:
         total_target = 0.0
         total_saved = 0.0
 
-        # Get current month range for credit queries
-        month_start, month_end = get_month_range()
-
         for item in items:
             # Get balance and budget from Monarch if category exists
             current_balance = 0.0
             rollover_balance = 0.0
             remaining_balance = 0.0
             planned_budget = 0
+            last_month_planned_budget = 0
             credits_this_month = 0.0
             available_to_spend: float | None = None
             goal_type = item.get("goal_type", "one_time")
             is_completed = item.get("completed_at") is not None
 
+            # Look up last month's planned budget for this category
+            if item["monarch_category_id"]:
+                last_month_planned_budget = last_month_budgets.get(
+                    item["monarch_category_id"], 0
+                )
+
             if item["monarch_category_id"] and item["monarch_category_id"] in budget_data:
                 cat_data = budget_data[item["monarch_category_id"]]
+
+                # Debug logging for Testing category
+                if item["name"] == "Testing":
+                    logger.info(f"[Stash] Testing category budget data: {cat_data}")
+
                 rollover_balance = cat_data.get("rollover", 0)
                 remaining_balance = cat_data.get("remaining", 0)
                 planned_budget = int(cat_data.get("budgeted", 0))
+
+                # Get credits (positive transactions) for current month
+                # We need to fetch transactions and sum positive amounts
+                try:
+                    mm = await get_mm()
+                    month_start, month_end = get_month_range()
+
+                    # Fetch transactions for this category this month
+                    transactions = await get_category_transactions(
+                        mm,
+                        category_id=item["monarch_category_id"],
+                        start_date=month_start,
+                        end_date=month_end,
+                    )
+
+                    # Sum up positive amounts (credits/income)
+                    credits_this_month = sum(
+                        txn.get("amount", 0) for txn in transactions if txn.get("amount", 0) > 0
+                    )
+
+                    logger.info(
+                        f"[Stash] {item['name']}: {len(transactions)} transactions, "
+                        f"credits_this_month={credits_this_month}"
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to get credits for {item['name']}: {e}")
+                    credits_this_month = 0.0
 
                 # Calculate current_balance based on goal_type
                 if is_completed:
@@ -309,32 +361,24 @@ class StashService:
                     # Savings buffer: progress = remaining (spending reduces progress)
                     current_balance = remaining_balance
                 else:
-                    # One-time purchase: progress = total ever budgeted
-                    # Use aggregate query to calculate total budgeted
-                    tracking_start = get_tracking_start_date(item)
-                    current_balance = await calculate_total_budgeted(
-                        category_id=item["monarch_category_id"],
-                        start_date=tracking_start,
-                        remaining=remaining_balance,
-                    )
-                    # Available to spend is the actual remaining balance
-                    available_to_spend = remaining_balance
+                    # One-time purchase: progress = total ever budgeted (immune to spending)
+                    # Special case: if no budgeting ever happened (just income/credits),
+                    # use total credits as progress (immune to spending)
+                    if rollover_balance == 0 and planned_budget == 0 and credits_this_month > 0:
+                        current_balance = credits_this_month
+                        available_to_spend = remaining_balance
+                    else:
+                        # Use aggregate query to calculate total budgeted
+                        tracking_start = get_tracking_start_date(item)
+                        current_balance = await calculate_total_budgeted(
+                            category_id=item["monarch_category_id"],
+                            start_date=tracking_start,
+                            remaining=remaining_balance,
+                        )
+                        # Available to spend is the actual remaining balance
+                        available_to_spend = remaining_balance
 
-                # Get credits (positive transactions) for current month
-                try:
-                    mm = await get_mm()
-                    aggregates = await get_category_aggregates(
-                        mm,
-                        category_id=item["monarch_category_id"],
-                        start_date=month_start,
-                        end_date=month_end,
-                    )
-                    credits_this_month = aggregates.get("sumIncome", 0.0)
-                except Exception as e:
-                    logger.warning(f"Failed to get credits for {item['name']}: {e}")
-                    credits_this_month = 0.0
-
-                # Debug: log balance retrieval for all items
+                # Log balance retrieval for all items
                 logger.info(
                     f"[Stash] {item['name']}: goal_type={goal_type}, "
                     f"current_balance={current_balance}, remaining={remaining_balance}, "
@@ -410,6 +454,7 @@ class StashService:
                 # Computed fields
                 "current_balance": current_balance,
                 "planned_budget": planned_budget,
+                "last_month_planned_budget": last_month_planned_budget,
                 "monthly_target": monthly_target,
                 "progress_percent": progress_percent,
                 "shortfall": shortfall,
@@ -792,6 +837,60 @@ class StashService:
 
         return {"success": True, "id": item_id, "new_budget": amount}
 
+    async def allocate_funds_batch(
+        self,
+        allocations: list[dict],
+    ) -> dict[str, Any]:
+        """
+        Set budget amounts for multiple stash items in a single operation.
+
+        Used by the Distribute feature to update all stash budgets at once.
+
+        Args:
+            allocations: List of dicts with 'id' and 'budget' keys
+
+        Returns:
+            Success status with count of updated items
+        """
+        # Build mapping of item_id -> category_id
+        category_mapping: dict[str, str] = {}
+        with db_session() as session:
+            repo = TrackerRepository(session)
+            for allocation in allocations:
+                item = repo.get_stash_item(allocation["id"])
+                if item and item.monarch_category_id:
+                    category_mapping[allocation["id"]] = item.monarch_category_id
+
+        # Set budgets in Monarch for each item
+        updated_count = 0
+        errors = []
+        for allocation in allocations:
+            item_id = allocation["id"]
+            budget = allocation["budget"]
+
+            category_id = category_mapping.get(item_id)
+            if not category_id:
+                errors.append(f"Item {item_id}: no linked category")
+                continue
+
+            try:
+                await self.category_manager.set_category_budget(category_id, budget)
+                updated_count += 1
+            except Exception as e:
+                errors.append(f"Item {item_id}: {str(e)}")
+
+        # Clear caches
+        clear_cache("budget")
+
+        if errors:
+            return {
+                "success": updated_count > 0,
+                "updated": updated_count,
+                "errors": errors,
+            }
+
+        return {"success": True, "updated": updated_count}
+
     async def change_category_group(
         self,
         item_id: str,
@@ -970,6 +1069,89 @@ class StashService:
 
         return {"success": True, "updated": updated}
 
+    async def get_monarch_goals(self) -> dict[str, Any]:
+        """
+        Get Monarch savings goals with grid layout data.
+
+        Fetches full goal data from Monarch API (including status) and merges with
+        stored grid positions. Status values come directly from Monarch, which uses
+        time-based forecasting to determine ahead/on_track/at_risk/completed.
+
+        Returns:
+            Dict with 'goals' list containing enriched goal data
+        """
+        mm = await get_mm()
+        raw_goals = await get_savings_goals_full(mm)
+        logger.info(f"[Stash] Fetched {len(raw_goals)} goals from Monarch API")
+
+        # Get layout data
+        with db_session() as session:
+            repo = TrackerRepository(session)
+            layouts = {layout.goal_id: layout for layout in repo.get_all_monarch_goal_layouts()}
+
+        # Enrich goals with layout and computed fields
+        enriched_goals = []
+        for goal in raw_goals:
+            goal_id = goal["id"]
+            layout = layouts.get(goal_id)
+
+            # Use status from Monarch API, map null to 'no_target'
+            status = goal["status"] if goal["status"] is not None else "no_target"
+
+            enriched_goal = {
+                "type": "monarch_goal",
+                "id": goal_id,
+                "name": goal["name"],
+                # Financial data
+                "current_balance": goal["current_balance"],
+                "net_contribution": goal["net_contribution"],
+                "target_amount": goal["target_amount"],
+                "target_date": goal["target_date"],
+                "progress": goal["progress"],
+                # Time-based forecasting
+                "estimated_months_until_completion": goal["estimated_months_until_completion"],
+                "forecasted_completion_date": goal["forecasted_completion_date"],
+                "planned_monthly_contribution": goal["planned_monthly_contribution"],
+                # Status from Monarch API
+                "status": status,
+                "months_ahead_behind": None,  # Not calculated anymore, can be derived from forecasted date if needed
+                # Grid layout (default to 0,0 if not set)
+                "grid_x": layout.grid_x if layout else 0,
+                "grid_y": layout.grid_y if layout else 0,
+                "col_span": layout.col_span if layout else 1,
+                "row_span": layout.row_span if layout else 1,
+                # State
+                "is_archived": False,  # Already filtered by get_savings_goals_full
+                "is_completed": goal["is_completed"],
+                # Image data
+                "image_storage_provider": goal["image_storage_provider"],
+                "image_storage_provider_id": goal["image_storage_provider_id"],
+            }
+
+            enriched_goals.append(enriched_goal)
+
+        logger.info(f"[Stash] Returning {len(enriched_goals)} enriched goals")
+        if enriched_goals:
+            logger.info(f"[Stash] Sample goal: {enriched_goals[0]}")
+        return {"goals": enriched_goals}
+
+
+    async def update_monarch_goal_layouts(self, layouts: list[dict]) -> dict[str, Any]:
+        """
+        Update grid layout positions for multiple Monarch goals.
+
+        Args:
+            layouts: List of dicts with goal_id, grid_x, grid_y, col_span, row_span
+
+        Returns:
+            Success status and count of updated layouts
+        """
+        with db_session() as session:
+            repo = TrackerRepository(session)
+            updated = repo.update_monarch_goal_layouts(layouts)
+
+        return {"success": True, "updated": updated}
+
     async def sync_from_monarch(self) -> dict[str, Any]:
         """
         Sync stash items with Monarch to update balances and budgets.
@@ -1030,6 +1212,14 @@ class StashService:
                 except json.JSONDecodeError:
                     folder_names = []
 
+            # Parse selected_cash_account_ids from JSON string
+            account_ids = None
+            if config.selected_cash_account_ids:
+                try:
+                    account_ids = json.loads(config.selected_cash_account_ids)
+                except json.JSONDecodeError:
+                    account_ids = None
+
             # Infer is_configured if browser and folder are set but flag wasn't
             # This handles configs created before the bug fix
             is_configured = config.is_configured
@@ -1047,6 +1237,10 @@ class StashService:
                 "selected_folder_names": folder_names,
                 "auto_archive_on_bookmark_delete": config.auto_archive_on_bookmark_delete,
                 "auto_archive_on_goal_met": config.auto_archive_on_goal_met,
+                "include_expected_income": config.include_expected_income,
+                "selected_cash_account_ids": account_ids,
+                "show_monarch_goals": config.show_monarch_goals,
+                "buffer_amount": config.buffer_amount,
             }
 
     async def update_config(self, **updates) -> dict[str, Any]:
@@ -1188,7 +1382,7 @@ class StashService:
 
     async def get_available_to_stash_data(self) -> dict[str, Any]:
         """
-        Get data needed for Available to Stash calculation.
+        Get data needed for Available Funds calculation.
 
         Returns aggregated data from Monarch:
         - accounts: Account balances with type info
@@ -1198,12 +1392,25 @@ class StashService:
         - actualIncome: Actual income received
         - stashBalances: Total balance in stash items
 
+        Applies cash account filtering based on user selection in stash config.
+
         See .claude/rules/available-to-stash.md for the calculation formula.
         """
         mm = await get_mm()
         start, _ = get_month_range()
         # Monarch returns months in YYYY-MM-DD format (e.g., "2026-01-01")
         month_key = start  # Full date for matching
+
+        # Get stash config to check account selection
+        with db_session() as session:
+            repo = TrackerRepository(session)
+            config = repo.get_stash_config()
+            selected_account_ids = None
+            if config and config.selected_cash_account_ids:
+                try:
+                    selected_account_ids = json.loads(config.selected_cash_account_ids)
+                except json.JSONDecodeError:
+                    selected_account_ids = None
 
         # Fetch all required data in parallel
         import asyncio
@@ -1217,17 +1424,29 @@ class StashService:
             accounts_task, budgets_task, goals_task, stash_task
         )
 
-        # Process accounts
+        # Process accounts - filter based on selection
         accounts_list = []
         for account in accounts_result.get("accounts", []):
             # Only include accounts that are not hidden
             if account.get("isHidden"):
                 continue
+
+            account_id = account.get("id")
+            account_type = account.get("type", {}).get("name", "unknown")
+
+            # Apply filtering only to cash accounts
+            # Credit cards are ALWAYS included (they're always debt to account for)
+            if self._is_cash_account(account_type):
+                # If specific accounts are selected, filter
+                if selected_account_ids is not None:
+                    if account_id not in selected_account_ids:
+                        continue
+
             accounts_list.append({
-                "id": account.get("id"),
+                "id": account_id,
                 "name": account.get("displayName") or account.get("name"),
                 "balance": account.get("currentBalance", 0),
-                "accountType": account.get("type", {}).get("name", "unknown"),
+                "accountType": account_type,
                 "isEnabled": not account.get("isHidden", False),
             })
 
@@ -1323,6 +1542,17 @@ class StashService:
             "stashItems": stash_items,
         }
 
+    def _is_cash_account(self, account_type: str) -> bool:
+        """
+        Check if account type is a cash account.
+
+        Matches the frontend isCashAccount() logic.
+        Cash accounts include: checking, savings, cash, PayPal/Venmo, prepaid, money market.
+        Credit cards are NOT cash accounts.
+        """
+        cash_types = ["checking", "savings", "cash", "paypal", "venmo", "prepaid", "money_market", "depository"]
+        return account_type.lower() in cash_types
+
     def _get_active_stash_items_for_history(self) -> list[dict[str, Any]]:
         """Get active stash items with their category IDs for history queries."""
         with db_session() as session:
@@ -1334,6 +1564,9 @@ class StashService:
                     "name": item.name,
                     "amount": item.amount,
                     "monarch_category_id": item.monarch_category_id,
+                    "goal_type": getattr(item, "goal_type", "one_time"),
+                    "tracking_start_date": getattr(item, "tracking_start_date", None),
+                    "created_at": item.created_at,
                 }
                 for item in db_items
                 if not item.is_archived and item.monarch_category_id
@@ -1359,28 +1592,99 @@ class StashService:
 
         return monthly_lookup, sorted(all_months)
 
-    def _build_item_history(
+    async def _build_item_history(
         self,
         item: dict[str, Any],
         sorted_months: list[str],
         monthly_lookup: dict[tuple[str, str], dict],
     ) -> dict[str, Any]:
-        """Build history data for a single stash item."""
+        """
+        Build history data for a single stash item.
+
+        For one_time goals: uses total budgeted (immune to spending)
+        For savings_buffer goals: uses remaining balance (affected by spending)
+        """
         cat_id = item["monarch_category_id"]
+        goal_type = item.get("goal_type", "one_time")
         item_months = []
         prev_balance = 0.0
 
-        for month in sorted_months:
-            month_data = monthly_lookup.get((cat_id, month))
-            balance = (month_data.get("remainingAmount", 0) or 0) if month_data else 0
-            contribution = balance - prev_balance
+        if goal_type == "savings_buffer":
+            # Savings buffer: use remaining balance directly
+            for month in sorted_months:
+                month_data = monthly_lookup.get((cat_id, month))
+                balance = (month_data.get("remainingAmount", 0) or 0) if month_data else 0
+                contribution = balance - prev_balance
 
-            item_months.append({
-                "month": month,
-                "balance": balance,
-                "contribution": contribution,
-            })
-            prev_balance = balance
+                item_months.append({
+                    "month": month,
+                    "balance": balance,
+                    "contribution": contribution,
+                })
+                prev_balance = balance
+        else:
+            # One-time purchase: calculate total budgeted (immune to spending)
+            # Get tracking start date
+            tracking_start = None
+            if item.get("tracking_start_date"):
+                tsd = item["tracking_start_date"]
+                tracking_start = tsd.isoformat() if hasattr(tsd, "isoformat") else str(tsd)
+            elif item.get("created_at"):
+                created = item["created_at"]
+                if hasattr(created, "replace"):
+                    tracking_start = created.replace(day=1).date().isoformat()
+                else:
+                    # Already a date string
+                    tracking_start = created[:7] + "-01"
+
+            if not tracking_start:
+                # Fallback: use first month in sorted_months
+                tracking_start = sorted_months[0] + "-01" if sorted_months else date.today().replace(day=1).isoformat()
+
+            # Fetch transactions for the entire period
+            mm = await get_mm()
+            end_date = sorted_months[-1] + "-28" if sorted_months else date.today().isoformat()
+            transactions = await get_category_transactions(
+                mm,
+                category_id=cat_id,
+                start_date=tracking_start,
+                end_date=end_date,
+            )
+
+            # Group transactions by month (YYYY-MM)
+            transactions_by_month: dict[str, list] = {}
+            for txn in transactions:
+                txn_date = txn.get("date", "")
+                if txn_date:
+                    month_key = txn_date[:7]  # "2025-01-15" -> "2025-01"
+                    if month_key not in transactions_by_month:
+                        transactions_by_month[month_key] = []
+                    transactions_by_month[month_key].append(txn)
+
+            # Calculate cumulative spending
+            # For one_time goals: progress = remaining + spending
+            # Income is already in remaining, so we only add back spending to show total progress
+            cumulative_spending = 0.0
+            for month in sorted_months:
+                month_data = monthly_lookup.get((cat_id, month))
+                remaining = (month_data.get("remainingAmount", 0) or 0) if month_data else 0
+
+                # Calculate spending for this month (don't include income, it's already in remaining)
+                month_txns = transactions_by_month.get(month, [])
+                spending_this_month = sum(abs(t.get("amount", 0)) for t in month_txns if t.get("amount", 0) < 0)
+                cumulative_spending += spending_this_month
+
+                # For one_time goals: balance = remaining + cumulative_spending
+                # This makes income add to progress (it's in remaining) and spending not reduce it
+                balance = remaining + cumulative_spending
+                contribution = balance - prev_balance
+
+                item_months.append({
+                    "month": month,
+                    "balance": balance,
+                    "contribution": contribution,
+                })
+                prev_balance = balance
 
         return {
             "id": item["id"],
@@ -1424,13 +1728,14 @@ class StashService:
         # Build lookup and get sorted months
         monthly_lookup, sorted_months = self._build_monthly_lookup(budgets_result)
 
-        # Build history for each stash item
-        result_items = [
+        # Build history for each stash item (async operations for one_time goals)
+        import asyncio
+        result_items = await asyncio.gather(*[
             self._build_item_history(item, sorted_months, monthly_lookup)
             for item in items_data
-        ]
+        ])
 
         return {
-            "items": result_items,
+            "items": list(result_items),
             "months": sorted_months,
         }
