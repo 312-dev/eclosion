@@ -444,3 +444,60 @@ export function getNormalizationDate(nextDueDate: string): string {
   const yearLabel = normalizationMonth.getFullYear().toString().slice(-2);
   return `${monthLabel} '${yearLabel}`;
 }
+
+// ============================================================================
+// Distribution Utilities
+// ============================================================================
+
+/**
+ * Distribute an amount across items by ratios using the Largest Remainder Method.
+ * Guarantees the sum of distributed amounts equals totalAmount exactly.
+ *
+ * This solves the common rounding problem where dividing $97 among 3 items
+ * would give $32 each (sum = $96, missing $1). The Largest Remainder Method
+ * assigns floor values first, then distributes extra dollars to items with
+ * the largest fractional remainders.
+ *
+ * @param totalAmount - The total amount to distribute (whole dollars)
+ * @param ratios - Map of item ID to ratio (will be normalized if they don't sum to 1)
+ * @returns Map of item ID to distributed amount (whole dollars, sum equals totalAmount)
+ */
+export function distributeAmountByRatios(
+  totalAmount: number,
+  ratios: Record<string, number>
+): Record<string, number> {
+  const ids = Object.keys(ratios);
+  if (ids.length === 0) return {};
+
+  // Normalize ratios to sum to 1
+  const totalRatio = Object.values(ratios).reduce((sum, r) => sum + r, 0);
+  if (totalRatio === 0) {
+    return Object.fromEntries(ids.map((id) => [id, 0]));
+  }
+
+  // Calculate exact amounts and floor values
+  const items = ids.map((id) => {
+    // ratios[id] is guaranteed to exist since ids comes from Object.keys(ratios)
+    const ratio = ratios[id] ?? 0;
+    const exactAmount = (ratio / totalRatio) * totalAmount;
+    const floorAmount = Math.floor(exactAmount);
+    const remainder = exactAmount - floorAmount;
+    return { id, floorAmount, remainder };
+  });
+
+  // Calculate how many extra dollars to distribute
+  const floorSum = items.reduce((sum, item) => sum + item.floorAmount, 0);
+  let extraDollars = Math.round(totalAmount) - floorSum;
+
+  // Sort by remainder descending to give extra dollars to those with largest remainders
+  items.sort((a, b) => b.remainder - a.remainder);
+
+  // Build result, adding one extra dollar to top items
+  const result: Record<string, number> = {};
+  for (const item of items) {
+    result[item.id] = item.floorAmount + (extraDollars > 0 ? 1 : 0);
+    if (extraDollars > 0) extraDollars--;
+  }
+
+  return result;
+}

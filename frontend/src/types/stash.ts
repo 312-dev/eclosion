@@ -49,7 +49,8 @@ export interface StashItem {
   source_url?: string; // Original bookmark URL
   source_bookmark_id?: string; // For tracking sync
   logo_url?: string; // Favicon from URL
-  custom_image_path?: string; // User-uploaded image path
+  custom_image_path?: string; // User-uploaded image path or Openverse URL
+  image_attribution?: string; // Attribution text for Openverse images
 
   // Computed values (frontend single source of truth)
   monthly_target: number; // What to save this month
@@ -119,19 +120,24 @@ export interface StashItem {
  * Category selection (mutually exclusive):
  * - category_group_id: Creates a new category in this group
  * - existing_category_id: Links to an existing Monarch category
+ * - flexible_group_id: Links to a flexible category group with group-level rollover
  */
 export interface CreateStashItemRequest {
   name: string;
   amount: number;
   target_date: string;
-  /** Creates a new category in this group (mutually exclusive with existing_category_id) */
+  /** Creates a new category in this group (mutually exclusive with existing_category_id/flexible_group_id) */
   category_group_id?: string;
-  /** Links to an existing category (mutually exclusive with category_group_id) */
+  /** Links to an existing category (mutually exclusive with category_group_id/flexible_group_id) */
   existing_category_id?: string;
+  /** Links to a flexible category group with group-level rollover (mutually exclusive with others) */
+  flexible_group_id?: string;
   source_url?: string;
   source_bookmark_id?: string;
   emoji?: string;
   custom_image_path?: string;
+  /** Attribution text for Openverse images */
+  image_attribution?: string;
   /** Goal type: 'one_time' (default) or 'savings_buffer' */
   goal_type?: StashGoalType;
   /** Custom start date for tracking (one_time goals only, YYYY-MM-DD) */
@@ -148,6 +154,8 @@ export interface UpdateStashItemRequest {
   emoji?: string;
   is_enabled?: boolean;
   custom_image_path?: string | null;
+  /** Attribution text for Openverse images */
+  image_attribution?: string | null;
   source_url?: string | null;
   /** Goal type: 'one_time' or 'savings_buffer' */
   goal_type?: StashGoalType;

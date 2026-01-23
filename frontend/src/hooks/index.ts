@@ -72,11 +72,7 @@ export { useRecurringTour, TOUR_STATE_KEY, type UseRecurringTourReturn } from '.
 
 export { useNotesTour, NOTES_TOUR_STATE_KEY, type UseNotesTourReturn } from './useNotesTour';
 
-export {
-  useStashTour,
-  STASH_TOUR_STATE_KEY,
-  type UseStashTourReturn,
-} from './useStashTour';
+export { useStashTour, STASH_TOUR_STATE_KEY, type UseStashTourReturn } from './useStashTour';
 
 export { useBiometric, type UseBiometricReturn } from './useBiometric';
 
@@ -107,11 +103,14 @@ export { useBrowserSelection, type UseBrowserSelectionResult } from './wizard/us
 
 export { useFolderSelection, type UseFolderSelectionResult } from './wizard/useFolderSelection';
 
-export {
-  useStashImageUpload,
-  type UseStashImageUploadResult,
-} from './useStashImageUpload';
+export { useStashImageUpload, type UseStashImageUploadResult } from './useStashImageUpload';
 
 export { useStashSync } from './useStashSync';
 
 export { useAppTour } from './useAppTour';
+
+export {
+  useFormattedNumberInput,
+  type UseFormattedNumberInputOptions,
+  type UseFormattedNumberInputReturn,
+} from './useFormattedNumberInput';

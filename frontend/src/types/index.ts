@@ -61,6 +61,9 @@ export type {
 // Category operations
 export type {
   CategoryGroup,
+  CategoryGroupDetailed,
+  CategoryGroupRolloverPeriod,
+  UpdateCategoryGroupSettingsRequest,
   UnmappedCategory,
   LinkCategoryResult,
   DeletableCategory,
@@ -203,3 +206,18 @@ export type {
   StashReportSettings,
 } from './stashHistory';
 export { DEFAULT_REPORT_SETTINGS, timeRangeToMonths } from './stashHistory';
+
+// Openverse image search
+export type {
+  OpenverseCredentials,
+  OpenverseAccessToken,
+  OpenverseImage,
+  OpenverseSearchRequest,
+  OpenverseLicenseFilter,
+  OpenverseSearchResult,
+  OpenverseRegisterRequest,
+  OpenverseRegisterResponse,
+  OpenverseTokenRequest,
+  OpenverseTokenResponse,
+  ImageSelection,
+} from './openverse';
