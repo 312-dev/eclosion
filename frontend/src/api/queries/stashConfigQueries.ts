@@ -24,6 +24,10 @@ function transformStashConfig(raw: Record<string, unknown>): StashConfig {
     selectedFolderNames: (raw['selected_folder_names'] as string[]) ?? [],
     autoArchiveOnBookmarkDelete: Boolean(raw['auto_archive_on_bookmark_delete']),
     autoArchiveOnGoalMet: Boolean(raw['auto_archive_on_goal_met']),
+    includeExpectedIncome: Boolean(raw['include_expected_income']),
+    selectedCashAccountIds: (raw['selected_cash_account_ids'] as string[] | null) ?? null,
+    showMonarchGoals: Boolean(raw['show_monarch_goals']),
+    bufferAmount: Number(raw['buffer_amount']) || 0,
   };
 }
 
@@ -75,9 +79,7 @@ export function useStashCategoryGroupsQuery() {
   return useQuery({
     queryKey: getQueryKey(queryKeys.stashCategoryGroups, isDemo),
     queryFn: async () => {
-      return isDemo
-        ? await demoApi.getStashCategoryGroups()
-        : await api.getStashCategoryGroups();
+      return isDemo ? await demoApi.getStashCategoryGroups() : await api.getStashCategoryGroups();
     },
     staleTime: 5 * 60 * 1000,
   });

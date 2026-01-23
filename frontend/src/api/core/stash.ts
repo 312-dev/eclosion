@@ -126,6 +126,27 @@ export async function allocateStashFunds(
 }
 
 /**
+ * Batch allocation request type.
+ */
+export interface BatchAllocation {
+  id: string;
+  budget: number;
+}
+
+/**
+ * Allocate funds to multiple stash items at once.
+ * Used by the Distribute feature to update all stash budgets in one request.
+ */
+export async function allocateStashFundsBatch(
+  allocations: BatchAllocation[]
+): Promise<{ success: boolean; updated: number; errors?: string[] }> {
+  return fetchApi('/stash/allocate-batch', {
+    method: 'POST',
+    body: JSON.stringify({ allocations }),
+  });
+}
+
+/**
  * Change category group for a stash item.
  */
 export async function changeStashGroup(
@@ -243,6 +264,9 @@ export async function updateStashConfig(
       auto_archive_on_bookmark_delete: updates.autoArchiveOnBookmarkDelete,
       auto_archive_on_goal_met: updates.autoArchiveOnGoalMet,
       is_configured: updates.isConfigured,
+      include_expected_income: updates.includeExpectedIncome,
+      show_monarch_goals: updates.showMonarchGoals,
+      buffer_amount: updates.bufferAmount,
     }),
   });
 }
@@ -328,4 +352,26 @@ export async function clearUnconvertedBookmarks(): Promise<{
  */
 export async function getStashHistory(months = 12): Promise<StashHistoryResponse> {
   return fetchApi<StashHistoryResponse>(`/stash/history?months=${months}`);
+}
+
+// === Category Rollover Balance ===
+
+/**
+ * Add funds to a category's rollover starting balance.
+ *
+ * Used by the Distribute wizard to allocate the "rollover portion" of
+ * available funds (Available to Stash - Left to Budget) to categories.
+ * This effectively adds savings to a category that persists month-to-month.
+ *
+ * @param categoryId - The Monarch category ID to update
+ * @param amount - Amount (integer) to add to the rollover starting balance
+ */
+export async function updateCategoryRolloverBalance(
+  categoryId: string,
+  amount: number
+): Promise<{ success: boolean; category?: unknown }> {
+  return fetchApi('/stash/update-rollover-balance', {
+    method: 'POST',
+    body: JSON.stringify({ category_id: categoryId, amount }),
+  });
 }

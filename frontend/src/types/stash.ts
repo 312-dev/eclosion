@@ -33,6 +33,7 @@ export interface StashItem {
   amount: number; // Target amount to save
   current_balance: number; // Total saved so far
   planned_budget: number; // Budget allocated this month
+  last_month_planned_budget?: number; // Budget allocated last month (for Distribute wizard ratio fallback)
   category_id: string | null;
   category_name: string;
   category_group_id: string | null;

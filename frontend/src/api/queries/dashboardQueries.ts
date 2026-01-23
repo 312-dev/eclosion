@@ -97,6 +97,11 @@ export function useSyncMutation() {
       queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.dashboard, isDemo) });
       queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.categoryStore, isDemo) });
 
+      // Invalidate stash data - monthly_target depends on category budget/rollover data
+      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.stash, isDemo) });
+      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.availableToStash, isDemo) });
+      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.stashHistory, isDemo) });
+
       // Notify Electron main process about sync completion to update tray menu
       if (!isDemo && globalThis.electron?.pendingSync?.notifyCompleted) {
         const now = new Date().toISOString();

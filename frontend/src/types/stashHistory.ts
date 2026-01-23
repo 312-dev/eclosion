@@ -46,17 +46,26 @@ export interface StashHistoryResponse {
 export type StashReportTimeRange = '3mo' | '6mo' | '12mo' | 'all';
 
 /**
+ * Active tab mode for the chart display.
+ */
+export type StashReportTabMode = 'timeline' | 'contributions';
+
+/**
  * Report settings persisted to localStorage.
  */
 export interface StashReportSettings {
   /** Selected time range */
   timeRange: StashReportTimeRange;
+  /** Active tab (timeline or contributions) */
+  activeTab: StashReportTabMode;
   /** Whether to show balance lines on the chart */
   showBalanceLines: boolean;
   /** Whether to show monthly contribution bars */
   showMonthlyContributions: boolean;
   /** IDs of stashes to hide (empty = show all) */
   hiddenStashIds: string[];
+  /** ID of stash to filter report view to (null = show all) */
+  filteredStashId: string | null;
 }
 
 /**
@@ -64,9 +73,11 @@ export interface StashReportSettings {
  */
 export const DEFAULT_REPORT_SETTINGS: StashReportSettings = {
   timeRange: '12mo',
+  activeTab: 'timeline',
   showBalanceLines: true,
   showMonthlyContributions: true,
   hiddenStashIds: [],
+  filteredStashId: null,
 };
 
 /**

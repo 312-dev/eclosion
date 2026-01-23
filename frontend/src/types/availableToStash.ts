@@ -1,5 +1,5 @@
 /**
- * Available to Stash Types
+ * Available Funds Types
  *
  * Types for calculating how much money a user can safely allocate to Stash items.
  * See .claude/rules/available-to-stash.md for the full formula and rationale.
@@ -62,7 +62,7 @@ export interface StashItemBalance {
 }
 
 /**
- * Raw data required for the Available to Stash calculation.
+ * Raw data required for the Available Funds calculation.
  * This is fetched from the backend/Monarch.
  */
 export interface AvailableToStashData {
@@ -88,6 +88,10 @@ export interface AvailableToStashData {
 export interface AvailableToStashOptions {
   /** Include expected (not yet received) income in the calculation */
   includeExpectedIncome: boolean;
+  /** Selected cash account IDs to include. null = all accounts (default). */
+  selectedCashAccountIds?: string[] | null;
+  /** Reserved buffer amount (subtracted from available). Default: 0. */
+  bufferAmount?: number;
 }
 
 /**
@@ -116,7 +120,7 @@ export interface DetailedBreakdown {
 }
 
 /**
- * Result of the Available to Stash calculation.
+ * Result of the Available Funds calculation.
  * Includes the final value and a breakdown for transparency.
  */
 export interface AvailableToStashResult {
@@ -136,6 +140,8 @@ export interface AvailableToStashResult {
     goalBalances: number;
     /** Sum of Stash item balances */
     stashBalances: number;
+    /** Reserved buffer amount (0 if not set) */
+    bufferAmount: number;
   };
   /** Detailed breakdown showing individual items */
   detailedBreakdown: DetailedBreakdown;

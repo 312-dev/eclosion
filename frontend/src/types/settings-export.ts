@@ -142,6 +142,8 @@ export interface StashExportConfig {
   selected_folder_names: string[];
   auto_archive_on_bookmark_delete: boolean;
   auto_archive_on_goal_met: boolean;
+  include_expected_income?: boolean;
+  show_monarch_goals?: boolean;
 }
 
 /**

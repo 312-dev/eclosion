@@ -17,3 +17,9 @@ export {
 export { IdeaInputProvider, useIdeaInput, useIdeaInputSafe } from './IdeaInputContext';
 
 export { CoderModeProvider, useCoderMode, useCoderModeSafe } from './CoderModeContext';
+
+export {
+  AvailableToStashDrawerProvider,
+  useAvailableToStashDrawer,
+  useAvailableToStashDrawerOptional,
+} from './AvailableToStashDrawerContext';

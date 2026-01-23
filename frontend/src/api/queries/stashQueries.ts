@@ -215,6 +215,29 @@ export function useAllocateStashMutation() {
   });
 }
 
+/** Batch allocation request type */
+interface BatchAllocation {
+  id: string;
+  budget: number;
+}
+
+/** Allocate funds to multiple stash items at once (used by Distribute feature) */
+export function useAllocateStashBatchMutation() {
+  const isDemo = useDemo();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (allocations: BatchAllocation[]) =>
+      isDemo
+        ? demoApi.allocateStashFundsBatch(allocations)
+        : api.allocateStashFundsBatch(allocations),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.stash, isDemo) });
+      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.dashboard, isDemo) });
+      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.availableToStash, isDemo) });
+    },
+  });
+}
+
 /** Change category group for stash item */
 export function useChangeStashGroupMutation() {
   const isDemo = useDemo();
@@ -290,6 +313,24 @@ export function useInvalidateStash() {
   return () => {
     queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.stash, isDemo) });
   };
+}
+
+/** Update category rollover starting balance (used by Distribute wizard for rollover portion) */
+export function useUpdateCategoryRolloverMutation() {
+  const isDemo = useDemo();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ categoryId, amount }: { categoryId: string; amount: number }) =>
+      isDemo
+        ? demoApi.updateCategoryRolloverBalance(categoryId, amount)
+        : api.updateCategoryRolloverBalance(categoryId, amount),
+    onSuccess: () => {
+      // Invalidate stash to reflect updated balances
+      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.stash, isDemo) });
+      // Invalidate available-to-stash since stash balances changed
+      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.availableToStash, isDemo) });
+    },
+  });
 }
 
 // Re-export config and category group queries from dedicated module

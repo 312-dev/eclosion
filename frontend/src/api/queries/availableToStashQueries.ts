@@ -41,15 +41,20 @@ export function useAvailableToStashDataQuery(options?: { enabled?: boolean }) {
  * It memoizes the calculation to avoid recomputing on every render.
  *
  * @param options.includeExpectedIncome - Include expected income in calculation
+ * @param options.selectedCashAccountIds - Filter to specific cash accounts (null = all)
+ * @param options.bufferAmount - Reserved buffer to subtract from available (default: 0)
  * @param options.enabled - Whether to fetch data
  */
 export function useAvailableToStash(options?: {
   includeExpectedIncome?: boolean;
+  selectedCashAccountIds?: string[] | null;
+  bufferAmount?: number;
   enabled?: boolean;
 }): {
   data: AvailableToStashResult | undefined;
   rawData: AvailableToStashData | undefined;
   isLoading: boolean;
+  isFetching: boolean;
   error: Error | null;
   /** Formatted available amount (e.g., "$1,234") */
   formattedAmount: string;
@@ -58,15 +63,24 @@ export function useAvailableToStash(options?: {
   /** Color for the status */
   statusColor: string;
 } {
-  const { includeExpectedIncome = false, enabled = true } = options ?? {};
+  const {
+    includeExpectedIncome = false,
+    selectedCashAccountIds = null,
+    bufferAmount = 0,
+    enabled = true,
+  } = options ?? {};
 
-  const { data: rawData, isLoading, error } = useAvailableToStashDataQuery({ enabled });
+  const { data: rawData, isLoading, isFetching, error } = useAvailableToStashDataQuery({ enabled });
 
   // Memoize calculation to avoid recomputing on every render
   const calculatedData = useMemo(() => {
     if (!rawData) return undefined;
-    return calculateAvailableToStash(rawData, { includeExpectedIncome });
-  }, [rawData, includeExpectedIncome]);
+    return calculateAvailableToStash(rawData, {
+      includeExpectedIncome,
+      selectedCashAccountIds,
+      bufferAmount,
+    });
+  }, [rawData, includeExpectedIncome, selectedCashAccountIds, bufferAmount]);
 
   // Derive display values
   const formattedAmount = calculatedData ? formatAvailableAmount(calculatedData.available) : '$0';
@@ -77,6 +91,7 @@ export function useAvailableToStash(options?: {
     data: calculatedData,
     rawData,
     isLoading,
+    isFetching,
     error: error as Error | null,
     formattedAmount,
     status,

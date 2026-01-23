@@ -154,6 +154,7 @@ export {
   uncompleteStashItem,
   deleteStashItem,
   allocateStashFunds,
+  allocateStashFundsBatch,
   changeStashGroup,
   linkStashCategory,
   syncStash,
@@ -172,4 +173,6 @@ export {
   clearUnconvertedBookmarks,
   // Stash history (reports)
   getStashHistory,
+  // Category rollover balance
+  updateCategoryRolloverBalance,
 } from './stash';

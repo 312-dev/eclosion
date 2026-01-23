@@ -29,6 +29,7 @@ export const queryKeys = {
   stash: ['stash'] as const,
   stashConfig: ['stashConfig'] as const,
   stashCategoryGroups: ['stashCategoryGroups'] as const,
+  monarchGoals: ['monarchGoals'] as const,
   pendingBookmarks: ['pendingBookmarks'] as const,
   pendingBookmarksCount: ['pendingBookmarksCount'] as const,
   skippedBookmarks: ['skippedBookmarks'] as const,

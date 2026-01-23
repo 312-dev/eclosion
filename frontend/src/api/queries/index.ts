@@ -153,11 +153,14 @@ export {
   useUncompleteStashMutation,
   useDeleteStashMutation,
   useAllocateStashMutation,
+  useAllocateStashBatchMutation,
   useChangeStashGroupMutation,
   useLinkStashCategoryMutation,
   useStashSyncMutation,
   useUpdateStashLayoutMutation,
   useInvalidateStash,
+  // Category rollover balance
+  useUpdateCategoryRolloverMutation,
   // Pending bookmarks
   usePendingBookmarksQuery,
   usePendingCountQuery,
@@ -178,3 +181,6 @@ export {
 
 // Stash History (Reports) queries
 export { useStashHistoryQuery, useInvalidateStashHistory } from './stashHistoryQueries';
+
+// Monarch Goals queries
+export { useMonarchGoalsQuery, useUpdateMonarchGoalLayoutsMutation } from './monarchGoalQueries';

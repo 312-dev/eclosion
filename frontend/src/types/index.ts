@@ -33,6 +33,9 @@ export type {
   StashImageUploadResult,
 } from './stashConfig';
 
+// Monarch goals (displayed in Stash grid)
+export type { GoalStatus, MonarchGoal, MonarchGoalLayoutUpdate } from './monarchGoal';
+
 // Recurring items and rollup
 export type { RecurringItem, RollupItem, RollupData } from './recurring';
 
@@ -170,7 +173,7 @@ export type {
   PendingBookmarkActionResponse,
 } from './pendingBookmark';
 
-// Available to Stash calculation
+// Available Funds calculation
 export type {
   AccountBalance,
   CategoryBudget,
@@ -195,6 +198,7 @@ export type {
   StashHistoryItem,
   StashHistoryResponse,
   StashReportTimeRange,
+  StashReportTabMode,
   StashReportSettings,
 } from './stashHistory';
 export { DEFAULT_REPORT_SETTINGS, timeRangeToMonths } from './stashHistory';

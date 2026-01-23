@@ -27,6 +27,20 @@ export interface StashConfig {
   autoArchiveOnBookmarkDelete: boolean;
   /** Auto-archive items at the start of the month after being fully funded */
   autoArchiveOnGoalMet: boolean;
+  /** Include expected income in Available Funds calculation */
+  includeExpectedIncome: boolean;
+  /** Selected cash account IDs for Available to Stash calculation.
+   * null = all accounts included (default).
+   * empty array = no accounts (edge case).
+   * array with IDs = only those accounts included.
+   */
+  selectedCashAccountIds: string[] | null;
+  /** Show Monarch savings goals in Stash grid */
+  showMonarchGoals: boolean;
+  /** Reserved buffer amount for Available to Stash calculation.
+   * This amount is subtracted from Available to Stash as a safety margin.
+   */
+  bufferAmount: number;
 }
 
 /**
