@@ -1475,19 +1475,29 @@ input[type='radio'] {
 
 /* Resize handle - bottom right corner only */
 /* !important needed to override react-grid-layout library hover styles */
+/* L-shaped handle extending along right and bottom edges */
 span.react-resizable-handle.react-resizable-handle-se {
   position: absolute;
-  width: 24px;
-  height: 24px;
+  width: 80px;
+  height: 80px;
   bottom: 0;
   right: 0;
-  cursor: se-resize;
+  cursor: se-resize !important;
   opacity: 0 !important;
   transition: opacity 0.2s ease;
   /* Reset default react-resizable styles */
   background: transparent !important;
   border: none !important;
   background-image: none !important;
+  /* Create L-shape: 16px thick strips along right and bottom edges */
+  clip-path: polygon(
+    calc(100% - 16px) 0,
+    100% 0,
+    100% 100%,
+    0 100%,
+    0 calc(100% - 16px),
+    calc(100% - 16px) calc(100% - 16px)
+  );
 }
 
 /* Show resize handle only when hovering over the bottom-right corner */
@@ -3845,4 +3855,111 @@ progress::-moz-progress-bar {
 .release-notes-content strong {
   font-weight: 600;
   color: var(--monarch-text-dark);
+}
+
+/* ================================================
+   Modern Range Slider Styles
+   ================================================ */
+
+/* Base slider - hide default track appearance */
+.slider-modern {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+}
+
+/* Webkit (Chrome, Safari, Edge) thumb styling */
+.slider-modern::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: white;
+  border: 2px solid var(--monarch-primary);
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+  margin-top: -4px; /* Center thumb on track */
+}
+
+.slider-modern::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+}
+
+.slider-modern::-webkit-slider-thumb:active {
+  transform: scale(1.15);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+/* Firefox thumb styling */
+.slider-modern::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: white;
+  border: 2px solid var(--monarch-primary);
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.slider-modern::-moz-range-thumb:hover {
+  transform: scale(1.1);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+}
+
+.slider-modern::-moz-range-thumb:active {
+  transform: scale(1.15);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+/* Hide default track - we use custom divs for the track */
+.slider-modern::-webkit-slider-runnable-track {
+  height: 8px;
+  background: transparent;
+}
+
+.slider-modern::-moz-range-track {
+  height: 8px;
+  background: transparent;
+}
+
+/* Focus styles for accessibility */
+.slider-modern:focus-visible {
+  outline: none;
+}
+
+.slider-modern:focus-visible::-webkit-slider-thumb {
+  outline: 2px solid var(--monarch-primary);
+  outline-offset: 2px;
+  box-shadow:
+    0 0 0 4px rgba(255, 105, 45, 0.2),
+    0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.slider-modern:focus-visible::-moz-range-thumb {
+  outline: 2px solid var(--monarch-primary);
+  outline-offset: 2px;
+  box-shadow:
+    0 0 0 4px rgba(255, 105, 45, 0.2),
+    0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+/* Dark mode adjustments for slider thumb */
+.dark .slider-modern::-webkit-slider-thumb {
+  background: var(--monarch-bg-card);
+  border-color: var(--monarch-primary);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.dark .slider-modern::-moz-range-thumb {
+  background: var(--monarch-bg-card);
+  border-color: var(--monarch-primary);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
 }

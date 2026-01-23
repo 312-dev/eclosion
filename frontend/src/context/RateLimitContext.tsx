@@ -158,7 +158,10 @@ export function RateLimitProvider({ children }: Readonly<{ children: ReactNode }
   const [nextPingAt, setNextPingAt] = useState<Date | null>(() => {
     if (isDemo) return null;
     const persisted = loadPersistedState();
-    return persisted ? new Date(Date.now() + PING_INTERVAL_MS) : null;
+    if (!persisted) return null;
+    // Use actual retry duration if available, otherwise fall back to 5 minutes
+    const cooldownMs = persisted.retryAfter ? persisted.retryAfter * 1000 : PING_INTERVAL_MS;
+    return new Date(persisted.rateLimitedAt + cooldownMs);
   });
   const [source, setSource] = useState<RateLimitSource>(() => {
     if (isDemo) return null;
@@ -169,21 +172,83 @@ export function RateLimitProvider({ children }: Readonly<{ children: ReactNode }
   const pingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   /**
+   * Calculate next ping time based on retry duration.
+   */
+  const calculateNextPingTime = useCallback((retryAfterSeconds: number | null): Date => {
+    const cooldownMs = retryAfterSeconds ? retryAfterSeconds * 1000 : PING_INTERVAL_MS;
+    return new Date(Date.now() + cooldownMs);
+  }, []);
+
+  /**
+   * Clear all rate limit state.
+   */
+  const clearAllRateLimitState = useCallback(() => {
+    setIsRateLimited(false);
+    setRateLimitedAt(null);
+    setRetryAfter(null);
+    setNextPingAt(null);
+    setSource(null);
+    clearPersistedState();
+  }, []);
+
+  /**
+   * Handle successful ping response (rate limit cleared).
+   */
+  const handlePingSuccess = useCallback(() => {
+    clearAllRateLimitState();
+
+    // In desktop mode, trigger sync since session may have failed during startup
+    if (globalThis.electron?.triggerSync) {
+      globalThis.electron.triggerSync().catch(() => {
+        // Sync errors are handled by main process notifications
+      });
+    }
+  }, [clearAllRateLimitState]);
+
+  /**
+   * Handle 429 response (still rate limited).
+   */
+  const handleStillRateLimited = useCallback(
+    async (response: Response) => {
+      const data = await response.json().catch(() => ({}));
+      let updatedRetryAfter = retryAfter;
+
+      if (data.retry_after) {
+        setRetryAfter(data.retry_after);
+        updatedRetryAfter = data.retry_after;
+      }
+
+      // Only reset timer for Monarch rate limits, not Eclosion cooldown
+      if (source !== 'eclosion_sync_cooldown') {
+        setNextPingAt(calculateNextPingTime(updatedRetryAfter));
+      }
+    },
+    [retryAfter, source, calculateNextPingTime]
+  );
+
+  /**
+   * Handle ping error (network failure).
+   */
+  const handlePingError = useCallback(() => {
+    // Only reset timer for Monarch rate limits, not Eclosion cooldown
+    if (source !== 'eclosion_sync_cooldown') {
+      setNextPingAt(calculateNextPingTime(retryAfter));
+    }
+  }, [source, retryAfter, calculateNextPingTime]);
+
+  /**
    * Ping the Monarch health endpoint to check if rate limit has cleared.
    */
   const pingMonarch = useCallback(async () => {
-    // Don't ping in demo mode
     if (isDemo) return;
 
     try {
-      // Build fetch options with proper headers for desktop mode
       const headers: Record<string, string> = {};
       const desktopSecret = getDesktopSecret();
       if (desktopSecret) {
         headers['X-Desktop-Secret'] = desktopSecret;
       }
 
-      // Use API base URL for desktop mode (file:// URLs need absolute backend URL)
       const apiBase = getApiBaseSync();
       const response = await fetch(`${apiBase}/health/monarch`, {
         credentials: 'include',
@@ -191,41 +256,15 @@ export function RateLimitProvider({ children }: Readonly<{ children: ReactNode }
       });
 
       if (response.ok) {
-        // Rate limit cleared
-        setIsRateLimited(false);
-        setRateLimitedAt(null);
-        setRetryAfter(null);
-        setNextPingAt(null);
-        setSource(null);
-        clearPersistedState();
-
-        // In desktop mode, trigger sync since session may have failed during startup
-        // This will re-validate credentials and establish the Monarch session
-        if (globalThis.electron?.triggerSync) {
-          globalThis.electron.triggerSync().catch(() => {
-            // Sync errors are handled by main process notifications
-          });
-        }
+        handlePingSuccess();
       } else if (response.status === 429) {
-        // Still rate limited - update retry info
-        const data = await response.json().catch(() => ({}));
-        if (data.retry_after) {
-          setRetryAfter(data.retry_after);
-        }
-        // Only reset timer for Monarch rate limits, not Eclosion cooldown
-        if (source !== 'eclosion_sync_cooldown') {
-          setNextPingAt(new Date(Date.now() + PING_INTERVAL_MS));
-        }
+        await handleStillRateLimited(response);
       }
       // Other errors: keep current state, will retry on next interval
     } catch {
-      // Network error - keep rate limit state, will retry on next interval
-      // Only reset timer for Monarch rate limits, not Eclosion cooldown
-      if (source !== 'eclosion_sync_cooldown') {
-        setNextPingAt(new Date(Date.now() + PING_INTERVAL_MS));
-      }
+      handlePingError();
     }
-  }, [isDemo, source]);
+  }, [isDemo, handlePingSuccess, handleStillRateLimited, handlePingError]);
 
   /**
    * Mark the app as rate limited.
@@ -242,7 +281,9 @@ export function RateLimitProvider({ children }: Readonly<{ children: ReactNode }
       if (retryAfterSeconds) {
         setRetryAfter(retryAfterSeconds);
       }
-      setNextPingAt(new Date(Date.now() + PING_INTERVAL_MS));
+      // Use actual retry duration if available, otherwise fall back to 5 minutes
+      const cooldownMs = retryAfterSeconds ? retryAfterSeconds * 1000 : PING_INTERVAL_MS;
+      setNextPingAt(new Date(Date.now() + cooldownMs));
       setSource(rateLimitSource ?? null);
 
       // Persist to survive app restarts

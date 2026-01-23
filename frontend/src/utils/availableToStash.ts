@@ -40,10 +40,28 @@ function decodeHtmlEntities(text: string): string {
  * Calculate the sum of cash account balances.
  * Includes: checking, savings, cash, PayPal/Venmo, prepaid, money market.
  * Excludes: HSA, brokerage, crypto, retirement accounts.
+ *
+ * @param accounts - All account balances
+ * @param selectedAccountIds - Specific account IDs to include, or null for all
  */
-export function sumCashAccounts(accounts: AccountBalance[]): number {
+export function sumCashAccounts(
+  accounts: AccountBalance[],
+  selectedAccountIds: string[] | null = null
+): number {
   return accounts
-    .filter((account) => account.isEnabled && isCashAccount(account.accountType))
+    .filter((account) => {
+      if (!account.isEnabled || !isCashAccount(account.accountType)) {
+        return false;
+      }
+
+      // If no specific selection (null), include all cash accounts
+      if (selectedAccountIds === null) {
+        return true;
+      }
+
+      // If specific accounts selected, check if this account is in the list
+      return selectedAccountIds.includes(account.id);
+    })
     .reduce((sum, account) => sum + account.balance, 0);
 }
 
@@ -93,11 +111,29 @@ export function calculateExpectedIncome(plannedIncome: number, actualIncome: num
 
 /**
  * Get cash accounts as line items for detailed breakdown.
+ *
+ * @param accounts - All account balances
+ * @param selectedAccountIds - Specific account IDs to include, or null for all
  */
-export function getCashAccountsDetail(accounts: AccountBalance[]): BreakdownLineItem[] {
+export function getCashAccountsDetail(
+  accounts: AccountBalance[],
+  selectedAccountIds: string[] | null = null
+): BreakdownLineItem[] {
   return (
     accounts
-      .filter((account) => account.isEnabled && isCashAccount(account.accountType))
+      .filter((account) => {
+        if (!account.isEnabled || !isCashAccount(account.accountType)) {
+          return false;
+        }
+
+        // If no specific selection, include all
+        if (selectedAccountIds === null) {
+          return true;
+        }
+
+        // Check if account is in selected list
+        return selectedAccountIds.includes(account.id);
+      })
       .map((account) => ({
         id: account.id,
         name: decodeHtmlEntities(account.name),
@@ -161,8 +197,9 @@ export function calculateAvailableToStash(
   data: AvailableToStashData,
   options: AvailableToStashOptions = { includeExpectedIncome: false }
 ): AvailableToStashResult {
-  // Get detailed breakdowns
-  const cashAccountsDetail = getCashAccountsDetail(data.accounts);
+  // Get detailed breakdowns with account filtering
+  const selectedAccountIds = options.selectedCashAccountIds ?? null;
+  const cashAccountsDetail = getCashAccountsDetail(data.accounts, selectedAccountIds);
   const creditCardsDetail = getCreditCardsDetail(data.accounts);
   const unspentCategoriesDetail = getUnspentCategoriesDetail(data.categoryBudgets);
   const goalsDetail: BreakdownLineItem[] = data.goals
@@ -191,10 +228,17 @@ export function calculateAvailableToStash(
   const unspentBudgets = unspentCategoriesDetail.reduce((sum, item) => sum + item.amount, 0);
   const goalBalances = goalsDetail.reduce((sum, item) => sum + item.amount, 0);
   const stashBalances = stashItemsDetail.reduce((sum, item) => sum + item.amount, 0);
+  const bufferAmount = options.bufferAmount ?? 0;
 
   // Apply the formula
   const available =
-    cashOnHand + expectedIncome - creditCardDebt - unspentBudgets - goalBalances - stashBalances;
+    cashOnHand +
+    expectedIncome -
+    creditCardDebt -
+    unspentBudgets -
+    goalBalances -
+    stashBalances -
+    bufferAmount;
 
   // Build detailed breakdown
   const detailedBreakdown: DetailedBreakdown = {
@@ -214,6 +258,7 @@ export function calculateAvailableToStash(
       unspentBudgets,
       goalBalances,
       stashBalances,
+      bufferAmount,
     },
     detailedBreakdown,
     includesExpectedIncome: options.includeExpectedIncome,
