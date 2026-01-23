@@ -46,6 +46,7 @@ class StashItemDict(TypedDict):
     source_bookmark_id: str | None
     logo_url: str | None
     custom_image_path: str | None
+    image_attribution: str | None
     is_archived: bool
     archived_at: datetime | None
     created_at: datetime | None
@@ -262,6 +263,7 @@ class StashService:
                     source_bookmark_id=item.source_bookmark_id,
                     logo_url=item.logo_url,
                     custom_image_path=item.custom_image_path,
+                    image_attribution=getattr(item, "image_attribution", None),
                     is_archived=item.is_archived,
                     archived_at=item.archived_at,
                     created_at=item.created_at,
@@ -444,6 +446,7 @@ class StashService:
                 "source_bookmark_id": item["source_bookmark_id"],
                 "logo_url": item["logo_url"],
                 "custom_image_path": item["custom_image_path"],
+                "image_attribution": item.get("image_attribution"),
                 "is_archived": item["is_archived"],
                 "archived_at": item["archived_at"].isoformat() if item["archived_at"] else None,
                 "created_at": item["created_at"].isoformat() if item["created_at"] else None,
@@ -497,20 +500,23 @@ class StashService:
         target_date: str,
         category_group_id: str | None = None,
         existing_category_id: str | None = None,
+        flexible_group_id: str | None = None,
         emoji: str = "🎯",
         source_url: str | None = None,
         source_bookmark_id: str | None = None,
         logo_url: str | None = None,
         custom_image_path: str | None = None,
+        image_attribution: str | None = None,
         goal_type: str = "one_time",
         tracking_start_date: str | None = None,
     ) -> dict[str, Any]:
         """
         Create a new stash item with a Monarch category.
 
-        Two modes:
+        Three modes:
         1. Create new category: Provide category_group_id
         2. Link to existing: Provide existing_category_id
+        3. Create in flexible group: Provide flexible_group_id (group with group-level rollover)
 
         Args:
             goal_type: 'one_time' (default) or 'savings_buffer'
@@ -524,6 +530,10 @@ class StashService:
         4. Store item in database
         """
         item_id = str(uuid.uuid4())
+
+        # Treat flexible_group_id same as category_group_id for category creation
+        # The group already has group-level rollover enabled
+        effective_group_id = flexible_group_id or category_group_id
 
         if existing_category_id:
             # Link to existing category
@@ -551,25 +561,25 @@ class StashService:
             budget_data = await self.category_manager.get_all_category_budget_data()
             current_balance = budget_data.get(category_id, {}).get("remaining", 0.0)
         else:
-            # Create new category mode
-            if not category_group_id:
-                return {"success": False, "error": "Missing category_group_id"}
+            # Create new category mode (either category_group_id or flexible_group_id)
+            if not effective_group_id:
+                return {"success": False, "error": "Missing category_group_id or flexible_group_id"}
 
             # Get category group name for storage
             groups = await self.category_manager.get_category_groups()
             group_name = None
             for g in groups:
-                if g["id"] == category_group_id:
+                if g["id"] == effective_group_id:
                     group_name = g["name"]
                     break
 
             # Create Monarch category
             category_id = await self.category_manager.create_category(
-                group_id=category_group_id,
+                group_id=effective_group_id,
                 name=name,
                 icon=emoji,
             )
-            group_id = category_group_id
+            group_id = effective_group_id
             current_balance = 0.0
 
         # Calculate initial monthly target
@@ -602,6 +612,7 @@ class StashService:
                 source_bookmark_id=source_bookmark_id,
                 logo_url=logo_url,
                 custom_image_path=custom_image_path,
+                image_attribution=image_attribution,
                 goal_type=goal_type,
                 tracking_start_date=tracking_start_date,
             )
@@ -622,7 +633,7 @@ class StashService:
         """
         Update a stash item.
 
-        Supports updating: name, amount, target_date, emoji, source_url, custom_image_path
+        Supports updating: name, amount, target_date, emoji, source_url, custom_image_path, image_attribution
         If name or emoji changes, also updates the Monarch category.
         """
         with db_session() as session:
@@ -931,6 +942,7 @@ class StashService:
         item_id: str,
         category_group_id: str | None = None,
         existing_category_id: str | None = None,
+        flexible_group_id: str | None = None,
     ) -> dict[str, Any]:
         """
         Link a category to an existing stash item.
@@ -938,26 +950,33 @@ class StashService:
         Used when restoring an archived item whose category was deleted,
         or when the user wants to change the linked category.
 
-        Either creates a new category in the specified group, or links
-        to an existing category.
+        Three modes:
+        1. Create new category in group: Provide category_group_id
+        2. Link to existing category: Provide existing_category_id
+        3. Create in flexible group: Provide flexible_group_id (group with group-level rollover)
 
         Args:
             item_id: Stash item ID
             category_group_id: Category group to create new category in
             existing_category_id: Existing category ID to link to
+            flexible_group_id: Flexible category group ID (has group-level rollover)
 
         Returns:
             Success status with category info
         """
-        if not category_group_id and not existing_category_id:
+        # Treat flexible_group_id same as category_group_id for category creation
+        effective_group_id = flexible_group_id or category_group_id
+
+        options_provided = sum(1 for opt in [effective_group_id, existing_category_id] if opt)
+        if options_provided == 0:
             return {
                 "success": False,
-                "error": "Must provide category_group_id or existing_category_id",
+                "error": "Must provide category_group_id, existing_category_id, or flexible_group_id",
             }
-        if category_group_id and existing_category_id:
+        if options_provided > 1 and existing_category_id and effective_group_id:
             return {
                 "success": False,
-                "error": "Cannot provide both category_group_id and existing_category_id",
+                "error": "Cannot provide both a group ID and existing_category_id",
             }
 
         with db_session() as session:
@@ -1001,24 +1020,23 @@ class StashService:
                 "category_group_name": category_info["group_name"],
             }
         else:
-            # Create new category in specified group
+            # Create new category in specified group (or flexible group)
             groups = await self.category_manager.get_category_groups()
             group_name = None
             for g in groups:
-                if g["id"] == category_group_id:
+                if g["id"] == effective_group_id:
                     group_name = g["name"]
                     break
 
             if not group_name:
                 return {"success": False, "error": "Category group not found"}
 
-            # At this point category_group_id is guaranteed to be a string
-            # (checked at function start and we're in the else branch)
-            assert category_group_id is not None
+            # At this point effective_group_id is guaranteed to be a string
+            assert effective_group_id is not None
 
             # Create Monarch category
             category_id = await self.category_manager.create_category(
-                group_id=category_group_id,
+                group_id=effective_group_id,
                 name=item_name,
                 icon=item_emoji,
             )
@@ -1039,7 +1057,7 @@ class StashService:
                 repo.update_stash_item(
                     item_id,
                     monarch_category_id=category_id,
-                    category_group_id=category_group_id,
+                    category_group_id=effective_group_id,
                     category_group_name=group_name,
                 )
 
@@ -1048,7 +1066,7 @@ class StashService:
                 "id": item_id,
                 "category_id": category_id,
                 "category_name": item_name,
-                "category_group_id": category_group_id,
+                "category_group_id": effective_group_id,
                 "category_group_name": group_name,
                 "monthly_target": monthly_target,
             }
@@ -1084,10 +1102,18 @@ class StashService:
         raw_goals = await get_savings_goals_full(mm)
         logger.info(f"[Stash] Fetched {len(raw_goals)} goals from Monarch API")
 
-        # Get layout data
+        # Get layout data (extract values while in session to avoid DetachedInstanceError)
         with db_session() as session:
             repo = TrackerRepository(session)
-            layouts = {layout.goal_id: layout for layout in repo.get_all_monarch_goal_layouts()}
+            layouts = {
+                layout.goal_id: {
+                    "grid_x": layout.grid_x,
+                    "grid_y": layout.grid_y,
+                    "col_span": layout.col_span,
+                    "row_span": layout.row_span,
+                }
+                for layout in repo.get_all_monarch_goal_layouts()
+            }
 
         # Enrich goals with layout and computed fields
         enriched_goals = []
@@ -1116,10 +1142,10 @@ class StashService:
                 "status": status,
                 "months_ahead_behind": None,  # Not calculated anymore, can be derived from forecasted date if needed
                 # Grid layout (default to 0,0 if not set)
-                "grid_x": layout.grid_x if layout else 0,
-                "grid_y": layout.grid_y if layout else 0,
-                "col_span": layout.col_span if layout else 1,
-                "row_span": layout.row_span if layout else 1,
+                "grid_x": layout["grid_x"] if layout else 0,
+                "grid_y": layout["grid_y"] if layout else 0,
+                "col_span": layout["col_span"] if layout else 1,
+                "row_span": layout["row_span"] if layout else 1,
                 # State
                 "is_archived": False,  # Already filtered by get_savings_goals_full
                 "is_completed": goal["is_completed"],

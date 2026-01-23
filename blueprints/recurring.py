@@ -104,6 +104,90 @@ async def get_category_groups():
     return await services.sync_service.get_category_groups()
 
 
+@recurring_bp.route("/groups/detailed", methods=["GET"])
+@api_handler(handle_mfa=True, success_wrapper="groups")
+async def get_category_groups_detailed():
+    """
+    Get all category groups with full metadata.
+
+    Returns groups with:
+    - id, name, type, order
+    - budget_variability: "fixed" or "flexible"
+    - group_level_budgeting_enabled: whether budgets are set at group level
+    - rollover_enabled: whether rollover is enabled
+    - rollover_period: configuration if enabled (start_month, starting_balance, etc.)
+    """
+    services = get_services()
+    return await services.sync_service.category_manager.get_category_groups_detailed()
+
+
+@recurring_bp.route("/groups/flexible", methods=["GET"])
+@api_handler(handle_mfa=True, success_wrapper="groups")
+async def get_flexible_category_groups():
+    """
+    Get category groups that have flexible budgeting with rollover enabled.
+
+    Returns only groups where:
+    - group_level_budgeting_enabled is True
+    - rollover is enabled
+
+    Useful for stash category selection where users want to link to
+    existing flexible budget groups.
+    """
+    services = get_services()
+    return await services.sync_service.category_manager.get_flexible_rollover_groups()
+
+
+@recurring_bp.route("/groups/<group_id>/settings", methods=["POST"])
+@api_handler(handle_mfa=True)
+async def update_category_group_settings(group_id: str):
+    """
+    Update a category group's settings.
+
+    Body: {
+        "name": "New Name",              // Optional
+        "budget_variability": "flexible", // Optional: "fixed" or "flexible"
+        "group_level_budgeting_enabled": true,  // Optional
+        "rollover_enabled": true,         // Optional
+        "rollover_start_month": "2025-07-01",  // Optional: YYYY-MM-DD
+        "rollover_starting_balance": 0,   // Optional
+        "rollover_type": "monthly"        // Optional
+    }
+    """
+    services = get_services()
+    data = request.get_json()
+
+    group_id = sanitize_id(group_id)
+    if not group_id:
+        raise ValidationError("Invalid group_id")
+
+    # Extract and sanitize optional fields
+    name = sanitize_name(data.get("name")) if data.get("name") else None
+    budget_variability = data.get("budget_variability")
+    group_level_budgeting_enabled = data.get("group_level_budgeting_enabled")
+    rollover_enabled = data.get("rollover_enabled")
+    rollover_start_month = data.get("rollover_start_month")
+    rollover_starting_balance = data.get("rollover_starting_balance")
+    rollover_type = data.get("rollover_type")
+
+    # Validate budget_variability if provided
+    if budget_variability is not None and budget_variability not in ("fixed", "flexible"):
+        raise ValidationError("budget_variability must be 'fixed' or 'flexible'")
+
+    result = await services.sync_service.category_manager.update_category_group_settings(
+        group_id=group_id,
+        name=name,
+        budget_variability=budget_variability,
+        group_level_budgeting_enabled=group_level_budgeting_enabled,
+        rollover_enabled=rollover_enabled,
+        rollover_start_month=rollover_start_month,
+        rollover_starting_balance=rollover_starting_balance,
+        rollover_type=rollover_type,
+    )
+
+    return result
+
+
 @recurring_bp.route("/toggle", methods=["POST"])
 @api_handler(handle_mfa=True)
 async def toggle_item():

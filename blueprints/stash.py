@@ -212,6 +212,7 @@ async def create_item():
     Category (one of):
     - category_group_id: Monarch category group ID (creates new category)
     - existing_category_id: Existing Monarch category ID (links to existing)
+    - flexible_group_id: Flexible category group ID with group-level rollover
 
     Optional fields:
     - emoji: Display emoji (default: 🎯)
@@ -227,6 +228,7 @@ async def create_item():
     target_date = data.get("target_date")
     category_group_id = sanitize_id(data.get("category_group_id"))
     existing_category_id = sanitize_id(data.get("existing_category_id"))
+    flexible_group_id = sanitize_id(data.get("flexible_group_id"))
 
     if not name:
         raise ValidationError("Missing 'name'")
@@ -234,10 +236,20 @@ async def create_item():
         raise ValidationError("Missing or invalid 'amount'")
     if not target_date:
         raise ValidationError("Missing 'target_date'")
-    if not category_group_id and not existing_category_id:
-        raise ValidationError("Must provide either 'category_group_id' or 'existing_category_id'")
-    if category_group_id and existing_category_id:
-        raise ValidationError("Cannot provide both 'category_group_id' and 'existing_category_id'")
+
+    # Exactly one category option must be provided
+    options_provided = sum(
+        1 for opt in [category_group_id, existing_category_id, flexible_group_id] if opt
+    )
+    if options_provided == 0:
+        raise ValidationError(
+            "Must provide 'category_group_id', 'existing_category_id', or 'flexible_group_id'"
+        )
+    if options_provided > 1:
+        raise ValidationError(
+            "Cannot provide multiple category options - choose one of "
+            "'category_group_id', 'existing_category_id', or 'flexible_group_id'"
+        )
 
     # Optional fields
     emoji = sanitize_emoji(data.get("emoji", "🎯"))
@@ -245,6 +257,7 @@ async def create_item():
     source_bookmark_id = data.get("source_bookmark_id")
     logo_url = sanitize_url(data.get("logo_url"))
     custom_image_path = sanitize_path(data.get("custom_image_path"))
+    image_attribution = data.get("image_attribution")  # Attribution for Openverse images
 
     # Goal type: 'one_time' (default) or 'savings_buffer'
     goal_type = data.get("goal_type", "one_time")
@@ -260,11 +273,13 @@ async def create_item():
         target_date=target_date,
         category_group_id=category_group_id,
         existing_category_id=existing_category_id,
+        flexible_group_id=flexible_group_id,
         emoji=emoji,
         source_url=source_url,
         source_bookmark_id=source_bookmark_id,
         logo_url=logo_url,
         custom_image_path=custom_image_path,
+        image_attribution=image_attribution,
         goal_type=goal_type,
         tracking_start_date=tracking_start_date,
     )
@@ -284,7 +299,8 @@ async def update_item(item_id: str):
     - target_date: Goal date
     - emoji: Display emoji (also updates Monarch category)
     - source_url: Link URL
-    - custom_image_path: Path to custom image
+    - custom_image_path: Path to custom image or Openverse URL
+    - image_attribution: Attribution text for Openverse images
     """
     service = get_stash_service()
     item_id = sanitize_id(item_id)  # type: ignore[assignment]
@@ -307,6 +323,8 @@ async def update_item(item_id: str):
         updates["source_url"] = sanitize_url(data["source_url"])
     if "custom_image_path" in data:
         updates["custom_image_path"] = sanitize_path(data["custom_image_path"])
+    if "image_attribution" in data:
+        updates["image_attribution"] = data["image_attribution"]
     if "goal_type" in data:
         goal_type = data["goal_type"]
         if goal_type not in ("one_time", "savings_buffer"):
@@ -565,9 +583,10 @@ async def link_category(item_id: str):
     Used when restoring an archived item whose category was deleted,
     or when changing the linked category.
 
-    Request body:
-    - category_group_id: Category group to create new category in (mutually exclusive with existing_category_id)
-    - existing_category_id: Existing category ID to link to (mutually exclusive with category_group_id)
+    Request body (one of):
+    - category_group_id: Category group to create new category in
+    - existing_category_id: Existing category ID to link to
+    - flexible_group_id: Flexible category group ID (has group-level rollover)
     """
     service = get_stash_service()
     item_id = sanitize_id(item_id)  # type: ignore[assignment]
@@ -575,18 +594,27 @@ async def link_category(item_id: str):
 
     category_group_id = sanitize_id(data.get("category_group_id"))
     existing_category_id = sanitize_id(data.get("existing_category_id"))
+    flexible_group_id = sanitize_id(data.get("flexible_group_id"))
 
     if not item_id:
         raise ValidationError("Invalid item ID")
-    if not category_group_id and not existing_category_id:
-        raise ValidationError("Must provide 'category_group_id' or 'existing_category_id'")
-    if category_group_id and existing_category_id:
-        raise ValidationError("Cannot provide both 'category_group_id' and 'existing_category_id'")
+
+    # Exactly one option must be provided
+    options_provided = sum(
+        1 for opt in [category_group_id, existing_category_id, flexible_group_id] if opt
+    )
+    if options_provided == 0:
+        raise ValidationError(
+            "Must provide 'category_group_id', 'existing_category_id', or 'flexible_group_id'"
+        )
+    if options_provided > 1:
+        raise ValidationError("Cannot provide multiple category options - choose only one")
 
     result = await service.link_category(
         item_id,
         category_group_id=category_group_id,
         existing_category_id=existing_category_id,
+        flexible_group_id=flexible_group_id,
     )
     return sanitize_api_result(result, "Failed to link category.")
 

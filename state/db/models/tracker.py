@@ -191,8 +191,10 @@ class WishlistItem(Base):
     source_bookmark_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
     logo_url: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    # Custom image (user-uploaded)
+    # Custom image (user-uploaded or Openverse URL)
     custom_image_path: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Attribution text for Openverse images
+    image_attribution: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # State tracking
     is_archived: Mapped[bool] = mapped_column(Boolean, default=False)
