@@ -27,7 +27,7 @@ import {
   TargetDateInput,
   GoalTypeSelector,
 } from './StashFormFields';
-import type { StashGoalType } from '../../types';
+import type { StashGoalType, ImageSelection } from '../../types';
 
 interface NewStashFormProps {
   readonly prefill?:
@@ -73,6 +73,7 @@ export function NewStashForm({
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [openverseImage, setOpenverseImage] = useState<ImageSelection | null>(null);
   const [isNameFocused, setIsNameFocused] = useState(false);
   const [isUrlModalOpen, setIsUrlModalOpen] = useState(false);
 
@@ -88,8 +89,23 @@ export function NewStashForm({
     [targetDate]
   );
 
-  const handleImageSelect = useCallback((file: File) => setSelectedImage(file), []);
-  const handleImageRemove = useCallback(() => setSelectedImage(null), []);
+  const handleImageSelect = useCallback((file: File) => {
+    setSelectedImage(file);
+    setOpenverseImage(null); // Clear Openverse selection when local file is selected
+  }, []);
+  const handleImageRemove = useCallback(() => {
+    setSelectedImage(null);
+    setOpenverseImage(null);
+  }, []);
+  const handleOpenverseSelect = useCallback((selection: ImageSelection) => {
+    // Clear local file when Openverse image is selected
+    if (selection.url) {
+      setSelectedImage(null);
+      setOpenverseImage(selection);
+    } else {
+      setOpenverseImage(null);
+    }
+  }, []);
 
   const validateAndOpenCategory = useCallback(() => {
     const amountNum = Number.parseFloat(amount);
@@ -113,9 +129,15 @@ export function NewStashForm({
       const amountNum = Number.parseFloat(amount);
       try {
         let customImagePath: string | undefined;
+
+        // Handle local file upload
         if (selectedImage) {
           const tempId = `temp-${Date.now()}`;
           customImagePath = (await uploadImage(tempId, selectedImage)) ?? undefined;
+        }
+        // Handle Openverse image URL (store URL directly)
+        else if (openverseImage?.url) {
+          customImagePath = openverseImage.url;
         }
 
         const baseRequest = {
@@ -127,12 +149,19 @@ export function NewStashForm({
           ...(prefill?.sourceBookmarkId && { source_bookmark_id: prefill.sourceBookmarkId }),
           ...(emoji && { emoji }),
           ...(customImagePath && { custom_image_path: customImagePath }),
+          // Store Openverse attribution if using an Openverse image
+          ...(openverseImage?.attribution && { image_attribution: openverseImage.attribution }),
         };
 
-        const request =
-          selection.type === 'create_new'
-            ? { ...baseRequest, category_group_id: selection.categoryGroupId }
-            : { ...baseRequest, existing_category_id: selection.categoryId };
+        let request;
+        if (selection.type === 'create_new') {
+          request = { ...baseRequest, category_group_id: selection.categoryGroupId };
+        } else if (selection.type === 'use_existing') {
+          request = { ...baseRequest, existing_category_id: selection.categoryId };
+        } else {
+          // use_flexible_group - link to the group directly for group-level rollover
+          request = { ...baseRequest, flexible_group_id: selection.groupId };
+        }
 
         await createMutation.mutateAsync(request);
         toast.success('Stash created');
@@ -155,6 +184,7 @@ export function NewStashForm({
       emoji,
       goalType,
       selectedImage,
+      openverseImage,
       prefill,
       createMutation,
       uploadImage,
@@ -181,6 +211,8 @@ export function NewStashForm({
           onImageSelect={handleImageSelect}
           onImageRemove={handleImageRemove}
           onPreviewChange={setImagePreview}
+          onOpenverseSelect={handleOpenverseSelect}
+          openverseImageUrl={openverseImage?.thumbnail}
         />
 
         <div>

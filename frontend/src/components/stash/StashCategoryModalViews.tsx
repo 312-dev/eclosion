@@ -6,7 +6,7 @@
 
 import { Icons } from '../icons';
 import { decodeHtmlEntities } from '../../utils';
-import type { CategoryGroup, UnmappedCategory } from '../../types/category';
+import type { CategoryGroup, CategoryGroupDetailed, UnmappedCategory } from '../../types/category';
 
 interface GroupedCategories {
   groupId: string;
@@ -108,6 +108,10 @@ interface UseExistingViewProps {
   categoriesLoading: boolean;
   categoriesError: Error | null;
   onSwitchView: () => void;
+  // Flexible category groups
+  flexibleGroups: CategoryGroupDetailed[];
+  selectedFlexibleGroupId: string;
+  onSelectFlexibleGroup: (id: string) => void;
 }
 
 export function UseExistingCategoryView({
@@ -119,7 +123,15 @@ export function UseExistingCategoryView({
   categoriesLoading,
   categoriesError,
   onSwitchView,
+  flexibleGroups,
+  selectedFlexibleGroupId,
+  onSelectFlexibleGroup,
 }: UseExistingViewProps) {
+  // Filter flexible groups by search query
+  const filteredFlexibleGroups = flexibleGroups.filter(
+    (group) =>
+      group.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
   return (
     <>
       <div className="space-y-3">
@@ -154,13 +166,55 @@ export function UseExistingCategoryView({
               Loading categories...
             </div>
           )}
-          {!categoriesLoading && filteredGroups.length === 0 && (
+          {!categoriesLoading && filteredGroups.length === 0 && filteredFlexibleGroups.length === 0 && (
             <div className="text-center py-8" style={{ color: 'var(--monarch-text-muted)' }}>
               {searchQuery ? 'No categories match your search' : 'No available categories'}
             </div>
           )}
-          {!categoriesLoading && filteredGroups.length > 0 && (
+          {!categoriesLoading && (filteredGroups.length > 0 || filteredFlexibleGroups.length > 0) && (
             <div className="space-y-3 p-2">
+              {/* Rollover Groups Section - groups with group-level rollover tracking */}
+              {filteredFlexibleGroups.length > 0 && (
+                <div>
+                  <div
+                    className="text-xs font-medium uppercase tracking-wide mb-1 px-1"
+                    style={{ color: 'var(--monarch-text-muted)' }}
+                  >
+                    Rollover Groups
+                  </div>
+                  <div className="space-y-1">
+                    {filteredFlexibleGroups.map((group) => {
+                      const isSelected = selectedFlexibleGroupId === group.id;
+                      return (
+                        <button
+                          key={group.id}
+                          type="button"
+                          onClick={() => onSelectFlexibleGroup(group.id)}
+                          className="w-full text-left px-3 py-2.5 rounded-lg text-sm transition-all flex items-center gap-2"
+                          style={{
+                            backgroundColor: isSelected
+                              ? 'rgba(26, 183, 165, 0.1)'
+                              : 'var(--monarch-bg-page)',
+                            color: 'var(--monarch-text-dark)',
+                            borderLeft: isSelected
+                              ? '3px solid var(--monarch-teal)'
+                              : '3px solid transparent',
+                            boxShadow: isSelected ? '0 2px 8px rgba(26, 183, 165, 0.15)' : 'none',
+                          }}
+                        >
+                          <Icons.Folder size={16} style={{ color: 'var(--monarch-text-muted)' }} />
+                          <span className="flex-1">{decodeHtmlEntities(group.name)}</span>
+                          {isSelected && (
+                            <Icons.Check size={16} style={{ color: 'var(--monarch-teal)' }} />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Individual Categories Section */}
               {filteredGroups.map((group) => (
                 <div key={group.groupId}>
                   <div

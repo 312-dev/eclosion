@@ -69,6 +69,9 @@ export function EditStashForm({ item, onSuccess, onClose, renderFooter }: EditSt
   const [customImagePath, setCustomImagePath] = useState<string | null>(
     item.custom_image_path || null
   );
+  const [imageAttribution, setImageAttribution] = useState<string | null>(
+    item.image_attribution || null
+  );
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [categoryMissingItemId, setCategoryMissingItemId] = useState<string | null>(null);
@@ -85,7 +88,14 @@ export function EditStashForm({ item, onSuccess, onClose, renderFooter }: EditSt
   }, [amount, targetDate, item.current_balance, item.planned_budget]);
 
   const handleImageUploaded = useCallback((imagePath: string) => setCustomImagePath(imagePath), []);
-  const handleImageRemoved = useCallback(() => setCustomImagePath(null), []);
+  const handleImageRemoved = useCallback(() => {
+    setCustomImagePath(null);
+    setImageAttribution(null);
+  }, []);
+  const handleAttributionChange = useCallback(
+    (attribution: string | null) => setImageAttribution(attribution),
+    []
+  );
 
   const handleCategoryMissing = useCallback(
     (itemId: string) => {
@@ -113,9 +123,10 @@ export function EditStashForm({ item, onSuccess, onClose, renderFooter }: EditSt
       emoji: emoji || '💰',
       source_url: url.trim() || null,
       custom_image_path: customImagePath || null,
+      image_attribution: imageAttribution || null,
       goal_type: goalType,
     }),
-    [name, amount, targetDate, emoji, url, customImagePath, goalType]
+    [name, amount, targetDate, emoji, url, customImagePath, imageAttribution, goalType]
   );
 
   const {
@@ -161,6 +172,7 @@ export function EditStashForm({ item, onSuccess, onClose, renderFooter }: EditSt
             currentImagePath={customImagePath}
             onImageUploaded={handleImageUploaded}
             onImageRemoved={handleImageRemoved}
+            onAttributionChange={handleAttributionChange}
           />
           {item.logo_url && !customImagePath && (
             <p className="text-xs mt-1" style={{ color: 'var(--monarch-text-muted)' }}>

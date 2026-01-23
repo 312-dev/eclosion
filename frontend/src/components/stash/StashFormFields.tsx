@@ -11,6 +11,7 @@ import { Icons } from '../icons';
 import { EmojiPicker } from '../EmojiPicker';
 import { getSafeHref } from '../../utils';
 import { getQuickPickDates } from '../../utils/savingsCalculations';
+import { Z_INDEX } from '../../constants';
 import type { StashGoalType } from '../../types';
 
 // Re-export modal-specific components for backward compatibility
@@ -664,9 +665,10 @@ export function GoalTypeSelector({ value, onChange, hideLabel = false }: GoalTyp
     ? createPortal(
         <div
           ref={dropdownRef}
-          className="z-50 rounded-md shadow-lg"
+          className="rounded-md shadow-lg"
           style={{
             ...dropdownStyle,
+            zIndex: Z_INDEX.TOOLTIP,
             backgroundColor: 'var(--monarch-bg-card)',
             border: '1px solid var(--monarch-border)',
           }}

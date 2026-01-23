@@ -9,20 +9,30 @@
  * - Editable total amount (with optional max cap)
  * - Per-item allocation inputs
  * - Status indicator for remaining/over-allocated
+ * - Info tooltip showing how the amount was calculated
  */
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { DistributeItemRow } from './DistributeItemRow';
+import { DistributionFlowDiagram } from './DistributionFlowDiagram';
+import { SavingsInfoTooltip, MonthlyInfoTooltip } from './DistributeInfoTooltip';
 import { Icons } from '../icons';
 import { Tooltip } from '../ui';
+import { HoverCard } from '../ui/HoverCard';
+import { useAvailableToStash, useStashConfigQuery, useUpdateStashConfigMutation } from '../../api/queries';
+import { useToast } from '../../context/ToastContext';
+import { distributeAmountByRatios } from '../../utils/calculations';
 import type { StashItem } from '../../types';
 import type { DistributeMode } from './DistributeWizard';
 
 type InputMode = 'amount' | 'percent';
+type ScreenType = 'savings' | 'monthly';
 
 interface DistributeScreenProps {
   /** Mode: 'distribute' for real allocation, 'hypothesize' for what-if planning */
   readonly mode: DistributeMode;
+  /** Which screen: 'savings' (screen 1) or 'monthly' (screen 2) */
+  readonly screenType: ScreenType;
   /** Total amount to distribute */
   readonly totalAmount: number;
   /** Maximum allowed amount (used in distribute mode) */
@@ -45,6 +55,16 @@ interface DistributeScreenProps {
   readonly showForecast?: boolean;
   /** Rollover allocations from Screen 1 (for calculating starting balance on Screen 2) */
   readonly rolloverAllocations?: Record<string, number>;
+  /** Available amount before subtracting leftToBudget (for savings screen tooltip) */
+  readonly availableAmount?: number;
+  /** Callback to refresh the left to budget amount (for monthly screen) */
+  readonly onRefreshLeftToBudget?: () => void;
+  /** Whether the left to budget refresh is in progress */
+  readonly isRefreshingLeftToBudget?: boolean;
+  /** Callback when user attempts to edit total in distribute mode */
+  readonly onEditAttempt?: () => void;
+  /** Whether this is distribute mode (affects edit behavior) */
+  readonly isDistributeMode?: boolean;
 }
 
 /**
@@ -60,7 +80,8 @@ function formatCurrency(amount: number): string {
 }
 
 export function DistributeScreen({
-  mode,
+  mode: _mode,
+  screenType,
   totalAmount,
   maxAmount,
   isTotalEditable = false,
@@ -72,23 +93,87 @@ export function DistributeScreen({
   leftToBudget,
   showForecast = false,
   rolloverAllocations,
+  availableAmount,
+  onRefreshLeftToBudget,
+  isRefreshingLeftToBudget,
+  onEditAttempt,
+  isDistributeMode = false,
 }: DistributeScreenProps) {
   const [inputMode, setInputMode] = useState<InputMode>('amount');
+
+  const toast = useToast();
+
+  // Fetch breakdown data for the info tooltip
+  const { data: config } = useStashConfigQuery();
+  const includeExpectedIncome = config?.includeExpectedIncome ?? false;
+  const { data: availableData } = useAvailableToStash({ includeExpectedIncome });
+  const breakdown = availableData?.breakdown;
+  const detailedBreakdown = availableData?.detailedBreakdown;
+
+  // Buffer save handler for the editable buffer input
+  const updateConfig = useUpdateStashConfigMutation();
+  const savedBuffer = config?.bufferAmount ?? 0;
+
+  const handleSaveBuffer = useCallback(
+    async (value: number) => {
+      try {
+        await updateConfig.mutateAsync({ bufferAmount: value });
+      } catch {
+        toast.error('Failed to save buffer amount');
+      }
+    },
+    [updateConfig, toast]
+  );
 
   // Calculate total allocated and remaining
   const totalAllocated = Object.values(allocations).reduce((sum, val) => sum + val, 0);
   const remaining = totalAmount - totalAllocated;
   const isAtMax = maxAmount !== undefined && totalAmount >= maxAmount;
 
-  // Calculate total percentage allocated
-  const totalPercentAllocated = totalAmount > 0 ? Math.round((totalAllocated / totalAmount) * 100) : 0;
-  const remainingPercent = 100 - totalPercentAllocated;
-
   // Handle allocation change from percentage input
-  const handlePercentChange = (id: string, percent: number) => {
-    const amount = Math.round((percent / 100) * totalAmount);
-    onAllocationChange(id, amount);
-  };
+  // Uses largest remainder method when percentages sum to ~100%, otherwise simple rounding
+  const handlePercentChange = useCallback(
+    (id: string, percent: number) => {
+      // Build percentages for all items, updating the changed one
+      const percentages: Record<string, number> = {};
+      for (const item of items) {
+        if (item.id === id) {
+          percentages[item.id] = percent;
+        } else {
+          // Get existing percentage from current allocation
+          const existingAmount = allocations[item.id] ?? 0;
+          percentages[item.id] = totalAmount > 0 ? (existingAmount / totalAmount) * 100 : 0;
+        }
+      }
+
+      // Check if percentages sum to ~100% (within 1%)
+      const totalPercent = Object.values(percentages).reduce((sum, p) => sum + p, 0);
+      const isComplete = totalPercent >= 99 && totalPercent <= 101;
+
+      if (isComplete && items.length > 1) {
+        // Use largest remainder method for complete allocation
+        const ratios: Record<string, number> = {};
+        for (const [itemId, pct] of Object.entries(percentages)) {
+          ratios[itemId] = pct / 100;
+        }
+        const newAllocations = distributeAmountByRatios(totalAmount, ratios);
+
+        // Update all items
+        for (const item of items) {
+          const newAmount = newAllocations[item.id] ?? 0;
+          const currentAmount = allocations[item.id] ?? 0;
+          if (newAmount !== currentAmount) {
+            onAllocationChange(item.id, newAmount);
+          }
+        }
+      } else {
+        // Simple rounding for incomplete allocation (during typing)
+        const amount = Math.round((percent / 100) * totalAmount);
+        onAllocationChange(id, amount);
+      }
+    },
+    [items, allocations, totalAmount, onAllocationChange]
+  );
 
   // Get percentage for an item
   const getPercentForItem = (itemId: string): number => {
@@ -101,114 +186,165 @@ export function DistributeScreen({
   const displayRemaining = Math.round(remaining);
   const displayTotalAmount = Math.round(totalAmount);
 
-  // Calculate split preview (distribute mode only)
-  const getSplitPreview = () => {
-    if (mode !== 'distribute' || leftToBudget === undefined || totalAllocated === 0) return null;
-
-    const rollover = Math.max(0, totalAllocated - leftToBudget);
-    const budget = Math.min(totalAllocated, leftToBudget);
-
-    if (rollover === 0) return null;
-
-    return { rollover, budget };
+  // Get color for the remaining amount display
+  const getRemainingColor = () => {
+    if (displayRemaining < 0) return 'var(--monarch-error)';
+    if (displayRemaining === 0) return 'var(--monarch-success)';
+    return 'var(--monarch-text-dark)';
   };
 
-  const splitPreview = getSplitPreview();
+  // Render the info tooltip content based on screen type
+  const infoTooltipContent = (() => {
+    if (screenType === 'savings' && breakdown && detailedBreakdown) {
+      return (
+        <SavingsInfoTooltip
+          breakdown={breakdown}
+          detailedBreakdown={detailedBreakdown}
+          includeExpectedIncome={includeExpectedIncome}
+          availableAmount={availableAmount ?? 0}
+          leftToBudget={leftToBudget ?? 0}
+          existingSavings={displayTotalAmount}
+          savedBuffer={savedBuffer}
+          onSaveBuffer={handleSaveBuffer}
+        />
+      );
+    }
+
+    if (screenType === 'monthly') {
+      return (
+        <MonthlyInfoTooltip
+          monthlyAmount={displayTotalAmount}
+          {...(onRefreshLeftToBudget && { onRefresh: onRefreshLeftToBudget })}
+          {...(isRefreshingLeftToBudget !== undefined && { isRefreshing: isRefreshingLeftToBudget })}
+        />
+      );
+    }
+
+    return null;
+  })();
+
+  // Build info tooltip for the flow diagram
+  const flowInfoTooltip = screenType === 'savings' && infoTooltipContent ? (
+    <HoverCard content={infoTooltipContent} side="bottom" align="center" closeDelay={400}>
+      <Icons.Info
+        size={14}
+        className="cursor-help"
+        style={{ color: 'var(--monarch-text-muted)' }}
+      />
+    </HoverCard>
+  ) : null;
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Header section with total */}
+    <div className="flex flex-col h-full min-h-0">
+      {/* Header section with remaining amount */}
       <div className="px-4 pt-2 pb-4">
-        {/* Centered amount display/input */}
-        <div className="flex flex-col items-center">
-          {isTotalEditable ? (
+        {/* Screen 1 (Savings): Flow diagram visualization */}
+        {screenType === 'savings' ? (
+          <DistributionFlowDiagram
+            totalAmount={displayTotalAmount}
+            allocatedAmount={totalAllocated}
+            infoTooltip={flowInfoTooltip}
+            isEditable={!isDistributeMode}
+            {...(onTotalChange && { onTotalChange })}
+            {...(onEditAttempt && { onEditAttempt })}
+            isDistributeMode={isDistributeMode}
+          />
+        ) : (
+          /* Screen 2 (Monthly) or editable mode */
+          <div className="flex flex-col items-center">
+            {/* Remaining amount (what hasn't been budgeted yet) */}
+            <div className="flex items-center gap-2">
+              <span
+                className="text-4xl font-semibold transition-colors"
+                style={{ color: getRemainingColor() }}
+              >
+                {formatCurrency(displayRemaining)}
+              </span>
+              {displayRemaining === 0 && displayTotalAmount > 0 && (
+                <Icons.Check size={22} style={{ color: 'var(--monarch-success)' }} />
+              )}
+            </div>
             <div
-              className={`flex items-center justify-center rounded-lg border-2 px-4 py-3 bg-monarch-bg-card transition-colors ${
-                isAtMax ? 'border-monarch-warning' : 'border-monarch-border focus-within:border-monarch-orange'
-              }`}
-            >
-              <span className="text-4xl font-semibold text-monarch-text-muted">$</span>
-              <input
-                type="number"
-                value={displayTotalAmount || ''}
-                onChange={(e) => {
-                  const val = Number.parseInt(e.target.value, 10);
-                  onTotalChange?.(Number.isNaN(val) || val < 0 ? 0 : val);
-                }}
-                placeholder="0"
-                className="w-32 text-center text-4xl font-semibold bg-transparent outline-none text-monarch-text-dark [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                aria-label="Total amount to distribute"
-                min={0}
-              />
-            </div>
-          ) : (
-            <span className="text-4xl font-semibold text-monarch-text-dark">
-              {formatCurrency(displayTotalAmount)}
-            </span>
-          )}
-
-          {/* Max amount indicator (distribute mode) */}
-          {maxAmount !== undefined && (
-            <div className="mt-2 text-xs text-monarch-text-muted">
-              Max: {formatCurrency(Math.round(maxAmount))}
-            </div>
-          )}
-        </div>
-
-        {/* Split preview (distribute mode, when there's a rollover component) */}
-        {splitPreview && (
-          <div className="mt-3 p-2 rounded-md bg-monarch-bg-hover text-xs">
-            <div className="font-medium text-monarch-text-dark mb-1">How funds will be applied:</div>
-            <div className="flex justify-between text-monarch-text-muted">
-              <span>To category savings (rollover)</span>
-              <span className="font-medium">{formatCurrency(splitPreview.rollover)}</span>
-            </div>
-            <div className="flex justify-between text-monarch-text-muted">
-              <span>To monthly budgets</span>
-              <span className="font-medium">{formatCurrency(splitPreview.budget)}</span>
+              className="w-24 h-px my-2"
+              style={{ backgroundColor: 'var(--monarch-border)' }}
+            />
+            {/* Total amount in input field style */}
+            <div className="relative inline-flex items-center">
+              <div
+                className={`flex items-center justify-center rounded-lg border-2 px-3 py-1.5 transition-colors ${
+                  isTotalEditable
+                    ? isAtMax
+                      ? 'border-monarch-warning'
+                      : 'border-monarch-border focus-within:border-monarch-orange'
+                    : 'border-monarch-border cursor-pointer hover:border-monarch-text-muted'
+                }`}
+                onClick={!isTotalEditable && isDistributeMode ? onEditAttempt : undefined}
+                onDoubleClick={!isTotalEditable && isDistributeMode ? onEditAttempt : undefined}
+                onKeyDown={
+                  !isTotalEditable && isDistributeMode
+                    ? (e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          onEditAttempt?.();
+                        }
+                      }
+                    : undefined
+                }
+                role={!isTotalEditable && isDistributeMode ? 'button' : undefined}
+                tabIndex={!isTotalEditable && isDistributeMode ? 0 : undefined}
+                aria-label={!isTotalEditable && isDistributeMode ? 'Click to learn about editing this value' : undefined}
+              >
+                <span className={`text-lg font-medium ${isTotalEditable ? 'text-monarch-text-dark' : 'text-monarch-text-muted'}`}>$</span>
+                {isTotalEditable ? (
+                  <input
+                    type="number"
+                    value={displayTotalAmount || ''}
+                    onChange={(e) => {
+                      const val = Number.parseInt(e.target.value, 10);
+                      onTotalChange?.(Number.isNaN(val) || val < 0 ? 0 : val);
+                    }}
+                    placeholder="0"
+                    className="w-20 text-center text-lg font-medium bg-transparent outline-none text-monarch-text-dark placeholder:text-monarch-text-muted [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    aria-label="Total amount to distribute"
+                    min={0}
+                  />
+                ) : (
+                  <span className="text-lg font-medium text-monarch-text-muted px-2">
+                    {displayTotalAmount.toLocaleString()}
+                  </span>
+                )}
+              </div>
+              {infoTooltipContent && (
+                <HoverCard content={infoTooltipContent} side="bottom" align="center" closeDelay={400}>
+                  <Icons.Info
+                    size={14}
+                    className="absolute -right-5 cursor-help"
+                    style={{ color: 'var(--monarch-text-muted)' }}
+                  />
+                </HoverCard>
+              )}
             </div>
           </div>
         )}
+
       </div>
 
       {/* Items list */}
       <div className="flex-1 overflow-y-auto">
-        <div className="px-4 py-2.5 flex items-center justify-between border-b border-monarch-border">
+        {/* Column headers row */}
+        <div className="px-4 py-2 flex items-center justify-between border-b border-monarch-border">
           <span className="text-xs font-medium text-monarch-text-muted">Stashes</span>
           <div className="flex items-center gap-2">
-            {/* Reset button */}
             <Tooltip content="Reset amounts">
               <button
                 onClick={onReset}
-                className="p-1.5 rounded-md text-monarch-text-muted hover:text-monarch-text-dark hover:bg-monarch-bg-hover transition-colors"
+                className="p-1 rounded text-monarch-text-muted hover:text-monarch-text-dark hover:bg-monarch-bg-hover transition-colors"
                 aria-label="Reset amounts"
               >
-                <Icons.Refresh size={14} />
+                <Icons.Refresh size={12} />
               </button>
             </Tooltip>
-            {/* Input mode toggle */}
-            <div className="inline-flex rounded-full p-0.5 bg-monarch-bg-hover">
-              <button
-                onClick={() => setInputMode('amount')}
-                className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${
-                  inputMode === 'amount'
-                    ? 'bg-monarch-bg-card text-monarch-text-dark shadow-sm'
-                    : 'text-monarch-text-muted hover:text-monarch-text-dark'
-                }`}
-              >
-                By Amount
-              </button>
-              <button
-                onClick={() => setInputMode('percent')}
-                className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${
-                  inputMode === 'percent'
-                    ? 'bg-monarch-bg-card text-monarch-text-dark shadow-sm'
-                    : 'text-monarch-text-muted hover:text-monarch-text-dark'
-                }`}
-              >
-                By Percent
-              </button>
-            </div>
+            <span className="text-xs font-medium text-monarch-text-muted">Contribution</span>
           </div>
         </div>
         {items.length === 0 ? (
@@ -226,56 +362,26 @@ export function DistributeScreen({
                 onAmountChange={onAllocationChange}
                 onPercentChange={handlePercentChange}
                 inputMode={inputMode}
+                onInputModeChange={setInputMode}
                 showTargetInfo={true}
                 showLiveProjection={showForecast}
                 rolloverAmount={rolloverAllocations?.[item.id] ?? 0}
+                screenType={screenType}
+                onApplySuggestion={(id, suggestedAmount) => {
+                  if (inputMode === 'percent') {
+                    // Convert amount to percentage and apply
+                    const percent = totalAmount > 0 ? Math.round((suggestedAmount / totalAmount) * 100) : 0;
+                    handlePercentChange(id, percent);
+                  } else {
+                    onAllocationChange(id, suggestedAmount);
+                  }
+                }}
               />
             ))}
           </div>
         )}
       </div>
 
-      {/* Footer with remaining */}
-      <div className="p-4 border-t flex items-center justify-center border-monarch-border">
-        <div className="text-sm text-monarch-text-muted flex items-center gap-1.5">
-          {inputMode === 'percent' && remainingPercent < 0 && (
-            <>
-              <Icons.Warning size={16} className="shrink-0 text-monarch-error" />
-              <span><span className="font-bold text-monarch-error">{Math.abs(remainingPercent)}%</span> over. You went a little over!</span>
-            </>
-          )}
-          {inputMode === 'percent' && remainingPercent === 0 && (
-            <>
-              <Icons.ThumbsUp size={16} className="shrink-0 text-monarch-success" />
-              <span><span className="font-bold text-monarch-success">0%</span> left to distribute. Perfect.</span>
-            </>
-          )}
-          {inputMode === 'percent' && remainingPercent > 0 && (
-            <>
-              <Icons.Banknote size={16} className="shrink-0 text-monarch-text-dark" />
-              <span><span className="font-bold text-monarch-text-dark">{remainingPercent}%</span> left to distribute. Keep going!</span>
-            </>
-          )}
-          {inputMode === 'amount' && displayRemaining < 0 && (
-            <>
-              <Icons.Warning size={16} className="shrink-0 text-monarch-error" />
-              <span><span className="font-bold text-monarch-error">{formatCurrency(Math.abs(displayRemaining))}</span> over. You went a little over!</span>
-            </>
-          )}
-          {inputMode === 'amount' && displayRemaining === 0 && (
-            <>
-              <Icons.ThumbsUp size={16} className="shrink-0 text-monarch-success" />
-              <span><span className="font-bold text-monarch-success">$0</span> left to distribute. Perfect.</span>
-            </>
-          )}
-          {inputMode === 'amount' && displayRemaining > 0 && (
-            <>
-              <Icons.Banknote size={16} className="shrink-0 text-monarch-text-dark" />
-              <span><span className="font-bold text-monarch-text-dark">{formatCurrency(displayRemaining)}</span> left to distribute. Keep going!</span>
-            </>
-          )}
-        </div>
-      </div>
     </div>
   );
 }

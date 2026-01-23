@@ -5,7 +5,7 @@
  * between Eclosion's Stash and Monarch Money's Goals.
  */
 
-import { HelpCircle } from 'lucide-react';
+import { Info } from 'lucide-react';
 
 interface StashGoalExplainerLinkProps {
   readonly onClick: () => void;
@@ -16,11 +16,11 @@ export function StashGoalExplainerLink({ onClick }: StashGoalExplainerLinkProps)
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex items-center gap-1 ml-2 text-sm transition-colors hover:opacity-80"
-      style={{ color: 'var(--monarch-orange)' }}
+      className="flex items-center gap-1 mt-1 text-sm transition-colors hover:opacity-80"
+      style={{ color: 'var(--monarch-info)' }}
     >
-      <HelpCircle size={14} />
-      Stash vs Monarch Goals
+      <Info size={14} />
+      Explain differences between Stashes and Monarch Goals
     </button>
   );
 }

@@ -128,10 +128,15 @@ export function useEditStashHandlers({
   const handleCategorySelection = useCallback(
     async (selection: CategorySelection, categoryMissingItemId: string | null) => {
       if (!categoryMissingItemId) return;
-      const params =
-        selection.type === 'create_new'
-          ? { id: categoryMissingItemId, categoryGroupId: selection.categoryGroupId }
-          : { id: categoryMissingItemId, existingCategoryId: selection.categoryId };
+      let params;
+      if (selection.type === 'create_new') {
+        params = { id: categoryMissingItemId, categoryGroupId: selection.categoryGroupId };
+      } else if (selection.type === 'use_existing') {
+        params = { id: categoryMissingItemId, existingCategoryId: selection.categoryId };
+      } else {
+        // use_flexible_group - link to the group directly
+        params = { id: categoryMissingItemId, flexibleGroupId: selection.groupId };
+      }
       try {
         await linkCategoryMutation.mutateAsync(params);
         toast.success('Category linked successfully');

@@ -10,6 +10,7 @@ import {
   useCategoryGroupsList,
   useRefreshCategoryGroups,
   useUnmappedCategoriesList,
+  useFlexibleCategoryGroups,
 } from '../../api/queries';
 import { useIsRateLimited } from '../../context/RateLimitContext';
 import type { UnmappedCategory } from '../../types/category';
@@ -18,7 +19,8 @@ import { CreateNewCategoryView, UseExistingCategoryView } from './StashCategoryM
 /** Result of category selection */
 export type CategorySelection =
   | { type: 'create_new'; categoryGroupId: string; categoryGroupName: string }
-  | { type: 'use_existing'; categoryId: string; categoryName: string };
+  | { type: 'use_existing'; categoryId: string; categoryName: string }
+  | { type: 'use_flexible_group'; groupId: string; groupName: string };
 
 interface StashCategoryModalProps {
   isOpen: boolean;
@@ -44,18 +46,24 @@ export function StashCategoryModal({
   const { groups: categoryGroups, isLoading: groupsLoading } = useCategoryGroupsList();
   const refreshGroups = useRefreshCategoryGroups();
   const [selectedCategoryId, setSelectedCategoryId] = useState('');
+  const [selectedFlexibleGroupId, setSelectedFlexibleGroupId] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const {
     categories: unmappedCategories,
     isLoading: categoriesLoading,
     error: categoriesError,
   } = useUnmappedCategoriesList();
+  const {
+    groups: flexibleGroups,
+    isLoading: flexibleGroupsLoading,
+  } = useFlexibleCategoryGroups();
 
   useEffect(() => {
     if (isOpen) {
       setViewMode('create_new');
       setSelectedGroupId(defaultCategoryGroupId || '');
       setSelectedCategoryId('');
+      setSelectedFlexibleGroupId('');
       setSearchQuery('');
     }
   }, [isOpen, defaultCategoryGroupId]);
@@ -70,9 +78,20 @@ export function StashCategoryModal({
   }, [refreshGroups]);
 
   const filteredGroups = useMemo(() => {
+    // Get IDs of flexible groups - we'll exclude their subcategories
+    // since users should select the group itself, not individual categories
+    const flexibleGroupIds = new Set(flexibleGroups.map((g) => g.id));
+
     const grouped = unmappedCategories.reduce(
       (acc, cat) => {
         const groupId = cat.group_id || 'uncategorized';
+
+        // Skip categories belonging to flexible groups
+        // (those groups are shown separately as selectable groups)
+        if (flexibleGroupIds.has(groupId)) {
+          return acc;
+        }
+
         if (!acc[groupId]) {
           acc[groupId] = {
             groupId,
@@ -101,10 +120,11 @@ export function StashCategoryModal({
         ),
       }))
       .filter((group) => group.categories.length > 0);
-  }, [unmappedCategories, searchQuery]);
+  }, [unmappedCategories, searchQuery, flexibleGroups]);
 
   const selectedCategoryInfo = unmappedCategories.find((c) => c.id === selectedCategoryId);
   const selectedGroupName = categoryGroups?.find((g) => g.id === selectedGroupId)?.name || '';
+  const selectedFlexibleGroupInfo = flexibleGroups.find((g) => g.id === selectedFlexibleGroupId);
 
   const handleConfirm = () => {
     if (viewMode === 'create_new') {
@@ -115,17 +135,38 @@ export function StashCategoryModal({
         categoryGroupName: selectedGroupName,
       });
     } else {
-      if (!selectedCategoryId || !selectedCategoryInfo) return;
-      onConfirm({
-        type: 'use_existing',
-        categoryId: selectedCategoryId,
-        categoryName: selectedCategoryInfo.name,
-      });
+      // Check if a flexible group is selected
+      if (selectedFlexibleGroupId && selectedFlexibleGroupInfo) {
+        onConfirm({
+          type: 'use_flexible_group',
+          groupId: selectedFlexibleGroupId,
+          groupName: selectedFlexibleGroupInfo.name,
+        });
+      } else if (selectedCategoryId && selectedCategoryInfo) {
+        onConfirm({
+          type: 'use_existing',
+          categoryId: selectedCategoryId,
+          categoryName: selectedCategoryInfo.name,
+        });
+      }
     }
   };
 
+  // Handle mutual exclusion: selecting a category clears flexible group and vice versa
+  const handleSelectCategory = (id: string) => {
+    setSelectedCategoryId(id);
+    setSelectedFlexibleGroupId('');
+  };
+
+  const handleSelectFlexibleGroup = (id: string) => {
+    setSelectedFlexibleGroupId(id);
+    setSelectedCategoryId('');
+  };
+
   const isValid =
-    viewMode === 'create_new' ? Boolean(selectedGroupId) : Boolean(selectedCategoryId);
+    viewMode === 'create_new'
+      ? Boolean(selectedGroupId)
+      : Boolean(selectedCategoryId) || Boolean(selectedFlexibleGroupId);
   const isDisabled = isSubmitting || isRateLimited || !isValid;
 
   const footer = (
@@ -187,11 +228,14 @@ export function StashCategoryModal({
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
             selectedCategoryId={selectedCategoryId}
-            onSelectCategory={setSelectedCategoryId}
+            onSelectCategory={handleSelectCategory}
             filteredGroups={filteredGroups}
-            categoriesLoading={categoriesLoading}
+            categoriesLoading={categoriesLoading || flexibleGroupsLoading}
             categoriesError={categoriesError}
             onSwitchView={() => setViewMode('create_new')}
+            flexibleGroups={flexibleGroups}
+            selectedFlexibleGroupId={selectedFlexibleGroupId}
+            onSelectFlexibleGroup={handleSelectFlexibleGroup}
           />
         )}
       </div>

@@ -258,7 +258,7 @@ function createLayoutFromItems(items: (StashItem | MonarchGoal)[], cols: number,
   });
 
   // Compact existing items first
-  let compacted = compactLayout(itemsWithPositions, cols);
+  const compacted = compactLayout(itemsWithPositions, cols);
 
   // Add new items at the end (after existing items)
   for (const newItem of newItems) {

@@ -2,18 +2,26 @@
  * Available Funds Bar
  *
  * A standalone container showing Available Funds with the Distribute button.
- * Includes an optional Reserve Buffer slider integrated below the funds display.
+ * Includes buffer input in the breakdown tooltip.
  */
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Icons } from '../icons';
-import { useAvailableToStash } from '../../api/queries';
+import { useAvailableToStash, useStashConfigQuery, useUpdateStashConfigMutation } from '../../api/queries';
 import { HoverCard } from '../ui/HoverCard';
 import { formatAvailableAmount } from '../../utils/availableToStash';
 import { BreakdownDetailModal } from './BreakdownDetailModal';
+import { BufferInputRow } from './BufferInputRow';
 import { DistributeButton, HypothesizeButton } from './DistributeButton';
+import { useToast } from '../../context/ToastContext';
 import { UI } from '../../constants';
 import type { BreakdownLineItem, StashItem } from '../../types';
+
+/** Format currency with no decimals */
+function formatCurrency(amount: number): string {
+  const prefix = amount < 0 ? '-' : '';
+  return `${prefix}$${Math.abs(amount).toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+}
 
 interface AvailableFundsBarProps {
   /** Whether to include expected income in calculation (from settings) */
@@ -119,21 +127,49 @@ export function AvailableFundsBar({
   leftToBudget,
   items,
 }: Readonly<AvailableFundsBarProps>) {
+  const toast = useToast();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [shouldShake, setShouldShake] = useState(false);
   const prevValueRef = useRef<number | null>(null);
 
-  const { data, isLoading, formattedAmount, statusColor } = useAvailableToStash({
+  // Get config for buffer and mutation for saving
+  const { data: config } = useStashConfigQuery();
+  const updateConfig = useUpdateStashConfigMutation();
+  const savedBuffer = config?.bufferAmount ?? 0;
+
+  const { data, isLoading } = useAvailableToStash({
     includeExpectedIncome,
     bufferAmount,
   });
+
+  const breakdown = data?.breakdown;
+  const detailedBreakdown = data?.detailedBreakdown;
+
+  // Calculate available before any buffer
+  const availableBeforeBuffer = useMemo(() => {
+    if (!breakdown) return 0;
+    return (
+      breakdown.cashOnHand +
+      breakdown.expectedIncome -
+      breakdown.creditCardDebt -
+      breakdown.unspentBudgets -
+      breakdown.goalBalances -
+      breakdown.stashBalances
+    );
+  }, [breakdown]);
+
+  // Calculate available with saved buffer
+  const displayedAvailable = availableBeforeBuffer - savedBuffer;
+  const isPositive = displayedAvailable >= 0;
+  const displayedStatusColor = isPositive ? 'var(--monarch-success)' : 'var(--monarch-error)';
+  const displayedFormattedAmount = formatCurrency(displayedAvailable);
 
   // Track transitions to negative for shake animation
   useEffect(() => {
     if (!data) return;
 
     const prevValue = prevValueRef.current;
-    const currentValue = data.available;
+    const currentValue = displayedAvailable;
 
     // Update ref first
     prevValueRef.current = currentValue;
@@ -149,12 +185,19 @@ export function AvailableFundsBar({
         clearTimeout(timer);
       };
     }
-  }, [data]);
+  }, [data, displayedAvailable]);
 
-  const breakdown = data?.breakdown;
-  const detailedBreakdown = data?.detailedBreakdown;
-  const isPositive = (data?.available ?? 0) >= 0;
-  const availableAmount = data?.available ?? 0;
+  // Save buffer to config
+  const saveBuffer = useCallback(
+    async (value: number) => {
+      try {
+        await updateConfig.mutateAsync({ bufferAmount: value });
+      } catch {
+        toast.error('Failed to save buffer amount');
+      }
+    },
+    [updateConfig, toast]
+  );
 
   const openModal = () => setIsModalOpen(true);
 
@@ -202,16 +245,18 @@ export function AvailableFundsBar({
             items={detailedBreakdown.stashItems}
             onExpand={openModal}
           />
-          {breakdown.bufferAmount > 0 && (
-            <BreakdownRow label="Reserved buffer" amount={breakdown.bufferAmount} />
-          )}
+          <BufferInputRow
+            availableBeforeBuffer={availableBeforeBuffer}
+            savedBuffer={savedBuffer}
+            onSave={saveBuffer}
+          />
         </div>
         <div
           className="flex justify-between font-medium pt-2 border-t"
           style={{ borderColor: 'var(--monarch-border)' }}
         >
           <span>Available</span>
-          <span style={{ color: statusColor }}>{formattedAmount}</span>
+          <span style={{ color: displayedStatusColor }}>{displayedFormattedAmount}</span>
         </div>
       </div>
     ) : null;
@@ -232,62 +277,69 @@ export function AvailableFundsBar({
     );
   }
 
-  // Text color based on available amount
-  const amountColor = isPositive
-    ? 'var(--monarch-success)'
-    : 'var(--monarch-error)';
-
   return (
     <>
       <div
-        className={`rounded-lg px-6 py-4 mt-4 mb-4 ${shouldShake ? 'animate-error-shake' : ''}`}
+        className={`rounded-xl mt-4 mb-4 overflow-hidden ${shouldShake ? 'animate-error-shake' : ''}`}
         style={{
           backgroundColor: 'var(--monarch-bg-card)',
           border: '1px solid var(--monarch-border)',
         }}
       >
-        {/* Available Funds Display - centered */}
-        <div className="flex flex-col items-center">
-          <div className="flex items-center gap-3">
-            <Icons.Landmark
-              size={20}
-              style={{ color: 'var(--monarch-text-muted)' }}
-              aria-hidden="true"
-            />
-            <span
-              className="text-sm font-medium"
-              style={{ color: 'var(--monarch-text-muted)' }}
-            >
-              Available Funds
-            </span>
-            <span
-              className="text-2xl font-bold tabular-nums"
-              style={{ color: amountColor }}
-            >
-              {formattedAmount}
-            </span>
-            <HoverCard content={tooltipContent} side="bottom" align="start" closeDelay={400}>
-              <Icons.Info
-                size={16}
-                className="cursor-help"
-                style={{ color: 'var(--monarch-text-muted)' }}
-              />
-            </HoverCard>
-          </div>
+        {/* Header section */}
+        <div
+          className="flex items-center justify-center gap-2 px-4 py-2"
+          style={{ borderBottom: '1px solid var(--monarch-border)' }}
+        >
+          <Icons.Landmark
+            size={16}
+            style={{ color: 'var(--monarch-text-muted)' }}
+            aria-hidden="true"
+          />
+          <span
+            className="text-sm font-medium"
+            style={{ color: 'var(--monarch-text-muted)' }}
+          >
+            Available Funds
+          </span>
+        </div>
 
-          {/* Action Buttons - centered below */}
-          <div className="flex items-center gap-2 mt-4">
-            <HypothesizeButton
-              availableAmount={availableAmount}
-              leftToBudget={leftToBudget}
-              items={items}
+        {/* Amount section */}
+        <div
+          className="flex items-center justify-center gap-2 px-4 py-3"
+          style={{ borderBottom: '1px solid var(--monarch-border)' }}
+        >
+          <span
+            className="text-3xl font-bold tabular-nums"
+            style={{ color: displayedStatusColor }}
+          >
+            {displayedFormattedAmount}
+          </span>
+          <HoverCard content={tooltipContent} side="bottom" align="center" closeDelay={400}>
+            <Icons.Info
+              size={16}
+              className="cursor-help"
+              style={{ color: 'var(--monarch-text-muted)' }}
             />
-            <DistributeButton
-              availableAmount={availableAmount}
-              leftToBudget={leftToBudget}
-              items={items}
-            />
-          </div>
+          </HoverCard>
+        </div>
+
+        {/* Button group section */}
+        <div className="flex">
+          <HypothesizeButton
+            availableAmount={displayedAvailable}
+            leftToBudget={leftToBudget}
+            items={items}
+            compact
+            groupPosition="left"
+          />
+          <DistributeButton
+            availableAmount={displayedAvailable}
+            leftToBudget={leftToBudget}
+            items={items}
+            compact
+            groupPosition="right"
+          />
         </div>
       </div>
 
@@ -296,8 +348,8 @@ export function AvailableFundsBar({
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
           data={data}
-          statusColor={statusColor}
-          formattedAmount={formattedAmount}
+          statusColor={displayedStatusColor}
+          formattedAmount={displayedFormattedAmount}
         />
       )}
     </>

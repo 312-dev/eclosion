@@ -77,7 +77,7 @@ function ChartSkeleton() {
       }}
     >
       <div
-        className="h-[350px] w-full rounded animate-pulse"
+        className="h-87.5 w-full rounded animate-pulse"
         style={{ backgroundColor: 'var(--monarch-bg-hover)' }}
       />
     </div>

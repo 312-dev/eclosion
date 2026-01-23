@@ -5,10 +5,27 @@
  * Allows users to manually allocate funds to their stash savings goals.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useIsRateLimited } from '../../context/RateLimitContext';
 import { useAvailableToStashDrawerOptional } from '../../context';
 import { Tooltip } from '../ui/Tooltip';
+
+/**
+ * Format a number with commas for display. Returns empty string for 0.
+ */
+function formatWithCommas(value: number): string {
+  if (value === 0) return '';
+  return Math.round(value).toLocaleString('en-US');
+}
+
+/**
+ * Parse a formatted string (with commas) back to a number.
+ */
+function parseFormatted(value: string): number {
+  const digitsOnly = value.replaceAll(/\D/g, '');
+  if (digitsOnly === '') return 0;
+  return Number.parseInt(digitsOnly, 10);
+}
 
 interface StashBudgetInputProps {
   readonly plannedBudget: number;
@@ -23,7 +40,7 @@ export function StashBudgetInput({
   onAllocate,
   isAllocating,
 }: StashBudgetInputProps) {
-  const [budgetInput, setBudgetInput] = useState(Math.round(plannedBudget).toString());
+  const [budgetInput, setBudgetInput] = useState(formatWithCommas(plannedBudget));
   const [prevPlannedBudget, setPrevPlannedBudget] = useState(plannedBudget);
   const isRateLimited = useIsRateLimited();
 
@@ -35,23 +52,27 @@ export function StashBudgetInput({
   // Adjust state during render when prop changes (React recommended pattern)
   if (plannedBudget !== prevPlannedBudget) {
     setPrevPlannedBudget(plannedBudget);
-    setBudgetInput(Math.round(plannedBudget).toString());
+    setBudgetInput(formatWithCommas(plannedBudget));
   }
 
-  const handleBudgetSubmit = async () => {
-    // Treat empty input as $0
-    const trimmedInput = budgetInput.trim();
-    const parsedAmount = trimmedInput === '' ? 0 : Number.parseFloat(trimmedInput);
-    if (Number.isNaN(parsedAmount)) {
-      setBudgetInput(Math.round(plannedBudget).toString());
-      drawerContext?.closeTemporary();
-      return;
+  const handleBudgetChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawInput = e.target.value;
+    const digitsOnly = rawInput.replaceAll(/\D/g, '');
+    if (digitsOnly === '') {
+      setBudgetInput('');
+    } else {
+      const numericValue = Number.parseInt(digitsOnly, 10);
+      setBudgetInput(numericValue.toLocaleString('en-US'));
     }
-    // Round to nearest dollar
-    const newAmount = Math.round(parsedAmount);
-    setBudgetInput(newAmount.toString());
-    if (Math.abs(newAmount - plannedBudget) > 0.01) {
-      await onAllocate(newAmount);
+  }, []);
+
+  const handleBudgetSubmit = async () => {
+    // Parse the formatted input
+    const parsedAmount = parseFormatted(budgetInput);
+    // Update display to normalized format
+    setBudgetInput(formatWithCommas(parsedAmount));
+    if (Math.abs(parsedAmount - plannedBudget) > 0.01) {
+      await onAllocate(parsedAmount);
     }
     drawerContext?.closeTemporary();
   };
@@ -60,7 +81,7 @@ export function StashBudgetInput({
     if (e.key === 'Enter') {
       (e.target as HTMLInputElement).blur();
     } else if (e.key === 'Escape') {
-      setBudgetInput(Math.round(plannedBudget).toString());
+      setBudgetInput(formatWithCommas(plannedBudget));
       drawerContext?.closeTemporary();
       (e.target as HTMLInputElement).blur();
     }
@@ -80,15 +101,17 @@ export function StashBudgetInput({
     >
       <span className="font-medium text-monarch-text-dark">$</span>
       <input
-        type="number"
+        type="text"
+        inputMode="numeric"
         value={budgetInput}
-        onChange={(e) => setBudgetInput(e.target.value)}
+        onChange={handleBudgetChange}
         onKeyDown={handleBudgetKeyDown}
         onBlur={handleBudgetSubmit}
         onFocus={handleFocus}
         disabled={isDisabled}
+        placeholder="0"
         aria-label="Budget amount"
-        className="w-12 text-right font-medium text-monarch-text-dark bg-transparent font-inherit disabled:opacity-50 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+        className="w-14 text-right font-medium text-monarch-text-dark bg-transparent font-inherit disabled:opacity-50 outline-none tabular-nums"
       />
       <Tooltip content="Monthly savings target to reach your goal by the target date" side="bottom">
         <span className="text-monarch-text-muted ml-1 cursor-help">/ {target}</span>
