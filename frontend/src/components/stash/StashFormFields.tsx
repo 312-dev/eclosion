@@ -409,8 +409,16 @@ export function AmountInput({
     onChange(cleaned);
   };
 
-  // Auto-size: min 3ch, grows with content
-  const inputWidth = Math.max(3, (value || '').length + 1);
+  // Format the display value with commas
+  const displayValue = useMemo(() => {
+    if (!value || value === '0') return '';
+    const numericValue = Number.parseInt(value, 10);
+    if (Number.isNaN(numericValue)) return '';
+    return numericValue.toLocaleString('en-US');
+  }, [value]);
+
+  // Auto-size: min 3ch, grows with formatted content (including commas)
+  const inputWidth = Math.max(3, displayValue.length + 1);
 
   return (
     <div className={hideLabel ? 'inline-flex' : ''}>
@@ -434,10 +442,10 @@ export function AmountInput({
           id={id}
           type="text"
           inputMode="numeric"
-          value={value}
+          value={displayValue}
           onChange={(e) => handleChange(e.target.value)}
           placeholder="0"
-          className="pl-7 pr-3 py-2 rounded-md"
+          className="pl-7 pr-3 py-2 rounded-md tabular-nums"
           style={{
             width: hideLabel ? `${inputWidth + 3}ch` : '100%',
             minWidth: hideLabel ? '5ch' : undefined,

@@ -182,10 +182,7 @@ export function DistributeItemRow({
   })();
 
   // Show suggestion when user enters more than needed
-  const showSuggestion =
-    suggestedAmount !== null &&
-    onApplySuggestion &&
-    amount > suggestedAmount;
+  const showSuggestion = suggestedAmount !== null && onApplySuggestion && amount > suggestedAmount;
 
   // Calculate projected date using:
   // - New starting balance (current + rollover from Screen 1)
@@ -222,7 +219,8 @@ export function DistributeItemRow({
       <span className="flex items-center gap-1">
         {icon}
         <span>
-          {verb} {formatCurrency(item.amount)}{dateStr}
+          {verb} {formatCurrency(item.amount)}
+          {dateStr}
         </span>
       </span>
     );
@@ -230,8 +228,7 @@ export function DistributeItemRow({
 
   // Check if we have a valid image (not just truthy, but an actual URL)
   const hasValidImage = Boolean(
-    item.custom_image_path?.startsWith('http') ||
-    item.logo_url?.startsWith('http')
+    item.custom_image_path?.startsWith('http') || item.logo_url?.startsWith('http')
   );
 
   // Determine thumbnail content
@@ -274,7 +271,10 @@ export function DistributeItemRow({
               backfaceVisibility: 'hidden',
             }}
           >
-            {formatCurrency(Math.round(showLiveProjection ? newStartingBalance : item.current_balance))} stashed
+            {formatCurrency(
+              Math.round(showLiveProjection ? newStartingBalance : item.current_balance)
+            )}{' '}
+            stashed
           </div>
           {/* New balance - flips up when contribution is added */}
           <div
@@ -289,11 +289,14 @@ export function DistributeItemRow({
               backfaceVisibility: 'hidden',
             }}
           >
-            {formatCurrency(Math.round(
-              showLiveProjection
-                ? newStartingBalance + amount  // Monthly: starting balance + monthly contribution
-                : item.current_balance + amount // Savings: current + one-time boost
-            ))} stashed
+            {formatCurrency(
+              Math.round(
+                showLiveProjection
+                  ? newStartingBalance + amount // Monthly: starting balance + monthly contribution
+                  : item.current_balance + amount // Savings: current + one-time boost
+              )
+            )}{' '}
+            stashed
           </div>
         </div>
         {showTargetInfo && (
@@ -319,17 +322,18 @@ export function DistributeItemRow({
             <UnitSelector mode={inputMode} onChange={onInputModeChange} />
             <input
               ref={inputRef}
-              type="number"
+              type="text"
+              inputMode="numeric"
               value={displayValue}
               onChange={handleChange}
               onFocus={handleFocus}
               onBlur={handleBlur}
               onKeyDown={handleKeyDown}
               placeholder="0"
-              className="w-14 text-right font-medium bg-transparent outline-none text-monarch-text-dark placeholder:text-monarch-text-muted [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-              aria-label={inputMode === 'percent' ? `Percent for ${item.name}` : `Amount for ${item.name}`}
-              min={0}
-              max={inputMode === 'percent' ? 100 : undefined}
+              className="w-16 text-right font-medium bg-transparent outline-none text-monarch-text-dark placeholder:text-monarch-text-muted tabular-nums"
+              aria-label={
+                inputMode === 'percent' ? `Percent for ${item.name}` : `Amount for ${item.name}`
+              }
             />
             {inputMode === 'amount' && showLiveProjection && (
               <span className="font-medium text-monarch-text-muted ml-0.5">/ mo</span>
