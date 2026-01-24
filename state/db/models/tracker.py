@@ -7,7 +7,17 @@ No encryption needed - contains only IDs, amounts, and preferences.
 
 from datetime import date, datetime
 
-from sqlalchemy import Boolean, CheckConstraint, Date, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    Date,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
@@ -313,5 +323,33 @@ class MonarchGoalLayout(Base):
     row_span: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     # Sequential sort order for drag-to-reorder (0-indexed, lower = earlier)
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class StashHypothesis(Base):
+    """
+    Saved hypothesis for what-if planning in the Distribute Wizard.
+
+    Stores both savings and monthly allocation configurations along with
+    hypothetical events. Users can save up to 10 hypotheses.
+    """
+
+    __tablename__ = "stash_hypotheses"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)  # UUID
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+
+    # Screen 1: Savings allocations (JSON: Record<stashId, amount>)
+    savings_allocations: Mapped[str] = mapped_column(Text, default="{}")
+    savings_total: Mapped[float] = mapped_column(Float, default=0.0)
+
+    # Screen 2: Monthly allocations (JSON: Record<stashId, amount>)
+    monthly_allocations: Mapped[str] = mapped_column(Text, default="{}")
+    monthly_total: Mapped[float] = mapped_column(Float, default=0.0)
+
+    # Hypothetical events (JSON: StashEventsMap)
+    events: Mapped[str] = mapped_column(Text, default="{}")
+
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

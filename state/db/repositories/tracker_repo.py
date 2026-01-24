@@ -16,6 +16,7 @@ from state.db.models import (
     RemovedItemNotice,
     Rollup,
     RollupItem,
+    StashHypothesis,
     TrackerConfig,
     WishlistConfig,
     WishlistItem,
@@ -913,4 +914,90 @@ class TrackerRepository:
             .filter(PendingBookmark.status.in_(["pending", "skipped"]))
             .delete(synchronize_session="fetch")
         )
+        return result
+
+    # === Stash Hypotheses ===
+
+    def get_all_hypotheses(self) -> list[StashHypothesis]:
+        """Get all saved hypotheses, ordered by updated_at (most recent first)."""
+        return (
+            self.session.query(StashHypothesis)
+            .order_by(StashHypothesis.updated_at.desc())
+            .all()
+        )
+
+    def get_hypothesis(self, hypothesis_id: str) -> StashHypothesis | None:
+        """Get a hypothesis by ID."""
+        return (
+            self.session.query(StashHypothesis)
+            .filter(StashHypothesis.id == hypothesis_id)
+            .first()
+        )
+
+    def get_hypothesis_by_name(self, name: str) -> StashHypothesis | None:
+        """Get a hypothesis by name (case-insensitive)."""
+        return (
+            self.session.query(StashHypothesis)
+            .filter(StashHypothesis.name.ilike(name))
+            .first()
+        )
+
+    def count_hypotheses(self) -> int:
+        """Get the total count of saved hypotheses."""
+        return self.session.query(StashHypothesis).count()
+
+    def create_hypothesis(
+        self,
+        hypothesis_id: str,
+        name: str,
+        savings_allocations: str,
+        savings_total: float,
+        monthly_allocations: str,
+        monthly_total: float,
+        events: str,
+    ) -> StashHypothesis:
+        """Create a new hypothesis."""
+        hypothesis = StashHypothesis(
+            id=hypothesis_id,
+            name=name,
+            savings_allocations=savings_allocations,
+            savings_total=savings_total,
+            monthly_allocations=monthly_allocations,
+            monthly_total=monthly_total,
+            events=events,
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
+        )
+        self.session.add(hypothesis)
+        return hypothesis
+
+    def update_hypothesis(
+        self,
+        hypothesis_id: str,
+        **kwargs,
+    ) -> StashHypothesis | None:
+        """Update a hypothesis by ID."""
+        hypothesis = self.get_hypothesis(hypothesis_id)
+        if not hypothesis:
+            return None
+
+        for key, value in kwargs.items():
+            if hasattr(hypothesis, key):
+                setattr(hypothesis, key, value)
+
+        hypothesis.updated_at = datetime.utcnow()
+        return hypothesis
+
+    def delete_hypothesis(self, hypothesis_id: str) -> bool:
+        """Delete a hypothesis by ID."""
+        result = (
+            self.session.query(StashHypothesis)
+            .filter(StashHypothesis.id == hypothesis_id)
+            .delete()
+        )
+        return result > 0
+
+    def delete_all_hypotheses(self) -> int:
+        """Delete all hypotheses. Returns number deleted."""
+        result = self.session.query(StashHypothesis).delete()
         return result
