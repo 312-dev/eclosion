@@ -32,8 +32,12 @@ def upgrade() -> None:
         sa.Column("monthly_allocations", sa.Text(), nullable=False, server_default="{}"),
         sa.Column("monthly_total", sa.Float(), nullable=False, server_default="0"),
         sa.Column("events", sa.Text(), nullable=False, server_default="{}"),
-        sa.Column("created_at", sa.DateTime(), nullable=False, server_default=sa.text("CURRENT_TIMESTAMP")),
-        sa.Column("updated_at", sa.DateTime(), nullable=False, server_default=sa.text("CURRENT_TIMESTAMP")),
+        sa.Column(
+            "created_at", sa.DateTime(), nullable=False, server_default=sa.text("CURRENT_TIMESTAMP")
+        ),
+        sa.Column(
+            "updated_at", sa.DateTime(), nullable=False, server_default=sa.text("CURRENT_TIMESTAMP")
+        ),
         sa.PrimaryKeyConstraint("id"),
     )
 

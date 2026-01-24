@@ -491,9 +491,9 @@ class TrackerRepository:
         """
         # Calculate grid position: place at the end of existing items
         # Find the maximum grid_y + row_span across all active items
-        existing_items = self.session.query(WishlistItem).filter(
-            WishlistItem.is_archived.is_(False)
-        ).all()
+        existing_items = (
+            self.session.query(WishlistItem).filter(WishlistItem.is_archived.is_(False)).all()
+        )
 
         max_grid_y = 0
         for existing in existing_items:
@@ -501,10 +501,10 @@ class TrackerRepository:
             max_grid_y = max(max_grid_y, item_bottom)
 
         # Set default grid position if not provided in kwargs
-        if 'grid_x' not in kwargs:
-            kwargs['grid_x'] = 0
-        if 'grid_y' not in kwargs:
-            kwargs['grid_y'] = max_grid_y
+        if "grid_x" not in kwargs:
+            kwargs["grid_x"] = 0
+        if "grid_y" not in kwargs:
+            kwargs["grid_y"] = max_grid_y
 
         item = WishlistItem(
             id=item_id,
@@ -612,6 +612,7 @@ class TrackerRepository:
             Number of items updated
         """
         import logging
+
         logger = logging.getLogger(__name__)
 
         updated = 0
@@ -638,7 +639,9 @@ class TrackerRepository:
                     "row_span": item.row_span,
                     "sort_order": item.sort_order,
                 }
-                logger.info(f"[TrackerRepo] update_stash_layouts: item {item.id} ({item.name}) old={old_values} new={new_values}")
+                logger.info(
+                    f"[TrackerRepo] update_stash_layouts: item {item.id} ({item.name}) old={old_values} new={new_values}"
+                )
                 updated += 1
             else:
                 logger.warning(f"[TrackerRepo] update_stash_layouts: item {layout['id']} not found")
@@ -666,13 +669,17 @@ class TrackerRepository:
             List of all goal layouts
         """
         return (
-            self.session.query(MonarchGoalLayout)
-            .order_by(MonarchGoalLayout.sort_order.asc())
-            .all()
+            self.session.query(MonarchGoalLayout).order_by(MonarchGoalLayout.sort_order.asc()).all()
         )
 
     def upsert_monarch_goal_layout(
-        self, goal_id: str, grid_x: int, grid_y: int, col_span: int, row_span: int, sort_order: int = 0
+        self,
+        goal_id: str,
+        grid_x: int,
+        grid_y: int,
+        col_span: int,
+        row_span: int,
+        sort_order: int = 0,
     ) -> MonarchGoalLayout:
         """
         Create or update layout for a Monarch goal.
@@ -719,6 +726,7 @@ class TrackerRepository:
             Number of layouts updated
         """
         import logging
+
         logger = logging.getLogger(__name__)
         updated = 0
         for layout_data in layouts:
@@ -920,27 +928,17 @@ class TrackerRepository:
 
     def get_all_hypotheses(self) -> list[StashHypothesis]:
         """Get all saved hypotheses, ordered by updated_at (most recent first)."""
-        return (
-            self.session.query(StashHypothesis)
-            .order_by(StashHypothesis.updated_at.desc())
-            .all()
-        )
+        return self.session.query(StashHypothesis).order_by(StashHypothesis.updated_at.desc()).all()
 
     def get_hypothesis(self, hypothesis_id: str) -> StashHypothesis | None:
         """Get a hypothesis by ID."""
         return (
-            self.session.query(StashHypothesis)
-            .filter(StashHypothesis.id == hypothesis_id)
-            .first()
+            self.session.query(StashHypothesis).filter(StashHypothesis.id == hypothesis_id).first()
         )
 
     def get_hypothesis_by_name(self, name: str) -> StashHypothesis | None:
         """Get a hypothesis by name (case-insensitive)."""
-        return (
-            self.session.query(StashHypothesis)
-            .filter(StashHypothesis.name.ilike(name))
-            .first()
-        )
+        return self.session.query(StashHypothesis).filter(StashHypothesis.name.ilike(name)).first()
 
     def count_hypotheses(self) -> int:
         """Get the total count of saved hypotheses."""
@@ -991,9 +989,7 @@ class TrackerRepository:
     def delete_hypothesis(self, hypothesis_id: str) -> bool:
         """Delete a hypothesis by ID."""
         result = (
-            self.session.query(StashHypothesis)
-            .filter(StashHypothesis.id == hypothesis_id)
-            .delete()
+            self.session.query(StashHypothesis).filter(StashHypothesis.id == hypothesis_id).delete()
         )
         return result > 0
 

@@ -43,9 +43,7 @@ def upgrade() -> None:
     )
 
     # Migrate existing subtract_spending=true to goal_type='savings_buffer'
-    op.execute(
-        "UPDATE wishlist_items SET goal_type = 'savings_buffer' WHERE subtract_spending = 1"
-    )
+    op.execute("UPDATE wishlist_items SET goal_type = 'savings_buffer' WHERE subtract_spending = 1")
 
     # Remove old subtract_spending column
     op.drop_column("wishlist_items", "subtract_spending")
@@ -59,9 +57,7 @@ def downgrade() -> None:
     )
 
     # Migrate goal_type='savings_buffer' back to subtract_spending=true
-    op.execute(
-        "UPDATE wishlist_items SET subtract_spending = 1 WHERE goal_type = 'savings_buffer'"
-    )
+    op.execute("UPDATE wishlist_items SET subtract_spending = 1 WHERE goal_type = 'savings_buffer'")
 
     # Remove new columns
     op.drop_column("wishlist_items", "tracking_start_date")

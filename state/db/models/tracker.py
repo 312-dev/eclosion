@@ -265,7 +265,9 @@ class WishlistConfig(Base):
     # Available to Stash calculation settings
     include_expected_income: Mapped[bool] = mapped_column(Boolean, default=True)
     selected_cash_account_ids: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON array
-    buffer_amount: Mapped[int] = mapped_column(Integer, default=0)  # Reserved buffer for Available to Stash
+    buffer_amount: Mapped[int] = mapped_column(
+        Integer, default=0
+    )  # Reserved buffer for Available to Stash
 
     # Display settings
     show_monarch_goals: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -324,7 +326,9 @@ class MonarchGoalLayout(Base):
     # Sequential sort order for drag-to-reorder (0-indexed, lower = earlier)
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
 
 
 class StashHypothesis(Base):
@@ -352,4 +356,6 @@ class StashHypothesis(Base):
     events: Mapped[str] = mapped_column(Text, default="{}")
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )

@@ -542,10 +542,12 @@ async def update_rollover_balance():
         error_msg = errors.get("message", "Failed to update rollover balance")
         raise ValidationError(error_msg)
 
-    return jsonify({
-        "success": True,
-        "category": update_result.get("category"),
-    })
+    return jsonify(
+        {
+            "success": True,
+            "category": update_result.get("category"),
+        }
+    )
 
 
 @stash_bp.route("/update-group-rollover-balance", methods=["POST"])
@@ -582,16 +584,16 @@ async def update_group_rollover_balance():
 
     service = get_stash_service()
     try:
-        result = await service.category_manager.update_group_rollover_balance(
-            group_id, amount_int
-        )
+        result = await service.category_manager.update_group_rollover_balance(group_id, amount_int)
     except ValueError as e:
         raise ValidationError(str(e))
 
-    return jsonify({
-        "success": True,
-        "group": result,
-    })
+    return jsonify(
+        {
+            "success": True,
+            "group": result,
+        }
+    )
 
 
 @stash_bp.route("/<item_id>/change-group", methods=["POST"])
@@ -845,9 +847,7 @@ async def convert_pending_bookmark(bookmark_id: str):
     service = get_stash_service()
     sanitized_id = sanitize_id(bookmark_id)
     data = request.get_json(silent=True) or {}
-    stash_item_id = (
-        sanitize_id(data.get("stash_item_id")) if data.get("stash_item_id") else None
-    )
+    stash_item_id = sanitize_id(data.get("stash_item_id")) if data.get("stash_item_id") else None
 
     if not sanitized_id:
         raise ValidationError("Invalid bookmark ID")

@@ -31,9 +31,7 @@ def upgrade() -> None:
 
     # Update existing rows to use new defaults for the settings
     # (include_expected_income and show_monarch_goals default to True now)
-    op.execute(
-        "UPDATE wishlist_config SET include_expected_income = 1, show_monarch_goals = 1"
-    )
+    op.execute("UPDATE wishlist_config SET include_expected_income = 1, show_monarch_goals = 1")
 
     # Note: SQLite doesn't support ALTER COLUMN to change defaults, but the model
     # defaults in tracker.py will apply for new rows. The server_default in the
@@ -46,6 +44,4 @@ def downgrade() -> None:
     op.drop_column("wishlist_config", "buffer_amount")
 
     # Revert settings to old defaults
-    op.execute(
-        "UPDATE wishlist_config SET include_expected_income = 0, show_monarch_goals = 0"
-    )
+    op.execute("UPDATE wishlist_config SET include_expected_income = 0, show_monarch_goals = 0")

@@ -29,8 +29,12 @@ def upgrade() -> None:
         sa.Column("grid_y", sa.Integer(), nullable=False, server_default="0"),
         sa.Column("col_span", sa.Integer(), nullable=False, server_default="1"),
         sa.Column("row_span", sa.Integer(), nullable=False, server_default="1"),
-        sa.Column("created_at", sa.DateTime(), nullable=False, server_default=sa.text("CURRENT_TIMESTAMP")),
-        sa.Column("updated_at", sa.DateTime(), nullable=False, server_default=sa.text("CURRENT_TIMESTAMP")),
+        sa.Column(
+            "created_at", sa.DateTime(), nullable=False, server_default=sa.text("CURRENT_TIMESTAMP")
+        ),
+        sa.Column(
+            "updated_at", sa.DateTime(), nullable=False, server_default=sa.text("CURRENT_TIMESTAMP")
+        ),
         sa.PrimaryKeyConstraint("goal_id"),
     )
 

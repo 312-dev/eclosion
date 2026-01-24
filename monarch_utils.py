@@ -511,11 +511,13 @@ async def get_goal_balances(mm) -> list[dict[str, Any]]:
         if goal.get("archivedAt") or goal.get("completedAt"):
             continue
 
-        balances.append({
-            "id": goal.get("id"),
-            "name": goal.get("name"),
-            "balance": goal.get("currentBalance", 0),
-        })
+        balances.append(
+            {
+                "id": goal.get("id"),
+                "name": goal.get("name"),
+                "balance": goal.get("currentBalance", 0),
+            }
+        )
 
     _goal_balances_cache[cache_key] = balances
     return balances
@@ -555,29 +557,33 @@ async def get_savings_goals_full(mm) -> list[dict[str, Any]]:
         if goal.get("archivedAt"):
             continue
 
-        goals.append({
-            "id": goal.get("id"),
-            "name": goal.get("name"),
-            # Financial data
-            "current_balance": goal.get("currentBalance", 0),
-            "net_contribution": goal.get("netContribution", 0),  # Total amount saved (for display)
-            "target_amount": goal.get("targetAmount"),  # Can be None
-            "target_date": goal.get("targetDate"),  # Can be None
-            "progress": goal.get("progress", 0),
-            # Time-based forecasting
-            "estimated_months_until_completion": goal.get("estimatedMonthsUntilCompletion"),
-            "forecasted_completion_date": goal.get("forecastedCompletionDate"),
-            "planned_monthly_contribution": goal.get("plannedMonthlyContribution", 0),
-            # Status from Monarch API (can be null, "ahead", "on_track", "at_risk", "completed")
-            "status": goal.get("status"),
-            # State flags
-            # Goal is completed if EITHER completedAt is set OR status is "completed"
-            # (status="completed" means balance >= target, even if user hasn't manually marked it)
-            "is_completed": bool(goal.get("completedAt")) or goal.get("status") == "completed",
-            # Image data
-            "image_storage_provider": goal.get("imageStorageProvider"),
-            "image_storage_provider_id": goal.get("imageStorageProviderId"),
-        })
+        goals.append(
+            {
+                "id": goal.get("id"),
+                "name": goal.get("name"),
+                # Financial data
+                "current_balance": goal.get("currentBalance", 0),
+                "net_contribution": goal.get(
+                    "netContribution", 0
+                ),  # Total amount saved (for display)
+                "target_amount": goal.get("targetAmount"),  # Can be None
+                "target_date": goal.get("targetDate"),  # Can be None
+                "progress": goal.get("progress", 0),
+                # Time-based forecasting
+                "estimated_months_until_completion": goal.get("estimatedMonthsUntilCompletion"),
+                "forecasted_completion_date": goal.get("forecastedCompletionDate"),
+                "planned_monthly_contribution": goal.get("plannedMonthlyContribution", 0),
+                # Status from Monarch API (can be null, "ahead", "on_track", "at_risk", "completed")
+                "status": goal.get("status"),
+                # State flags
+                # Goal is completed if EITHER completedAt is set OR status is "completed"
+                # (status="completed" means balance >= target, even if user hasn't manually marked it)
+                "is_completed": bool(goal.get("completedAt")) or goal.get("status") == "completed",
+                # Image data
+                "image_storage_provider": goal.get("imageStorageProvider"),
+                "image_storage_provider_id": goal.get("imageStorageProviderId"),
+            }
+        )
 
     _full_goals_cache[cache_key] = goals
     return goals

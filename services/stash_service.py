@@ -322,9 +322,7 @@ class StashService:
 
             # Look up last month's planned budget for this category
             if item["monarch_category_id"]:
-                last_month_planned_budget = last_month_budgets.get(
-                    item["monarch_category_id"], 0
-                )
+                last_month_planned_budget = last_month_budgets.get(item["monarch_category_id"], 0)
 
             if item["monarch_category_id"] and item["monarch_category_id"] in budget_data:
                 cat_data = budget_data[item["monarch_category_id"]]
@@ -765,9 +763,7 @@ class StashService:
             "category_missing": category_missing,
         }
 
-    async def mark_complete(
-        self, item_id: str, release_funds: bool = False
-    ) -> dict[str, Any]:
+    async def mark_complete(self, item_id: str, release_funds: bool = False) -> dict[str, Any]:
         """
         Mark a one-time purchase goal as completed (archived).
 
@@ -1126,7 +1122,10 @@ class StashService:
         with db_session() as session:
             # DIAGNOSTIC: Raw SQL query to bypass SQLAlchemy cache
             from sqlalchemy import text
-            raw_result = session.execute(text("SELECT goal_id, grid_x, grid_y FROM monarch_goal_layout")).fetchall()
+
+            raw_result = session.execute(
+                text("SELECT goal_id, grid_x, grid_y FROM monarch_goal_layout")
+            ).fetchall()
             logger.info(f"[Stash] RAW SQL layouts: {[(r[0], r[1], r[2]) for r in raw_result]}")
 
             repo = TrackerRepository(session)
@@ -1143,7 +1142,9 @@ class StashService:
         logger.info(f"[Stash] Loaded {len(layouts)} goal layouts from DB: {list(layouts.keys())}")
         # Log ALL layout data for debugging
         for goal_id, layout_data in layouts.items():
-            logger.info(f"[Stash] Layout from DB - goal {goal_id}: x={layout_data['grid_x']}, y={layout_data['grid_y']}")
+            logger.info(
+                f"[Stash] Layout from DB - goal {goal_id}: x={layout_data['grid_x']}, y={layout_data['grid_y']}"
+            )
 
         # Track occupied positions to avoid collisions for goals without layouts
         # Only track positions for ACTIVE (non-completed) goals since completed goals
@@ -1155,15 +1156,20 @@ class StashService:
         for goal_id, layout_data in layouts.items():
             # Only track positions for active goals
             if goal_id in active_goal_ids:
-                occupied_positions.append((
-                    layout_data["grid_x"],
-                    layout_data["grid_y"],
-                    layout_data["col_span"],
-                    layout_data["row_span"],
-                ))
+                occupied_positions.append(
+                    (
+                        layout_data["grid_x"],
+                        layout_data["grid_y"],
+                        layout_data["col_span"],
+                        layout_data["row_span"],
+                    )
+                )
 
-        def find_next_available_position(col_span: int = 1, row_span: int = 1, cols: int = 3) -> tuple[int, int]:
+        def find_next_available_position(
+            col_span: int = 1, row_span: int = 1, cols: int = 3
+        ) -> tuple[int, int]:
             """Find the first available grid position that doesn't collide with occupied positions."""
+
             def collides(x: int, y: int, w: int, h: int) -> bool:
                 for ox, oy, ow, oh in occupied_positions:
                     # Check if rectangles overlap
@@ -1184,7 +1190,9 @@ class StashService:
             # Ensure goal_id is a string to match DB storage (Monarch API returns int)
             goal_id = str(goal["id"])
             layout = layouts.get(goal_id)
-            logger.info(f"[Stash] Goal {goal_id}: layout found = {layout is not None}, layout = {layout}")
+            logger.info(
+                f"[Stash] Goal {goal_id}: layout found = {layout is not None}, layout = {layout}"
+            )
 
             # Use status from Monarch API, map null to 'no_target'
             status = goal["status"] if goal["status"] is not None else "no_target"
@@ -1211,7 +1219,9 @@ class StashService:
                 sort_order = 0
                 # Track this position so subsequent goals don't collide
                 occupied_positions.append((grid_x, grid_y, col_span, row_span))
-                logger.info(f"[Stash] Assigned new position for goal {goal_id}: x={grid_x}, y={grid_y}")
+                logger.info(
+                    f"[Stash] Assigned new position for goal {goal_id}: x={grid_x}, y={grid_y}"
+                )
 
             enriched_goal = {
                 "type": "monarch_goal",
@@ -1246,11 +1256,12 @@ class StashService:
 
             enriched_goals.append(enriched_goal)
             # Log each goal's final position with its name for tracing
-            logger.info(f"[Stash] Enriched goal '{enriched_goal['name']}' (id={goal_id}): x={enriched_goal['grid_x']}, y={enriched_goal['grid_y']}")
+            logger.info(
+                f"[Stash] Enriched goal '{enriched_goal['name']}' (id={goal_id}): x={enriched_goal['grid_x']}, y={enriched_goal['grid_y']}"
+            )
 
         logger.info(f"[Stash] Returning {len(enriched_goals)} enriched goals")
         return {"goals": enriched_goals}
-
 
     async def update_monarch_goal_layouts(self, layouts: list[dict]) -> dict[str, Any]:
         """
@@ -1262,15 +1273,22 @@ class StashService:
         Returns:
             Success status and count of updated layouts
         """
-        logger.info(f"[Stash] update_monarch_goal_layouts called with {len(layouts)} layouts: {layouts}")
+        logger.info(
+            f"[Stash] update_monarch_goal_layouts called with {len(layouts)} layouts: {layouts}"
+        )
         with db_session() as session:
             repo = TrackerRepository(session)
             updated = repo.update_monarch_goal_layouts(layouts)
 
             # DIAGNOSTIC: Verify what was written using raw SQL
             from sqlalchemy import text
-            raw_result = session.execute(text("SELECT goal_id, grid_x, grid_y FROM monarch_goal_layout")).fetchall()
-            logger.info(f"[Stash] After update, RAW SQL layouts: {[(r[0], r[1], r[2]) for r in raw_result]}")
+
+            raw_result = session.execute(
+                text("SELECT goal_id, grid_x, grid_y FROM monarch_goal_layout")
+            ).fetchall()
+            logger.info(
+                f"[Stash] After update, RAW SQL layouts: {[(r[0], r[1], r[2]) for r in raw_result]}"
+            )
 
         logger.info(f"[Stash] update_monarch_goal_layouts updated {updated} layouts")
 
@@ -1568,13 +1586,15 @@ class StashService:
             ):
                 continue
 
-            accounts_list.append({
-                "id": account_id,
-                "name": account.get("displayName") or account.get("name"),
-                "balance": account.get("currentBalance", 0),
-                "accountType": account_type,
-                "isEnabled": not account.get("isHidden", False),
-            })
+            accounts_list.append(
+                {
+                    "id": account_id,
+                    "name": account.get("displayName") or account.get("name"),
+                    "balance": account.get("currentBalance", 0),
+                    "accountType": account_type,
+                    "isEnabled": not account.get("isHidden", False),
+                }
+            )
 
         # Build lookups for category info from categoryGroups
         category_group_types: dict[str, str] = {}
@@ -1601,7 +1621,9 @@ class StashService:
 
         # Process category budgets from monthlyAmountsByCategory
         category_budgets = []
-        monthly_by_category = budgets_result.get("budgetData", {}).get("monthlyAmountsByCategory", [])
+        monthly_by_category = budgets_result.get("budgetData", {}).get(
+            "monthlyAmountsByCategory", []
+        )
         for entry in monthly_by_category:
             category = entry.get("category", {})
             cat_id = category.get("id")
@@ -1630,14 +1652,16 @@ class StashService:
                     spent = abs(actual)
                     break
 
-            category_budgets.append({
-                "id": cat_id,
-                "name": cat_name,
-                "budgeted": budgeted,
-                "spent": spent,
-                "remaining": remaining,  # Use this for unspent calculation (includes rollover)
-                "isExpense": True,
-            })
+            category_budgets.append(
+                {
+                    "id": cat_id,
+                    "name": cat_name,
+                    "budgeted": budgeted,
+                    "spent": spent,
+                    "remaining": remaining,  # Use this for unspent calculation (includes rollover)
+                    "isExpense": True,
+                }
+            )
 
         # Get income data from budget totals
         planned_income = 0
@@ -1652,7 +1676,11 @@ class StashService:
 
         # Get stash items with balances
         stash_items = [
-            {"id": item.get("id"), "name": item.get("name"), "balance": item.get("current_balance", 0)}
+            {
+                "id": item.get("id"),
+                "name": item.get("name"),
+                "balance": item.get("current_balance", 0),
+            }
             for item in stash_data.get("items", [])
             if item.get("current_balance", 0) > 0
         ]
@@ -1676,7 +1704,16 @@ class StashService:
         Cash accounts include: checking, savings, cash, PayPal/Venmo, prepaid, money market.
         Credit cards are NOT cash accounts.
         """
-        cash_types = ["checking", "savings", "cash", "paypal", "venmo", "prepaid", "money_market", "depository"]
+        cash_types = [
+            "checking",
+            "savings",
+            "cash",
+            "paypal",
+            "venmo",
+            "prepaid",
+            "money_market",
+            "depository",
+        ]
         return account_type.lower() in cash_types
 
     def _get_active_stash_items_for_history(self) -> list[dict[str, Any]]:
@@ -1702,7 +1739,9 @@ class StashService:
         self, budgets_result: dict[str, Any]
     ) -> tuple[dict[tuple[str, str], dict], list[str]]:
         """Build lookup dict from budget data and return sorted months list."""
-        monthly_by_category = budgets_result.get("budgetData", {}).get("monthlyAmountsByCategory", [])
+        monthly_by_category = budgets_result.get("budgetData", {}).get(
+            "monthlyAmountsByCategory", []
+        )
         monthly_lookup: dict[tuple[str, str], dict] = {}
         all_months: set[str] = set()
 
@@ -1742,11 +1781,13 @@ class StashService:
                 balance = (month_data.get("remainingAmount", 0) or 0) if month_data else 0
                 contribution = balance - prev_balance
 
-                item_months.append({
-                    "month": month,
-                    "balance": balance,
-                    "contribution": contribution,
-                })
+                item_months.append(
+                    {
+                        "month": month,
+                        "balance": balance,
+                        "contribution": contribution,
+                    }
+                )
                 prev_balance = balance
         else:
             # One-time purchase: calculate total budgeted (immune to spending)
@@ -1765,7 +1806,11 @@ class StashService:
 
             if not tracking_start:
                 # Fallback: use first month in sorted_months
-                tracking_start = sorted_months[0] + "-01" if sorted_months else date.today().replace(day=1).isoformat()
+                tracking_start = (
+                    sorted_months[0] + "-01"
+                    if sorted_months
+                    else date.today().replace(day=1).isoformat()
+                )
 
             # Fetch transactions for the entire period
             mm = await get_mm()
@@ -1797,7 +1842,9 @@ class StashService:
 
                 # Calculate spending for this month (don't include income, it's already in remaining)
                 month_txns = transactions_by_month.get(month, [])
-                spending_this_month = sum(abs(t.get("amount", 0)) for t in month_txns if t.get("amount", 0) < 0)
+                spending_this_month = sum(
+                    abs(t.get("amount", 0)) for t in month_txns if t.get("amount", 0) < 0
+                )
                 cumulative_spending += spending_this_month
 
                 # For one_time goals: balance = remaining + cumulative_spending
@@ -1805,11 +1852,13 @@ class StashService:
                 balance = remaining + cumulative_spending
                 contribution = balance - prev_balance
 
-                item_months.append({
-                    "month": month,
-                    "balance": balance,
-                    "contribution": contribution,
-                })
+                item_months.append(
+                    {
+                        "month": month,
+                        "balance": balance,
+                        "contribution": contribution,
+                    }
+                )
                 prev_balance = balance
 
         return {
@@ -1857,10 +1906,10 @@ class StashService:
 
         # Build history for each stash item (async operations for one_time goals)
         import asyncio
-        result_items = await asyncio.gather(*[
-            self._build_item_history(item, sorted_months, monthly_lookup)
-            for item in items_data
-        ])
+
+        result_items = await asyncio.gather(
+            *[self._build_item_history(item, sorted_months, monthly_lookup) for item in items_data]
+        )
 
         return {
             "items": list(result_items),
