@@ -47,7 +47,7 @@
   "dependencies": {
     "@sentry/electron": "^7.0.0",
     "bplist-parser": "^0.3.2",
-    "chokidar": "^4.0.3",
+    "chokidar": "^5.0.0",
     "electron-context-menu": "^4.1.1",
     "electron-store": "^11.0.0",
     "electron-updater": "^6.6.2",
@@ -59,7 +59,7 @@
     "@types/node": "^24.0.0",
     "@typescript-eslint/eslint-plugin": "^8.19.0",
     "@typescript-eslint/parser": "^8.19.0",
-    "electron": "^39.0.0",
+    "electron": "^40.0.0",
     "electron-builder": "^26.0.12",
     "electronmon": "^2.0.4",
     "esbuild": "^0.27.2",
