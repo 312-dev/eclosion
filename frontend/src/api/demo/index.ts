@@ -141,6 +141,10 @@ export {
   convertPendingBookmark,
   importBookmarks,
   clearUnconvertedBookmarks,
+  // Hypotheses
+  getHypotheses,
+  saveHypothesis,
+  deleteHypothesis,
 } from './demoStash';
 
 // Stash History (Reports)

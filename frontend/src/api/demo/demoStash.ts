@@ -12,6 +12,10 @@ import type {
   StashLayoutUpdate,
   StashSyncResult,
   AvailableToStashData,
+  SaveHypothesisRequest,
+  SaveHypothesisResponse,
+  GetHypothesesResponse,
+  DeleteHypothesisResponse,
 } from '../../types';
 import { calculateProgressPercent, calculateShortfall } from '../../utils/savingsCalculations';
 import { recomputeItem, recomputeTotals } from './demoStashUtils';
@@ -628,4 +632,142 @@ export async function getAvailableToStashData(): Promise<AvailableToStashData> {
     actualIncome: readyToAssign.actual_income,
     stashBalances,
   };
+}
+
+// === Hypotheses ===
+
+const MAX_HYPOTHESES = 10;
+
+/**
+ * Get all saved hypotheses.
+ */
+export async function getHypotheses(): Promise<GetHypothesesResponse> {
+  await simulateDelay();
+  const state = getDemoState();
+  // Transform to snake_case to match real API response format
+  return {
+    success: true,
+    hypotheses: (state.stashHypotheses ?? []).map((h) => ({
+      id: h.id,
+      name: h.name,
+      savings_allocations: h.savingsAllocations,
+      savings_total: h.savingsTotal,
+      monthly_allocations: h.monthlyAllocations,
+      monthly_total: h.monthlyTotal,
+      events: h.events,
+      created_at: h.createdAt,
+      updated_at: h.updatedAt,
+    })),
+  };
+}
+
+/**
+ * Save a hypothesis.
+ * If a hypothesis with the same name exists (case-insensitive), it will be updated.
+ * Otherwise creates a new one if under the max limit (10).
+ */
+export async function saveHypothesis(
+  request: SaveHypothesisRequest
+): Promise<SaveHypothesisResponse> {
+  await simulateDelay();
+
+  let result: SaveHypothesisResponse = { success: false };
+
+  updateDemoState((state) => {
+    const hypotheses = state.stashHypotheses ?? [];
+
+    // Check if name already exists (case-insensitive)
+    const existingIndex = hypotheses.findIndex(
+      (h) => h.name.toLowerCase() === request.name.toLowerCase()
+    );
+
+    if (existingIndex !== -1) {
+      // Update existing hypothesis
+      const existing = hypotheses[existingIndex]!;
+      const updated = {
+        ...existing,
+        name: request.name,
+        savingsAllocations: request.savingsAllocations,
+        savingsTotal: request.savingsTotal,
+        monthlyAllocations: request.monthlyAllocations,
+        monthlyTotal: request.monthlyTotal,
+        events: request.events,
+        updatedAt: new Date().toISOString(),
+      };
+
+      const newHypotheses = [...hypotheses];
+      newHypotheses[existingIndex] = updated;
+
+      result = {
+        success: true,
+        id: existing.id,
+        created: false,
+        message: `Updated hypothesis '${request.name}'`,
+      };
+
+      return { ...state, stashHypotheses: newHypotheses };
+    }
+
+    // Check max limit
+    if (hypotheses.length >= MAX_HYPOTHESES) {
+      result = {
+        success: false,
+        error: `Maximum of ${MAX_HYPOTHESES} hypotheses reached. Delete one to save a new one.`,
+      };
+      return state;
+    }
+
+    // Create new hypothesis
+    const newId = `hyp-${Date.now()}`;
+    const now = new Date().toISOString();
+    const newHypothesis = {
+      id: newId,
+      name: request.name,
+      savingsAllocations: request.savingsAllocations,
+      savingsTotal: request.savingsTotal,
+      monthlyAllocations: request.monthlyAllocations,
+      monthlyTotal: request.monthlyTotal,
+      events: request.events,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    result = {
+      success: true,
+      id: newId,
+      created: true,
+      message: `Saved hypothesis '${request.name}'`,
+    };
+
+    return { ...state, stashHypotheses: [...hypotheses, newHypothesis] };
+  });
+
+  return result;
+}
+
+/**
+ * Delete a hypothesis by ID.
+ */
+export async function deleteHypothesis(id: string): Promise<DeleteHypothesisResponse> {
+  await simulateDelay();
+
+  let found = false;
+
+  updateDemoState((state) => {
+    const hypotheses = state.stashHypotheses ?? [];
+    const index = hypotheses.findIndex((h) => h.id === id);
+
+    if (index === -1) {
+      return state;
+    }
+
+    found = true;
+    const newHypotheses = hypotheses.filter((h) => h.id !== id);
+    return { ...state, stashHypotheses: newHypotheses };
+  });
+
+  if (found) {
+    return { success: true, message: 'Hypothesis deleted' };
+  }
+  return { success: false, error: 'Hypothesis not found' };
 }

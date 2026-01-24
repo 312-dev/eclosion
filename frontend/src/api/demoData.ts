@@ -20,6 +20,7 @@ import type {
   StashItem,
   StashData,
   StashConfig,
+  StashHypothesis,
   MonarchGoal,
   PendingBookmark,
 } from '../types';
@@ -60,6 +61,7 @@ export interface DemoState {
   notes: DemoNotesState;
   stash: StashData;
   stashConfig: StashConfig;
+  stashHypotheses: StashHypothesis[];
   monarchGoals: MonarchGoal[];
   pendingBookmarks: PendingBookmark[];
 }
@@ -2034,6 +2036,7 @@ export function createInitialDemoState(): DemoState {
     notes: createInitialDemoNotes(),
     stash: createInitialStashData(),
     stashConfig: createInitialStashConfig(),
+    stashHypotheses: [],
     monarchGoals: createInitialMonarchGoals(),
     pendingBookmarks: createInitialPendingBookmarks(),
   };
