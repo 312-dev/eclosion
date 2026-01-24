@@ -29,6 +29,7 @@ export async function createStashItem(request: CreateStashItemRequest): Promise<
   let categoryId: string;
   let categoryGroupId: string | null = null;
   let categoryGroupName: string | null = null;
+  let isFlexibleGroup = false;
 
   if (request.existing_category_id) {
     const existingCat = state.unmappedCategories.find((c) => c.id === request.existing_category_id);
@@ -50,13 +51,16 @@ export async function createStashItem(request: CreateStashItemRequest): Promise<
     categoryId = `group-${request.flexible_group_id}`; // Use group ID as pseudo-category
     categoryGroupId = request.flexible_group_id;
     categoryGroupName = flexGroup?.name || 'Flexible Group';
+    isFlexibleGroup = true;
   } else if (request.category_group_id) {
     categoryId = `cat-stash-${Date.now()}`;
     categoryGroupId = request.category_group_id;
     const group = state.categoryGroups.find((g) => g.id === request.category_group_id);
     if (group) categoryGroupName = group.name;
   } else {
-    throw new Error('Must provide either category_group_id, existing_category_id, or flexible_group_id');
+    throw new Error(
+      'Must provide either category_group_id, existing_category_id, or flexible_group_id'
+    );
   }
 
   const maxSortOrder = state.stash.items.reduce(
@@ -107,6 +111,7 @@ export async function createStashItem(request: CreateStashItemRequest): Promise<
     grid_y: maxGridY,
     col_span: 1,
     row_span: 1,
+    is_flexible_group: isFlexibleGroup,
   };
 
   const computedItem = recomputeItem(newItem);

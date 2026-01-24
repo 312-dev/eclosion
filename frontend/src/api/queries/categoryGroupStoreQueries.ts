@@ -329,6 +329,25 @@ export function useFlexibleCategoryGroups(): {
 }
 
 /**
+ * Refresh flexible category groups (bypasses backend cache).
+ * Use when opening modals that depend on fresh Monarch data.
+ */
+export function useRefreshFlexibleCategoryGroups() {
+  const queryClient = useQueryClient();
+  const isDemo = useDemo();
+
+  return useCallback(async () => {
+    // Fetch fresh data from Monarch (bypasses backend cache)
+    const freshData = isDemo
+      ? await demoApi.getFlexibleCategoryGroups()
+      : await api.getFlexibleCategoryGroups(true); // refresh=true
+
+    // Update the cache with fresh data
+    queryClient.setQueryData(getQueryKey(queryKeys.flexibleCategoryGroups, isDemo), freshData);
+  }, [queryClient, isDemo]);
+}
+
+/**
  * Update a category group's settings (name, rollover, flexible budget, etc.)
  */
 export function useUpdateCategoryGroupSettings() {

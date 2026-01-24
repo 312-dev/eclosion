@@ -548,6 +548,51 @@ async def update_rollover_balance():
     })
 
 
+@stash_bp.route("/update-group-rollover-balance", methods=["POST"])
+@api_handler(handle_mfa=True)
+async def update_group_rollover_balance():
+    """
+    Add funds to a category group's rollover starting balance.
+
+    Used by the Distribute wizard for stash items linked to flexible category
+    groups that have group-level rollover enabled.
+
+    Request body:
+    - group_id: The Monarch category group ID to update
+    - amount: Amount (integer) to add to the rollover starting balance
+
+    Returns:
+    - success: boolean
+    - group: updated category group data from Monarch
+    """
+    data = request.get_json()
+
+    group_id = sanitize_id(data.get("group_id"))
+    amount = data.get("amount")
+
+    if not group_id:
+        raise ValidationError("Missing 'group_id'")
+    if amount is None:
+        raise ValidationError("Missing 'amount'")
+
+    try:
+        amount_int = int(amount)
+    except (ValueError, TypeError):
+        raise ValidationError("'amount' must be an integer")
+
+    try:
+        result = await services.sync_service.category_manager.update_group_rollover_balance(
+            group_id, amount_int
+        )
+    except ValueError as e:
+        raise ValidationError(str(e))
+
+    return jsonify({
+        "success": True,
+        "group": result,
+    })
+
+
 @stash_bp.route("/<item_id>/change-group", methods=["POST"])
 @api_handler(handle_mfa=True)
 async def change_category_group(item_id: str):

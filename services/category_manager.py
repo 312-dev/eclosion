@@ -72,6 +72,9 @@ class CategoryManager:
         """
         Get all category groups from Monarch with full metadata.
 
+        Uses the budget API which includes rollover and group-level budgeting settings.
+        The get_transaction_category_groups() API doesn't include these fields.
+
         Returns list of dicts with:
         - id: group ID
         - name: group name
@@ -94,11 +97,12 @@ class CategoryManager:
             cached: list[dict[str, Any]] = cache[cache_key]
             return cached
 
-        mm = await get_mm()
-        groups = await retry_with_backoff(lambda: mm.get_transaction_category_groups())
+        # Use budget API which includes rollover and group-level budgeting fields
+        # (get_transaction_category_groups doesn't include these fields)
+        budgets = await self._get_budgets_cached(force_refresh)
 
         result: list[dict[str, Any]] = []
-        for g in groups.get("categoryGroups", []):
+        for g in budgets.get("categoryGroups", []):
             rollover_period = g.get("rolloverPeriod")
             result.append(
                 {
@@ -273,6 +277,48 @@ class CategoryManager:
         return await self.update_category_group_settings(
             group_id=group_id,
             rollover_enabled=False,
+        )
+
+    async def update_group_rollover_balance(
+        self,
+        group_id: str,
+        amount_to_add: int,
+    ) -> dict[str, Any]:
+        """
+        Add funds to a category group's rollover starting balance.
+
+        This is the group-level equivalent of update_category_rollover_balance().
+        Used by the Stash Distribute wizard for flexible category groups that have
+        group-level rollover enabled.
+
+        Args:
+            group_id: The ID of the category group
+            amount_to_add: Amount (in dollars) to add to the starting balance
+
+        Returns:
+            The updated category group data
+        """
+        # Get current group data to find existing rollover balance
+        groups = await self.get_category_groups_detailed(force_refresh=True)
+        group = next((g for g in groups if g["id"] == group_id), None)
+
+        if not group:
+            raise ValueError(f"Category group not found: {group_id}")
+
+        if not group.get("rollover_enabled"):
+            raise ValueError(f"Rollover is not enabled for group: {group_id}")
+
+        # Get current rollover balance
+        rollover_period = group.get("rollover_period") or {}
+        current_balance = rollover_period.get("starting_balance", 0) or 0
+
+        # Calculate new balance
+        new_balance = current_balance + amount_to_add
+
+        # Update via existing method
+        return await self.update_category_group_settings(
+            group_id=group_id,
+            rollover_starting_balance=new_balance,
         )
 
     async def get_all_categories_grouped(self) -> list[dict[str, Any]]:

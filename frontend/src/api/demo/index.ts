@@ -131,6 +131,8 @@ export {
   getAvailableToStashData,
   // Category rollover balance
   updateCategoryRolloverBalance,
+  // Group rollover balance (for flexible groups)
+  updateGroupRolloverBalance,
   // Pending bookmarks
   getPendingBookmarks,
   getPendingCount,

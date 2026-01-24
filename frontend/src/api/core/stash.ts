@@ -376,3 +376,22 @@ export async function updateCategoryRolloverBalance(
     body: JSON.stringify({ category_id: categoryId, amount }),
   });
 }
+
+/**
+ * Add funds to a category group's rollover starting balance.
+ *
+ * Used by the Distribute wizard for stash items linked to flexible category
+ * groups that have group-level rollover enabled.
+ *
+ * @param groupId - The Monarch category group ID
+ * @param amount - Amount (integer) to add to the rollover starting balance
+ */
+export async function updateGroupRolloverBalance(
+  groupId: string,
+  amount: number
+): Promise<{ success: boolean; group?: unknown }> {
+  return fetchApi('/stash/update-group-rollover-balance', {
+    method: 'POST',
+    body: JSON.stringify({ group_id: groupId, amount }),
+  });
+}

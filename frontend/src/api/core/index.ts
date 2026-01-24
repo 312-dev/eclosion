@@ -178,6 +178,8 @@ export {
   getStashHistory,
   // Category rollover balance
   updateCategoryRolloverBalance,
+  // Group rollover balance (for flexible groups)
+  updateGroupRolloverBalance,
 } from './stash';
 
 // Openverse (external image search API)

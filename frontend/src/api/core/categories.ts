@@ -86,11 +86,11 @@ export async function getCategoryGroupsDetailed(): Promise<CategoryGroupDetailed
 /**
  * Get category groups that have flexible budgeting with rollover enabled.
  * Useful for stash category selection.
+ * @param refresh - If true, bypasses cache and fetches fresh data from Monarch
  */
-export async function getFlexibleCategoryGroups(): Promise<CategoryGroupDetailed[]> {
-  const response = await fetchApi<{ groups: CategoryGroupDetailed[] }>(
-    '/recurring/groups/flexible'
-  );
+export async function getFlexibleCategoryGroups(refresh = false): Promise<CategoryGroupDetailed[]> {
+  const url = refresh ? '/recurring/groups/flexible?refresh=true' : '/recurring/groups/flexible';
+  const response = await fetchApi<{ groups: CategoryGroupDetailed[] }>(url);
   return response.groups;
 }
 

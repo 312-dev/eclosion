@@ -127,6 +127,7 @@ export {
   // Detailed category groups (with rollover/flexible settings)
   useCategoryGroupsDetailed,
   useFlexibleCategoryGroups,
+  useRefreshFlexibleCategoryGroups,
   useUpdateCategoryGroupSettings,
 } from './categoryGroupStoreQueries';
 
@@ -165,6 +166,8 @@ export {
   useInvalidateStash,
   // Category rollover balance
   useUpdateCategoryRolloverMutation,
+  // Group rollover balance (for flexible groups)
+  useUpdateGroupRolloverMutation,
   // Pending bookmarks
   usePendingBookmarksQuery,
   usePendingCountQuery,
