@@ -1560,11 +1560,13 @@ class StashService:
 
             # Apply filtering only to cash accounts
             # Credit cards are ALWAYS included (they're always debt to account for)
-            if self._is_cash_account(account_type):
-                # If specific accounts are selected, filter
-                if selected_account_ids is not None:
-                    if account_id not in selected_account_ids:
-                        continue
+            # If specific accounts are selected, filter out non-selected cash accounts
+            if (
+                self._is_cash_account(account_type)
+                and selected_account_ids is not None
+                and account_id not in selected_account_ids
+            ):
+                continue
 
             accounts_list.append({
                 "id": account_id,

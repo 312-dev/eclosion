@@ -692,6 +692,61 @@ async def get_config():
     return await service.get_config()
 
 
+def _parse_json_field(data: dict, field: str) -> str | None:
+    """Parse a field that should be stored as JSON string."""
+    import json
+
+    value = data.get(field)
+    if value is None:
+        return None
+    return json.dumps(value) if value else None
+
+
+def _build_config_updates(data: dict) -> dict[str, str | bool | int | None]:
+    """Build updates dict from request data, validating fields."""
+    updates: dict[str, str | bool | int | None] = {}
+
+    # Simple string fields
+    if "default_category_group_id" in data:
+        updates["default_category_group_id"] = sanitize_id(data["default_category_group_id"])
+    if "default_category_group_name" in data:
+        updates["default_category_group_name"] = sanitize_name(data["default_category_group_name"])
+
+    # Browser validation
+    if "selected_browser" in data:
+        browser = data["selected_browser"]
+        if browser and browser not in ("chrome", "edge", "brave", "safari"):
+            raise ValidationError("Invalid browser type")
+        updates["selected_browser"] = browser
+
+    # JSON array fields
+    json_fields = ["selected_folder_ids", "selected_folder_names", "selected_cash_account_ids"]
+    for field in json_fields:
+        if field in data:
+            updates[field] = _parse_json_field(data, field)
+
+    # Boolean fields
+    bool_fields = [
+        "auto_archive_on_bookmark_delete",
+        "auto_archive_on_goal_met",
+        "include_expected_income",
+        "show_monarch_goals",
+        "is_configured",
+    ]
+    for field in bool_fields:
+        if field in data:
+            updates[field] = bool(data[field])
+
+    # Buffer amount (numeric with validation)
+    if "buffer_amount" in data:
+        buffer = data["buffer_amount"]
+        if not isinstance(buffer, (int, float)) or buffer < 0:
+            raise ValidationError("'buffer_amount' must be a non-negative number")
+        updates["buffer_amount"] = int(buffer)
+
+    return updates
+
+
 @stash_bp.route("/config", methods=["PUT"])
 @api_handler(handle_mfa=False)
 async def update_config():
@@ -711,71 +766,7 @@ async def update_config():
     service = get_stash_service()
     data = request.get_json()
 
-    updates: dict[str, str | bool | None] = {}
-
-    # Category group settings
-    if "default_category_group_id" in data:
-        updates["default_category_group_id"] = sanitize_id(data["default_category_group_id"])
-    if "default_category_group_name" in data:
-        updates["default_category_group_name"] = sanitize_name(data["default_category_group_name"])
-
-    # Browser sync settings
-    if "selected_browser" in data:
-        browser = data["selected_browser"]
-        if browser and browser not in ("chrome", "edge", "brave", "safari"):
-            raise ValidationError("Invalid browser type")
-        updates["selected_browser"] = browser
-    if "selected_folder_ids" in data:
-        # Store as JSON string
-        import json
-
-        folder_ids = data["selected_folder_ids"]
-        if folder_ids is not None:
-            updates["selected_folder_ids"] = json.dumps(folder_ids) if folder_ids else None
-        else:
-            updates["selected_folder_ids"] = None
-    if "selected_folder_names" in data:
-        import json
-
-        folder_names = data["selected_folder_names"]
-        if folder_names is not None:
-            updates["selected_folder_names"] = json.dumps(folder_names) if folder_names else None
-        else:
-            updates["selected_folder_names"] = None
-
-    # Auto-archive settings
-    if "auto_archive_on_bookmark_delete" in data:
-        updates["auto_archive_on_bookmark_delete"] = bool(data["auto_archive_on_bookmark_delete"])
-    if "auto_archive_on_goal_met" in data:
-        updates["auto_archive_on_goal_met"] = bool(data["auto_archive_on_goal_met"])
-
-    # Available to Stash calculation settings
-    if "include_expected_income" in data:
-        updates["include_expected_income"] = bool(data["include_expected_income"])
-    if "selected_cash_account_ids" in data:
-        # Store as JSON string
-        import json
-
-        account_ids = data["selected_cash_account_ids"]
-        if account_ids is not None:
-            updates["selected_cash_account_ids"] = json.dumps(account_ids) if account_ids else None
-        else:
-            updates["selected_cash_account_ids"] = None
-
-    # Display settings
-    if "show_monarch_goals" in data:
-        updates["show_monarch_goals"] = bool(data["show_monarch_goals"])
-
-    # Buffer settings
-    if "buffer_amount" in data:
-        buffer = data["buffer_amount"]
-        if not isinstance(buffer, (int, float)) or buffer < 0:
-            raise ValidationError("'buffer_amount' must be a non-negative number")
-        updates["buffer_amount"] = int(buffer)
-
-    # Configuration state
-    if "is_configured" in data:
-        updates["is_configured"] = bool(data["is_configured"])
+    updates = _build_config_updates(data)
 
     if not updates:
         raise ValidationError("No valid fields to update")
