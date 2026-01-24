@@ -11,6 +11,7 @@ Goal types:
                   Spending immediately reduces progress.
 """
 
+import json
 import logging
 import uuid
 from datetime import UTC, date, datetime

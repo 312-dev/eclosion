@@ -2,7 +2,7 @@
  * UnitSelector Component
  *
  * An inline dropdown for switching between dollar amount and percentage input modes.
- * Shows the current symbol ($/%​) with a micro chevron to indicate it's interactive.
+ * Shows the current symbol ($/%) with a micro chevron to indicate it's interactive.
  */
 
 import { useState, useRef, useEffect, useLayoutEffect, useCallback, useId } from 'react';
@@ -59,10 +59,13 @@ export function UnitSelector({ mode, onChange }: UnitSelectorProps) {
     }
   };
 
-  const handleSelect = (newMode: InputMode) => {
-    onChange?.(newMode);
-    close();
-  };
+  const handleSelect = useCallback(
+    (newMode: InputMode) => {
+      onChange?.(newMode);
+      close();
+    },
+    [onChange, close]
+  );
 
   // Handle click outside
   useEffect(() => {
@@ -107,7 +110,7 @@ export function UnitSelector({ mode, onChange }: UnitSelectorProps) {
           break;
       }
     },
-    [close, isOpen, mode]
+    [close, isOpen, mode, handleSelect]
   );
 
   // Focus menu when opened
