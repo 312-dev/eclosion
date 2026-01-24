@@ -9,8 +9,8 @@ import { LogIn, LogOut, Lock, Unlock, Clock, AlertTriangle, Shield } from 'lucid
 import type { SecurityEvent } from '../types';
 
 interface SecurityEventListProps {
-  events: SecurityEvent[];
-  loading?: boolean;
+  readonly events: SecurityEvent[];
+  readonly loading?: boolean;
 }
 
 const EVENT_CONFIG: Record<string, { icon: typeof LogIn; label: string }> = {
@@ -118,9 +118,34 @@ export function SecurityEventList({ events, loading }: SecurityEventListProps) {
         {[1, 2, 3].map((i) => (
           <div
             key={i}
-            className="h-20 rounded-lg animate-pulse"
+            className="flex items-start gap-3 p-3 rounded-lg animate-pulse"
             style={{ backgroundColor: 'var(--monarch-bg-page)' }}
-          />
+          >
+            {/* Icon placeholder */}
+            <div
+              className="w-8 h-8 rounded-lg shrink-0"
+              style={{ backgroundColor: 'var(--monarch-bg-hover)' }}
+            />
+            {/* Content placeholder */}
+            <div className="flex-1 min-w-0">
+              {/* Title row with label and status badge */}
+              <div className="flex items-center gap-2">
+                <div
+                  className="h-4 w-16 rounded"
+                  style={{ backgroundColor: 'var(--monarch-bg-hover)' }}
+                />
+                <div
+                  className="h-4 w-12 rounded"
+                  style={{ backgroundColor: 'var(--monarch-bg-hover)' }}
+                />
+              </div>
+              {/* Details row */}
+              <div
+                className="h-3 w-40 rounded mt-1.5"
+                style={{ backgroundColor: 'var(--monarch-bg-hover)' }}
+              />
+            </div>
+          </div>
         ))}
       </div>
     );

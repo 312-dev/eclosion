@@ -159,13 +159,17 @@ export const RecurringToolSettings = forwardRef<HTMLDivElement, RecurringToolSet
         style={containerStyle}
       >
         {loading ? (
-          <div className="p-5">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg skeleton" />
-              <div className="flex-1">
-                <div className="h-4 w-24 rounded skeleton mb-2" />
-                <div className="h-3 w-32 rounded skeleton" />
+          <div className="p-4">
+            <div className="flex items-center gap-4">
+              {/* Icon placeholder */}
+              <div className="w-10 h-10 rounded-lg skeleton shrink-0" />
+              {/* Title and description */}
+              <div className="flex-1 min-w-0">
+                <div className="h-4 w-28 rounded skeleton mb-1.5" />
+                <div className="h-3 w-36 rounded skeleton" />
               </div>
+              {/* Chevron placeholder */}
+              <div className="w-5 h-5 rounded skeleton shrink-0" />
             </div>
           </div>
         ) : (

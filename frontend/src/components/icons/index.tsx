@@ -81,6 +81,7 @@ import {
   EyeOff,
   Download,
   Upload,
+  Save,
   Copy,
   Folder,
   FolderCheck,
@@ -119,7 +120,9 @@ import {
   ThumbsUp,
   ThumbsDown,
   FlaskConical,
+  FlaskConicalOff,
   Wrench,
+  Sparkles,
 } from 'lucide-react';
 import type { SVGProps } from 'react';
 
@@ -208,6 +211,7 @@ export const EyeIcon = Eye;
 export const EyeOffIcon = EyeOff;
 export const DownloadIcon = Download;
 export const UploadIcon = Upload;
+export const SaveIcon = Save;
 export const CopyIcon = Copy;
 export const FolderIcon = Folder;
 export const FolderCheckIcon = FolderCheck;
@@ -244,7 +248,9 @@ export const CheckSquareIcon = CheckSquare;
 export const ThumbsUpIcon = ThumbsUp;
 export const ThumbsDownIcon = ThumbsDown;
 export const FlaskConicalIcon = FlaskConical;
+export const FlaskConicalOffIcon = FlaskConicalOff;
 export const WrenchIcon = Wrench;
+export const SparklesIcon = Sparkles;
 
 // =============================================================================
 // Custom Icons (not available in Lucide)
@@ -602,6 +608,7 @@ export const Icons = {
   EyeOff: EyeOffIcon,
   Download: DownloadIcon,
   Upload: UploadIcon,
+  Save: SaveIcon,
   Copy: CopyIcon,
   Folder: FolderIcon,
   FolderCheck: FolderCheckIcon,
@@ -662,9 +669,13 @@ export const Icons = {
 
   // Science/Analysis
   FlaskConical: FlaskConicalIcon,
+  FlaskConicalOff: FlaskConicalOffIcon,
 
   // Tools
   Wrench: WrenchIcon,
+
+  // Effects
+  Sparkles: SparklesIcon,
 };
 
 export { Mail as MailIcon, HelpCircle as HelpIcon } from 'lucide-react';
