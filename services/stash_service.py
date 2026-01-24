@@ -1885,7 +1885,7 @@ class StashService:
         """
         from calendar import monthrange
 
-        from dateutil.relativedelta import relativedelta
+        from dateutil.relativedelta import relativedelta  # type: ignore[import-untyped]
 
         items_data = self._get_active_stash_items_for_history()
         if not items_data:
