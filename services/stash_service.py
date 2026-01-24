@@ -292,6 +292,14 @@ class StashService:
         last_month_budgets = await self.category_manager.get_last_month_planned_budgets()
         current_month = datetime.now().strftime("%Y-%m-01")
 
+        # Get flexible group IDs (groups with flexible budget and rollover enabled)
+        groups_detailed = await self.category_manager.get_category_groups_detailed()
+        flexible_group_ids = {
+            g["id"]
+            for g in groups_detailed
+            if g.get("budget_variability") == "flexible" and g.get("rollover_enabled")
+        }
+
         active_items = []
         archived_items = []
         total_monthly_target = 0
@@ -431,6 +439,13 @@ class StashService:
                 tsd = item["tracking_start_date"]
                 tracking_start_date_str = tsd.isoformat() if hasattr(tsd, "isoformat") else str(tsd)
 
+            # Log grid positions being returned from API
+            logger.info(
+                f"[Stash] Dashboard returning {item['name']}: "
+                f"grid_x={item['grid_x']}, grid_y={item['grid_y']}, "
+                f"col_span={item['col_span']}, row_span={item['row_span']}"
+            )
+
             result_item = {
                 "type": "stash",
                 "id": item["id"],
@@ -475,6 +490,8 @@ class StashService:
                 "grid_y": item["grid_y"],
                 "col_span": item["col_span"],
                 "row_span": item["row_span"],
+                # Flexible group flag (for Distribute wizard to know which API to call)
+                "is_flexible_group": item["category_group_id"] in flexible_group_ids,
             }
 
             if item["is_archived"]:
@@ -1081,9 +1098,11 @@ class StashService:
         Returns:
             Success status and count of updated items
         """
+        logger.info(f"[Stash] update_layouts called with {len(layouts)} layouts: {layouts}")
         with db_session() as session:
             repo = TrackerRepository(session)
             updated = repo.update_stash_layouts(layouts)
+            logger.info(f"[Stash] update_layouts updated {updated} items")
 
         return {"success": True, "updated": updated}
 
@@ -1104,6 +1123,11 @@ class StashService:
 
         # Get layout data (extract values while in session to avoid DetachedInstanceError)
         with db_session() as session:
+            # DIAGNOSTIC: Raw SQL query to bypass SQLAlchemy cache
+            from sqlalchemy import text
+            raw_result = session.execute(text("SELECT goal_id, grid_x, grid_y FROM monarch_goal_layout")).fetchall()
+            logger.info(f"[Stash] RAW SQL layouts: {[(r[0], r[1], r[2]) for r in raw_result]}")
+
             repo = TrackerRepository(session)
             layouts = {
                 layout.goal_id: {
@@ -1114,19 +1138,79 @@ class StashService:
                 }
                 for layout in repo.get_all_monarch_goal_layouts()
             }
+        logger.info(f"[Stash] Loaded {len(layouts)} goal layouts from DB: {list(layouts.keys())}")
+        # Log ALL layout data for debugging
+        for goal_id, layout_data in layouts.items():
+            logger.info(f"[Stash] Layout from DB - goal {goal_id}: x={layout_data['grid_x']}, y={layout_data['grid_y']}")
+
+        # Track occupied positions to avoid collisions for goals without layouts
+        # Only track positions for ACTIVE (non-completed) goals since completed goals
+        # are shown in a separate "Past" section and don't affect the grid layout.
+        # Position is (x, y, col_span, row_span)
+        occupied_positions: list[tuple[int, int, int, int]] = []
+        # Build a set of active goal IDs to check against
+        active_goal_ids = {str(g["id"]) for g in raw_goals if not g["is_completed"]}
+        for goal_id, layout_data in layouts.items():
+            # Only track positions for active goals
+            if goal_id in active_goal_ids:
+                occupied_positions.append((
+                    layout_data["grid_x"],
+                    layout_data["grid_y"],
+                    layout_data["col_span"],
+                    layout_data["row_span"],
+                ))
+
+        def find_next_available_position(col_span: int = 1, row_span: int = 1, cols: int = 3) -> tuple[int, int]:
+            """Find the first available grid position that doesn't collide with occupied positions."""
+            def collides(x: int, y: int, w: int, h: int) -> bool:
+                for ox, oy, ow, oh in occupied_positions:
+                    # Check if rectangles overlap
+                    if not (x + w <= ox or ox + ow <= x or y + h <= oy or oy + oh <= y):
+                        return True
+                return False
+
+            # Scan row by row, left to right
+            for y in range(100):  # Reasonable max rows
+                for x in range(cols - col_span + 1):
+                    if not collides(x, y, col_span, row_span):
+                        return (x, y)
+            return (0, len(occupied_positions))  # Fallback
 
         # Enrich goals with layout and computed fields
         enriched_goals = []
         for goal in raw_goals:
-            goal_id = goal["id"]
+            # Ensure goal_id is a string to match DB storage (Monarch API returns int)
+            goal_id = str(goal["id"])
             layout = layouts.get(goal_id)
+            logger.info(f"[Stash] Goal {goal_id}: layout found = {layout is not None}, layout = {layout}")
 
             # Use status from Monarch API, map null to 'no_target'
             status = goal["status"] if goal["status"] is not None else "no_target"
 
+            # Determine grid position
+            is_completed = goal["is_completed"]
+            if layout:
+                grid_x = layout["grid_x"]
+                grid_y = layout["grid_y"]
+                col_span = layout["col_span"]
+                row_span = layout["row_span"]
+            elif is_completed:
+                # Completed goals are shown in "Past" section, not the grid
+                # Default position doesn't matter
+                grid_x, grid_y = 0, 0
+                col_span, row_span = 1, 1
+            else:
+                # Active goal without layout - find a non-colliding position
+                col_span = 1
+                row_span = 1
+                grid_x, grid_y = find_next_available_position(col_span, row_span)
+                # Track this position so subsequent goals don't collide
+                occupied_positions.append((grid_x, grid_y, col_span, row_span))
+                logger.info(f"[Stash] Assigned new position for goal {goal_id}: x={grid_x}, y={grid_y}")
+
             enriched_goal = {
                 "type": "monarch_goal",
-                "id": goal_id,
+                "id": goal_id,  # Already converted to string above
                 "name": goal["name"],
                 # Financial data
                 "current_balance": goal["current_balance"],
@@ -1141,11 +1225,11 @@ class StashService:
                 # Status from Monarch API
                 "status": status,
                 "months_ahead_behind": None,  # Not calculated anymore, can be derived from forecasted date if needed
-                # Grid layout (default to 0,0 if not set)
-                "grid_x": layout["grid_x"] if layout else 0,
-                "grid_y": layout["grid_y"] if layout else 0,
-                "col_span": layout["col_span"] if layout else 1,
-                "row_span": layout["row_span"] if layout else 1,
+                # Grid layout
+                "grid_x": grid_x,
+                "grid_y": grid_y,
+                "col_span": col_span,
+                "row_span": row_span,
                 # State
                 "is_archived": False,  # Already filtered by get_savings_goals_full
                 "is_completed": goal["is_completed"],
@@ -1155,10 +1239,10 @@ class StashService:
             }
 
             enriched_goals.append(enriched_goal)
+            # Log each goal's final position with its name for tracing
+            logger.info(f"[Stash] Enriched goal '{enriched_goal['name']}' (id={goal_id}): x={enriched_goal['grid_x']}, y={enriched_goal['grid_y']}")
 
         logger.info(f"[Stash] Returning {len(enriched_goals)} enriched goals")
-        if enriched_goals:
-            logger.info(f"[Stash] Sample goal: {enriched_goals[0]}")
         return {"goals": enriched_goals}
 
 
@@ -1172,9 +1256,17 @@ class StashService:
         Returns:
             Success status and count of updated layouts
         """
+        logger.info(f"[Stash] update_monarch_goal_layouts called with {len(layouts)} layouts: {layouts}")
         with db_session() as session:
             repo = TrackerRepository(session)
             updated = repo.update_monarch_goal_layouts(layouts)
+
+            # DIAGNOSTIC: Verify what was written using raw SQL
+            from sqlalchemy import text
+            raw_result = session.execute(text("SELECT goal_id, grid_x, grid_y FROM monarch_goal_layout")).fetchall()
+            logger.info(f"[Stash] After update, RAW SQL layouts: {[(r[0], r[1], r[2]) for r in raw_result]}")
+
+        logger.info(f"[Stash] update_monarch_goal_layouts updated {updated} layouts")
 
         return {"success": True, "updated": updated}
 

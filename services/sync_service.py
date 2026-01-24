@@ -479,6 +479,7 @@ class SyncService:
         the unmapped categories list is up to date.
         """
         clear_cache("category")
+        clear_cache("category_groups")
         clear_cache("budget")
         return {"success": True, "message": "Category cache cleared"}
 
