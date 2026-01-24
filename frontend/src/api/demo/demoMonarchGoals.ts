@@ -28,6 +28,7 @@ export async function updateMonarchGoalLayouts(
         grid_y: layoutUpdate.grid_y,
         col_span: layoutUpdate.col_span,
         row_span: layoutUpdate.row_span,
+        sort_order: layoutUpdate.sort_order,
       };
     }
     return goal;

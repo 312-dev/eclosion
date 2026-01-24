@@ -4,9 +4,9 @@
  * Provides React Query hooks for fetching and mutating Monarch savings goals.
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { useDemo } from '../../context/DemoContext';
-import { getQueryKey, queryKeys } from './keys';
+import { queryKeys, getQueryKey } from './keys';
 import * as api from '../core/monarchGoals';
 import * as demoApi from '../demo/demoMonarchGoals';
 import type { MonarchGoal, MonarchGoalLayoutUpdate } from '../../types/monarchGoal';
@@ -46,6 +46,7 @@ function transformGoalFromApi(raw: Record<string, unknown>): MonarchGoal {
     grid_y: Number(raw['grid_y'] ?? 0),
     col_span: Number(raw['col_span'] ?? 1),
     row_span: Number(raw['row_span'] ?? 1),
+    sort_order: Number(raw['sort_order'] ?? 0),
     isArchived: Boolean(raw['is_archived']),
     isCompleted: Boolean(raw['is_completed']),
     imageStorageProvider:
@@ -76,7 +77,9 @@ export function useMonarchGoalsQuery() {
       // Transform snake_case API response to camelCase TypeScript types
       return (result.goals as unknown as Record<string, unknown>[]).map(transformGoalFromApi);
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    // Use reasonable staleTime - mutations invalidate the query for fresh data
+    staleTime: 30 * 1000, // Consider stale after 30 seconds
+    gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes for navigation
   });
 }
 
@@ -86,26 +89,17 @@ export function useMonarchGoalsQuery() {
  * Used when user drags/resizes goal cards in the Stash grid.
  */
 export function useUpdateMonarchGoalLayoutsMutation() {
-  const queryClient = useQueryClient();
   const isDemo = useDemo();
 
   return useMutation({
     mutationFn: async (layouts: MonarchGoalLayoutUpdate[]) => {
-      console.log('[useUpdateMonarchGoalLayoutsMutation] Calling API with layouts:', layouts);
       const result = isDemo
         ? await demoApi.updateMonarchGoalLayouts(layouts)
         : await api.updateMonarchGoalLayouts(layouts);
-      console.log('[useUpdateMonarchGoalLayoutsMutation] API response:', result);
       return result;
     },
-    onSuccess: () => {
-      console.log('[useUpdateMonarchGoalLayoutsMutation] Success, invalidating monarchGoals query');
-      queryClient.invalidateQueries({
-        queryKey: getQueryKey(queryKeys.monarchGoals, isDemo),
-      });
-    },
-    onError: (error) => {
-      console.error('[useUpdateMonarchGoalLayoutsMutation] Error:', error);
-    },
+    // Note: We intentionally do NOT invalidate the monarchGoals query here.
+    // The grid component manages layout state locally. Invalidating would
+    // cause a refetch → new sort_order → layout recreation → infinite loop.
   });
 }

@@ -171,9 +171,10 @@ export function MonthlyInfoTooltip({ monthlyAmount, onRefresh, isRefreshing }: M
         If this seems too low, free up funds in your Monarch budget and{' '}
         {onRefresh ? (
           <button
+            type="button"
             onClick={onRefresh}
             disabled={isRefreshing}
-            className="text-monarch-orange hover:underline font-medium disabled:opacity-50"
+            className="inline text-monarch-orange underline bg-transparent border-none p-0 m-0 font-inherit cursor-pointer hover:text-monarch-orange-dark disabled:opacity-50 disabled:cursor-not-allowed"
           >
             refresh
           </button>

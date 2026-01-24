@@ -22,7 +22,7 @@ import { HoverCard } from '../ui/HoverCard';
 import { useAvailableToStash, useStashConfigQuery, useUpdateStashConfigMutation } from '../../api/queries';
 import { useToast } from '../../context/ToastContext';
 import { distributeAmountByRatios } from '../../utils/calculations';
-import type { StashItem } from '../../types';
+import type { StashItem, StashEventsMap, StashEvent } from '../../types';
 import type { DistributeMode } from './DistributeWizard';
 
 type InputMode = 'amount' | 'percent';
@@ -65,6 +65,14 @@ interface DistributeScreenProps {
   readonly onEditAttempt?: () => void;
   /** Whether this is distribute mode (affects edit behavior) */
   readonly isDistributeMode?: boolean;
+  /** Stash events for hypothetical projections (monthly screen only) */
+  readonly stashEvents?: StashEventsMap;
+  /** Callback to add an event to a stash item */
+  readonly onAddEvent?: (stashId: string) => void;
+  /** Callback to update an event */
+  readonly onUpdateEvent?: (stashId: string, eventId: string, updates: Partial<StashEvent>) => void;
+  /** Callback to remove an event */
+  readonly onRemoveEvent?: (stashId: string, eventId: string) => void;
 }
 
 /**
@@ -98,6 +106,10 @@ export function DistributeScreen({
   isRefreshingLeftToBudget,
   onEditAttempt,
   isDistributeMode = false,
+  stashEvents,
+  onAddEvent,
+  onUpdateEvent,
+  onRemoveEvent,
 }: DistributeScreenProps) {
   const [inputMode, setInputMode] = useState<InputMode>('amount');
 
@@ -263,6 +275,9 @@ export function DistributeScreen({
               {displayRemaining === 0 && displayTotalAmount > 0 && (
                 <Icons.Check size={22} style={{ color: 'var(--monarch-success)' }} />
               )}
+              {displayRemaining < 0 && (
+                <Icons.Warning size={22} style={{ color: 'var(--monarch-error)' }} />
+              )}
             </div>
             <div
               className="w-24 h-px my-2"
@@ -296,18 +311,32 @@ export function DistributeScreen({
               >
                 <span className={`text-lg font-medium ${isTotalEditable ? 'text-monarch-text-dark' : 'text-monarch-text-muted'}`}>$</span>
                 {isTotalEditable ? (
-                  <input
-                    type="number"
-                    value={displayTotalAmount || ''}
-                    onChange={(e) => {
-                      const val = Number.parseInt(e.target.value, 10);
-                      onTotalChange?.(Number.isNaN(val) || val < 0 ? 0 : val);
-                    }}
-                    placeholder="0"
-                    className="w-20 text-center text-lg font-medium bg-transparent outline-none text-monarch-text-dark placeholder:text-monarch-text-muted [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                    aria-label="Total amount to distribute"
-                    min={0}
-                  />
+                  <>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={displayTotalAmount ? displayTotalAmount.toLocaleString('en-US') : ''}
+                      onChange={(e) => {
+                        const digitsOnly = e.target.value.replaceAll(/\D/g, '');
+                        const val = digitsOnly === '' ? 0 : Number.parseInt(digitsOnly, 10);
+                        onTotalChange?.(Math.max(0, val));
+                      }}
+                      placeholder="0"
+                      className="w-24 text-center text-lg font-medium bg-transparent outline-none text-monarch-text-dark placeholder:text-monarch-text-muted tabular-nums"
+                      aria-label="Total amount to distribute"
+                    />
+                    {displayRemaining < 0 && (
+                      <Tooltip content="Correct the difference">
+                        <button
+                          onClick={() => onTotalChange?.(totalAllocated)}
+                          className="p-0.5 rounded text-monarch-text-muted hover:text-monarch-orange transition-colors"
+                          aria-label="Set available equal to allocated amount"
+                        >
+                          <Icons.Wrench size={14} />
+                        </button>
+                      </Tooltip>
+                    )}
+                  </>
                 ) : (
                   <span className="text-lg font-medium text-monarch-text-muted px-2">
                     {displayTotalAmount.toLocaleString()}
@@ -376,6 +405,17 @@ export function DistributeScreen({
                     onAllocationChange(id, suggestedAmount);
                   }
                 }}
+                {...(showForecast && stashEvents && {
+                  itemEvents: stashEvents[item.id] ?? [],
+                  onAddEvent: onAddEvent ? () => onAddEvent(item.id) : undefined,
+                  onUpdateEvent: onUpdateEvent
+                    ? (eventId: string, updates: Partial<StashEvent>) =>
+                        onUpdateEvent(item.id, eventId, updates)
+                    : undefined,
+                  onRemoveEvent: onRemoveEvent
+                    ? (eventId: string) => onRemoveEvent(item.id, eventId)
+                    : undefined,
+                })}
               />
             ))}
           </div>

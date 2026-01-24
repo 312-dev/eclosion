@@ -10,11 +10,16 @@
  * - Budget input on right
  */
 
-import React, { useState, useRef } from 'react';
-import type { StashItem } from '../../types';
+import React, { useState, useRef, useMemo } from 'react';
+import type { StashItem, StashEvent } from '../../types';
 import { Icons } from '../icons';
 import { Tooltip } from '../ui';
 import { UnitSelector } from './UnitSelector';
+import { EventRow } from './EventRow';
+import {
+  calculateProjectedDateWithEvents,
+  calculateMinimumRateWithEvents,
+} from '../../utils/eventProjection';
 
 type InputMode = 'amount' | 'percent';
 type ScreenType = 'savings' | 'monthly';
@@ -36,7 +41,7 @@ interface DistributeItemRowProps {
   readonly onInputModeChange?: (mode: InputMode) => void;
   /** Whether to show target info (target amount and date) */
   readonly showTargetInfo?: boolean;
-  /** Whether to show live projection ("at this rate" calculation) - only on monthly step */
+  /** Whether to show live projection ("with contributions" calculation) - only on monthly step */
   readonly showLiveProjection?: boolean;
   /** Format a date string for display */
   readonly formatDate?: (dateString: string) => string;
@@ -46,6 +51,14 @@ interface DistributeItemRowProps {
   readonly screenType?: ScreenType;
   /** Callback to apply suggested amount */
   readonly onApplySuggestion?: (id: string, amount: number) => void;
+  /** Events for this specific stash item (monthly screen only) */
+  readonly itemEvents?: StashEvent[] | undefined;
+  /** Callback to add an event */
+  readonly onAddEvent?: (() => void) | undefined;
+  /** Callback to update an event */
+  readonly onUpdateEvent?: ((eventId: string, updates: Partial<StashEvent>) => void) | undefined;
+  /** Callback to remove an event */
+  readonly onRemoveEvent?: ((eventId: string) => void) | undefined;
 }
 
 /**
@@ -103,7 +116,9 @@ function formatDateShortYear(date: Date): string {
  * Default date formatter.
  */
 function defaultFormatDate(dateString: string): string {
-  const date = new Date(dateString);
+  // Append T00:00:00 to interpret as local midnight, not UTC
+  // Without this, '2026-06-01' becomes May 31st in western timezones
+  const date = new Date(dateString + 'T00:00:00');
   return formatDateShortYear(date);
 }
 
@@ -121,6 +136,10 @@ export function DistributeItemRow({
   rolloverAmount = 0,
   screenType,
   onApplySuggestion,
+  itemEvents = [],
+  onAddEvent,
+  onUpdateEvent,
+  onRemoveEvent,
 }: DistributeItemRowProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isFocused, setIsFocused] = useState(false);
@@ -168,6 +187,7 @@ export function DistributeItemRow({
   // Calculate suggested amount based on screen type
   // Savings screen: suggest exact shortfall to become "funded"
   // Monthly screen: suggest monthly_target to stay "on track" (or $0 if already funded after rollover)
+  // If events exist, calculate minimum rate needed given the planned events
   const suggestedAmount = (() => {
     if (!screenType) return null;
     if (screenType === 'savings') {
@@ -177,6 +197,16 @@ export function DistributeItemRow({
     // Monthly screen: if already funded after rollover, suggest $0
     if (newStartingBalance >= item.amount) {
       return 0;
+    }
+    // If events exist and item has a target date, calculate event-aware minimum
+    // This accounts for planned 1x deposits that reduce the needed monthly rate
+    if (itemEvents.length > 0 && item.target_date) {
+      return calculateMinimumRateWithEvents(
+        newStartingBalance,
+        item.amount,
+        item.target_date,
+        itemEvents
+      );
     }
     // Otherwise suggest the monthly target
     return Math.max(0, item.monthly_target);
@@ -188,18 +218,50 @@ export function DistributeItemRow({
   // Calculate projected date using:
   // - New starting balance (current + rollover from Screen 1)
   // - Monthly rate = amount allocated on this screen (Screen 2)
-  const projectedDate =
-    showLiveProjection && amount > 0
-      ? calculateProjectedDate(newStartingBalance, item.amount, amount)
-      : null;
+  // - Events for hypothetical planning
+  // Calculate projected date and track if projection was attempted but failed (won't reach in 10 years)
+  const { projectedDate, projectionAttempted } = useMemo(() => {
+    if (!showLiveProjection) return { projectedDate: null, projectionAttempted: false };
 
-  const targetDate = item.target_date ? new Date(item.target_date) : null;
+    // Check if there are any 1x events that contribute funds
+    const has1xEvents = itemEvents.some((e) => e.type === '1x' && e.amount > 0);
 
-  // Check if projected is different from target (more than 1 month)
+    // Check if there are any /mo events that set a positive rate
+    const hasMoEvents = itemEvents.some((e) => e.type === 'mo' && e.amount > 0);
+
+    // Skip projection if no monthly rate AND no contributing events
+    if (amount <= 0 && !has1xEvents && !hasMoEvents) return { projectedDate: null, projectionAttempted: false };
+
+    // Use event-aware calculation if events exist, otherwise fall back to simple calculation
+    if (itemEvents.length > 0) {
+      const result = calculateProjectedDateWithEvents(
+        newStartingBalance,
+        item.amount,
+        amount,
+        itemEvents
+      );
+      return { projectedDate: result.projectedDate, projectionAttempted: true };
+    }
+
+    // Simple calculation without events
+    return {
+      projectedDate: calculateProjectedDate(newStartingBalance, item.amount, amount),
+      projectionAttempted: true,
+    };
+    // itemEvents is a readonly prop that won't be mutated externally
+    // eslint-disable-next-line react-hooks/preserve-manual-memoization
+  }, [showLiveProjection, amount, newStartingBalance, item.amount, itemEvents]);
+
+  // Append T00:00:00 to interpret as local midnight, not UTC
+  const targetDate = item.target_date ? new Date(item.target_date + 'T00:00:00') : null;
+
+  // Check if projected is different from target (more than 1 month), or if projection failed entirely
+  const projectionWontReach = projectionAttempted && !projectedDate && targetDate;
   const showProjection =
-    projectedDate &&
-    targetDate &&
-    Math.abs(projectedDate.getTime() - targetDate.getTime()) > 30 * 24 * 60 * 60 * 1000;
+    (projectedDate &&
+      targetDate &&
+      Math.abs(projectedDate.getTime() - targetDate.getTime()) > 30 * 24 * 60 * 60 * 1000) ||
+    projectionWontReach;
 
   // Determine target info content - matches StashCard styling
   const renderTargetInfo = () => {
@@ -248,113 +310,186 @@ export function DistributeItemRow({
   })();
 
   return (
-    <div className="flex items-center gap-3 py-3 px-4 bg-monarch-bg-card hover:bg-monarch-bg-hover transition-colors">
-      {/* Thumbnail / Emoji */}
-      <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-xl bg-monarch-bg-page">
-        {thumbnailContent}
-      </div>
-
-      {/* Name and target info */}
-      <div className="flex-1 min-w-0">
-        <div className="font-medium truncate text-monarch-text-dark">{item.name}</div>
-        {/* Balance badge - shows current vs new balance with flip animation */}
-        <div className="relative h-6 my-1" style={{ perspective: '200px' }}>
-          {/* Starting balance - flips down when contribution is added */}
-          <div
-            className="flex items-center w-fit px-2 py-1 rounded-full text-xs font-medium leading-none absolute inset-0"
-            style={{
-              backgroundColor: 'color-mix(in srgb, var(--monarch-text-muted) 20%, transparent)',
-              color: 'var(--monarch-text-muted)',
-              transform: amount > 0 ? 'rotateX(90deg)' : 'rotateX(0deg)',
-              opacity: amount > 0 ? 0 : 1,
-              transition: 'transform 200ms ease-out, opacity 150ms ease-out',
-              transformOrigin: 'bottom center',
-              backfaceVisibility: 'hidden',
-            }}
-          >
-            {formatCurrency(
-              Math.round(showLiveProjection ? newStartingBalance : item.current_balance)
-            )}{' '}
-            stashed
-          </div>
-          {/* New balance - flips up when contribution is added */}
-          <div
-            className="flex items-center w-fit px-2 py-1 rounded-full text-xs font-medium leading-none absolute inset-0"
-            style={{
-              backgroundColor: 'color-mix(in srgb, var(--monarch-success) 15%, transparent)',
-              color: 'var(--monarch-success)',
-              transform: amount > 0 ? 'rotateX(0deg)' : 'rotateX(-90deg)',
-              opacity: amount > 0 ? 1 : 0,
-              transition: 'transform 200ms ease-out, opacity 150ms ease-out',
-              transformOrigin: 'top center',
-              backfaceVisibility: 'hidden',
-            }}
-          >
-            {formatCurrency(
-              Math.round(
-                showLiveProjection
-                  ? newStartingBalance + amount // Monthly: starting balance + monthly contribution
-                  : item.current_balance + amount // Savings: current + one-time boost
-              )
-            )}{' '}
-            stashed
-          </div>
+    <div className="bg-monarch-bg-card hover:bg-monarch-bg-hover transition-colors">
+      {/* Main row content */}
+      <div className="flex items-center gap-3 py-3 px-4">
+        {/* Thumbnail / Emoji */}
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-xl bg-monarch-bg-page">
+          {thumbnailContent}
         </div>
-        {showTargetInfo && (
-          <div className="text-xs space-y-0.5 text-monarch-text-muted">
-            <div>{renderTargetInfo()}</div>
-            {showLiveProjection && showProjection && projectedDate && (
-              <div className="text-monarch-warning">
-                → {formatDateShortYear(projectedDate)} at this rate
-              </div>
-            )}
-          </div>
-        )}
-      </div>
 
-      {/* Amount/Percent input */}
-      <div className="flex flex-col items-end shrink-0">
-        <div className="flex items-center gap-1">
-          <div
-            className={`flex items-center rounded-md border px-2.5 py-1.5 bg-monarch-bg-card transition-colors ${
-              isFocused ? 'border-monarch-orange' : 'border-monarch-border'
-            }`}
-          >
-            <UnitSelector mode={inputMode} onChange={onInputModeChange} />
-            <input
-              ref={inputRef}
-              type="text"
-              inputMode="numeric"
-              value={displayValue}
-              onChange={handleChange}
-              onFocus={handleFocus}
-              onBlur={handleBlur}
-              onKeyDown={handleKeyDown}
-              placeholder="0"
-              className="w-16 text-right font-medium bg-transparent outline-none text-monarch-text-dark placeholder:text-monarch-text-muted tabular-nums"
-              aria-label={
-                inputMode === 'percent' ? `Percent for ${item.name}` : `Amount for ${item.name}`
-              }
-            />
-            {inputMode === 'amount' && showLiveProjection && (
-              <span className="font-medium text-monarch-text-muted ml-0.5">/ mo</span>
-            )}
-          </div>
-        </div>
-        {/* Suggestion hint when user enters excessive amount */}
-        {showSuggestion && (
-          <Tooltip content="You only need to contribute this amount to reach your goal in time">
-            <button
-              type="button"
-              onClick={() => onApplySuggestion(item.id, suggestedAmount)}
-              className="flex items-center gap-1 mt-1 text-xs text-monarch-warning hover:text-amber-400 transition-colors cursor-pointer"
-              aria-label={`Apply suggested amount of ${formatCurrency(suggestedAmount)}`}
+        {/* Name and target info */}
+        <div className="flex-1 min-w-0">
+          <div className="font-medium truncate text-monarch-text-dark">{item.name}</div>
+          {/* Balance badge - shows current vs new balance with flip animation */}
+          <div className="relative h-6 my-1" style={{ perspective: '200px' }}>
+            {/* Starting balance - flips down when contribution is added */}
+            <div
+              className="flex items-center w-fit px-2 py-1 rounded-full text-xs font-medium leading-none absolute inset-0"
+              style={{
+                backgroundColor: 'color-mix(in srgb, var(--monarch-text-muted) 20%, transparent)',
+                color: 'var(--monarch-text-muted)',
+                transform: amount > 0 ? 'rotateX(90deg)' : 'rotateX(0deg)',
+                opacity: amount > 0 ? 0 : 1,
+                transition: 'transform 200ms ease-out, opacity 150ms ease-out',
+                transformOrigin: 'bottom center',
+                backfaceVisibility: 'hidden',
+              }}
             >
-              <Icons.Lightbulb size={12} />
-              <span>{formatCurrency(suggestedAmount)}</span>
-            </button>
-          </Tooltip>
-        )}
+              {formatCurrency(
+                Math.round(showLiveProjection ? newStartingBalance : item.current_balance)
+              )}{' '}
+              stashed
+              {showLiveProjection && (() => {
+                const now = new Date();
+                const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+                return ` by ${lastDay.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+              })()}
+            </div>
+            {/* New balance - flips up when contribution is added */}
+            <div
+              className="flex items-center w-fit px-2 py-1 rounded-full text-xs font-medium leading-none absolute inset-0"
+              style={{
+                backgroundColor: 'color-mix(in srgb, var(--monarch-success) 15%, transparent)',
+                color: 'var(--monarch-success)',
+                transform: amount > 0 ? 'rotateX(0deg)' : 'rotateX(-90deg)',
+                opacity: amount > 0 ? 1 : 0,
+                transition: 'transform 200ms ease-out, opacity 150ms ease-out',
+                transformOrigin: 'top center',
+                backfaceVisibility: 'hidden',
+              }}
+            >
+              {formatCurrency(
+                Math.round(
+                  showLiveProjection
+                    ? newStartingBalance + amount // Monthly: starting balance + monthly contribution
+                    : item.current_balance + amount // Savings: current + one-time boost
+                )
+              )}{' '}
+              stashed
+              {showLiveProjection && (() => {
+                const now = new Date();
+                const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+                return ` by ${lastDay.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+              })()}
+            </div>
+          </div>
+          {showTargetInfo && (
+            <div className="text-xs space-y-0.5 text-monarch-text-muted">
+              <div>{renderTargetInfo()}</div>
+              {showLiveProjection && showProjection && (() => {
+                // Case 1: Won't reach goal within 10 years
+                if (projectionWontReach) {
+                  return (
+                    <div
+                      className="flex items-center gap-1"
+                      style={{ color: 'var(--monarch-error)' }}
+                    >
+                      <Icons.ClockAlert size={12} />
+                      <span>Won't reach goal in time</span>
+                    </div>
+                  );
+                }
+                // Case 2: Will reach, but at a different time than target
+                if (projectedDate && targetDate) {
+                  const isSooner = projectedDate.getTime() < targetDate.getTime();
+                  return (
+                    <div
+                      className="flex items-center gap-1"
+                      style={{ color: isSooner ? 'var(--monarch-success)' : 'var(--monarch-warning)' }}
+                    >
+                      {isSooner ? (
+                        <Icons.ClockArrowDown size={12} />
+                      ) : (
+                        <Icons.ClockArrowUp size={12} />
+                      )}
+                      <span>{formatDateShortYear(projectedDate)} with contributions</span>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+            </div>
+          )}
+        </div>
+
+        {/* Amount/Percent input */}
+        <div className="flex flex-col items-end shrink-0">
+          <div className="flex items-center gap-1">
+            <div
+              className={`flex items-center rounded-md border px-2.5 py-1.5 bg-monarch-bg-card transition-colors ${
+                isFocused ? 'border-monarch-orange' : 'border-monarch-border'
+              }`}
+            >
+              <UnitSelector mode={inputMode} onChange={onInputModeChange} />
+              <input
+                ref={inputRef}
+                type="text"
+                inputMode="numeric"
+                value={displayValue}
+                onChange={handleChange}
+                onFocus={handleFocus}
+                onBlur={handleBlur}
+                onKeyDown={handleKeyDown}
+                placeholder="0"
+                className="w-16 text-right font-medium bg-transparent outline-none text-monarch-text-dark placeholder:text-monarch-text-muted tabular-nums"
+                aria-label={
+                  inputMode === 'percent' ? `Percent for ${item.name}` : `Amount for ${item.name}`
+                }
+              />
+              {inputMode === 'amount' && showLiveProjection && (
+                <span className="font-medium text-monarch-text-muted ml-0.5">/ mo</span>
+              )}
+            </div>
+          </div>
+          {/* Suggestion hint when user enters excessive amount */}
+          {showSuggestion && (
+            <Tooltip
+              content={
+                itemEvents.length > 0
+                  ? 'You only need to contribute this amount to reach your goal in time due to upcoming events for this stash'
+                  : 'You only need to contribute this amount to reach your goal in time'
+              }
+            >
+              <button
+                type="button"
+                onClick={() => onApplySuggestion(item.id, suggestedAmount)}
+                className="flex items-center gap-1 mt-1 text-xs text-blue-400 hover:text-blue-300 transition-colors cursor-pointer"
+                aria-label={`Apply suggested amount of ${formatCurrency(suggestedAmount)}`}
+              >
+                <Icons.Lightbulb size={12} />
+                <span>{formatCurrency(suggestedAmount)} instead</span>
+              </button>
+            </Tooltip>
+          )}
+
+          {/* Events section - only on monthly screen, right-aligned under input */}
+          {showLiveProjection && (
+            <div className="flex flex-col items-end mt-1">
+              {/* Existing events */}
+              {itemEvents.map((event) => (
+                <EventRow
+                  key={event.id}
+                  event={event}
+                  onUpdate={(updates) => onUpdateEvent?.(event.id, updates)}
+                  onRemove={() => onRemoveEvent?.(event.id)}
+                />
+              ))}
+
+              {/* Add event link */}
+              {itemEvents.length < 10 && onAddEvent && (
+                <button
+                  type="button"
+                  onClick={onAddEvent}
+                  className="flex items-center gap-1 text-xs transition-colors text-monarch-text-muted hover:text-monarch-orange"
+                >
+                  <Icons.Plus size={12} />
+                  <span className="hover:underline">Add event</span>
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

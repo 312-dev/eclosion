@@ -17,7 +17,7 @@ import {
   calculateMonthsRemaining,
   formatMonthsRemaining,
 } from '../../utils/savingsCalculations';
-import { StashCategoryModal, type CategorySelection } from './StashCategoryModal';
+import { InlineCategorySelector, type CategorySelectionResult } from './InlineCategorySelector';
 import { NewStashImageUpload } from './NewStashImageUpload';
 import { SavingsProgressBar } from '../shared';
 import {
@@ -70,7 +70,9 @@ export function NewStashForm({
   const [targetDate, setTargetDate] = useState(quickPicks.threeMonths);
   const [emoji, setEmoji] = useState('');
   const [goalType, setGoalType] = useState<StashGoalType>('one_time');
-  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [categorySelection, setCategorySelection] = useState<CategorySelectionResult>({
+    mode: 'create_new',
+  });
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [openverseImage, setOpenverseImage] = useState<ImageSelection | null>(null);
@@ -107,8 +109,10 @@ export function NewStashForm({
     }
   }, []);
 
-  const validateAndOpenCategory = useCallback(() => {
+  const handleSubmit = useCallback(async () => {
     const amountNum = Number.parseFloat(amount);
+
+    // Validate form
     if (!name.trim()) {
       toast.error('Please enter a name');
       return;
@@ -121,84 +125,98 @@ export function NewStashForm({
       toast.error('Please select a target date');
       return;
     }
-    setIsCategoryModalOpen(true);
-  }, [name, amount, targetDate, toast]);
 
-  const handleCategoryConfirm = useCallback(
-    async (selection: CategorySelection) => {
-      const amountNum = Number.parseFloat(amount);
-      try {
-        let customImagePath: string | undefined;
+    // Validate category selection
+    const { mode, categoryGroupId, categoryId, flexibleGroupId } = categorySelection;
+    if (mode === 'create_new' && !categoryGroupId) {
+      toast.error('Please select a category group');
+      return;
+    }
+    if (mode === 'use_existing' && !categoryId && !flexibleGroupId) {
+      toast.error('Please select a category');
+      return;
+    }
 
-        // Handle local file upload
-        if (selectedImage) {
-          const tempId = `temp-${Date.now()}`;
-          customImagePath = (await uploadImage(tempId, selectedImage)) ?? undefined;
-        }
-        // Handle Openverse image URL (store URL directly)
-        else if (openverseImage?.url) {
-          customImagePath = openverseImage.url;
-        }
+    try {
+      let customImagePath: string | undefined;
 
-        const baseRequest = {
-          name: name.trim(),
-          amount: amountNum,
-          target_date: targetDate,
-          goal_type: goalType,
-          ...(url.trim() && { source_url: url.trim() }),
-          ...(prefill?.sourceBookmarkId && { source_bookmark_id: prefill.sourceBookmarkId }),
-          ...(emoji && { emoji }),
-          ...(customImagePath && { custom_image_path: customImagePath }),
-          // Store Openverse attribution if using an Openverse image
-          ...(openverseImage?.attribution && { image_attribution: openverseImage.attribution }),
-        };
-
-        let request;
-        if (selection.type === 'create_new') {
-          request = { ...baseRequest, category_group_id: selection.categoryGroupId };
-        } else if (selection.type === 'use_existing') {
-          request = { ...baseRequest, existing_category_id: selection.categoryId };
-        } else {
-          // use_flexible_group - link to the group directly for group-level rollover
-          request = { ...baseRequest, flexible_group_id: selection.groupId };
-        }
-
-        await createMutation.mutateAsync(request);
-        toast.success('Stash created');
-        setIsCategoryModalOpen(false);
-
-        if (pendingBookmarkId && onPendingConverted) {
-          await onPendingConverted(pendingBookmarkId);
-        }
-        onSuccess?.();
-        onClose();
-      } catch (err) {
-        toast.error(handleApiError(err, 'Creating stash'));
+      // Handle local file upload
+      if (selectedImage) {
+        const tempId = `temp-${Date.now()}`;
+        customImagePath = (await uploadImage(tempId, selectedImage)) ?? undefined;
       }
-    },
-    [
-      amount,
-      name,
-      targetDate,
-      url,
-      emoji,
-      goalType,
-      selectedImage,
-      openverseImage,
-      prefill,
-      createMutation,
-      uploadImage,
-      toast,
-      pendingBookmarkId,
-      onPendingConverted,
-      onSuccess,
-      onClose,
-    ]
-  );
+      // Handle Openverse image URL (store URL directly)
+      else if (openverseImage?.url) {
+        customImagePath = openverseImage.url;
+      }
+
+      const baseRequest = {
+        name: name.trim(),
+        amount: amountNum,
+        target_date: targetDate,
+        goal_type: goalType,
+        ...(url.trim() && { source_url: url.trim() }),
+        ...(prefill?.sourceBookmarkId && { source_bookmark_id: prefill.sourceBookmarkId }),
+        ...(emoji && { emoji }),
+        ...(customImagePath && { custom_image_path: customImagePath }),
+        // Store Openverse attribution if using an Openverse image
+        ...(openverseImage?.attribution && { image_attribution: openverseImage.attribution }),
+      };
+
+      let request;
+      if (mode === 'create_new' && categoryGroupId) {
+        request = { ...baseRequest, category_group_id: categoryGroupId };
+      } else if (flexibleGroupId) {
+        // use_flexible_group - link to the group directly for group-level rollover
+        request = { ...baseRequest, flexible_group_id: flexibleGroupId };
+      } else if (categoryId) {
+        request = { ...baseRequest, existing_category_id: categoryId };
+      } else {
+        toast.error('Please select a category');
+        return;
+      }
+
+      await createMutation.mutateAsync(request);
+      toast.success('Stash created');
+
+      if (pendingBookmarkId && onPendingConverted) {
+        await onPendingConverted(pendingBookmarkId);
+      }
+      onSuccess?.();
+      onClose();
+    } catch (err) {
+      toast.error(handleApiError(err, 'Creating stash'));
+    }
+  }, [
+    amount,
+    name,
+    targetDate,
+    url,
+    emoji,
+    goalType,
+    categorySelection,
+    selectedImage,
+    openverseImage,
+    prefill,
+    createMutation,
+    uploadImage,
+    toast,
+    pendingBookmarkId,
+    onPendingConverted,
+    onSuccess,
+    onClose,
+  ]);
 
   const isSubmitting = createMutation.isPending || isUploading;
   const amountNum = Number.parseFloat(amount) || 0;
-  const isFormValid = name.trim() && amountNum > 0 && targetDate && monthlyTarget >= 1;
+
+  // Category validation
+  const isCategoryValid =
+    categorySelection.mode === 'create_new'
+      ? Boolean(categorySelection.categoryGroupId)
+      : Boolean(categorySelection.categoryId) || Boolean(categorySelection.flexibleGroupId);
+
+  const isFormValid = name.trim() && amountNum > 0 && targetDate && monthlyTarget >= 1 && isCategoryValid;
   const isDisabled = isSubmitting || isRateLimited || !isFormValid;
 
   return (
@@ -296,21 +314,18 @@ export function NewStashForm({
             </>
           )}
         </div>
+
+        {/* Category Selection */}
+        <InlineCategorySelector
+          value={categorySelection}
+          onChange={setCategorySelection}
+          defaultCategoryGroupId={stashConfig?.defaultCategoryGroupId ?? undefined}
+        />
       </div>
 
       <div className="flex items-center justify-end gap-2 mt-6 pt-4 border-t border-(--monarch-border)">
-        {renderFooter({ isDisabled, isSubmitting, onSubmit: validateAndOpenCategory })}
+        {renderFooter({ isDisabled, isSubmitting, onSubmit: handleSubmit })}
       </div>
-
-      <StashCategoryModal
-        isOpen={isCategoryModalOpen}
-        onClose={() => setIsCategoryModalOpen(false)}
-        onConfirm={handleCategoryConfirm}
-        {...(stashConfig?.defaultCategoryGroupId && {
-          defaultCategoryGroupId: stashConfig.defaultCategoryGroupId,
-        })}
-        isSubmitting={isSubmitting}
-      />
     </>
   );
 }

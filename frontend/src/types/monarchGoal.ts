@@ -34,6 +34,7 @@ export interface MonarchGoal {
   grid_y: number;
   col_span: number;
   row_span: number;
+  sort_order: number;
 
   // UI state
   isArchived: boolean;
@@ -50,4 +51,5 @@ export interface MonarchGoalLayoutUpdate {
   grid_y: number;
   col_span: number;
   row_span: number;
+  sort_order: number;
 }

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useId } from 'react';
 import { ChevronDown, Search, Check } from 'lucide-react';
 import { Portal } from './Portal';
 import { useDropdown } from '../hooks';
-import { UI } from '../constants';
+import { UI, Z_INDEX } from '../constants';
 
 export interface SelectOption {
   value: string;
@@ -32,6 +32,8 @@ interface SearchableSelectProps {
   'aria-label'?: string;
   /** ID of element that labels this select */
   'aria-labelledby'?: string;
+  /** Set to true when used inside a modal to ensure proper z-index stacking */
+  insideModal?: boolean;
 }
 
 export function SearchableSelect({
@@ -48,12 +50,23 @@ export function SearchableSelect({
   onOpen,
   'aria-label': ariaLabel,
   'aria-labelledby': ariaLabelledby,
+  insideModal = false,
 }: Readonly<SearchableSelectProps>) {
+  // Use higher z-index when inside a modal to ensure dropdown appears above modal content
+  const dropdownZIndex = insideModal ? Z_INDEX.TOOLTIP : undefined;
   const listboxId = useId();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(-1);
+  const [triggerWidth, setTriggerWidth] = useState<number>(0);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const dropdown = useDropdown<HTMLDivElement, HTMLButtonElement>({ alignment: 'left' });
+
+  // Track trigger button width to ensure dropdown is at least as wide
+  useEffect(() => {
+    if (dropdown.triggerRef.current) {
+      setTriggerWidth(dropdown.triggerRef.current.offsetWidth);
+    }
+  }, [dropdown.isOpen]);
 
   // Get all options (either flat or from groups)
   const allOptions = groups ? groups.flatMap((g) => g.options) : options;
@@ -223,7 +236,8 @@ export function SearchableSelect({
         <Portal>
           {/* Backdrop for closing */}
           <div
-            className="fixed inset-0 z-(--z-index-dropdown)"
+            className={insideModal ? 'fixed inset-0' : 'fixed inset-0 z-(--z-index-dropdown)'}
+            style={dropdownZIndex ? { zIndex: dropdownZIndex } : undefined}
             onClick={() => dropdown.close()}
             aria-hidden="true"
           />
@@ -235,12 +249,15 @@ export function SearchableSelect({
             aria-activedescendant={
               activeIndex >= 0 ? `${listboxId}-option-${activeIndex}` : undefined
             }
-            className="fixed z-(--z-index-dropdown) min-w-50 max-w-75 rounded-lg shadow-lg border border-(--monarch-border) bg-(--monarch-bg-card) overflow-hidden dropdown-menu"
+            className={`fixed rounded-lg shadow-lg border border-(--monarch-border) bg-(--monarch-bg-card) overflow-hidden dropdown-menu ${insideModal ? '' : 'z-(--z-index-dropdown)'}`}
             style={{
               top: dropdown.position.top,
               bottom: dropdown.position.bottom,
               left: dropdown.position.left,
               right: dropdown.position.right,
+              minWidth: triggerWidth > 0 ? triggerWidth : undefined,
+              maxWidth: '90vw',
+              ...(dropdownZIndex ? { zIndex: dropdownZIndex } : {}),
             }}
             onKeyDown={handleKeyDown}
             tabIndex={-1}

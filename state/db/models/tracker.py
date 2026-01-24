@@ -207,6 +207,8 @@ class WishlistItem(Base):
     grid_y: Mapped[int] = mapped_column(Integer, default=0)
     col_span: Mapped[int] = mapped_column(Integer, default=1)
     row_span: Mapped[int] = mapped_column(Integer, default=1)
+    # Sequential sort order for drag-to-reorder (0-indexed, lower = earlier)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
 
     # Goal type determines how progress is calculated
     # - 'one_time': Save up to buy something, mark complete when done.
@@ -309,5 +311,7 @@ class MonarchGoalLayout(Base):
     grid_y: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     col_span: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     row_span: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    # Sequential sort order for drag-to-reorder (0-indexed, lower = earlier)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

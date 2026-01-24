@@ -5,7 +5,7 @@
  * Includes category group selection, auto-archive settings, and browser info.
  */
 
-import { useState, useCallback, forwardRef } from 'react';
+import { useState, useCallback, useEffect, useRef, forwardRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { ChevronRight } from 'lucide-react';
 import { SearchableSelect } from '../SearchableSelect';
@@ -46,6 +46,8 @@ export const StashToolSettings = forwardRef<HTMLDivElement, StashToolSettingsPro
   const isDemo = useDemo();
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const [showAccountSelectionModal, setShowAccountSelectionModal] = useState(false);
+  const [editingBuffer, setEditingBuffer] = useState<number | null>(null);
+  const bufferDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
   // Queries
   const { data: config, isLoading: configLoading } = useStashConfigQuery();
@@ -56,6 +58,18 @@ export const StashToolSettings = forwardRef<HTMLDivElement, StashToolSettingsPro
   const { isSaving, withSaving } = useSavingStates<SettingKey>();
 
   const toggleExpanded = useCallback(() => setIsExpanded((prev) => !prev), []);
+
+  // Use editing value when actively editing, otherwise use config value
+  const displayBuffer = editingBuffer ?? config?.bufferAmount ?? 0;
+
+  // Cleanup debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (bufferDebounceRef.current) {
+        clearTimeout(bufferDebounceRef.current);
+      }
+    };
+  }, []);
 
   // Browser sync is configured
   const isBrowserSyncConfigured = config?.isConfigured ?? false;
@@ -134,6 +148,31 @@ export const StashToolSettings = forwardRef<HTMLDivElement, StashToolSettingsPro
       }
     });
   };
+
+  const handleBufferChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const rawValue = e.target.value.replaceAll(/\D/g, '');
+      const value = rawValue === '' ? 0 : Math.max(0, Number.parseInt(rawValue, 10));
+      setEditingBuffer(value);
+
+      // Debounce save to backend
+      if (bufferDebounceRef.current) {
+        clearTimeout(bufferDebounceRef.current);
+      }
+      bufferDebounceRef.current = setTimeout(async () => {
+        try {
+          await updateConfig.mutateAsync({ bufferAmount: value });
+          // Invalidate available to stash data to trigger recalculation
+          queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.availableToStash, isDemo) });
+          // Clear editing state after successful save
+          setEditingBuffer(null);
+        } catch {
+          toast.error('Failed to update buffer amount');
+        }
+      }, 500);
+    },
+    [updateConfig, queryClient, isDemo, toast]
+  );
 
   const handleAccountSelectionSave = async (accountIds: string[] | null) => {
     try {
@@ -276,6 +315,31 @@ export const StashToolSettings = forwardRef<HTMLDivElement, StashToolSettingsPro
                   {getAccountSelectionLabel()}
                   <ChevronRight size={16} className="text-monarch-text-muted" />
                 </button>
+              </SettingsRow>
+
+              {/* Reserved Buffer Amount */}
+              <SettingsRow
+                label="Reserved buffer"
+                description="Reserve funds that won't count toward Available Funds"
+                variant={variant}
+              >
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm" style={{ color: 'var(--monarch-text-muted)' }}>$</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={displayBuffer === 0 ? '' : displayBuffer.toLocaleString()}
+                    onChange={handleBufferChange}
+                    placeholder="0"
+                    className="w-20 px-2 py-1 text-right rounded text-sm tabular-nums"
+                    style={{
+                      border: '1px solid var(--monarch-border)',
+                      backgroundColor: 'var(--monarch-bg-card)',
+                      color: 'var(--monarch-text-dark)',
+                    }}
+                    aria-label="Reserved buffer amount"
+                  />
+                </div>
               </SettingsRow>
 
               {/* Show Monarch goals in Stash */}

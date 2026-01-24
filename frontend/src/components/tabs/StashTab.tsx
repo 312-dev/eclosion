@@ -80,6 +80,7 @@ export function StashTab() {
   const [modalPrefill, setModalPrefill] = useState<ModalPrefill | undefined>(undefined);
   const [isPendingExpanded, setIsPendingExpanded] = useState(false);
   const [isIgnoredExpanded, setIsIgnoredExpanded] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
   const [selectedPendingBookmark, setSelectedPendingBookmark] = useState<PendingBookmark | null>(
     null
   );
@@ -107,6 +108,12 @@ export function StashTab() {
   });
   const { onBookmarkChange } = useBookmarks();
 
+  // Ref to hold latest syncBookmarks for stable interval callback
+  const syncBookmarksRef = useRef(syncBookmarks);
+  useEffect(() => {
+    syncBookmarksRef.current = syncBookmarks;
+  }, [syncBookmarks]);
+
   // Report settings for filtering
   const { setFilteredStashId } = useReportSettings();
 
@@ -126,6 +133,17 @@ export function StashTab() {
     });
     return unsubscribe;
   }, [isBrowserConfigured, onBookmarkChange, toast]);
+
+  // Auto-sync bookmarks every minute when configured (silent background sync)
+  useEffect(() => {
+    if (!isBrowserConfigured) return;
+
+    const intervalId = setInterval(() => {
+      syncBookmarksRef.current({ silent: true });
+    }, 60 * 1000);
+
+    return () => clearInterval(intervalId);
+  }, [isBrowserConfigured]);
 
   // Listen for tour event
   useEffect(() => {
@@ -269,7 +287,7 @@ export function StashTab() {
   }
 
   return (
-      <div className="tab-content-enter px-6 pb-6 max-w-7xl mx-auto">
+    <div className="tab-content-enter px-6 pb-48">
       {/* Header */}
       <ToolPageHeader
         icon={<StashIcon size={40} />}
@@ -319,9 +337,40 @@ export function StashTab() {
           Monarch Goals
           <ExternalLink size={14} />
         </a>
+
+        {/* Show Archived toggle - floated right */}
+        {activeView === 'stashes' && archivedItems.length > 0 && (
+          <div className="ml-auto flex items-center gap-2 select-none">
+            <span
+              className="text-sm"
+              style={{ color: 'var(--monarch-text-muted)' }}
+            >
+              Show Archived
+            </span>
+            <button
+              role="switch"
+              aria-checked={showArchived}
+              aria-label="Show archived stashes"
+              onClick={() => setShowArchived(!showArchived)}
+              className="toggle-switch relative w-10 h-5 rounded-full transition-colors cursor-pointer"
+              style={{
+                backgroundColor: showArchived
+                  ? 'var(--monarch-orange)'
+                  : 'var(--monarch-border)',
+              }}
+            >
+              <span
+                className="toggle-knob absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform"
+                style={{
+                  transform: showArchived ? 'translateX(20px)' : 'translateX(0)',
+                }}
+              />
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Available Funds Bar with Distribute Button */}
+      {/* Available Funds Bar with Distribute Button - floats at bottom */}
       {activeView === 'stashes' && stashData && (
         <AvailableFundsBar
           includeExpectedIncome={includeExpectedIncome}
@@ -333,7 +382,7 @@ export function StashTab() {
 
       {activeView === 'stashes' ? (
         <>
-          <div className="mb-6 w-full">
+          <div className="mt-6 mb-6 w-full">
             <StashWidgetGrid
               items={activeItems}
               onEdit={handleEdit}
@@ -345,28 +394,31 @@ export function StashTab() {
               onAdd={() => setIsAddModalOpen(true)}
               onViewReport={handleViewStashReport}
               showTypeBadges={configData?.showMonarchGoals ?? false}
+              archivedItems={
+                showArchived
+                  ? archivedItems.filter((item): item is StashItem => item.type === 'stash')
+                  : undefined
+              }
             />
           </div>
 
-          {/* Sync button - centered below grid */}
-          <div className="flex justify-center mb-3">
-            <button
-              data-tour="stash-sync-bookmarks"
-              onClick={syncBookmarks}
-              disabled={isSyncing}
-              className="flex items-center gap-2 px-2 py-1 text-sm font-medium transition-colors hover:opacity-80"
-              style={{
-                color: 'var(--monarch-text-dark)',
-              }}
-            >
-              {isBrowserConfigured ? (
-                <Icons.Refresh size={16} className={isSyncing ? 'animate-spin' : ''} />
-              ) : (
+          {/* Import button - only shown when not configured */}
+          {!isBrowserConfigured && (
+            <div className="flex justify-center mb-3">
+              <button
+                data-tour="stash-sync-bookmarks"
+                onClick={() => syncBookmarks()}
+                disabled={isSyncing}
+                className="flex items-center gap-2 px-2 py-1 text-sm font-medium transition-colors hover:opacity-80"
+                style={{
+                  color: 'var(--monarch-text-dark)',
+                }}
+              >
                 <Icons.Download size={16} />
-              )}
-              Import Folder from Browser Bookmarks
-            </button>
-          </div>
+                Import Folder from Browser Bookmarks
+              </button>
+            </div>
+          )}
 
           {pendingBookmarks.length > 0 && (
             <div ref={pendingSectionRef}>
@@ -380,12 +432,15 @@ export function StashTab() {
               />
             </div>
           )}
-          <ArchivedItemsSection
-            items={archivedItems.filter((item): item is StashItem => item.type === 'stash')}
-            onEdit={handleEdit}
-            onAllocate={handleAllocate}
-            allocatingItemId={allocatingItemId}
-          />
+          {/* Show collapsed section only when toggle is off */}
+          {!showArchived && (
+            <ArchivedItemsSection
+              items={archivedItems.filter((item): item is StashItem => item.type === 'stash')}
+              onEdit={handleEdit}
+              onAllocate={handleAllocate}
+              allocatingItemId={allocatingItemId}
+            />
+          )}
           <IgnoredBookmarksSection
             items={skippedBookmarks}
             onCreateTarget={handleCreateTarget}
@@ -394,7 +449,9 @@ export function StashTab() {
           />
         </>
       ) : (
-        <StashReportsView />
+        <div className="mt-6">
+          <StashReportsView />
+        </div>
       )}
       <NewStashModal
         isOpen={isAddModalOpen}

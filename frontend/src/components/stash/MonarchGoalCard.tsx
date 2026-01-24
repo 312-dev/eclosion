@@ -60,7 +60,9 @@ function getMonarchImageUrl(
 function formatTargetDateShort(targetDate: string | null): string {
   if (!targetDate) return '';
 
-  const date = new Date(targetDate);
+  // Append T00:00:00 to interpret as local midnight, not UTC
+  // Without this, '2026-06-01' becomes May 31st in western timezones
+  const date = new Date(targetDate + 'T00:00:00');
   const currentYear = new Date().getFullYear();
   const targetYear = date.getFullYear();
 
@@ -72,7 +74,8 @@ function formatTargetDateShort(targetDate: string | null): string {
 /** Format goal description matching Stash card style */
 function formatGoalDescription(
   targetAmount: number | null,
-  targetDate: string | null
+  targetDate: string | null,
+  includePrefix = false
 ): string {
   if (!targetAmount && !targetDate) {
     return 'Save as you go';
@@ -82,14 +85,16 @@ function formatGoalDescription(
     return `Reach goal by ${formatTargetDateShort(targetDate)}`;
   }
 
+  const prefix = includePrefix ? 'Save ' : '';
+  const formattedTarget = formatCurrency(targetAmount, { maximumFractionDigits: 0 });
+
   if (!targetDate) {
-    return `Save ${formatCurrency(targetAmount, { maximumFractionDigits: 0 })}`;
+    return `${prefix}${formattedTarget}`;
   }
 
-  const formattedTarget = formatCurrency(targetAmount, { maximumFractionDigits: 0 });
   const dateStr = formatTargetDateShort(targetDate);
 
-  return `Save ${formattedTarget} by ${dateStr}`;
+  return `${prefix}${formattedTarget} by ${dateStr}`;
 }
 
 /** Status badge colors and labels */
@@ -145,6 +150,31 @@ function GoalStatusBadge({ status }: { readonly status: MonarchGoal['status'] })
       {config.icon === 'check' && <Icons.Check size={12} />}
       {config.label}
     </span>
+  );
+}
+
+/** Goal description text with responsive "Save" prefix */
+function GoalDescriptionText({
+  targetAmount,
+  targetDate,
+}: {
+  readonly targetAmount: number | null;
+  readonly targetDate: string | null;
+}) {
+  if (!targetAmount && !targetDate) {
+    return <>Save as you go</>;
+  }
+
+  if (!targetAmount) {
+    return <>Reach goal by {formatTargetDateShort(targetDate)}</>;
+  }
+
+  return (
+    <>
+      <span className="hidden @[140px]:inline">Save </span>
+      {formatCurrency(targetAmount, { maximumFractionDigits: 0 })}
+      {targetDate && ` by ${formatTargetDateShort(targetDate)}`}
+    </>
   );
 }
 
@@ -233,7 +263,7 @@ export const MonarchGoalCard = memo(function MonarchGoalCard({
           {/* Left: Title and goal description */}
           <div className="min-w-0 flex-1">
             {/* Title */}
-            <div className="mb-1 flex items-center gap-1.5">
+            <div className="mb-1 flex items-center gap-1.5 min-w-0">
               <h3
                 className="text-base font-medium truncate hover:underline"
                 style={{ color: 'var(--monarch-text-dark)' }}
@@ -243,14 +273,20 @@ export const MonarchGoalCard = memo(function MonarchGoalCard({
               </h3>
               <Icons.ExternalLink size={14} className="shrink-0" style={{ color: 'var(--monarch-text-muted)' }} />
             </div>
-            {/* Goal description (matching Stash card style) */}
+            {/* Goal description (matching Stash card style) - "Save" hidden on narrow cards */}
             <div
-              className="flex items-center gap-1 text-sm"
+              className="@container flex items-center gap-1 text-sm min-w-0"
               style={{ color: 'var(--monarch-text-muted)' }}
             >
-              <Target size={14} style={{ color: '#a78bfa' }} />
-              <span>
-                {formatGoalDescription(goal.targetAmount, goal.targetDate)}
+              <Target size={14} className="shrink-0" style={{ color: '#a78bfa' }} />
+              <span
+                className="truncate"
+                title={formatGoalDescription(goal.targetAmount, goal.targetDate, true)}
+              >
+                <GoalDescriptionText
+                  targetAmount={goal.targetAmount}
+                  targetDate={goal.targetDate}
+                />
               </span>
             </div>
           </div>

@@ -238,7 +238,7 @@ export const StashCard = memo(function StashCard({
           {/* Left side: Title and date */}
           <div className="min-w-0 flex-1">
             {/* Title */}
-            <div className="mb-1">
+            <div className="mb-1 min-w-0 overflow-hidden">
               {onViewReport ? (
                 <StashTitleDropdown
                   stashName={item.name}
@@ -296,18 +296,23 @@ export const StashCard = memo(function StashCard({
                 </>
               )}
             </div>
-            {/* Goal type, amount, and target date */}
+            {/* Goal type, amount, and target date - "Save"/"Maintain" hidden on narrow cards */}
             <div
-              className="flex items-center gap-1 text-sm"
+              className="@container flex items-center gap-1 text-sm min-w-0"
               style={{ color: 'var(--monarch-text-muted)' }}
             >
               {item.goal_type === 'savings_buffer' ? (
-                <Icons.PiggyBank size={14} style={{ color: '#a78bfa' }} />
+                <Icons.PiggyBank size={14} className="shrink-0" style={{ color: '#a78bfa' }} />
               ) : (
-                <Icons.Gift size={14} style={{ color: '#60a5fa' }} />
+                <Icons.Gift size={14} className="shrink-0" style={{ color: '#60a5fa' }} />
               )}
-              <span>
-                {item.goal_type === 'savings_buffer' ? 'Maintain' : 'Save'}{' '}
+              <span
+                className="truncate"
+                title={`${item.goal_type === 'savings_buffer' ? 'Maintain' : 'Save'} ${formatCurrency(item.amount, { maximumFractionDigits: 0 })} by ${dateDisplay}`}
+              >
+                <span className="hidden @[140px]:inline">
+                  {item.goal_type === 'savings_buffer' ? 'Maintain ' : 'Save '}
+                </span>
                 {formatCurrency(item.amount, { maximumFractionDigits: 0 })} by {dateDisplay}
               </span>
             </div>

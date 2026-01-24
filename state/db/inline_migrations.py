@@ -20,7 +20,7 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 # Current schema version - bump when adding migrations
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 
 
 def column_exists(conn: sqlite3.Connection, table: str, column: str) -> bool:
@@ -124,6 +124,35 @@ def migrate_v5_wishlist_goal_type(conn: sqlite3.Connection) -> None:
     # The column will remain but be unused. The model simply won't map to it.
 
 
+def migrate_v6_stash_sort_order(conn: sqlite3.Connection) -> None:
+    """
+    Migration v6: Add sort_order column for drag-to-reorder persistence.
+
+    Adds sort_order to:
+    - wishlist_items: For stash item reordering
+    - monarch_goal_layout: For Monarch goal reordering
+    """
+    cursor = conn.cursor()
+
+    # Add sort_order to wishlist_items
+    if not column_exists(conn, "wishlist_items", "sort_order"):
+        cursor.execute(
+            "ALTER TABLE wishlist_items ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0"
+        )
+
+    # Add sort_order to monarch_goal_layout (if table exists)
+    try:
+        if not column_exists(conn, "monarch_goal_layout", "sort_order"):
+            cursor.execute(
+                "ALTER TABLE monarch_goal_layout ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0"
+            )
+    except sqlite3.OperationalError:
+        # Table may not exist if Monarch goals feature hasn't been used
+        pass
+
+    conn.commit()
+
+
 # Migration definitions
 # Each migration runs only if current DB version < migration version
 # "sql" can be a string (executed as script) or a callable (called with conn)
@@ -185,6 +214,13 @@ MIGRATIONS = [
         "version": 5,
         "description": "Wishlist goal types with completion tracking",
         "sql": migrate_v5_wishlist_goal_type,
+    },
+    # Version 6: Add sort_order for drag-to-reorder persistence
+    # Adds sort_order to wishlist_items and monarch_goal_layout
+    {
+        "version": 6,
+        "description": "Add sort_order for stash reordering",
+        "sql": migrate_v6_stash_sort_order,
     },
 ]
 

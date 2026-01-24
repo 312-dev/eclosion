@@ -54,6 +54,7 @@ class StashItemDict(TypedDict):
     grid_y: int | None
     col_span: int | None
     row_span: int | None
+    sort_order: int | None
     # Goal type: 'one_time' (default) or 'savings_buffer'
     goal_type: str
     # Completion timestamp for one_time goals
@@ -271,6 +272,7 @@ class StashService:
                     grid_y=item.grid_y,
                     col_span=item.col_span,
                     row_span=item.row_span,
+                    sort_order=getattr(item, "sort_order", 0),
                     goal_type=getattr(item, "goal_type", "one_time"),
                     completed_at=getattr(item, "completed_at", None),
                     tracking_start_date=getattr(item, "tracking_start_date", None),
@@ -484,8 +486,8 @@ class StashService:
                 # Balance breakdown for tooltip
                 "rollover_amount": rollover_balance,
                 "credits_this_month": credits_this_month,
-                # Grid layout fields (sort_order is legacy, grid fields are primary)
-                "sort_order": 0,
+                # Grid layout fields
+                "sort_order": item.get("sort_order", 0),
                 "grid_x": item["grid_x"],
                 "grid_y": item["grid_y"],
                 "col_span": item["col_span"],
@@ -1135,6 +1137,7 @@ class StashService:
                     "grid_y": layout.grid_y,
                     "col_span": layout.col_span,
                     "row_span": layout.row_span,
+                    "sort_order": layout.sort_order,
                 }
                 for layout in repo.get_all_monarch_goal_layouts()
             }
@@ -1187,23 +1190,26 @@ class StashService:
             # Use status from Monarch API, map null to 'no_target'
             status = goal["status"] if goal["status"] is not None else "no_target"
 
-            # Determine grid position
+            # Determine grid position and sort order
             is_completed = goal["is_completed"]
             if layout:
                 grid_x = layout["grid_x"]
                 grid_y = layout["grid_y"]
                 col_span = layout["col_span"]
                 row_span = layout["row_span"]
+                sort_order = layout.get("sort_order", 0)
             elif is_completed:
                 # Completed goals are shown in "Past" section, not the grid
                 # Default position doesn't matter
                 grid_x, grid_y = 0, 0
                 col_span, row_span = 1, 1
+                sort_order = 0
             else:
                 # Active goal without layout - find a non-colliding position
                 col_span = 1
                 row_span = 1
                 grid_x, grid_y = find_next_available_position(col_span, row_span)
+                sort_order = 0
                 # Track this position so subsequent goals don't collide
                 occupied_positions.append((grid_x, grid_y, col_span, row_span))
                 logger.info(f"[Stash] Assigned new position for goal {goal_id}: x={grid_x}, y={grid_y}")
@@ -1230,6 +1236,7 @@ class StashService:
                 "grid_y": grid_y,
                 "col_span": col_span,
                 "row_span": row_span,
+                "sort_order": sort_order,
                 # State
                 "is_archived": False,  # Already filtered by get_savings_goals_full
                 "is_completed": goal["is_completed"],

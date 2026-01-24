@@ -87,8 +87,9 @@ export function useStashQuery(options?: { enabled?: boolean }) {
       const data = isDemo ? await demoApi.getStash() : await api.getStash();
       return transformStashData(data);
     },
-    staleTime: 2 * 60 * 1000, // Consider fresh for 2 minutes
-    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
+    // Use reasonable staleTime - mutations invalidate the query for fresh data
+    staleTime: 30 * 1000, // Consider stale after 30 seconds
+    gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes for navigation
     ...options,
   });
 }
@@ -296,6 +297,10 @@ export function useStashSyncMutation() {
       queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.availableToStash, isDemo) });
       // Invalidate history so Reports tab refreshes after sync
       queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.stashHistory, isDemo) });
+      // Invalidate Monarch goals so deleted/added goals are reflected
+      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.monarchGoals, isDemo) });
+      // Invalidate dashboard to update Left to Budget (goal changes affect budgets)
+      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.dashboard, isDemo) });
     },
   });
 }
@@ -303,13 +308,14 @@ export function useStashSyncMutation() {
 /** Update stash item layouts (position and size) for drag-drop and resizing */
 export function useUpdateStashLayoutMutation() {
   const isDemo = useDemo();
-  const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (layouts: StashLayoutUpdate[]) =>
-      isDemo ? demoApi.updateStashLayouts(layouts) : api.updateStashLayouts(layouts),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.stash, isDemo) });
+    mutationFn: async (layouts: StashLayoutUpdate[]) => {
+      const result = isDemo ? await demoApi.updateStashLayouts(layouts) : await api.updateStashLayouts(layouts);
+      return result;
     },
+    // Note: We intentionally do NOT invalidate the stash query here.
+    // The grid component manages layout state locally. Invalidating would
+    // cause a refetch → new sort_order → layout recreation → infinite loop.
   });
 }
 
@@ -331,6 +337,24 @@ export function useUpdateCategoryRolloverMutation() {
       isDemo
         ? demoApi.updateCategoryRolloverBalance(categoryId, amount)
         : api.updateCategoryRolloverBalance(categoryId, amount),
+    onSuccess: () => {
+      // Invalidate stash to reflect updated balances
+      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.stash, isDemo) });
+      // Invalidate available-to-stash since stash balances changed
+      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.availableToStash, isDemo) });
+    },
+  });
+}
+
+/** Update category group rollover starting balance (used by Distribute wizard for flexible groups) */
+export function useUpdateGroupRolloverMutation() {
+  const isDemo = useDemo();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ groupId, amount }: { groupId: string; amount: number }) =>
+      isDemo
+        ? demoApi.updateGroupRolloverBalance(groupId, amount)
+        : api.updateGroupRolloverBalance(groupId, amount),
     onSuccess: () => {
       // Invalidate stash to reflect updated balances
       queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.stash, isDemo) });

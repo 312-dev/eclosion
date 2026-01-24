@@ -33,6 +33,9 @@ export type {
   StashImageUploadResult,
 } from './stashConfig';
 
+// Stash events (ephemeral, for hypothetical projections)
+export type { StashEvent, StashEventType, StashEventsMap } from './stashEvent';
+
 // Monarch goals (displayed in Stash grid)
 export type { GoalStatus, MonarchGoal, MonarchGoalLayoutUpdate } from './monarchGoal';
 

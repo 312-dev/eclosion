@@ -120,10 +120,12 @@ export function DistributeButton({
     <button
       onClick={() => setIsWizardOpen(true)}
       disabled={isDisabled}
-      className={`flex items-center gap-1.5 ${sizeClasses} ${radiusClasses} font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
+      className={`flex items-center gap-1.5 ${sizeClasses} ${radiusClasses} font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed hover:brightness-110`}
       style={{
-        backgroundColor: isDisabled ? 'var(--monarch-bg-hover)' : 'var(--monarch-orange)',
-        color: isDisabled ? 'var(--monarch-text-muted)' : 'white',
+        backgroundColor: isDisabled
+          ? 'var(--monarch-bg-hover)'
+          : 'color-mix(in srgb, var(--monarch-success) 30%, var(--monarch-bg-page))',
+        color: isDisabled ? 'var(--monarch-text-muted)' : 'var(--monarch-success)',
       }}
       aria-label="Distribute funds"
     >

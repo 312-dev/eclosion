@@ -266,13 +266,8 @@ export const RecurringToolSettings = forwardRef<HTMLDivElement, RecurringToolSet
               >
                 <button
                   type="button"
-                  className="text-xs hover:opacity-80 transition-opacity"
-                  style={{
-                    color: 'var(--monarch-error)',
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                  }}
+                  className="text-xs hover:opacity-80 transition-opacity bg-transparent border-none cursor-pointer"
+                  style={{ color: 'var(--monarch-error)' }}
                   onClick={onShowResetModal}
                 >
                   Reset

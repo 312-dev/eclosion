@@ -30,11 +30,13 @@ import { distributeAmountByRatios } from '../../utils/calculations';
 import {
   useAllocateStashBatchMutation,
   useUpdateCategoryRolloverMutation,
+  useUpdateGroupRolloverMutation,
   useDashboardQuery,
 } from '../../api/queries';
 import { useToast } from '../../context/ToastContext';
 import { useIsRateLimited } from '../../context/RateLimitContext';
-import type { StashItem } from '../../types';
+import type { StashItem, StashEventsMap, StashEvent } from '../../types';
+import { getCurrentMonthKey } from '../../utils/eventProjection';
 
 type WizardStep = 'savings' | 'monthly' | 'review';
 
@@ -74,6 +76,7 @@ export function DistributeWizard({
   const isRateLimited = useIsRateLimited();
   const batchAllocateMutation = useAllocateStashBatchMutation();
   const rolloverMutation = useUpdateCategoryRolloverMutation();
+  const groupRolloverMutation = useUpdateGroupRolloverMutation();
 
   // Internal activeMode state - can switch from distribute to hypothesize
   const [activeMode, setActiveMode] = useState<DistributeMode>(initialMode);
@@ -107,6 +110,9 @@ export function DistributeWizard({
   // For hypothesize activeMode, allow editing both amounts
   const [customSavingsAmount, setCustomSavingsAmount] = useState<number>(existingSavings);
   const [customMonthlyAmount, setCustomMonthlyAmount] = useState<number>(monthlyIncome);
+
+  // Stash events for hypothetical projections (ephemeral, not persisted)
+  const [stashEvents, setStashEvents] = useState<StashEventsMap>({});
   const effectiveSavingsAmount = activeMode === 'hypothesize' ? customSavingsAmount : existingSavings;
   const effectiveMonthlyAmount = activeMode === 'hypothesize' ? customMonthlyAmount : monthlyIncome;
 
@@ -138,12 +144,64 @@ export function DistributeWizard({
     toast.info('Switched to Hypothetical mode - you can now edit the amount');
   }, [existingSavings, toast]);
 
+  // Event handlers for hypothetical events
+  const handleAddEvent = useCallback((stashId: string) => {
+    setStashEvents((prev) => {
+      const existing = prev[stashId] ?? [];
+      if (existing.length >= 10) return prev; // Max 10 events
+
+      const defaultMonth = getCurrentMonthKey();
+      const newEvent: StashEvent = {
+        id: crypto.randomUUID(),
+        type: 'mo',
+        amount: 0,
+        month: defaultMonth,
+      };
+
+      // Insert and sort chronologically
+      const updated = [...existing, newEvent].sort((a, b) => a.month.localeCompare(b.month));
+      return { ...prev, [stashId]: updated };
+    });
+  }, []);
+
+  const handleUpdateEvent = useCallback(
+    (stashId: string, eventId: string, updates: Partial<StashEvent>) => {
+      setStashEvents((prev) => {
+        const existing = prev[stashId];
+        if (!existing) return prev;
+
+        const updated = existing.map((e) => (e.id === eventId ? { ...e, ...updates } : e));
+        // Re-sort if month changed
+        if (updates.month) {
+          updated.sort((a, b) => a.month.localeCompare(b.month));
+        }
+        return { ...prev, [stashId]: updated };
+      });
+    },
+    []
+  );
+
+  const handleRemoveEvent = useCallback((stashId: string, eventId: string) => {
+    setStashEvents((prev) => {
+      const existing = prev[stashId];
+      if (!existing) return prev;
+
+      const updated = existing.filter((e) => e.id !== eventId);
+      if (updated.length === 0) {
+        const { [stashId]: _, ...rest } = prev;
+        return rest;
+      }
+      return { ...prev, [stashId]: updated };
+    });
+  }, []);
+
   // Calculate totals for current step
   const totalAllocated = Object.values(currentAllocations).reduce((sum, val) => sum + val, 0);
   const stepAmount = step === 'savings' ? effectiveSavingsAmount : effectiveMonthlyAmount;
   const remaining = stepAmount - totalAllocated;
   // Use rounded comparison to handle floating point precision issues
-  const isFullyAllocated = Math.round(remaining) === 0 && stepAmount > 0;
+  // Allow continuing if stepAmount is 0 (nothing to allocate) or all funds are allocated
+  const isFullyAllocated = Math.round(remaining) === 0;
 
   // Validation
   const isOverMax = activeMode === 'distribute' && step === 'savings' && totalAllocated > existingSavings;
@@ -225,7 +283,15 @@ export function DistributeWizard({
       for (const [itemId, amount] of Object.entries(savingsAllocations)) {
         if (amount <= 0) continue;
         const item = items.find((i) => i.id === itemId);
-        if (item?.category_id) {
+        if (item?.is_flexible_group && item?.category_group_id) {
+          // Flexible group: update group-level rollover
+          await groupRolloverMutation.mutateAsync({
+            groupId: item.category_group_id,
+            amount,
+          });
+          rolloverTotal += amount;
+        } else if (item?.category_id) {
+          // Regular category: update category-level rollover
           await rolloverMutation.mutateAsync({
             categoryId: item.category_id,
             amount,
@@ -268,6 +334,7 @@ export function DistributeWizard({
     monthlyAllocations,
     items,
     rolloverMutation,
+    groupRolloverMutation,
     batchAllocateMutation,
     toast,
     onClose,
@@ -285,6 +352,7 @@ export function DistributeWizard({
         setMonthlyAllocations({});
         setCustomSavingsAmount(existingSavings);
         setCustomMonthlyAmount(leftToBudget > 0 ? leftToBudget : 100);
+        setStashEvents({}); // Clear hypothetical events on open
       });
       return () => cancelAnimationFrame(frame);
     }
@@ -304,10 +372,14 @@ export function DistributeWizard({
     activeMode === 'distribute' &&
     step === 'review' &&
     !rolloverMutation.isPending &&
+    !groupRolloverMutation.isPending &&
     !batchAllocateMutation.isPending &&
     !isRateLimited;
 
-  const isSubmitting = rolloverMutation.isPending || batchAllocateMutation.isPending;
+  const isSubmitting =
+    rolloverMutation.isPending ||
+    groupRolloverMutation.isPending ||
+    batchAllocateMutation.isPending;
 
   // Shake animation state for invalid submit attempts
   const [shouldShake, setShouldShake] = useState(false);
@@ -651,6 +723,12 @@ export function DistributeWizard({
             })}
             {...(activeMode === 'distribute' && { onEditAttempt: handleEditAttempt })}
             isDistributeMode={activeMode === 'distribute'}
+            {...(step === 'monthly' && {
+              stashEvents,
+              onAddEvent: handleAddEvent,
+              onUpdateEvent: handleUpdateEvent,
+              onRemoveEvent: handleRemoveEvent,
+            })}
           />
         )}
 
@@ -744,22 +822,30 @@ export function DistributeWizard({
             )}
 
             {/* Review step: Apply button (distribute mode only) */}
-            {step === 'review' && activeMode === 'distribute' && (
-              <button
-                onClick={handleConfirm}
-                disabled={!canConfirm}
-                className="px-4 py-2 text-sm font-medium rounded-md transition-colors disabled:cursor-not-allowed bg-monarch-orange text-white hover:bg-monarch-orange/90"
-              >
-                {isSubmitting ? (
-                  <>
-                    <Icons.Spinner size={16} className="animate-spin inline mr-2" />
-                    Applying...
-                  </>
-                ) : (
-                  'Apply'
-                )}
-              </button>
-            )}
+            {step === 'review' && activeMode === 'distribute' && (() => {
+              let applyCursorClass = '';
+              if (isSubmitting) {
+                applyCursorClass = 'cursor-wait';
+              } else if (!canConfirm) {
+                applyCursorClass = 'cursor-not-allowed';
+              }
+              return (
+                <button
+                  onClick={handleConfirm}
+                  disabled={!canConfirm}
+                  className={`px-4 py-2 text-sm font-medium rounded-md transition-colors bg-monarch-orange text-white hover:bg-monarch-orange/90 ${applyCursorClass}`}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Icons.Spinner size={16} className="animate-spin inline mr-2" />
+                      Applying...
+                    </>
+                  ) : (
+                    'Apply'
+                  )}
+                </button>
+              );
+            })()}
           </div>
         </div>
       </div>

@@ -1,17 +1,22 @@
 /**
  * StashWidgetGrid - Resizable widget grid for stash cards
  *
- * Uses react-grid-layout for iOS/Android-style widget resizing and reordering.
+ * Uses react-grid-layout for iOS/Android-style widget resizing.
  * Cards can span 1-3 columns and 1-2 rows.
+ *
+ * Layout Strategy:
+ * - Custom horizontal+vertical compaction (items flow left-to-right, wrap to next row)
+ * - Items flow in sort_order (persisted to database)
+ * - We save SIZE (col_span, row_span) and ORDER (sort_order) on resize/drag
+ * - Grid positions (x, y) are NOT saved - compaction determines them
+ *
+ * Compaction algorithm based on:
+ * https://github.com/shipurjan/buddy-grid-layout/tree/1.4.4-compact-left-v3-dev
  */
 
-import { memo, useCallback, useRef, useState, useEffect } from 'react';
-import {
-  Responsive,
-  WidthProvider,
-  type Layout,
-  type LayoutItem,
-} from 'react-grid-layout/legacy';
+import { memo, useCallback, useState, useEffect, useMemo, useRef } from 'react';
+import { type LayoutItem } from 'react-grid-layout/legacy';
+import RGL from 'react-grid-layout/legacy';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 import type { StashItem, StashLayoutUpdate } from '../../types';
@@ -20,7 +25,20 @@ import { StashCard } from './StashCard';
 import { MonarchGoalCard } from './MonarchGoalCard';
 import { Icons } from '../icons';
 
-const ResponsiveGridLayout = WidthProvider(Responsive);
+// Use RGL directly instead of WidthProvider to avoid ref conflicts
+const GridLayout = RGL;
+
+const COLS = 3;
+const ROW_HEIGHT = 280;
+const MARGIN: [number, number] = [16, 16];
+const ADD_PLACEHOLDER_ID = '__add_stash_placeholder__';
+const ARCHIVED_PREFIX = '__archived__';
+
+// Card size constraints
+const MIN_W = 1;
+const MAX_W = 3;
+const MIN_H = 1;
+const MAX_H = 2;
 
 interface StashWidgetGridProps {
   readonly items: (StashItem | MonarchGoal)[];
@@ -34,12 +52,9 @@ interface StashWidgetGridProps {
   readonly onViewReport?: (stashId: string) => void;
   /** Whether to show type badges (Stash vs Goal) - shown when Monarch goals are enabled */
   readonly showTypeBadges?: boolean;
+  /** Archived items to display at the end of the grid (after New Stash card) */
+  readonly archivedItems?: StashItem[] | undefined;
 }
-
-const ROW_HEIGHT = 280;
-const MARGIN: [number, number] = [16, 16];
-const BREAKPOINTS = { lg: 1024, md: 768, sm: 480, xs: 0 };
-const COLS_BY_BREAKPOINT = { lg: 3, md: 2, sm: 1, xs: 1 };
 
 function PlaceholderCard() {
   return (
@@ -101,7 +116,13 @@ function PlaceholderCard() {
   );
 }
 
-function AddStashCard({ onAdd, isFirst }: { readonly onAdd: () => void; readonly isFirst: boolean }) {
+function AddStashCard({
+  onAdd,
+  isFirst,
+}: {
+  readonly onAdd: () => void;
+  readonly isFirst: boolean;
+}) {
   return (
     <button
       data-tour="stash-add-item"
@@ -131,7 +152,10 @@ function AddStashCard({ onAdd, isFirst }: { readonly onAdd: () => void; readonly
       </div>
 
       {/* Content Area - matches StashCard p-4 with maxHeight 140 */}
-      <div className="p-4 shrink-0 flex flex-col items-center justify-center" style={{ maxHeight: 140 }}>
+      <div
+        className="p-4 shrink-0 flex flex-col items-center justify-center"
+        style={{ maxHeight: 140 }}
+      >
         <h3
           className="text-base font-semibold mb-1"
           style={{ color: 'var(--monarch-text-dark)' }}
@@ -171,125 +195,168 @@ function EmptyState({ message }: { readonly message: string }) {
 }
 
 /**
- * Check if two layout items collide (overlap).
+ * Sort layout items by row then column (top-left to bottom-right order).
  */
-function itemsCollide(a: LayoutItem, b: LayoutItem): boolean {
-  if (a.i === b.i) return false;
-  return !(a.x + a.w <= b.x || b.x + b.w <= a.x || a.y + a.h <= b.y || b.y + b.h <= a.y);
+function sortLayoutItemsByRowCol(layout: LayoutItem[]): LayoutItem[] {
+  return [...layout].sort((a, b) => {
+    if (a.y !== b.y) return a.y - b.y;
+    return a.x - b.x;
+  });
 }
 
 /**
- * Check if an item collides with any other item in the layout.
+ * Horizontal+Vertical Compaction
+ *
+ * Flows items left-to-right, wrapping to the next row when they don't fit.
+ * Handles variable-height items by tracking the maximum height per row.
+ * Excludes archived items from compaction (they remain at fixed positions).
+ *
+ * Based on: https://github.com/shipurjan/buddy-grid-layout
  */
-function collidesWithAny(item: LayoutItem, layout: LayoutItem[]): boolean {
-  return layout.some((other) => itemsCollide(item, other));
-}
+function compactHorizontalVertical(layout: readonly LayoutItem[], cols: number): LayoutItem[] {
+  // Separate items by type for consistent ordering
+  const archivedItems = layout.filter((l) => l.i.startsWith(ARCHIVED_PREFIX));
+  const placeholder = layout.find((l) => l.i === ADD_PLACEHOLDER_ID);
+  const activeItems = layout.filter(
+    (l) => !l.i.startsWith(ARCHIVED_PREFIX) && l.i !== ADD_PLACEHOLDER_ID
+  );
 
-/**
- * Find the first available position for an item in the grid.
- * Scans row by row, left to right, until finding a spot that doesn't collide.
- */
-function findFirstAvailablePosition(
-  item: LayoutItem,
-  placed: LayoutItem[],
-  cols: number
-): { x: number; y: number } {
-  const w = Math.min(item.w, cols);
+  // Sort active items by their current position (row-major order)
+  const sorted = sortLayoutItemsByRowCol([...activeItems]);
+  const result: LayoutItem[] = [];
 
-  // Try each row starting from 0
-  for (let y = 0; y < 100; y++) {
-    // Try each x position in this row
-    for (let x = 0; x <= cols - w; x++) {
-      const testItem = { ...item, x, y, w };
-      if (!collidesWithAny(testItem, placed)) {
-        return { x, y };
-      }
-    }
-  }
-
-  // Fallback (shouldn't reach here)
-  return { x: 0, y: placed.length };
-}
-
-/**
- * Compact a layout by placing each item in the first available slot.
- * Items are placed row by row, left to right, filling gaps efficiently.
- */
-function compactLayout(layout: LayoutItem[], cols: number = 3): LayoutItem[] {
-  // Sort by y then x for consistent ordering (existing positions get priority)
-  const sorted = [...layout].sort((a, b) => a.y - b.y || a.x - b.x);
-  const compacted: LayoutItem[] = [];
+  let totalWidth = 0;
+  let currentRow = 0;
+  let currentRowHeight = 1;
 
   for (const item of sorted) {
-    const { x, y } = findFirstAvailablePosition(item, compacted, cols);
-    compacted.push({ ...item, x, y, w: Math.min(item.w, cols) });
+    const l = { ...item };
+    const w = Math.min(l.w, cols);
+    const h = l.h;
+
+    // Check if there's enough space on the current row
+    if (totalWidth + w > cols) {
+      // Move to the next row
+      currentRow += currentRowHeight;
+      totalWidth = 0;
+      currentRowHeight = 1;
+    }
+
+    // Position the item
+    l.y = currentRow;
+    l.x = totalWidth;
+
+    // Update tracking
+    totalWidth += w;
+    currentRowHeight = Math.max(h, currentRowHeight);
+
+    result.push(l);
   }
 
-  return compacted;
+  // Add placeholder at the end (ensures consistent array order)
+  if (placeholder) {
+    const p = { ...placeholder };
+    if (totalWidth + p.w > cols) {
+      currentRow += currentRowHeight;
+      totalWidth = 0;
+    }
+    p.x = totalWidth;
+    p.y = currentRow;
+    result.push(p);
+  }
+
+  // Re-add archived items unchanged (they stay at their fixed positions)
+  return [...result, ...archivedItems];
 }
 
-const ADD_PLACEHOLDER_ID = '__add_stash_placeholder__';
+/**
+ * Create initial layout from items.
+ * Uses horizontal+vertical compaction to flow items left-to-right.
+ * Archived items are placed after the placeholder and are static (non-draggable/resizable).
+ */
+function createLayout(
+  items: (StashItem | MonarchGoal)[],
+  cols: number,
+  archivedItems: StashItem[] = []
+): LayoutItem[] {
+  const layout: LayoutItem[] = items.map((item) => ({
+    i: item.id,
+    x: 0,
+    y: 0,
+    w: Math.min(item.col_span ?? 1, cols),
+    h: item.row_span ?? 1,
+    minW: MIN_W,
+    maxW: Math.min(MAX_W, cols),
+    minH: MIN_H,
+    maxH: MAX_H,
+  }));
 
-function createLayoutFromItems(items: (StashItem | MonarchGoal)[], cols: number, includeAddPlaceholder: boolean = false): LayoutItem[] {
-  // Separate items with explicit positions from new items (grid_x=0, grid_y=0)
-  const itemsWithPositions: LayoutItem[] = [];
-  const newItems: LayoutItem[] = [];
-
-  items.forEach((item) => {
-    const layoutItem = {
-      i: item.id,
-      x: Math.min(item.grid_x ?? 0, Math.max(0, cols - (item.col_span ?? 1))),
-      y: item.grid_y ?? 0,
-      w: Math.min(item.col_span ?? 1, cols),
-      h: item.row_span ?? 1,
-      minW: 1,
-      maxW: Math.min(3, cols),
-      minH: 1,
-      maxH: 2,
-    };
-
-    // Check if this is a new item with default position (0,0)
-    // Only treat as "new" if both are 0 - otherwise it's an explicit top-left placement
-    if ((item.grid_x ?? 0) === 0 && (item.grid_y ?? 0) === 0) {
-      newItems.push(layoutItem);
-    } else {
-      itemsWithPositions.push(layoutItem);
-    }
+  // Add placeholder
+  layout.push({
+    i: ADD_PLACEHOLDER_ID,
+    x: 0,
+    y: 0,
+    w: 1,
+    h: 1,
+    minW: MIN_W,
+    maxW: Math.min(MAX_W, cols),
+    minH: MIN_H,
+    maxH: MAX_H,
+    static: true,
+    isDraggable: false,
+    isResizable: false,
   });
 
-  // Compact existing items first
-  const compacted = compactLayout(itemsWithPositions, cols);
+  // Apply compaction to active items + placeholder
+  const compacted = compactHorizontalVertical(layout, cols);
 
-  // Add new items at the end (after existing items)
-  for (const newItem of newItems) {
-    const { x, y } = findFirstAvailablePosition(newItem, compacted, cols);
-    compacted.push({ ...newItem, x, y });
-  }
+  // Add archived items after the placeholder (static, non-draggable)
+  if (archivedItems.length > 0) {
+    // Find the max Y position after compaction
+    let maxY = 0;
+    for (const l of compacted) {
+      const itemBottom = l.y + l.h;
+      if (itemBottom > maxY) {
+        maxY = itemBottom;
+      }
+    }
+    const archivedStartY = maxY;
 
-  // Add placeholder at the end if requested
-  if (includeAddPlaceholder) {
-    const placeholder = {
-      i: ADD_PLACEHOLDER_ID,
-      x: 0,
-      y: 0,
-      w: 1,
-      h: 1,
-      minW: 1,
-      maxW: Math.min(3, cols),
-      minH: 1,
-      maxH: 2,
-      static: true, // Make it unmovable and non-resizable
-      isDraggable: false,
-      isResizable: false,
-    };
-    const { x, y } = findFirstAvailablePosition(placeholder, compacted, cols);
-    compacted.push({ ...placeholder, x, y });
+    // Manually position archived items in a simple grid (left-to-right, then wrap)
+    let archivedX = 0;
+    let archivedY = archivedStartY;
+
+    const archivedLayout: LayoutItem[] = archivedItems.map((item) => {
+      // Wrap to next row if needed
+      if (archivedX >= cols) {
+        archivedX = 0;
+        archivedY += 1;
+      }
+
+      const layoutItem: LayoutItem = {
+        i: `${ARCHIVED_PREFIX}${item.id}`,
+        x: archivedX,
+        y: archivedY,
+        w: 1, // Archived items are always 1x1
+        h: 1,
+        minW: 1,
+        maxW: 1,
+        minH: 1,
+        maxH: 1,
+        static: true,
+        isDraggable: false,
+        isResizable: false,
+      };
+
+      archivedX += 1;
+      return layoutItem;
+    });
+
+    return [...compacted, ...archivedLayout];
   }
 
   return compacted;
 }
-
-type Layouts = Record<string, LayoutItem[]>;
 
 export const StashWidgetGrid = memo(function StashWidgetGrid({
   items,
@@ -302,203 +369,196 @@ export const StashWidgetGrid = memo(function StashWidgetGrid({
   onAdd,
   onViewReport,
   showTypeBadges = false,
+  archivedItems = [],
 }: StashWidgetGridProps) {
-  const layoutChangeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const justCompactedRef = useRef(false);
-  const [layoutVersion, setLayoutVersion] = useState(0);
-
-  // Create initial layouts
-  const [layouts, setLayouts] = useState<Layouts>(() => ({
-    lg: createLayoutFromItems(items, 3, true),
-    md: createLayoutFromItems(items, 2, true),
-    sm: createLayoutFromItems(items, 1, true),
-    xs: createLayoutFromItems(items, 1, true),
-  }));
-
-  // Sync layouts when items change (add/remove)
-  const itemIdsRef = useRef(items.map((i) => i.id).join(','));
-  /* eslint-disable react-hooks/set-state-in-effect -- Grid layout sync on item changes is required */
-  useEffect(() => {
-    const newIds = items.map((i) => i.id).join(',');
-    if (itemIdsRef.current !== newIds) {
-      itemIdsRef.current = newIds;
-      setLayouts({
-        lg: createLayoutFromItems(items, 3, true),
-        md: createLayoutFromItems(items, 2, true),
-        sm: createLayoutFromItems(items, 1, true),
-        xs: createLayoutFromItems(items, 1, true),
-      });
-      // Force grid remount when items are added/removed to avoid
-      // react-grid-layout internal ref management infinite loops
-      setLayoutVersion((v) => v + 1);
-    }
+  // Sort active items by sort_order (from database)
+  const sortedItems = useMemo(() => {
+    return [...items].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
   }, [items]);
-  /* eslint-enable react-hooks/set-state-in-effect */
 
-  // Handle layout changes from grid (skip if we just compacted)
-  // Note: react-grid-layout types are inconsistent - it passes LayoutItem[] arrays
-  const handleLayoutChange = useCallback(
-    (_layout: Layout, allLayouts: Partial<Record<string, Layout>>) => {
-      if (justCompactedRef.current) {
-        justCompactedRef.current = false;
-        return;
-      }
+  // Sort archived items by completed_at (most recently completed first)
+  const sortedArchivedItems = useMemo(() => {
+    return [...archivedItems].sort((a, b) => {
+      const aDate = a.completed_at ? new Date(a.completed_at).getTime() : 0;
+      const bDate = b.completed_at ? new Date(b.completed_at).getTime() : 0;
+      return bDate - aDate; // Most recent first
+    });
+  }, [archivedItems]);
 
-      // Ensure placeholder fills available space (not forced to new row)
-      const updatedLayouts: Layouts = {} as Layouts;
+  // Track container width for responsive behavior
+  const [containerWidth, setContainerWidth] = useState(1200);
 
-      for (const [breakpoint, layout] of Object.entries(allLayouts)) {
-        const layoutItems = layout as LayoutItem[];
-        const itemsOnly = layoutItems.filter((l) => l.i !== ADD_PLACEHOLDER_ID);
+  // Calculate effective columns based on width
+  const effectiveCols = useMemo(() => {
+    if (containerWidth < 480) return 1;
+    if (containerWidth < 768) return 2;
+    return COLS;
+  }, [containerWidth]);
 
-        const placeholder = layoutItems.find((l) => l.i === ADD_PLACEHOLDER_ID);
-        if (placeholder) {
-          // Get column count for this breakpoint
-          const cols = COLS_BY_BREAKPOINT[breakpoint as keyof typeof COLS_BY_BREAKPOINT] ?? 3;
-          // Find first available position
-          const { x, y } = findFirstAvailablePosition(placeholder, itemsOnly, cols);
-          updatedLayouts[breakpoint] = [
-            ...itemsOnly,
-            { ...placeholder, x, y },
-          ];
-        } else {
-          updatedLayouts[breakpoint] = itemsOnly;
-        }
-      }
+  // Create a stable key for items to detect meaningful changes
+  // Includes cols so layout updates when responsive breakpoints change
+  const layoutKey = useMemo(() => {
+    const activeKey = sortedItems
+      .map((i) => `${i.id}:${i.sort_order ?? 0}:${i.col_span ?? 1}:${i.row_span ?? 1}`)
+      .join('|');
+    const archivedKey = sortedArchivedItems.map((i) => i.id).join('|');
+    return `${effectiveCols}::${activeKey}::${archivedKey}`;
+  }, [sortedItems, sortedArchivedItems, effectiveCols]);
 
-      setLayouts(updatedLayouts);
-    },
-    []
+  // Create layout from sorted items (initial state only)
+  const [layout, setLayout] = useState<LayoutItem[]>(() =>
+    createLayout(sortedItems, effectiveCols, sortedArchivedItems)
   );
 
-  // Persist to database on drag/resize stop (with compaction)
-  const handleDragOrResizeStop = useCallback(
-    (layout: Layout) => {
-      if (layoutChangeTimeoutRef.current) {
-        clearTimeout(layoutChangeTimeoutRef.current);
-      }
+  // Track previous layout key to detect actual changes (using state, not ref, for React Compiler)
+  // This follows the React pattern for adjusting state when props change:
+  // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+  const [prevLayoutKey, setPrevLayoutKey] = useState(layoutKey);
+  if (layoutKey !== prevLayoutKey) {
+    setPrevLayoutKey(layoutKey);
+    setLayout(createLayout(sortedItems, effectiveCols, sortedArchivedItems));
+  }
 
-      // Separate placeholder from real items
-      const layoutItems = layout as LayoutItem[];
-      const itemsOnly = layoutItems.filter((l) => l.i !== ADD_PLACEHOLDER_ID);
+  /**
+   * Build layout updates for all items based on the compacted layout.
+   * Extracts new sort_order from position in the compacted layout.
+   */
+  const buildLayoutUpdates = useCallback(
+    (compacted: LayoutItem[]): { stashUpdates: StashLayoutUpdate[]; goalUpdates: MonarchGoalLayoutUpdate[] } => {
+      const stashUpdates: StashLayoutUpdate[] = [];
+      const goalUpdates: MonarchGoalLayoutUpdate[] = [];
 
-      // Compact only the real items for lg breakpoint (3 cols)
-      const lgLayout = compactLayout(itemsOnly, 3);
+      // Get ordered list of item IDs from compacted layout (excluding placeholder and archived)
+      const orderedItems = compacted
+        .filter((l) => l.i !== ADD_PLACEHOLDER_ID && !l.i.startsWith(ARCHIVED_PREFIX))
+        .sort((a, b) => {
+          // Sort by row then column to get visual order
+          if (a.y !== b.y) return a.y - b.y;
+          return a.x - b.x;
+        });
 
-      // Find first available position for placeholder (after all real items)
-      const placeholderTemplate: LayoutItem = {
-        i: ADD_PLACEHOLDER_ID,
-        x: 0,
-        y: 0,
-        w: 1,
-        h: 1,
-        minW: 1,
-        maxW: 3,
-        minH: 1,
-        maxH: 2,
-        static: true,
-        isDraggable: false,
-        isResizable: false,
-      };
-      const { x, y } = findFirstAvailablePosition(placeholderTemplate, lgLayout, 3);
-      const placeholder: LayoutItem = { ...placeholderTemplate, x, y };
+      // Build updates with new sort_order based on position in ordered list
+      orderedItems.forEach((l, index) => {
+        const item = sortedItems.find((i) => i.id === l.i);
+        if (!item) return;
 
-      // Set flag to skip the next onLayoutChange (it fires after onDragStop)
-      justCompactedRef.current = true;
-
-      // Update all breakpoints with properly compacted layouts + placeholder
-      const lgWithPlaceholder = [...lgLayout.map((l) => ({ ...l, maxW: 3 })), placeholder];
-
-      // For md breakpoint (2 cols), recalculate placeholder position
-      const mdLayout = compactLayout(lgLayout.map((l) => ({ ...l, w: Math.min(l.w, 2), maxW: 2 })), 2);
-      const mdPlaceholder = { ...placeholderTemplate, maxW: 2, w: Math.min(placeholderTemplate.w, 2) };
-      const mdPos = findFirstAvailablePosition(mdPlaceholder, mdLayout, 2);
-
-      // For sm/xs breakpoints (1 col), recalculate placeholder position
-      const smLayout = compactLayout(lgLayout.map((l) => ({ ...l, w: 1, maxW: 1 })), 1);
-      const smPlaceholder = { ...placeholderTemplate, w: 1, maxW: 1 };
-      const smPos = findFirstAvailablePosition(smPlaceholder, smLayout, 1);
-
-      setLayouts({
-        lg: lgWithPlaceholder,
-        md: [...mdLayout, { ...mdPlaceholder, x: mdPos.x, y: mdPos.y }],
-        sm: [...smLayout, { ...smPlaceholder, x: smPos.x, y: smPos.y }],
-        xs: [...smLayout, { ...smPlaceholder, x: smPos.x, y: smPos.y }],
+        const isGoal = 'type' in item && item.type === 'monarch_goal';
+        if (isGoal) {
+          goalUpdates.push({
+            goal_id: l.i,
+            grid_x: 0, // Not used - compaction handles position
+            grid_y: 0,
+            col_span: l.w,
+            row_span: l.h,
+            sort_order: index,
+          });
+        } else {
+          stashUpdates.push({
+            id: l.i,
+            grid_x: 0,
+            grid_y: 0,
+            col_span: l.w,
+            row_span: l.h,
+            sort_order: index,
+          });
+        }
       });
 
-      // Force re-render of grid
-      setLayoutVersion((v) => v + 1);
-
-      layoutChangeTimeoutRef.current = setTimeout(() => {
-        // Filter out the add placeholder and separate Stash items from Goals
-        const stashUpdates: StashLayoutUpdate[] = [];
-        const goalUpdates: MonarchGoalLayoutUpdate[] = [];
-
-        lgLayout
-          .filter((l) => l.i !== ADD_PLACEHOLDER_ID)
-          .forEach((l) => {
-            const item = items.find((i) => i.id === l.i);
-            if (!item) return;
-
-            // Check if item is a MonarchGoal using type discriminator
-            const isGoal = 'type' in item && item.type === 'monarch_goal';
-
-            if (isGoal) {
-              goalUpdates.push({
-                goal_id: l.i,
-                grid_x: l.x,
-                grid_y: l.y,
-                col_span: l.w,
-                row_span: l.h,
-              });
-            } else {
-              stashUpdates.push({
-                id: l.i,
-                grid_x: l.x,
-                grid_y: l.y,
-                col_span: l.w,
-                row_span: l.h,
-              });
-            }
-          });
-
-        // Check for changes in Stash items
-        const hasStashChanges = stashUpdates.some((update) => {
-          const item = items.find((i) => i.id === update.id);
-          if (!item || ('type' in item && item.type === 'monarch_goal')) return false;
-          return (
-            update.grid_x !== (item.grid_x ?? 0) ||
-            update.grid_y !== (item.grid_y ?? 0) ||
-            update.col_span !== (item.col_span ?? 1) ||
-            update.row_span !== (item.row_span ?? 1)
-          );
-        });
-
-        // Check for changes in goal items
-        const hasGoalChanges = goalUpdates.some((update) => {
-          const item = items.find((i) => i.id === update.goal_id);
-          if (!item || !('type' in item) || item.type !== 'monarch_goal') return false;
-          return (
-            update.grid_x !== (item.grid_x ?? 0) ||
-            update.grid_y !== (item.grid_y ?? 0) ||
-            update.col_span !== (item.col_span ?? 1) ||
-            update.row_span !== (item.row_span ?? 1)
-          );
-        });
-
-        if (hasStashChanges) {
-          onLayoutChange(stashUpdates);
-        }
-
-        if (hasGoalChanges && onGoalLayoutChange) {
-          onGoalLayoutChange(goalUpdates);
-        }
-      }, 100);
+      return { stashUpdates, goalUpdates };
     },
-    [items, onLayoutChange, onGoalLayoutChange]
+    [sortedItems]
   );
 
-  if (items.length === 0) {
+  // Handle resize stop - save size AND order to backend
+  const handleResizeStop = useCallback(
+    (newLayout: readonly LayoutItem[]) => {
+      // Apply our custom compaction
+      const compacted = compactHorizontalVertical(newLayout, effectiveCols);
+      setLayout(compacted);
+
+      // Build updates with sizing and ordering
+      const { stashUpdates, goalUpdates } = buildLayoutUpdates(compacted);
+
+      if (stashUpdates.length > 0) {
+        onLayoutChange(stashUpdates);
+      }
+
+      if (goalUpdates.length > 0 && onGoalLayoutChange) {
+        onGoalLayoutChange(goalUpdates);
+      }
+    },
+    [effectiveCols, buildLayoutUpdates, onLayoutChange, onGoalLayoutChange]
+  );
+
+  // Handle drag stop - save new order to backend
+  const handleDragStop = useCallback(
+    (newLayout: readonly LayoutItem[]) => {
+      // Apply our custom compaction
+      const compacted = compactHorizontalVertical(newLayout, effectiveCols);
+      setLayout(compacted);
+
+      // Build updates with sizing and ordering
+      const { stashUpdates, goalUpdates } = buildLayoutUpdates(compacted);
+
+      if (stashUpdates.length > 0) {
+        onLayoutChange(stashUpdates);
+      }
+
+      if (goalUpdates.length > 0 && onGoalLayoutChange) {
+        onGoalLayoutChange(goalUpdates);
+      }
+    },
+    [effectiveCols, buildLayoutUpdates, onLayoutChange, onGoalLayoutChange]
+  );
+
+  // Handle layout change from library - apply our custom compaction
+  // Note: Only update if compaction actually changes positions to avoid infinite loops
+  const handleLayoutChange = useCallback(
+    (newLayout: readonly LayoutItem[]) => {
+      const compacted = compactHorizontalVertical(newLayout, effectiveCols);
+      // Check if layout actually changed to avoid infinite re-render loop
+      // (react-grid-layout calls onLayoutChange whenever layout prop changes)
+      setLayout((prevLayout) => {
+        if (prevLayout.length !== compacted.length) return compacted;
+
+        // Compare by ID (not index) since array order may differ between RGL and our state
+        const prevById = new Map(prevLayout.map((l) => [l.i, l]));
+        const changed = compacted.some((item) => {
+          const prev = prevById.get(item.i);
+          if (!prev) return true;
+          return (
+            prev.x !== item.x ||
+            prev.y !== item.y ||
+            prev.w !== item.w ||
+            prev.h !== item.h
+          );
+        });
+        return changed ? compacted : prevLayout;
+      });
+    },
+    [effectiveCols]
+  );
+
+  // Measure container width with proper cleanup
+  const containerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const node = containerRef.current;
+    if (!node) return;
+
+    // Initial measurement
+    setContainerWidth(node.offsetWidth);
+
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setContainerWidth(entry.contentRect.width);
+      }
+    });
+    observer.observe(node);
+
+    return () => observer.disconnect();
+  }, []);
+
+  if (sortedItems.length === 0) {
     return (
       <div className="w-full">
         <EmptyState message={emptyMessage} />
@@ -518,17 +578,16 @@ export const StashWidgetGrid = memo(function StashWidgetGrid({
   }
 
   return (
-    <div className="stash-widget-grid">
-      <ResponsiveGridLayout
-        key={layoutVersion}
+    <div ref={containerRef} className="stash-widget-grid w-full">
+      <GridLayout
         className="layout"
-        layouts={layouts}
-        breakpoints={BREAKPOINTS}
-        cols={COLS_BY_BREAKPOINT}
+        layout={layout}
+        width={containerWidth}
+        cols={effectiveCols}
         rowHeight={ROW_HEIGHT}
         onLayoutChange={handleLayoutChange}
-        onDragStop={handleDragOrResizeStop}
-        onResizeStop={handleDragOrResizeStop}
+        onResizeStop={handleResizeStop}
+        onDragStop={handleDragStop}
         isResizable={true}
         isDraggable={true}
         draggableHandle=".stash-card-image"
@@ -536,8 +595,9 @@ export const StashWidgetGrid = memo(function StashWidgetGrid({
         margin={MARGIN}
         containerPadding={[0, 0]}
         useCSSTransforms={true}
+        compactType={null}
       >
-        {items.map((item, index) => {
+        {sortedItems.map((item, index) => {
           const isGoal = 'type' in item && item.type === 'monarch_goal';
 
           return (
@@ -576,9 +636,26 @@ export const StashWidgetGrid = memo(function StashWidgetGrid({
         })}
         {/* Add placeholder card - unmovable, always at the end */}
         <div key={ADD_PLACEHOLDER_ID} className="stash-grid-item">
-          <AddStashCard onAdd={onAdd} isFirst={items.length === 0} />
+          <AddStashCard onAdd={onAdd} isFirst={sortedItems.length === 0} />
         </div>
-      </ResponsiveGridLayout>
+        {/* Archived items - static, dimmed, after the Add card */}
+        {sortedArchivedItems.map((item) => (
+          <div
+            key={`${ARCHIVED_PREFIX}${item.id}`}
+            className="stash-grid-item opacity-60"
+          >
+            <StashCard
+              item={item}
+              onEdit={onEdit}
+              onAllocate={onAllocate}
+              isAllocating={allocatingItemId === item.id}
+              size={{ cols: 1, rows: 1 }}
+              showTypeBadge={showTypeBadges}
+              {...(onViewReport && { onViewReport })}
+            />
+          </div>
+        ))}
+      </GridLayout>
     </div>
   );
 });

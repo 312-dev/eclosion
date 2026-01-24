@@ -239,6 +239,67 @@ export async function updateCategoryRolloverBalance(
 }
 
 /**
+ * Add funds to a category group's rollover starting balance.
+ *
+ * Used by the Distribute wizard for stash items linked to flexible category
+ * groups that have group-level rollover enabled. In demo mode, this updates
+ * all stash items belonging to the group.
+ *
+ * @param groupId - The category group ID
+ * @param amount - Amount to add to the rollover starting balance
+ */
+export async function updateGroupRolloverBalance(
+  groupId: string,
+  amount: number
+): Promise<{ success: boolean; group?: unknown }> {
+  await simulateDelay();
+
+  updateDemoState((state) => {
+    // Find all stash items in this group
+    const itemsInGroup = state.stash.items.filter(
+      (item) => item.category_group_id === groupId
+    );
+
+    if (itemsInGroup.length === 0) {
+      // No items in this group - silently succeed
+      return state;
+    }
+
+    // Distribute the amount evenly across all items in the group
+    // (In real Monarch, the group has a single balance, but in demo mode
+    // we track balances per-item, so we distribute evenly)
+    const amountPerItem = amount / itemsInGroup.length;
+
+    const newItems = state.stash.items.map((item) => {
+      if (item.category_group_id !== groupId) return item;
+
+      const newRollover = (item.rollover_amount ?? 0) + amountPerItem;
+      const newBalance = item.current_balance + amountPerItem;
+
+      return {
+        ...item,
+        rollover_amount: newRollover,
+        current_balance: newBalance,
+        progress_percent: calculateProgressPercent(newBalance, item.amount),
+        shortfall: calculateShortfall(newBalance, item.amount),
+        status: calculateBudgetStatus(newBalance, item.planned_budget, item.amount, item.monthly_target),
+      };
+    });
+
+    return {
+      ...state,
+      stash: {
+        ...state.stash,
+        items: newItems,
+        total_saved: newItems.reduce((sum, i) => sum + i.current_balance, 0),
+      },
+    };
+  });
+
+  return { success: true };
+}
+
+/**
  * Change category group for a stash item.
  */
 export async function changeStashGroup(
@@ -354,6 +415,7 @@ export async function reorderStashItems(itemIds: string[]): Promise<{ success: b
 
 /**
  * Apply layout updates to a list of items.
+ * Updates sizing (col_span, row_span) and ordering (sort_order).
  */
 function applyLayoutUpdates(
   items: StashItem[],
@@ -370,6 +432,7 @@ function applyLayoutUpdates(
       grid_y: layout.grid_y,
       col_span: layout.col_span,
       row_span: layout.row_span,
+      sort_order: layout.sort_order,
     };
   });
   return { items: updatedItems, count };

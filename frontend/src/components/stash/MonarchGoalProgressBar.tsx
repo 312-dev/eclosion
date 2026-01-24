@@ -10,6 +10,7 @@
  * - Different color scheme matching Monarch's goal status
  */
 
+import { memo } from 'react';
 import type { MonarchGoal } from '../../types/monarchGoal';
 import { formatCurrency } from '../../utils';
 import { Tooltip } from '../ui/Tooltip';
@@ -36,7 +37,7 @@ const STATUS_COLORS = {
   no_target: '#10b981', // Green - "save as you go" goals are always fully funded
 } as const;
 
-export function MonarchGoalProgressBar({
+export const MonarchGoalProgressBar = memo(function MonarchGoalProgressBar({
   currentBalance,
   netContribution,
   targetAmount,
@@ -222,4 +223,4 @@ export function MonarchGoalProgressBar({
       </div>
     </div>
   );
-}
+});

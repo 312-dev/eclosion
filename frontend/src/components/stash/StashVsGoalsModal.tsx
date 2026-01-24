@@ -8,7 +8,7 @@
 import type { ReactNode } from 'react';
 import { Modal } from '../ui/Modal';
 import {
-  Info,
+  Scale,
   Target,
   Banknote,
   Sparkles,
@@ -57,7 +57,7 @@ export function StashVsGoalsModal({ isOpen, onClose }: StashVsGoalsModalProps) {
       onClose={onClose}
       title={
         <div className="flex items-center gap-2">
-          <Info size={20} style={{ color: 'var(--monarch-text-muted)' }} />
+          <Scale size={20} style={{ color: 'var(--monarch-text-muted)' }} />
           <span>Stashes vs Monarch Goals</span>
         </div>
       }

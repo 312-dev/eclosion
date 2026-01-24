@@ -446,20 +446,24 @@ class TrackerRepository:
         return self.session.query(WishlistItem).filter(WishlistItem.id == item_id).first()
 
     def get_all_stash_items(self) -> list[WishlistItem]:
-        """Get all stash items."""
-        return self.session.query(WishlistItem).order_by(WishlistItem.created_at.desc()).all()
+        """Get all stash items, ordered by sort_order then created_at."""
+        return (
+            self.session.query(WishlistItem)
+            .order_by(WishlistItem.sort_order.asc(), WishlistItem.created_at.desc())
+            .all()
+        )
 
     def get_active_stash_items(self) -> list[WishlistItem]:
-        """Get non-archived stash items."""
+        """Get non-archived stash items, ordered by sort_order then created_at."""
         return (
             self.session.query(WishlistItem)
             .filter(WishlistItem.is_archived.is_(False))
-            .order_by(WishlistItem.created_at.desc())
+            .order_by(WishlistItem.sort_order.asc(), WishlistItem.created_at.desc())
             .all()
         )
 
     def get_archived_stash_items(self) -> list[WishlistItem]:
-        """Get archived stash items."""
+        """Get archived stash items, ordered by archived_at."""
         return (
             self.session.query(WishlistItem)
             .filter(WishlistItem.is_archived.is_(True))
@@ -598,10 +602,10 @@ class TrackerRepository:
 
     def update_stash_layouts(self, layouts: list[dict]) -> int:
         """
-        Update grid layout positions for multiple stash items.
+        Update grid layout positions and sort order for multiple stash items.
 
         Args:
-            layouts: List of dicts with id, grid_x, grid_y, col_span, row_span
+            layouts: List of dicts with id, grid_x, grid_y, col_span, row_span, sort_order
 
         Returns:
             Number of items updated
@@ -618,17 +622,20 @@ class TrackerRepository:
                     "grid_y": item.grid_y,
                     "col_span": item.col_span,
                     "row_span": item.row_span,
+                    "sort_order": item.sort_order,
                 }
                 item.grid_x = layout.get("grid_x", 0)
                 item.grid_y = layout.get("grid_y", 0)
                 item.col_span = layout.get("col_span", 1)
                 item.row_span = layout.get("row_span", 1)
+                item.sort_order = layout.get("sort_order", 0)
                 item.updated_at = datetime.utcnow()
                 new_values = {
                     "grid_x": item.grid_x,
                     "grid_y": item.grid_y,
                     "col_span": item.col_span,
                     "row_span": item.row_span,
+                    "sort_order": item.sort_order,
                 }
                 logger.info(f"[TrackerRepo] update_stash_layouts: item {item.id} ({item.name}) old={old_values} new={new_values}")
                 updated += 1
@@ -652,15 +659,19 @@ class TrackerRepository:
 
     def get_all_monarch_goal_layouts(self) -> list[MonarchGoalLayout]:
         """
-        Get all Monarch goal layouts.
+        Get all Monarch goal layouts, ordered by sort_order.
 
         Returns:
             List of all goal layouts
         """
-        return self.session.query(MonarchGoalLayout).all()
+        return (
+            self.session.query(MonarchGoalLayout)
+            .order_by(MonarchGoalLayout.sort_order.asc())
+            .all()
+        )
 
     def upsert_monarch_goal_layout(
-        self, goal_id: str, grid_x: int, grid_y: int, col_span: int, row_span: int
+        self, goal_id: str, grid_x: int, grid_y: int, col_span: int, row_span: int, sort_order: int = 0
     ) -> MonarchGoalLayout:
         """
         Create or update layout for a Monarch goal.
@@ -671,6 +682,7 @@ class TrackerRepository:
             grid_y: Grid Y position
             col_span: Column span
             row_span: Row span
+            sort_order: Sequential order for display
 
         Returns:
             Created or updated MonarchGoalLayout
@@ -681,6 +693,7 @@ class TrackerRepository:
             layout.grid_y = grid_y
             layout.col_span = col_span
             layout.row_span = row_span
+            layout.sort_order = sort_order
             layout.updated_at = datetime.utcnow()
         else:
             layout = MonarchGoalLayout(
@@ -689,16 +702,17 @@ class TrackerRepository:
                 grid_y=grid_y,
                 col_span=col_span,
                 row_span=row_span,
+                sort_order=sort_order,
             )
             self.session.add(layout)
         return layout
 
     def update_monarch_goal_layouts(self, layouts: list[dict]) -> int:
         """
-        Update grid layout positions for multiple Monarch goals.
+        Update grid layout positions and sort order for multiple Monarch goals.
 
         Args:
-            layouts: List of dicts with goal_id, grid_x, grid_y, col_span, row_span
+            layouts: List of dicts with goal_id, grid_x, grid_y, col_span, row_span, sort_order
 
         Returns:
             Number of layouts updated
@@ -718,6 +732,7 @@ class TrackerRepository:
                 grid_y=layout_data.get("grid_y", 0),
                 col_span=layout_data.get("col_span", 1),
                 row_span=layout_data.get("row_span", 1),
+                sort_order=layout_data.get("sort_order", 0),
             )
             updated += 1
         return updated

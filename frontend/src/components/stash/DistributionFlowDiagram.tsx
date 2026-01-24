@@ -9,6 +9,7 @@
  */
 
 import { Icons } from '../icons';
+import { Tooltip } from '../ui';
 
 interface DistributionFlowDiagramProps {
   /** Total amount available to distribute */
@@ -133,18 +134,32 @@ export function DistributionFlowDiagram({
           >
             <span className={`text-xl font-medium ${isEditable ? 'text-monarch-text-dark' : 'text-monarch-text-muted'}`}>$</span>
             {isEditable ? (
-              <input
-                type="number"
-                value={displayTotal || ''}
-                onChange={(e) => {
-                  const val = Number.parseInt(e.target.value, 10);
-                  onTotalChange?.(Number.isNaN(val) || val < 0 ? 0 : val);
-                }}
-                placeholder="0"
-                className="w-20 text-center text-xl font-medium tabular-nums bg-transparent outline-none text-monarch-text-dark placeholder:text-monarch-text-muted [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                aria-label="Total amount to distribute"
-                min={0}
-              />
+              <>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={displayTotal ? displayTotal.toLocaleString('en-US') : ''}
+                  onChange={(e) => {
+                    const digitsOnly = e.target.value.replaceAll(/\D/g, '');
+                    const val = digitsOnly === '' ? 0 : Number.parseInt(digitsOnly, 10);
+                    onTotalChange?.(Math.max(0, val));
+                  }}
+                  placeholder="0"
+                  className="w-24 text-center text-xl font-medium tabular-nums bg-transparent outline-none text-monarch-text-dark placeholder:text-monarch-text-muted"
+                  aria-label="Total amount to distribute"
+                />
+                {isOverAllocated && (
+                  <Tooltip content="Correct the difference">
+                    <button
+                      onClick={() => onTotalChange?.(allocatedAmount)}
+                      className="p-0.5 rounded text-monarch-text-muted hover:text-monarch-orange transition-colors"
+                      aria-label="Set available equal to allocated amount"
+                    >
+                      <Icons.Wrench size={14} />
+                    </button>
+                  </Tooltip>
+                )}
+              </>
             ) : (
               <span className="text-xl font-medium tabular-nums text-monarch-text-muted px-1">
                 {displayTotal.toLocaleString()}

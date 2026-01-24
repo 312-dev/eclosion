@@ -25,6 +25,7 @@ import {
   X,
   Plus,
   Minus,
+  CircleMinus,
   Pencil,
   Trash2,
   ExternalLink,
@@ -35,6 +36,9 @@ import {
   AlertTriangle,
   CheckCircle,
   Clock,
+  ClockAlert,
+  ClockArrowUp,
+  ClockArrowDown,
   ArrowUp,
   ArrowDown,
   ArrowBigDownDash,
@@ -115,6 +119,7 @@ import {
   ThumbsUp,
   ThumbsDown,
   FlaskConical,
+  Wrench,
 } from 'lucide-react';
 import type { SVGProps } from 'react';
 
@@ -143,6 +148,7 @@ export const CheckSimpleIcon = Check;
 export const XIcon = X;
 export const PlusIcon = Plus;
 export const MinusIcon = Minus;
+export const CircleMinusIcon = CircleMinus;
 export const EditIcon = Pencil;
 export const TrashIcon = Trash2;
 export const ExternalLinkIcon = ExternalLink;
@@ -154,6 +160,9 @@ export const AlertCircleIcon = AlertCircle;
 export const WarningIcon = AlertTriangle;
 export const CheckCircleIcon = CheckCircle;
 export const ClockIcon = Clock;
+export const ClockAlertIcon = ClockAlert;
+export const ClockArrowUpIcon = ClockArrowUp;
+export const ClockArrowDownIcon = ClockArrowDown;
 export const TrendUpIcon = ChevronsUp;
 export const TrendDownIcon = ChevronsDown;
 export const ArrowUpIcon = ArrowUp;
@@ -235,6 +244,7 @@ export const CheckSquareIcon = CheckSquare;
 export const ThumbsUpIcon = ThumbsUp;
 export const ThumbsDownIcon = ThumbsDown;
 export const FlaskConicalIcon = FlaskConical;
+export const WrenchIcon = Wrench;
 
 // =============================================================================
 // Custom Icons (not available in Lucide)
@@ -514,6 +524,7 @@ export const Icons = {
   X: XIcon,
   Plus: PlusIcon,
   Minus: MinusIcon,
+  CircleMinus: CircleMinusIcon,
   Edit: EditIcon,
   Trash: TrashIcon,
   ExternalLink: ExternalLinkIcon,
@@ -528,6 +539,9 @@ export const Icons = {
   WarningFilled: WarningFilledIcon,
   CheckCircle: CheckCircleIcon,
   Clock: ClockIcon,
+  ClockAlert: ClockAlertIcon,
+  ClockArrowUp: ClockArrowUpIcon,
+  ClockArrowDown: ClockArrowDownIcon,
 
   // Trends
   TrendUp: TrendUpIcon,
@@ -648,6 +662,9 @@ export const Icons = {
 
   // Science/Analysis
   FlaskConical: FlaskConicalIcon,
+
+  // Tools
+  Wrench: WrenchIcon,
 };
 
 export { Mail as MailIcon, HelpCircle as HelpIcon } from 'lucide-react';

@@ -179,6 +179,7 @@ export interface StashLayoutUpdate {
   grid_y: number;
   col_span: number;
   row_span: number;
+  sort_order: number;
 }
 
 /**
