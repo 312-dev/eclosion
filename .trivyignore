@@ -5,3 +5,11 @@
 # This vulnerability only affects Windows systems and our Docker container runs on Linux.
 # Waiting for Chainguard to update their Python base image to 3.14.2-r3.
 CVE-2024-3220
+
+# CVE-2026-0861: glibc integer overflow in memalign (HIGH)
+# CVE-2026-0915: glibc information disclosure via zero-valued network (MEDIUM)
+# These are in the Chainguard Python base image (glibc 2.42-r5).
+# Fix available in glibc 2.42-r6. Waiting for Renovate to update Docker image digest.
+# Tracked: https://github.com/312-dev/eclosion/issues/TBD
+CVE-2026-0861
+CVE-2026-0915
