@@ -20,6 +20,7 @@ export async function getAutoSyncStatus(): Promise<AutoSyncStatus> {
     last_sync_success: null,
     last_sync_error: null,
     consent_acknowledged: false,
+    is_foreground: true,
   };
 }
 

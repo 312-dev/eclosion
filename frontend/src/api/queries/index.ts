@@ -7,6 +7,26 @@
 // Keys
 export { queryKeys, getQueryKey } from './keys';
 
+// Dependencies (query configuration and invalidation registry)
+export {
+  queryConfig,
+  mutationEffects,
+  pageQueryMap,
+  pollingConfig,
+  getInvalidationTargets,
+  getStaleTargets,
+  getPagePrimaryQueries,
+  getPageAllQueries,
+  getPageSyncScope,
+  isQueryPollable,
+  type QueryKeyName,
+  type PageName,
+  type MutationType,
+  type QueryConfig,
+  type MutationEffect,
+  type PageQueryRequirements,
+} from './dependencies';
+
 // Dashboard queries
 export {
   useDashboardQuery,
@@ -53,13 +73,14 @@ export {
   useLinkToCategoryMutation,
 } from './categoryMutations';
 
-// Settings mutations
+// Settings mutations and queries
 export {
   useUpdateSettingsMutation,
   useSetConfigMutation,
   useExportSettingsMutation,
   useImportSettingsMutation,
   usePreviewImportMutation,
+  useAutoSyncStatusQuery,
 } from './settingsMutations';
 
 // Uninstall mutations

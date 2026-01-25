@@ -4,11 +4,12 @@
  * Queries and mutations for stash configuration and category groups.
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { useDemo } from '../../context/DemoContext';
 import * as api from '../client';
 import * as demoApi from '../demoClient';
 import { queryKeys, getQueryKey } from './keys';
+import { useSmartInvalidate } from '../../hooks/useSmartInvalidate';
 import type { StashConfig } from '../../types';
 
 /**
@@ -53,12 +54,12 @@ export function useStashConfigQuery(options?: { enabled?: boolean }) {
  */
 export function useUpdateStashConfigMutation() {
   const isDemo = useDemo();
-  const queryClient = useQueryClient();
+  const smartInvalidate = useSmartInvalidate();
   return useMutation({
     mutationFn: (updates: Partial<StashConfig>) =>
       isDemo ? demoApi.updateStashConfig(updates) : api.updateStashConfig(updates),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.stashConfig, isDemo) });
+      smartInvalidate('updateStashConfig');
     },
   });
 }

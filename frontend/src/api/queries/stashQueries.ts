@@ -2,6 +2,7 @@
  * Stash Queries
  *
  * Queries and mutations for stash items.
+ * Uses smart invalidation from the dependency registry for consistent cache management.
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -9,6 +10,7 @@ import { useDemo } from '../../context/DemoContext';
 import * as api from '../client';
 import * as demoApi from '../demoClient';
 import { queryKeys, getQueryKey } from './keys';
+import { useSmartInvalidate } from '../../hooks/useSmartInvalidate';
 import type {
   StashData,
   StashItem,
@@ -98,84 +100,306 @@ export function useStashQuery(options?: { enabled?: boolean }) {
 /** Create stash item mutation */
 export function useCreateStashMutation() {
   const isDemo = useDemo();
-  const queryClient = useQueryClient();
+  const smartInvalidate = useSmartInvalidate();
   return useMutation({
     mutationFn: (request: CreateStashItemRequest) =>
       isDemo ? demoApi.createStashItem(request) : api.createStashItem(request),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.stash, isDemo) });
-      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.availableToStash, isDemo) });
+      smartInvalidate('createStash');
     },
   });
 }
 
-/** Update stash item mutation */
+/** Update stash item mutation with optimistic updates for instant UI feedback */
 export function useUpdateStashMutation() {
   const isDemo = useDemo();
   const queryClient = useQueryClient();
+  const smartInvalidate = useSmartInvalidate();
+  const queryKey = getQueryKey(queryKeys.stash, isDemo);
+
   return useMutation({
     mutationFn: ({ id, updates }: { id: string; updates: UpdateStashItemRequest }) =>
       isDemo ? demoApi.updateStashItem(id, updates) : api.updateStashItem(id, updates),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.stash, isDemo) });
+
+    onMutate: async ({ id, updates }) => {
+      // Cancel any outgoing refetches so they don't overwrite our optimistic update
+      await queryClient.cancelQueries({ queryKey });
+
+      // Snapshot the previous value
+      const previousData = queryClient.getQueryData<StashData>(queryKey);
+
+      // Optimistically update the cache
+      if (previousData) {
+        queryClient.setQueryData<StashData>(queryKey, (old) => {
+          if (!old) return old;
+
+          const updateItem = (item: StashItem): StashItem => {
+            if (item.id !== id) return item;
+            // Build updated item, handling optional properties correctly
+            const updated: StashItem = { ...item };
+
+            // Apply each update field, converting null to delete for optional string props
+            if (updates.name !== undefined) updated.name = updates.name;
+            if (updates.amount !== undefined) updated.amount = updates.amount;
+            if (updates.target_date !== undefined) updated.target_date = updates.target_date;
+            if (updates.emoji !== undefined) updated.emoji = updates.emoji;
+            if (updates.is_enabled !== undefined) updated.is_enabled = updates.is_enabled;
+            if (updates.goal_type !== undefined) updated.goal_type = updates.goal_type;
+
+            // Handle nullable optional string properties
+            if (updates.source_url === null) {
+              delete updated.source_url;
+            } else if (updates.source_url !== undefined) {
+              updated.source_url = updates.source_url;
+            }
+
+            if (updates.custom_image_path === null) {
+              delete updated.custom_image_path;
+            } else if (updates.custom_image_path !== undefined) {
+              updated.custom_image_path = updates.custom_image_path;
+            }
+
+            if (updates.image_attribution === null) {
+              delete updated.image_attribution;
+            } else if (updates.image_attribution !== undefined) {
+              updated.image_attribution = updates.image_attribution;
+            }
+
+            if (updates.tracking_start_date === null) {
+              delete updated.tracking_start_date;
+            } else if (updates.tracking_start_date !== undefined) {
+              updated.tracking_start_date = updates.tracking_start_date;
+            }
+
+            return computeStashItem(updated);
+          };
+
+          return {
+            ...old,
+            items: old.items.map(updateItem),
+            archived_items: old.archived_items.map(updateItem),
+          };
+        });
+      }
+
+      // Return context with previous data for rollback
+      return { previousData };
+    },
+
+    onError: (_err, _variables, context) => {
+      // Rollback to previous data on error
+      if (context?.previousData) {
+        queryClient.setQueryData(queryKey, context.previousData);
+      }
+    },
+
+    onSettled: () => {
+      // Always refetch after error or success to ensure server sync
+      smartInvalidate('updateStash');
     },
   });
 }
 
-/** Archive stash item mutation */
+/** Archive stash item mutation with optimistic updates */
 export function useArchiveStashMutation() {
   const isDemo = useDemo();
   const queryClient = useQueryClient();
+  const smartInvalidate = useSmartInvalidate();
+  const queryKey = getQueryKey(queryKeys.stash, isDemo);
+
   return useMutation({
     mutationFn: (id: string) => (isDemo ? demoApi.archiveStashItem(id) : api.archiveStashItem(id)),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.stash, isDemo) });
+
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey });
+      const previousData = queryClient.getQueryData<StashData>(queryKey);
+
+      if (previousData) {
+        queryClient.setQueryData<StashData>(queryKey, (old) => {
+          if (!old) return old;
+          const itemToArchive = old.items.find((item) => item.id === id);
+          if (!itemToArchive) return old;
+
+          const archivedItem: StashItem = {
+            ...itemToArchive,
+            is_archived: true,
+            archived_at: new Date().toISOString(),
+          };
+
+          return {
+            ...old,
+            items: old.items.filter((item) => item.id !== id),
+            archived_items: [...old.archived_items, archivedItem],
+          };
+        });
+      }
+
+      return { previousData };
+    },
+
+    onError: (_err, _id, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(queryKey, context.previousData);
+      }
+    },
+
+    onSettled: () => {
+      smartInvalidate('archiveStash');
     },
   });
 }
 
-/** Unarchive (restore) stash item mutation */
+/** Unarchive (restore) stash item mutation with optimistic updates */
 export function useUnarchiveStashMutation() {
   const isDemo = useDemo();
   const queryClient = useQueryClient();
+  const smartInvalidate = useSmartInvalidate();
+  const queryKey = getQueryKey(queryKeys.stash, isDemo);
+
   return useMutation({
     mutationFn: (id: string) =>
       isDemo ? demoApi.unarchiveStashItem(id) : api.unarchiveStashItem(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.stash, isDemo) });
+
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey });
+      const previousData = queryClient.getQueryData<StashData>(queryKey);
+
+      if (previousData) {
+        queryClient.setQueryData<StashData>(queryKey, (old) => {
+          if (!old) return old;
+          const itemToRestore = old.archived_items.find((item) => item.id === id);
+          if (!itemToRestore) return old;
+
+          // Create restored item, removing archived_at property
+          const { archived_at: _, ...itemWithoutArchivedAt } = itemToRestore;
+          const restoredItem: StashItem = {
+            ...itemWithoutArchivedAt,
+            is_archived: false,
+          };
+
+          return {
+            ...old,
+            items: [...old.items, restoredItem],
+            archived_items: old.archived_items.filter((item) => item.id !== id),
+          };
+        });
+      }
+
+      return { previousData };
+    },
+
+    onError: (_err, _id, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(queryKey, context.previousData);
+      }
+    },
+
+    onSettled: () => {
+      smartInvalidate('unarchiveStash');
     },
   });
 }
 
-/** Complete a one-time purchase goal (mark as purchased and archive) */
+/** Complete a one-time purchase goal (mark as purchased and archive) with optimistic updates */
 export function useCompleteStashMutation() {
   const isDemo = useDemo();
   const queryClient = useQueryClient();
+  const smartInvalidate = useSmartInvalidate();
+  const queryKey = getQueryKey(queryKeys.stash, isDemo);
+
   return useMutation({
     mutationFn: ({ id, releaseFunds = false }: { id: string; releaseFunds?: boolean }) =>
       isDemo
         ? demoApi.completeStashItem(id, releaseFunds)
         : api.completeStashItem(id, releaseFunds),
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.stash, isDemo) });
-      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.availableToStash, isDemo) });
-      // If funds were released, invalidate dashboard to update Left to Budget badge
-      if (variables.releaseFunds) {
-        queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.dashboard, isDemo) });
+
+    onMutate: async ({ id }) => {
+      await queryClient.cancelQueries({ queryKey });
+      const previousData = queryClient.getQueryData<StashData>(queryKey);
+
+      if (previousData) {
+        queryClient.setQueryData<StashData>(queryKey, (old) => {
+          if (!old) return old;
+          const itemToComplete = old.items.find((item) => item.id === id);
+          if (!itemToComplete) return old;
+
+          const completedItem: StashItem = {
+            ...itemToComplete,
+            is_archived: true,
+            archived_at: new Date().toISOString(),
+            completed_at: new Date().toISOString(),
+          };
+
+          return {
+            ...old,
+            items: old.items.filter((item) => item.id !== id),
+            archived_items: [...old.archived_items, completedItem],
+          };
+        });
       }
+
+      return { previousData };
+    },
+
+    onError: (_err, _variables, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(queryKey, context.previousData);
+      }
+    },
+
+    onSettled: () => {
+      smartInvalidate('completeStash');
     },
   });
 }
 
-/** Uncomplete a one-time purchase goal (move back to active) */
+/** Uncomplete a one-time purchase goal (move back to active) with optimistic updates */
 export function useUncompleteStashMutation() {
   const isDemo = useDemo();
   const queryClient = useQueryClient();
+  const smartInvalidate = useSmartInvalidate();
+  const queryKey = getQueryKey(queryKeys.stash, isDemo);
+
   return useMutation({
     mutationFn: (id: string) =>
       isDemo ? demoApi.uncompleteStashItem(id) : api.uncompleteStashItem(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.stash, isDemo) });
+
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey });
+      const previousData = queryClient.getQueryData<StashData>(queryKey);
+
+      if (previousData) {
+        queryClient.setQueryData<StashData>(queryKey, (old) => {
+          if (!old) return old;
+          const itemToRestore = old.archived_items.find((item) => item.id === id);
+          if (!itemToRestore) return old;
+
+          // Create restored item, removing archived_at and completed_at properties
+          const { archived_at: _a, completed_at: _c, ...itemWithoutDates } = itemToRestore;
+          const restoredItem: StashItem = {
+            ...itemWithoutDates,
+            is_archived: false,
+          };
+
+          return {
+            ...old,
+            items: [...old.items, restoredItem],
+            archived_items: old.archived_items.filter((item) => item.id !== id),
+          };
+        });
+      }
+
+      return { previousData };
+    },
+
+    onError: (_err, _id, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(queryKey, context.previousData);
+      }
+    },
+
+    onSettled: () => {
+      smartInvalidate('unarchiveStash'); // Same effect as unarchive
     },
   });
 }
@@ -183,36 +407,63 @@ export function useUncompleteStashMutation() {
 /** Delete stash item mutation (optionally also deletes linked category) */
 export function useDeleteStashMutation() {
   const isDemo = useDemo();
-  const queryClient = useQueryClient();
+  const smartInvalidate = useSmartInvalidate();
   return useMutation({
     mutationFn: ({ id, deleteCategory = false }: { id: string; deleteCategory?: boolean }) =>
       isDemo
         ? demoApi.deleteStashItem(id, deleteCategory)
         : api.deleteStashItem(id, deleteCategory),
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.stash, isDemo) });
-      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.availableToStash, isDemo) });
-      // If category was deleted, invalidate dashboard to update Left to Budget badge
-      if (variables.deleteCategory) {
-        queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.dashboard, isDemo) });
-      }
+    onSuccess: () => {
+      smartInvalidate('deleteStash');
     },
   });
 }
 
-/** Allocate funds to stash item (also invalidates dashboard for Left to Budget) */
+/** Allocate funds to stash item with optimistic updates for instant UI feedback */
 export function useAllocateStashMutation() {
   const isDemo = useDemo();
   const queryClient = useQueryClient();
+  const smartInvalidate = useSmartInvalidate();
+  const queryKey = getQueryKey(queryKeys.stash, isDemo);
+
   return useMutation({
     mutationFn: ({ id, amount }: { id: string; amount: number }) =>
       isDemo ? demoApi.allocateStashFunds(id, amount) : api.allocateStashFunds(id, amount),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.stash, isDemo) });
-      // Invalidate dashboard to update Left to Budget badge
-      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.dashboard, isDemo) });
-      // Invalidate available-to-stash since stash balances changed
-      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.availableToStash, isDemo) });
+
+    onMutate: async ({ id, amount }) => {
+      // Cancel any outgoing refetches so they don't overwrite our optimistic update
+      await queryClient.cancelQueries({ queryKey });
+
+      // Snapshot the previous value
+      const previousData = queryClient.getQueryData<StashData>(queryKey);
+
+      // Optimistically update the cache
+      if (previousData) {
+        queryClient.setQueryData<StashData>(queryKey, (old) => {
+          if (!old) return old;
+          return {
+            ...old,
+            items: old.items.map((item) =>
+              item.id === id ? computeStashItem({ ...item, planned_budget: amount }) : item
+            ),
+          };
+        });
+      }
+
+      // Return context with previous data for rollback
+      return { previousData };
+    },
+
+    onError: (_err, _variables, context) => {
+      // Rollback to previous data on error
+      if (context?.previousData) {
+        queryClient.setQueryData(queryKey, context.previousData);
+      }
+    },
+
+    onSettled: () => {
+      // Always refetch after error or success to ensure server sync
+      smartInvalidate('allocateStash');
     },
   });
 }
@@ -223,19 +474,56 @@ interface BatchAllocation {
   budget: number;
 }
 
-/** Allocate funds to multiple stash items at once (used by Distribute feature) */
+/** Allocate funds to multiple stash items at once with optimistic updates (used by Distribute feature) */
 export function useAllocateStashBatchMutation() {
   const isDemo = useDemo();
   const queryClient = useQueryClient();
+  const smartInvalidate = useSmartInvalidate();
+  const queryKey = getQueryKey(queryKeys.stash, isDemo);
+
   return useMutation({
     mutationFn: (allocations: BatchAllocation[]) =>
       isDemo
         ? demoApi.allocateStashFundsBatch(allocations)
         : api.allocateStashFundsBatch(allocations),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.stash, isDemo) });
-      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.dashboard, isDemo) });
-      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.availableToStash, isDemo) });
+
+    onMutate: async (allocations) => {
+      // Cancel any outgoing refetches so they don't overwrite our optimistic update
+      await queryClient.cancelQueries({ queryKey });
+
+      // Snapshot the previous value
+      const previousData = queryClient.getQueryData<StashData>(queryKey);
+
+      // Optimistically update the cache
+      if (previousData) {
+        const budgetMap = new Map(allocations.map((a) => [a.id, a.budget]));
+        queryClient.setQueryData<StashData>(queryKey, (old) => {
+          if (!old) return old;
+          return {
+            ...old,
+            items: old.items.map((item) =>
+              budgetMap.has(item.id)
+                ? computeStashItem({ ...item, planned_budget: budgetMap.get(item.id)! })
+                : item
+            ),
+          };
+        });
+      }
+
+      // Return context with previous data for rollback
+      return { previousData };
+    },
+
+    onError: (_err, _variables, context) => {
+      // Rollback to previous data on error
+      if (context?.previousData) {
+        queryClient.setQueryData(queryKey, context.previousData);
+      }
+    },
+
+    onSettled: () => {
+      // Always refetch after error or success to ensure server sync
+      smartInvalidate('allocateStashBatch');
     },
   });
 }
@@ -243,14 +531,14 @@ export function useAllocateStashBatchMutation() {
 /** Change category group for stash item */
 export function useChangeStashGroupMutation() {
   const isDemo = useDemo();
-  const queryClient = useQueryClient();
+  const smartInvalidate = useSmartInvalidate();
   return useMutation({
     mutationFn: ({ id, groupId, groupName }: { id: string; groupId: string; groupName: string }) =>
       isDemo
         ? demoApi.changeStashGroup(id, groupId, groupName)
         : api.changeStashGroup(id, groupId, groupName),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.stash, isDemo) });
+      smartInvalidate('updateStash'); // Same effect - just refreshes stash
     },
   });
 }
@@ -258,7 +546,7 @@ export function useChangeStashGroupMutation() {
 /** Link category to stash item (for restoring archived items with deleted categories) */
 export function useLinkStashCategoryMutation() {
   const isDemo = useDemo();
-  const queryClient = useQueryClient();
+  const smartInvalidate = useSmartInvalidate();
   return useMutation({
     mutationFn: ({
       id,
@@ -282,7 +570,7 @@ export function useLinkStashCategoryMutation() {
       return isDemo ? demoApi.linkStashCategory(id, params) : api.linkStashCategory(id, params);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.stash, isDemo) });
+      smartInvalidate('updateStash'); // Same effect - just refreshes stash
     },
   });
 }
@@ -290,18 +578,11 @@ export function useLinkStashCategoryMutation() {
 /** Sync stash data from Monarch */
 export function useStashSyncMutation() {
   const isDemo = useDemo();
-  const queryClient = useQueryClient();
+  const smartInvalidate = useSmartInvalidate();
   return useMutation({
     mutationFn: () => (isDemo ? demoApi.syncStash() : api.syncStash()),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.stash, isDemo) });
-      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.availableToStash, isDemo) });
-      // Invalidate history so Reports tab refreshes after sync
-      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.stashHistory, isDemo) });
-      // Invalidate Monarch goals so deleted/added goals are reflected
-      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.monarchGoals, isDemo) });
-      // Invalidate dashboard to update Left to Budget (goal changes affect budgets)
-      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.dashboard, isDemo) });
+      smartInvalidate('stashSync');
     },
   });
 }
@@ -332,17 +613,14 @@ export function useInvalidateStash() {
 /** Update category rollover starting balance (used by Distribute wizard for rollover portion) */
 export function useUpdateCategoryRolloverMutation() {
   const isDemo = useDemo();
-  const queryClient = useQueryClient();
+  const smartInvalidate = useSmartInvalidate();
   return useMutation({
     mutationFn: ({ categoryId, amount }: { categoryId: string; amount: number }) =>
       isDemo
         ? demoApi.updateCategoryRolloverBalance(categoryId, amount)
         : api.updateCategoryRolloverBalance(categoryId, amount),
     onSuccess: () => {
-      // Invalidate stash to reflect updated balances
-      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.stash, isDemo) });
-      // Invalidate available-to-stash since stash balances changed
-      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.availableToStash, isDemo) });
+      smartInvalidate('updateCategoryRollover');
     },
   });
 }
@@ -350,17 +628,14 @@ export function useUpdateCategoryRolloverMutation() {
 /** Update category group rollover starting balance (used by Distribute wizard for flexible groups) */
 export function useUpdateGroupRolloverMutation() {
   const isDemo = useDemo();
-  const queryClient = useQueryClient();
+  const smartInvalidate = useSmartInvalidate();
   return useMutation({
     mutationFn: ({ groupId, amount }: { groupId: string; amount: number }) =>
       isDemo
         ? demoApi.updateGroupRolloverBalance(groupId, amount)
         : api.updateGroupRolloverBalance(groupId, amount),
     onSuccess: () => {
-      // Invalidate stash to reflect updated balances
-      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.stash, isDemo) });
-      // Invalidate available-to-stash since stash balances changed
-      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.availableToStash, isDemo) });
+      smartInvalidate('updateGroupRollover');
     },
   });
 }
@@ -399,6 +674,7 @@ export function useSaveHypothesisMutation() {
     mutationFn: (request: SaveHypothesisRequest) =>
       isDemo ? demoApi.saveHypothesis(request) : api.saveHypothesis(request),
     onSuccess: () => {
+      // Hypotheses only affect their own query, not in registry
       queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.stashHypotheses, isDemo) });
     },
   });
@@ -411,6 +687,7 @@ export function useDeleteHypothesisMutation() {
   return useMutation({
     mutationFn: (id: string) => (isDemo ? demoApi.deleteHypothesis(id) : api.deleteHypothesis(id)),
     onSuccess: () => {
+      // Hypotheses only affect their own query, not in registry
       queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.stashHypotheses, isDemo) });
     },
   });

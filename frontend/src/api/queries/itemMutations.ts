@@ -2,44 +2,83 @@
  * Item Mutations
  *
  * Mutations for recurring item operations: toggle, allocate, recreate, refresh, change group.
+ * Uses smart invalidation from the dependency registry for consistent cache management.
  */
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useDemo } from '../../context/DemoContext';
 import * as api from '../client';
 import * as demoApi from '../demoClient';
+import { useSmartInvalidate } from '../../hooks/useSmartInvalidate';
 import { queryKeys, getQueryKey } from './keys';
+import type { DashboardData } from '../../types';
 
 /**
  * Toggle item tracking
  */
 export function useToggleItemMutation() {
   const isDemo = useDemo();
-  const queryClient = useQueryClient();
+  const smartInvalidate = useSmartInvalidate();
   return useMutation({
     mutationFn: ({ recurringId, enabled }: { recurringId: string; enabled: boolean }) =>
       isDemo
         ? demoApi.toggleItemTracking(recurringId, enabled)
         : api.toggleItemTracking(recurringId, enabled),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.dashboard, isDemo) });
+      smartInvalidate('toggleItem');
     },
   });
 }
 
 /**
- * Allocate funds to a category
+ * Allocate funds to a category with optimistic updates for instant UI feedback
  */
 export function useAllocateFundsMutation() {
   const isDemo = useDemo();
   const queryClient = useQueryClient();
+  const smartInvalidate = useSmartInvalidate();
+  const queryKey = getQueryKey(queryKeys.dashboard, isDemo);
+
   return useMutation({
     mutationFn: ({ recurringId, amount }: { recurringId: string; amount: number }) =>
       isDemo
         ? demoApi.allocateFunds(recurringId, amount)
         : api.allocateFunds(recurringId, amount),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.dashboard, isDemo) });
+
+    onMutate: async ({ recurringId, amount }) => {
+      // Cancel any outgoing refetches so they don't overwrite our optimistic update
+      await queryClient.cancelQueries({ queryKey });
+
+      // Snapshot the previous value
+      const previousData = queryClient.getQueryData<DashboardData>(queryKey);
+
+      // Optimistically update the cache
+      if (previousData) {
+        queryClient.setQueryData<DashboardData>(queryKey, (old) => {
+          if (!old) return old;
+          return {
+            ...old,
+            items: old.items.map((item) =>
+              item.id === recurringId ? { ...item, planned_budget: amount } : item
+            ),
+          };
+        });
+      }
+
+      // Return context with previous data for rollback
+      return { previousData };
+    },
+
+    onError: (_err, _variables, context) => {
+      // Rollback to previous data on error
+      if (context?.previousData) {
+        queryClient.setQueryData(queryKey, context.previousData);
+      }
+    },
+
+    onSettled: () => {
+      // Always refetch after error or success to ensure server sync
+      smartInvalidate('allocateFunds');
     },
   });
 }
@@ -49,31 +88,32 @@ export function useAllocateFundsMutation() {
  */
 export function useRecreateCategoryMutation() {
   const isDemo = useDemo();
-  const queryClient = useQueryClient();
+  const smartInvalidate = useSmartInvalidate();
   return useMutation({
     mutationFn: (recurringId: string) =>
       isDemo
         ? demoApi.recreateCategory(recurringId)
         : api.recreateCategory(recurringId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.dashboard, isDemo) });
+      smartInvalidate('recreateCategory');
     },
   });
 }
 
 /**
  * Refresh/recalculate item target
+ * Note: Uses toggleItem effect as refresh has same invalidation needs
  */
 export function useRefreshItemMutation() {
   const isDemo = useDemo();
-  const queryClient = useQueryClient();
+  const smartInvalidate = useSmartInvalidate();
   return useMutation({
     mutationFn: (recurringId: string) =>
       isDemo
         ? demoApi.refreshItem(recurringId)
         : api.refreshItem(recurringId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.dashboard, isDemo) });
+      smartInvalidate('toggleItem'); // Same effect as toggle
     },
   });
 }
@@ -83,15 +123,14 @@ export function useRefreshItemMutation() {
  */
 export function useChangeCategoryGroupMutation() {
   const isDemo = useDemo();
-  const queryClient = useQueryClient();
+  const smartInvalidate = useSmartInvalidate();
   return useMutation({
     mutationFn: ({ recurringId, groupId, groupName }: { recurringId: string; groupId: string; groupName: string }) =>
       isDemo
         ? demoApi.changeCategoryGroup(recurringId, groupId, groupName)
         : api.changeCategoryGroup(recurringId, groupId, groupName),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.dashboard, isDemo) });
-      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.categoryGroups, isDemo) });
+      smartInvalidate('updateCategoryGroup');
     },
   });
 }

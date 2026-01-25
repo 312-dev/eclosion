@@ -6,6 +6,7 @@
 
 export const queryKeys = {
   dashboard: ['dashboard'] as const,
+  autoSyncStatus: ['autoSyncStatus'] as const,
   categoryGroups: ['categoryGroups'] as const,
   categoryGroupsDetailed: ['categoryGroupsDetailed'] as const,
   flexibleCategoryGroups: ['flexibleCategoryGroups'] as const,

@@ -9,6 +9,7 @@ import { useDemo } from '../../context/DemoContext';
 import * as api from '../client';
 import * as demoApi from '../demoClient';
 import { queryKeys, getQueryKey } from './keys';
+import { useSmartInvalidate } from '../../hooks/useSmartInvalidate';
 import type { PendingBookmark, ImportBookmark } from '../../types';
 
 /**
@@ -71,16 +72,12 @@ export function useSkippedBookmarksQuery(options?: { enabled?: boolean }) {
  */
 export function useSkipPendingMutation() {
   const isDemo = useDemo();
-  const queryClient = useQueryClient();
+  const smartInvalidate = useSmartInvalidate();
   return useMutation({
     mutationFn: (id: string) =>
       isDemo ? demoApi.skipPendingBookmark(id) : api.skipPendingBookmark(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.pendingBookmarks, isDemo) });
-      queryClient.invalidateQueries({
-        queryKey: getQueryKey(queryKeys.pendingBookmarksCount, isDemo),
-      });
-      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.skippedBookmarks, isDemo) });
+      smartInvalidate('skipPending');
     },
   });
 }
@@ -90,17 +87,12 @@ export function useSkipPendingMutation() {
  */
 export function useConvertPendingMutation() {
   const isDemo = useDemo();
-  const queryClient = useQueryClient();
+  const smartInvalidate = useSmartInvalidate();
   return useMutation({
     mutationFn: (id: string) =>
       isDemo ? demoApi.convertPendingBookmark(id) : api.convertPendingBookmark(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.pendingBookmarks, isDemo) });
-      queryClient.invalidateQueries({
-        queryKey: getQueryKey(queryKeys.pendingBookmarksCount, isDemo),
-      });
-      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.skippedBookmarks, isDemo) });
-      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.stash, isDemo) });
+      smartInvalidate('convertPending');
     },
   });
 }
@@ -110,15 +102,12 @@ export function useConvertPendingMutation() {
  */
 export function useImportBookmarksMutation() {
   const isDemo = useDemo();
-  const queryClient = useQueryClient();
+  const smartInvalidate = useSmartInvalidate();
   return useMutation({
     mutationFn: (bookmarks: ImportBookmark[]) =>
       isDemo ? demoApi.importBookmarks(bookmarks) : api.importBookmarks(bookmarks),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.pendingBookmarks, isDemo) });
-      queryClient.invalidateQueries({
-        queryKey: getQueryKey(queryKeys.pendingBookmarksCount, isDemo),
-      });
+      smartInvalidate('importBookmarks');
     },
   });
 }
@@ -128,15 +117,12 @@ export function useImportBookmarksMutation() {
  */
 export function useClearUnconvertedBookmarksMutation() {
   const isDemo = useDemo();
-  const queryClient = useQueryClient();
+  const smartInvalidate = useSmartInvalidate();
   return useMutation({
     mutationFn: () =>
       isDemo ? demoApi.clearUnconvertedBookmarks() : api.clearUnconvertedBookmarks(),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.pendingBookmarks, isDemo) });
-      queryClient.invalidateQueries({
-        queryKey: getQueryKey(queryKeys.pendingBookmarksCount, isDemo),
-      });
+      smartInvalidate('clearUnconvertedBookmarks');
     },
   });
 }

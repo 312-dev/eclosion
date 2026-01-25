@@ -42,6 +42,20 @@ export async function disableAutoSync(): Promise<DisableAutoSyncResult> {
   });
 }
 
+export interface SetVisibilityResult {
+  success: boolean;
+  interval_minutes?: number;
+  is_foreground: boolean;
+  changed?: boolean;
+}
+
+export async function setAutoSyncVisibility(isForeground: boolean): Promise<SetVisibilityResult> {
+  return fetchApi<SetVisibilityResult>('/recurring/auto-sync/visibility', {
+    method: 'POST',
+    body: JSON.stringify({ is_foreground: isForeground }),
+  });
+}
+
 // Notice functions
 
 export async function dismissNotice(noticeId: string): Promise<{ success: boolean }> {

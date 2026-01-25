@@ -72,14 +72,17 @@ export async function createStashItem(request: CreateStashItemRequest): Promise<
     0
   );
 
+  // Starting balance support - initial rollover amount
+  const startingBalance = request.starting_balance ?? 0;
+
   const newItem: StashItem = {
     type: 'stash',
     id: itemId,
     name: request.name,
     amount: request.amount,
-    current_balance: 0,
+    current_balance: startingBalance,
     planned_budget: 0,
-    rollover_amount: 0,
+    rollover_amount: startingBalance,
     credits_this_month: 0,
     category_id: categoryId,
     category_name: request.name,
@@ -298,8 +301,8 @@ export async function deleteStashItem(
 }
 
 /**
- * Mark a one-time purchase goal as completed (archived).
- * Only valid for goal_type='one_time'.
+ * Mark a one-time purchase or debt goal as completed (archived).
+ * Only valid for goal_type='one_time' or 'debt'.
  */
 export async function completeStashItem(
   id: string,
@@ -312,8 +315,8 @@ export async function completeStashItem(
     if (itemIndex === -1) throw new Error(`Stash not found: ${id}`);
 
     const item = state.stash.items[itemIndex]!;
-    if (item.goal_type !== 'one_time') {
-      throw new Error('Only one_time goals can be marked as completed');
+    if (item.goal_type !== 'one_time' && item.goal_type !== 'debt') {
+      throw new Error('Only one_time and debt goals can be marked as completed');
     }
 
     // Create completed/archived item

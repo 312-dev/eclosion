@@ -35,7 +35,7 @@ export {
 } from './security';
 
 // Dashboard
-export { getDashboard, triggerSync } from './dashboard';
+export { getDashboard, triggerSync, triggerScopedSync, type SyncScope } from './dashboard';
 
 // Categories
 export {
@@ -121,6 +121,7 @@ export {
   getAutoSyncStatus,
   enableAutoSync,
   disableAutoSync,
+  setAutoSyncVisibility,
   dismissNotice,
   getDeploymentInfo,
   cancelSubscription,
@@ -141,6 +142,7 @@ export {
   type Backup,
   type ExecuteMigrationResult,
   type BackupsResponse,
+  type SetVisibilityResult,
 } from './misc';
 
 // Available to Stash
