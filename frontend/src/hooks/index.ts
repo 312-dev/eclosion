@@ -78,6 +78,8 @@ export { useBiometric, type UseBiometricReturn } from './useBiometric';
 
 export { useBackgroundSync, type UseBackgroundSyncReturn } from './useBackgroundSync';
 
+export { useAutoSyncVisibility } from './useAutoSyncVisibility';
+
 export { useSavingStates, type UseSavingStatesReturn } from './useSavingStates';
 
 export { useScrollLock } from './useScrollLock';
@@ -114,3 +116,16 @@ export {
   type UseFormattedNumberInputOptions,
   type UseFormattedNumberInputReturn,
 } from './useFormattedNumberInput';
+
+// Smart invalidation and page sync
+export { useSmartInvalidate, useInvalidateQueries, usePrefetchQueries } from './useSmartInvalidate';
+
+export { usePageSync, useFullSync, useCurrentPage, type SyncScope } from './usePageSync';
+
+export {
+  useBackgroundPoller,
+  useVisibilityRefresh,
+  usePollingControl,
+} from './useBackgroundPoller';
+
+export { useAnimatedValue } from './useAnimatedValue';
