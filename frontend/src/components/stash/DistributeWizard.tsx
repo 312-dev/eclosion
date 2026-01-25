@@ -29,6 +29,7 @@ import { Icons } from '../icons';
 import { Tooltip } from '../ui';
 import { UI } from '../../constants';
 import { distributeAmountByRatios } from '../../utils/calculations';
+import { formatCurrency } from '../../utils/formatters';
 import {
   useAllocateStashBatchMutation,
   useUpdateCategoryRolloverMutation,
@@ -120,6 +121,9 @@ export function DistributeWizard({
 
   // Step state
   const [step, setStep] = useState<WizardStep>('savings');
+
+  // Track previous isOpen state to detect actual open transitions
+  const wasOpenRef = useRef(isOpen);
 
   // Separate allocations for each step
   const [savingsAllocations, setSavingsAllocations] = useState<Record<string, number>>({});
@@ -224,8 +228,8 @@ export function DistributeWizard({
   // Allow continuing if stepAmount is 0 (nothing to allocate) or all funds are allocated
   const isFullyAllocated = Math.round(remaining) === 0;
 
-  // Validation
-  const isOverMax = activeMode === 'distribute' && step === 'savings' && totalAllocated > existingSavings;
+  // Validation - use rounded comparison to handle floating point precision
+  const isOverMax = activeMode === 'distribute' && step === 'savings' && Math.round(remaining) < 0;
 
   // Handlers for current step
   const handleAllocationChange = useCallback(
@@ -321,14 +325,19 @@ export function DistributeWizard({
         }
       }
 
-      // Step 2: Apply monthly allocations to budgets
+      // Step 2: Apply monthly allocations to budgets (add to existing budget)
       const budgetUpdates = Object.entries(monthlyAllocations)
         .filter(([, amount]) => amount > 0)
-        .map(([id, budget]) => ({ id, budget }));
+        .map(([id, allocation]) => {
+          const item = items.find((i) => i.id === id);
+          const currentBudget = item?.planned_budget ?? 0;
+          return { id, budget: currentBudget + allocation };
+        });
 
       if (budgetUpdates.length > 0) {
         await batchAllocateMutation.mutateAsync(budgetUpdates);
-        budgetTotal = budgetUpdates.reduce((sum, u) => sum + u.budget, 0);
+        // Sum the allocation amounts (not the new totals) for the success message
+        budgetTotal = Object.values(monthlyAllocations).reduce((sum, val) => sum + val, 0);
       }
 
       // Success message
@@ -362,9 +371,12 @@ export function DistributeWizard({
     onClose,
   ]);
 
-  // Reset state when modal opens (via rAF to avoid synchronous setState in effect)
+  // Reset state when modal opens (only on actual open transition, not when values change while open)
   useEffect(() => {
-    if (isOpen) {
+    const justOpened = isOpen && !wasOpenRef.current;
+    wasOpenRef.current = isOpen;
+
+    if (justOpened) {
       const frame = requestAnimationFrame(() => {
         // Reset to initial mode (in case user switched to hypothetical last time)
         setActiveMode(initialMode);
@@ -406,6 +418,7 @@ export function DistributeWizard({
   // Shake animation state for invalid submit attempts
   const [shouldShake, setShouldShake] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   // Handle Enter key to attempt submit or shake if invalid
   useEffect(() => {
@@ -439,26 +452,6 @@ export function DistributeWizard({
     return hasSavingsStep ? 2 : 1;
   };
 
-  // Step title and description (shown inside the modal, above the amount)
-  const getStepTitle = () => {
-    if (step === 'savings') return 'Distribute Existing Savings';
-    if (step === 'monthly') return 'Distribute Monthly Income';
-    return 'Review Your Changes';
-  };
-
-  const getStepDescription = () => {
-    if (step === 'savings') {
-      return 'This money will be added to your stash balances as a one-time boost.';
-    }
-    if (step === 'monthly') {
-      return 'This is your recurring monthly contribution. Projections are based on this rate.';
-    }
-    if (activeMode === 'hypothesize') {
-      return 'Review your hypothetical distribution. Use Copy to save the summary.';
-    }
-    return 'Confirm your distribution before applying changes.';
-  };
-
   // Action button content based on allocation state
   const getActionButtonState = () => {
     if (isStepComplete) {
@@ -487,13 +480,9 @@ export function DistributeWizard({
 
   const actionButton = getActionButtonState();
 
-  // Format currency for display
-  const formatCurrency = (amount: number) =>
-    new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      maximumFractionDigits: 0,
-    }).format(amount);
+  // Currency formatting options for whole dollars
+  const currencyOpts = { maximumFractionDigits: 0 };
+  const fmtCurrency = (amount: number) => formatCurrency(amount, currencyOpts);
 
   // Modal title with icon matching the mode
   const title = activeMode === 'distribute' ? (
@@ -547,8 +536,8 @@ export function DistributeWizard({
         const totalSavings = Object.values(savingsAllocations).reduce((sum, v) => sum + v, 0);
         lines.push('# Distribute Existing Savings');
         lines.push('');
-        lines.push(`**Total:** ${formatCurrency(effectiveSavingsAmount)}`);
-        lines.push(`**Allocated:** ${formatCurrency(totalSavings)}`);
+        lines.push(`**Total:** ${fmtCurrency(effectiveSavingsAmount)}`);
+        lines.push(`**Allocated:** ${fmtCurrency(totalSavings)}`);
         lines.push('');
 
         const headers = ['Stash', 'Balance', 'Target', 'Allocation', 'New Balance'];
@@ -559,14 +548,14 @@ export function DistributeWizard({
             const newBalance = item.current_balance + allocation;
             const datePart = item.target_date ? ` by ${formatTargetDate(item.target_date)}` : '';
             const targetStr = item.amount
-              ? `${formatCurrency(item.amount)}${datePart}`
+              ? `${fmtCurrency(item.amount)}${datePart}`
               : 'No target';
             return [
               item.name,
-              formatCurrency(item.current_balance),
+              fmtCurrency(item.current_balance),
               targetStr,
-              `+${formatCurrency(allocation)}`,
-              formatCurrency(newBalance),
+              `+${fmtCurrency(allocation)}`,
+              fmtCurrency(newBalance),
             ];
           });
 
@@ -582,8 +571,8 @@ export function DistributeWizard({
         const totalMonthly = Object.values(monthlyAllocations).reduce((sum, v) => sum + v, 0);
         lines.push('# Distribute Monthly Income');
         lines.push('');
-        lines.push(`**Total:** ${formatCurrency(effectiveMonthlyAmount)}/mo`);
-        lines.push(`**Allocated:** ${formatCurrency(totalMonthly)}/mo`);
+        lines.push(`**Total:** ${fmtCurrency(effectiveMonthlyAmount)}/mo`);
+        lines.push(`**Allocated:** ${fmtCurrency(totalMonthly)}/mo`);
         lines.push('');
 
         // Calculate starting balances (current + savings rollover)
@@ -596,7 +585,7 @@ export function DistributeWizard({
             const startingBalance = item.current_balance + rolloverAmount;
             const datePart = item.target_date ? ` by ${formatTargetDate(item.target_date)}` : '';
             const targetStr = item.amount
-              ? `${formatCurrency(item.amount)}${datePart}`
+              ? `${fmtCurrency(item.amount)}${datePart}`
               : 'No target';
 
             // Calculate projected date
@@ -615,9 +604,9 @@ export function DistributeWizard({
 
             return [
               item.name,
-              formatCurrency(startingBalance),
+              fmtCurrency(startingBalance),
               targetStr,
-              `${formatCurrency(monthlyAmount)}/mo`,
+              `${fmtCurrency(monthlyAmount)}/mo`,
               projectedStr,
             ];
           });
@@ -640,7 +629,7 @@ export function DistributeWizard({
             for (const event of events) {
               const typeStr = event.type === '1x' ? '1x deposit' : 'rate change to';
               const monthStr = formatMonthKeyShort(event.month);
-              lines.push(`- ${formatCurrency(event.amount)} ${typeStr} in ${monthStr}`);
+              lines.push(`- ${fmtCurrency(event.amount)} ${typeStr} in ${monthStr}`);
             }
           }
         }
@@ -650,7 +639,7 @@ export function DistributeWizard({
     }
 
     return lines.join('\n');
-  }, [step, savingsAllocations, monthlyAllocations, items, effectiveSavingsAmount, effectiveMonthlyAmount, stashEvents, formatCurrency, formatTable, formatTargetDate, formatDateShortYear]);
+  }, [step, savingsAllocations, monthlyAllocations, items, effectiveSavingsAmount, effectiveMonthlyAmount, stashEvents, fmtCurrency, formatTable, formatTargetDate, formatDateShortYear]);
 
   // Generate FULL markdown summary (for review screen)
   const generateFullSummary = useCallback(() => {
@@ -662,8 +651,8 @@ export function DistributeWizard({
       const totalSavings = Object.values(savingsAllocations).reduce((sum, v) => sum + v, 0);
       lines.push('## Distribute Existing Savings');
       lines.push('');
-      lines.push(`**Total:** ${formatCurrency(effectiveSavingsAmount)}`);
-      lines.push(`**Allocated:** ${formatCurrency(totalSavings)}`);
+      lines.push(`**Total:** ${fmtCurrency(effectiveSavingsAmount)}`);
+      lines.push(`**Allocated:** ${fmtCurrency(totalSavings)}`);
       lines.push('');
 
       const headers = ['Stash', 'Balance', 'Target', 'Allocation', 'New Balance'];
@@ -674,14 +663,14 @@ export function DistributeWizard({
           const newBalance = item.current_balance + allocation;
           const datePart = item.target_date ? ` by ${formatTargetDate(item.target_date)}` : '';
           const targetStr = item.amount
-            ? `${formatCurrency(item.amount)}${datePart}`
+            ? `${fmtCurrency(item.amount)}${datePart}`
             : 'No target';
           return [
             item.name,
-            formatCurrency(item.current_balance),
+            fmtCurrency(item.current_balance),
             targetStr,
-            `+${formatCurrency(allocation)}`,
-            formatCurrency(newBalance),
+            `+${fmtCurrency(allocation)}`,
+            fmtCurrency(newBalance),
           ];
         });
 
@@ -697,8 +686,8 @@ export function DistributeWizard({
       const totalMonthly = Object.values(monthlyAllocations).reduce((sum, v) => sum + v, 0);
       lines.push('## Distribute Monthly Income');
       lines.push('');
-      lines.push(`**Total:** ${formatCurrency(effectiveMonthlyAmount)}/mo`);
-      lines.push(`**Allocated:** ${formatCurrency(totalMonthly)}/mo`);
+      lines.push(`**Total:** ${fmtCurrency(effectiveMonthlyAmount)}/mo`);
+      lines.push(`**Allocated:** ${fmtCurrency(totalMonthly)}/mo`);
       lines.push('');
 
       const headers = ['Stash', 'Starting', 'Target', 'Contribution', 'Projected'];
@@ -710,7 +699,7 @@ export function DistributeWizard({
           const startingBalance = item.current_balance + rolloverAmount;
           const datePart = item.target_date ? ` by ${formatTargetDate(item.target_date)}` : '';
           const targetStr = item.amount
-            ? `${formatCurrency(item.amount)}${datePart}`
+            ? `${fmtCurrency(item.amount)}${datePart}`
             : 'No target';
 
           // Calculate projected date
@@ -729,9 +718,9 @@ export function DistributeWizard({
 
           return [
             item.name,
-            formatCurrency(startingBalance),
+            fmtCurrency(startingBalance),
             targetStr,
-            `${formatCurrency(monthlyAmount)}/mo`,
+            `${fmtCurrency(monthlyAmount)}/mo`,
             projectedStr,
           ];
         });
@@ -754,7 +743,7 @@ export function DistributeWizard({
           for (const event of events) {
             const typeStr = event.type === '1x' ? '1x deposit' : 'rate change to';
             const monthStr = formatMonthKeyShort(event.month);
-            lines.push(`- ${formatCurrency(event.amount)} ${typeStr} in ${monthStr}`);
+            lines.push(`- ${fmtCurrency(event.amount)} ${typeStr} in ${monthStr}`);
           }
         }
       }
@@ -767,7 +756,7 @@ export function DistributeWizard({
     }
 
     return lines.join('\n');
-  }, [savingsAllocations, monthlyAllocations, items, effectiveSavingsAmount, effectiveMonthlyAmount, stashEvents, formatCurrency, formatTable, formatTargetDate, formatDateShortYear]);
+  }, [savingsAllocations, monthlyAllocations, items, effectiveSavingsAmount, effectiveMonthlyAmount, stashEvents, fmtCurrency, formatTable, formatTargetDate, formatDateShortYear]);
 
   // Copy current screen to clipboard - shows preview modal
   const handleCopyCurrentScreen = useCallback(async () => {
@@ -858,9 +847,9 @@ export function DistributeWizard({
 
   // Tooltip message for "Keep going" button
   const keepGoingTooltip = remaining > 0
-    ? `Allocate ${formatCurrency(remaining)} more to continue`
+    ? `Allocate ${fmtCurrency(remaining)} more to continue`
     : remaining < 0
-      ? `Over-allocated by ${formatCurrency(Math.abs(remaining))}`
+      ? `Over-allocated by ${fmtCurrency(Math.abs(remaining))}`
       : '';
 
   // Check if there are any allocations for the current screen
@@ -915,9 +904,120 @@ export function DistributeWizard({
     </div>
   ) : null;
 
+  // Footer content for the modal
+  const wizardFooter = (
+    <div className="flex items-center justify-between w-full">
+      {/* Left side: Back button */}
+      <div>
+        {((step === 'monthly' && hasSavingsStep) || step === 'review') && (
+          <button
+            onClick={handleBackStep}
+            className="px-4 py-2 text-sm font-medium rounded-md transition-colors text-monarch-text-muted hover:bg-monarch-bg-hover"
+          >
+            ← Go Back
+          </button>
+        )}
+      </div>
+
+      {/* Right side: Cancel/Close and Next/Confirm */}
+      <div className="flex items-center gap-3">
+        <button
+          onClick={onClose}
+          className="px-4 py-2 text-sm font-medium rounded-md transition-colors text-monarch-text-muted hover:bg-monarch-bg-hover"
+        >
+          {activeMode === 'hypothesize' && step === 'monthly' ? 'Close' : 'Cancel'}
+        </button>
+
+        {/* Savings step: Next button with status */}
+        {step === 'savings' && (
+          actionButton.needsTooltip ? (
+            <Tooltip content={keepGoingTooltip}>
+              <button
+                disabled={!isStepComplete}
+                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors disabled:cursor-not-allowed flex items-center gap-2 ${actionButton.colorClass}`}
+              >
+                {actionButton.icon}
+                {actionButton.content}
+              </button>
+            </Tooltip>
+          ) : (
+            <button
+              onClick={handleNextStep}
+              disabled={!isStepComplete}
+              className={`px-4 py-2 text-sm font-medium rounded-md transition-colors disabled:cursor-not-allowed flex items-center gap-2 ${actionButton.colorClass}`}
+            >
+              {actionButton.icon}
+              {actionButton.content}
+            </button>
+          )
+        )}
+
+        {/* Monthly step: Review Changes button (distribute activeMode only) */}
+        {step === 'monthly' && activeMode === 'distribute' && (
+          actionButton.needsTooltip ? (
+            <Tooltip content={keepGoingTooltip}>
+              <button
+                disabled={!canGoToReview}
+                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors disabled:cursor-not-allowed flex items-center gap-2 ${actionButton.colorClass}`}
+              >
+                {actionButton.icon}
+                {actionButton.content}
+              </button>
+            </Tooltip>
+          ) : (
+            <button
+              onClick={handleGoToReview}
+              disabled={!canGoToReview}
+              className={`px-4 py-2 text-sm font-medium rounded-md transition-colors disabled:cursor-not-allowed flex items-center gap-2 ${actionButton.colorClass}`}
+            >
+              {actionButton.icon}
+              {actionButton.content}
+            </button>
+          )
+        )}
+
+        {/* Monthly step: Review button (hypothesize mode) */}
+        {step === 'monthly' && activeMode === 'hypothesize' && (
+          <button
+            onClick={handleGoToReview}
+            className="px-4 py-2 text-sm font-medium rounded-md transition-colors bg-monarch-orange text-white hover:bg-monarch-orange/90"
+          >
+            Review
+          </button>
+        )}
+
+        {/* Review step: Apply button (distribute mode only) */}
+        {step === 'review' && activeMode === 'distribute' && (() => {
+          let applyCursorClass = '';
+          if (isSubmitting) {
+            applyCursorClass = 'cursor-wait';
+          } else if (!canConfirm) {
+            applyCursorClass = 'cursor-not-allowed';
+          }
+          return (
+            <button
+              onClick={handleConfirm}
+              disabled={!canConfirm}
+              className={`px-4 py-2 text-sm font-medium rounded-md transition-colors bg-monarch-orange text-white hover:bg-monarch-orange/90 ${applyCursorClass}`}
+            >
+              {isSubmitting ? (
+                <>
+                  <Icons.Spinner size={16} className="animate-spin inline mr-2" />
+                  Applying...
+                </>
+              ) : (
+                'Apply'
+              )}
+            </button>
+          );
+        })()}
+      </div>
+    </div>
+  );
+
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={title} maxWidth="lg" headerActions={headerActions}>
-      <div ref={modalRef} className={`flex flex-col min-h-0 flex-1 ${shouldShake ? 'animate-error-shake' : ''}`}>
+    <Modal isOpen={isOpen} onClose={onClose} title={title} maxWidth="lg" headerActions={headerActions} initialFocus={contentRef} footer={wizardFooter}>
+      <div ref={(el) => { modalRef.current = el; contentRef.current = el; }} tabIndex={-1} className={`flex flex-col min-h-0 flex-1 outline-none ${shouldShake ? 'animate-error-shake' : ''}`}>
         {/* Step indicator - only show in distribute activeMode */}
         {activeMode === 'distribute' && (
           <div className="px-4 pt-4">
@@ -927,12 +1027,6 @@ export function DistributeWizard({
             />
           </div>
         )}
-
-        {/* Step title and description - above the amount */}
-        <div className="px-4 pb-2 text-center">
-          <h3 className="text-base font-semibold text-monarch-text-dark mb-1">{getStepTitle()}</h3>
-          <p className="text-xs text-monarch-text-muted">{getStepDescription()}</p>
-        </div>
 
         {step !== 'review' && (
           <DistributeScreen
@@ -972,115 +1066,6 @@ export function DistributeWizard({
             items={items}
           />
         )}
-
-        {/* Footer buttons */}
-        <div className="flex items-center justify-between p-4 border-t border-monarch-border">
-          {/* Left side: Back button */}
-          <div>
-            {((step === 'monthly' && hasSavingsStep) || step === 'review') && (
-              <button
-                onClick={handleBackStep}
-                className="px-4 py-2 text-sm font-medium rounded-md transition-colors text-monarch-text-muted hover:bg-monarch-bg-hover"
-              >
-                ← Go Back
-              </button>
-            )}
-          </div>
-
-          {/* Right side: Cancel/Close and Next/Confirm */}
-          <div className="flex items-center gap-3">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 text-sm font-medium rounded-md transition-colors text-monarch-text-muted hover:bg-monarch-bg-hover"
-            >
-              {activeMode === 'hypothesize' && step === 'monthly' ? 'Close' : 'Cancel'}
-            </button>
-
-            {/* Savings step: Next button with status */}
-            {step === 'savings' && (
-              actionButton.needsTooltip ? (
-                <Tooltip content={keepGoingTooltip}>
-                  <button
-                    disabled={!isStepComplete}
-                    className={`px-4 py-2 text-sm font-medium rounded-md transition-colors disabled:cursor-not-allowed flex items-center gap-2 ${actionButton.colorClass}`}
-                  >
-                    {actionButton.icon}
-                    {actionButton.content}
-                  </button>
-                </Tooltip>
-              ) : (
-                <button
-                  onClick={handleNextStep}
-                  disabled={!isStepComplete}
-                  className={`px-4 py-2 text-sm font-medium rounded-md transition-colors disabled:cursor-not-allowed flex items-center gap-2 ${actionButton.colorClass}`}
-                >
-                  {actionButton.icon}
-                  {actionButton.content}
-                </button>
-              )
-            )}
-
-            {/* Monthly step: Review Changes button (distribute activeMode only) */}
-            {step === 'monthly' && activeMode === 'distribute' && (
-              actionButton.needsTooltip ? (
-                <Tooltip content={keepGoingTooltip}>
-                  <button
-                    disabled={!canGoToReview}
-                    className={`px-4 py-2 text-sm font-medium rounded-md transition-colors disabled:cursor-not-allowed flex items-center gap-2 ${actionButton.colorClass}`}
-                  >
-                    {actionButton.icon}
-                    {actionButton.content}
-                  </button>
-                </Tooltip>
-              ) : (
-                <button
-                  onClick={handleGoToReview}
-                  disabled={!canGoToReview}
-                  className={`px-4 py-2 text-sm font-medium rounded-md transition-colors disabled:cursor-not-allowed flex items-center gap-2 ${actionButton.colorClass}`}
-                >
-                  {actionButton.icon}
-                  {actionButton.content}
-                </button>
-              )
-            )}
-
-            {/* Monthly step: Review button (hypothesize mode) */}
-            {step === 'monthly' && activeMode === 'hypothesize' && (
-              <button
-                onClick={handleGoToReview}
-                className="px-4 py-2 text-sm font-medium rounded-md transition-colors bg-monarch-orange text-white hover:bg-monarch-orange/90"
-              >
-                Review
-              </button>
-            )}
-
-            {/* Review step: Apply button (distribute mode only) */}
-            {step === 'review' && activeMode === 'distribute' && (() => {
-              let applyCursorClass = '';
-              if (isSubmitting) {
-                applyCursorClass = 'cursor-wait';
-              } else if (!canConfirm) {
-                applyCursorClass = 'cursor-not-allowed';
-              }
-              return (
-                <button
-                  onClick={handleConfirm}
-                  disabled={!canConfirm}
-                  className={`px-4 py-2 text-sm font-medium rounded-md transition-colors bg-monarch-orange text-white hover:bg-monarch-orange/90 ${applyCursorClass}`}
-                >
-                  {isSubmitting ? (
-                    <>
-                      <Icons.Spinner size={16} className="animate-spin inline mr-2" />
-                      Applying...
-                    </>
-                  ) : (
-                    'Apply'
-                  )}
-                </button>
-              );
-            })()}
-          </div>
-        </div>
       </div>
 
       {/* Warning dialog for edit attempt in distribute mode */}
@@ -1135,7 +1120,7 @@ export function DistributeWizard({
               </button>
               <button
                 onClick={() => {
-                  globalThis.open('https://app.monarchmoney.com/plan', '_blank');
+                  globalThis.open('https://app.monarch.com/plan', '_blank');
                 }}
                 className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg bg-monarch-bg-page text-monarch-text-dark border border-monarch-border hover:bg-monarch-bg-hover transition-colors"
               >

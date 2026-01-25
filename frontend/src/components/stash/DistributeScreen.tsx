@@ -75,23 +75,11 @@ interface DistributeScreenProps {
   readonly onRemoveEvent?: (stashId: string, eventId: string) => void;
 }
 
-/**
- * Format currency for display.
- */
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 0,
-    minimumFractionDigits: 0,
-  }).format(amount);
-}
-
 export function DistributeScreen({
   mode: _mode,
   screenType,
   totalAmount,
-  maxAmount,
+  maxAmount: _maxAmount,
   isTotalEditable = false,
   onTotalChange,
   allocations,
@@ -118,13 +106,25 @@ export function DistributeScreen({
   // Fetch breakdown data for the info tooltip
   const { data: config } = useStashConfigQuery();
   const includeExpectedIncome = config?.includeExpectedIncome ?? false;
-  const { data: availableData } = useAvailableToStash({ includeExpectedIncome });
+  const { data: availableData, rawData } = useAvailableToStash({ includeExpectedIncome });
   const breakdown = availableData?.breakdown;
   const detailedBreakdown = availableData?.detailedBreakdown;
+
+  // Calculate raw expected income regardless of toggle setting (for checkbox display)
+  const rawExpectedIncome = rawData ? Math.max(0, rawData.plannedIncome - rawData.actualIncome) : 0;
 
   // Buffer save handler for the editable buffer input
   const updateConfig = useUpdateStashConfigMutation();
   const savedBuffer = config?.bufferAmount ?? 0;
+
+  // Toggle expected income setting
+  const handleToggleExpectedIncome = useCallback(async () => {
+    try {
+      await updateConfig.mutateAsync({ includeExpectedIncome: !includeExpectedIncome });
+    } catch {
+      toast.error('Failed to update setting');
+    }
+  }, [updateConfig, includeExpectedIncome, toast]);
 
   const handleSaveBuffer = useCallback(
     async (value: number) => {
@@ -137,10 +137,8 @@ export function DistributeScreen({
     [updateConfig, toast]
   );
 
-  // Calculate total allocated and remaining
+  // Calculate total allocated
   const totalAllocated = Object.values(allocations).reduce((sum, val) => sum + val, 0);
-  const remaining = totalAmount - totalAllocated;
-  const isAtMax = maxAmount !== undefined && totalAmount >= maxAmount;
 
   // Handle allocation change from percentage input
   // Uses largest remainder method when percentages sum to ~100%, otherwise simple rounding
@@ -195,15 +193,7 @@ export function DistributeScreen({
   };
 
   // Round values to whole dollars for display
-  const displayRemaining = Math.round(remaining);
   const displayTotalAmount = Math.round(totalAmount);
-
-  // Get color for the remaining amount display
-  const getRemainingColor = () => {
-    if (displayRemaining < 0) return 'var(--monarch-error)';
-    if (displayRemaining === 0) return 'var(--monarch-success)';
-    return 'var(--monarch-text-dark)';
-  };
 
   // Render the info tooltip content based on screen type
   const infoTooltipContent = (() => {
@@ -218,6 +208,8 @@ export function DistributeScreen({
           existingSavings={displayTotalAmount}
           savedBuffer={savedBuffer}
           onSaveBuffer={handleSaveBuffer}
+          rawExpectedIncome={rawExpectedIncome}
+          onToggleExpectedIncome={handleToggleExpectedIncome}
         />
       );
     }
@@ -240,8 +232,7 @@ export function DistributeScreen({
     <HoverCard content={infoTooltipContent} side="bottom" align="center" closeDelay={400}>
       <Icons.Info
         size={14}
-        className="cursor-help"
-        style={{ color: 'var(--monarch-text-muted)' }}
+        className="cursor-help text-white"
       />
     </HoverCard>
   ) : null;
@@ -250,142 +241,77 @@ export function DistributeScreen({
     <div className="flex flex-col h-full min-h-0">
       {/* Header section with remaining amount */}
       <div className="px-4 pt-2 pb-4">
-        {/* Screen 1 (Savings): Flow diagram visualization */}
-        {screenType === 'savings' ? (
-          <DistributionFlowDiagram
-            totalAmount={displayTotalAmount}
-            allocatedAmount={totalAllocated}
-            infoTooltip={flowInfoTooltip}
-            isEditable={!isDistributeMode}
-            {...(onTotalChange && { onTotalChange })}
-            {...(onEditAttempt && { onEditAttempt })}
-            isDistributeMode={isDistributeMode}
-          />
-        ) : (
-          /* Screen 2 (Monthly) or editable mode */
-          <div className="flex flex-col items-center">
-            {/* Remaining amount (what hasn't been budgeted yet) */}
-            <div className="flex items-center gap-2">
-              <span
-                className="text-4xl font-semibold transition-colors"
-                style={{ color: getRemainingColor() }}
-              >
-                {formatCurrency(displayRemaining)}
-              </span>
-              {displayRemaining === 0 && displayTotalAmount > 0 && (
-                <Icons.Check size={22} style={{ color: 'var(--monarch-success)' }} />
-              )}
-              {displayRemaining < 0 && (
-                <Icons.Warning size={22} style={{ color: 'var(--monarch-error)' }} />
-              )}
-            </div>
-            <div
-              className="w-24 h-px my-2"
-              style={{ backgroundColor: 'var(--monarch-border)' }}
-            />
-            {/* Total amount in input field style */}
-            <div className="relative inline-flex items-center">
-              <div
-                className={`flex items-center justify-center rounded-lg border-2 px-3 py-1.5 transition-colors ${
-                  isTotalEditable
-                    ? isAtMax
-                      ? 'border-monarch-warning'
-                      : 'border-monarch-border focus-within:border-monarch-orange'
-                    : 'border-monarch-border cursor-pointer hover:border-monarch-text-muted'
-                }`}
-                onClick={!isTotalEditable && isDistributeMode ? onEditAttempt : undefined}
-                onDoubleClick={!isTotalEditable && isDistributeMode ? onEditAttempt : undefined}
-                onKeyDown={
-                  !isTotalEditable && isDistributeMode
-                    ? (e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          onEditAttempt?.();
-                        }
-                      }
-                    : undefined
-                }
-                role={!isTotalEditable && isDistributeMode ? 'button' : undefined}
-                tabIndex={!isTotalEditable && isDistributeMode ? 0 : undefined}
-                aria-label={!isTotalEditable && isDistributeMode ? 'Click to learn about editing this value' : undefined}
-              >
-                <span className={`text-lg font-medium ${isTotalEditable ? 'text-monarch-text-dark' : 'text-monarch-text-muted'}`}>$</span>
-                {isTotalEditable ? (
-                  <>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={displayTotalAmount ? displayTotalAmount.toLocaleString('en-US') : ''}
-                      onChange={(e) => {
-                        const digitsOnly = e.target.value.replaceAll(/\D/g, '');
-                        const val = digitsOnly === '' ? 0 : Number.parseInt(digitsOnly, 10);
-                        onTotalChange?.(Math.max(0, val));
-                      }}
-                      placeholder="0"
-                      className="w-24 text-center text-lg font-medium bg-transparent outline-none text-monarch-text-dark placeholder:text-monarch-text-muted tabular-nums"
-                      aria-label="Total amount to distribute"
-                    />
-                    {displayRemaining < 0 && (
-                      <Tooltip content="Correct the difference">
-                        <button
-                          onClick={() => onTotalChange?.(totalAllocated)}
-                          className="p-0.5 rounded text-monarch-text-muted hover:text-monarch-orange transition-colors"
-                          aria-label="Set available equal to allocated amount"
-                        >
-                          <Icons.Wrench size={14} />
-                        </button>
-                      </Tooltip>
-                    )}
-                  </>
-                ) : (
-                  <span className="text-lg font-medium text-monarch-text-muted px-2">
-                    {displayTotalAmount.toLocaleString()}
-                  </span>
-                )}
-              </div>
-              {infoTooltipContent && (
+        {/* Flow diagram visualization - shared between savings and monthly screens */}
+        <DistributionFlowDiagram
+          title={screenType === 'savings' ? 'Available Funds' : 'Monthly Contributions'}
+          description={
+            screenType === 'savings'
+              ? 'This money will be added to your stash balances.'
+              : 'Set how much you will contribute to each stash this month.'
+          }
+          icon={
+            screenType === 'savings' ? (
+              <Icons.Landmark size={20} className="text-monarch-accent" />
+            ) : (
+              <Icons.Calendar size={20} className="text-monarch-accent" />
+            )
+          }
+          totalAmount={displayTotalAmount}
+          allocatedAmount={totalAllocated}
+          infoTooltip={
+            screenType === 'savings' ? flowInfoTooltip : (
+              infoTooltipContent && (
                 <HoverCard content={infoTooltipContent} side="bottom" align="center" closeDelay={400}>
-                  <Icons.Info
-                    size={14}
-                    className="absolute -right-5 cursor-help"
-                    style={{ color: 'var(--monarch-text-muted)' }}
-                  />
+                  <Icons.Info size={14} className="cursor-help text-white" />
                 </HoverCard>
-              )}
-            </div>
-          </div>
-        )}
+              )
+            )
+          }
+          isEditable={screenType === 'savings' ? !isDistributeMode : isTotalEditable}
+          {...(onTotalChange && { onTotalChange })}
+          {...(onEditAttempt && { onEditAttempt })}
+          isDistributeMode={isDistributeMode}
+        />
 
       </div>
 
       {/* Items list */}
       <div className="flex-1 overflow-y-auto">
-        {/* Column headers row */}
-        <div className="px-4 py-2 flex items-center justify-between border-b border-monarch-border">
-          <span className="text-xs font-medium text-monarch-text-muted">Stashes</span>
-          <div className="flex items-center gap-2">
+        {/* Section header - sticky with blur */}
+        <div className="sticky top-0 z-sticky flex items-center justify-between px-4 py-3 bg-monarch-bg-card/95 backdrop-blur-sm border-b border-monarch-border">
+          <h2 className="text-sm font-semibold text-monarch-text-dark uppercase tracking-wider">
+            Stashes
+          </h2>
+          <div className="flex items-center gap-3">
             <Tooltip content="Reset amounts">
               <button
                 onClick={onReset}
-                className="p-1 rounded text-monarch-text-muted hover:text-monarch-text-dark hover:bg-monarch-bg-hover transition-colors"
+                className="p-1.5 rounded-lg text-monarch-text-muted hover:text-monarch-text-dark hover:bg-monarch-bg-hover transition-colors"
                 aria-label="Reset amounts"
               >
-                <Icons.Refresh size={12} />
+                <Icons.Refresh size={14} />
               </button>
             </Tooltip>
-            <span className="text-xs font-medium text-monarch-text-muted">Contribution</span>
+            <span className="text-sm font-medium text-monarch-text-muted">Contribution</span>
           </div>
         </div>
         {items.length === 0 ? (
-          <div className="p-8 text-center text-monarch-text-muted">
-            No stash items to distribute to.
+          <div className="flex flex-col items-center justify-center py-16 px-8">
+            <div className="w-16 h-16 rounded-xl bg-monarch-bg-elevated flex items-center justify-center border border-monarch-border mb-4">
+              <Icons.Wallet size={32} className="text-monarch-text-muted" />
+            </div>
+            <h3 className="text-lg font-semibold text-monarch-text-dark mb-1">No stashes yet</h3>
+            <p className="text-sm text-monarch-text-muted text-center max-w-xs">
+              Create your first stash to start allocating funds toward your goals.
+            </p>
           </div>
         ) : (
-          <div className="divide-y divide-monarch-border">
-            {items.map((item) => (
+          <div className="py-2">
+            {items.map((item, index) => (
               <DistributeItemRow
                 key={item.id}
                 item={item}
+                index={index}
                 amount={allocations[item.id] ?? 0}
                 percent={getPercentForItem(item.id)}
                 onAmountChange={onAllocationChange}
@@ -421,7 +347,6 @@ export function DistributeScreen({
           </div>
         )}
       </div>
-
     </div>
   );
 }

@@ -19,20 +19,39 @@ import { BreakdownRow, ExpectedIncomeRow, BREAKDOWN_LABELS } from './BreakdownCo
 import { BufferInputRow } from './BufferInputRow';
 import { DistributeButton, HypothesizeButton } from './DistributeButton';
 import { useToast } from '../../context/ToastContext';
-import { UI } from '../../constants';
+import { UI, STORAGE_KEYS } from '../../constants';
+import { formatCurrency } from '../../utils/formatters';
 import type { StashItem } from '../../types';
 
-/** Format currency with no decimals */
-function formatCurrency(amount: number): string {
-  const prefix = amount < 0 ? '-' : '';
-  return `${prefix}$${Math.abs(amount).toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+/** Position options for the floating bar */
+type BarPosition = 'left' | 'center' | 'right';
+
+/** Load saved position from localStorage */
+function loadSavedPosition(): BarPosition {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEYS.FUNDS_BAR_POSITION);
+    if (saved === 'left' || saved === 'center' || saved === 'right') {
+      return saved;
+    }
+  } catch {
+    // localStorage may be unavailable
+  }
+  return 'center';
 }
 
+/** Save position to localStorage */
+function savePosition(position: BarPosition): void {
+  try {
+    localStorage.setItem(STORAGE_KEYS.FUNDS_BAR_POSITION, position);
+  } catch {
+    // localStorage may be unavailable
+  }
+}
+
+/** Currency formatting options for whole dollars */
+const currencyOpts = { maximumFractionDigits: 0 };
+
 interface AvailableFundsBarProps {
-  /** Whether to include expected income in calculation (from settings) */
-  readonly includeExpectedIncome?: boolean;
-  /** Reserved buffer amount to subtract from available (from settings) */
-  readonly bufferAmount?: number;
   /** Left to Budget amount (ready_to_assign from Monarch) */
   readonly leftToBudget: number;
   /** List of stash items for the distribute button */
@@ -40,8 +59,6 @@ interface AvailableFundsBarProps {
 }
 
 export function AvailableFundsBar({
-  includeExpectedIncome = false,
-  bufferAmount = 0,
   leftToBudget,
   items,
 }: Readonly<AvailableFundsBarProps>) {
@@ -50,10 +67,19 @@ export function AvailableFundsBar({
   const [shouldShake, setShouldShake] = useState(false);
   const prevValueRef = useRef<number | null>(null);
 
-  // Get config for buffer and mutation for saving
+  // Position state for snap-to-corner behavior
+  const [position, setPosition] = useState<BarPosition>(loadSavedPosition);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragOffset, setDragOffset] = useState<{ x: number; width: number } | null>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const dragStartRef = useRef<{ grabOffsetX: number } | null>(null);
+
+  // Get config for settings and mutation for saving
+  // Read directly from query to ensure immediate updates after mutations
   const { data: config } = useStashConfigQuery();
   const updateConfig = useUpdateStashConfigMutation();
-  const savedBuffer = config?.bufferAmount ?? 0;
+  const includeExpectedIncome = config?.includeExpectedIncome ?? false;
+  const bufferAmount = config?.bufferAmount ?? 0;
 
   const { data, rawData, isLoading } = useAvailableToStash({
     includeExpectedIncome,
@@ -80,10 +106,10 @@ export function AvailableFundsBar({
   }, [breakdown]);
 
   // Calculate available with saved buffer
-  const displayedAvailable = availableBeforeBuffer - savedBuffer;
+  const displayedAvailable = availableBeforeBuffer - bufferAmount;
   const isPositive = displayedAvailable >= 0;
   const displayedStatusColor = isPositive ? 'var(--monarch-success)' : 'var(--monarch-error)';
-  const displayedFormattedAmount = formatCurrency(displayedAvailable);
+  const displayedFormattedAmount = formatCurrency(displayedAvailable, currencyOpts);
 
   // Track transitions to negative for shake animation
   useEffect(() => {
@@ -130,6 +156,69 @@ export function AvailableFundsBar({
   }, [updateConfig, includeExpectedIncome, toast]);
 
   const openModal = () => setIsModalOpen(true);
+
+  // Calculate position for snap based on drag location
+  const calculateSnapPosition = useCallback((mouseX: number): BarPosition => {
+    // Get content area bounds (right of sidebar)
+    const contentLeft = sidebarWidth;
+    const contentRight = window.innerWidth;
+    const contentWidth = contentRight - contentLeft;
+
+    // Calculate relative position within content area (0-1)
+    const relativeX = (mouseX - contentLeft) / contentWidth;
+
+    // Snap thresholds: left third, middle third, right third
+    if (relativeX < 0.33) return 'left';
+    if (relativeX > 0.67) return 'right';
+    return 'center';
+  }, []);
+
+  // Handle drag start - track where user grabbed relative to card
+  const handleDragStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    const card = cardRef.current;
+    if (!card) return;
+
+    const rect = card.getBoundingClientRect();
+    // Store the offset from the card's left edge to where the user clicked
+    const grabOffsetX = e.clientX - rect.left;
+
+    dragStartRef.current = { grabOffsetX };
+    setIsDragging(true);
+    // Store the card's current position and width so it doesn't shrink during drag
+    setDragOffset({ x: rect.left, width: rect.width });
+  }, []);
+
+  // Handle drag move
+  useEffect(() => {
+    if (!isDragging) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!dragStartRef.current || !dragOffset) return;
+
+      const { grabOffsetX } = dragStartRef.current;
+      // Position card so the grab point stays under the mouse
+      const newLeft = e.clientX - grabOffsetX;
+      setDragOffset({ x: newLeft, width: dragOffset.width });
+    };
+
+    const handleMouseUp = (e: MouseEvent) => {
+      const newPosition = calculateSnapPosition(e.clientX);
+      setPosition(newPosition);
+      savePosition(newPosition);
+      setIsDragging(false);
+      setDragOffset(null);
+      dragStartRef.current = null;
+    };
+
+    globalThis.addEventListener('mousemove', handleMouseMove);
+    globalThis.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      globalThis.removeEventListener('mousemove', handleMouseMove);
+      globalThis.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging, calculateSnapPosition]);
 
   const tooltipContent =
     breakdown && detailedBreakdown ? (
@@ -179,7 +268,7 @@ export function AvailableFundsBar({
           />
           <BufferInputRow
             availableBeforeBuffer={availableBeforeBuffer}
-            savedBuffer={savedBuffer}
+            savedBuffer={bufferAmount}
             onSave={saveBuffer}
           />
         </div>
@@ -200,6 +289,50 @@ export function AvailableFundsBar({
   // Sidebar width for centering calculation
   const sidebarWidth = 220;
 
+  // Calculate positioning styles for the container
+  const getContainerStyles = useCallback((): React.CSSProperties => {
+    // Snap positions with smooth transition
+    const baseStyles: React.CSSProperties = {
+      left: sidebarWidth,
+      transition: isDragging ? 'none' : 'all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+    };
+
+    switch (position) {
+      case 'left':
+        return { ...baseStyles, justifyContent: 'flex-start', paddingLeft: '2rem' };
+      case 'right':
+        return { ...baseStyles, justifyContent: 'flex-end', paddingRight: '2rem' };
+      case 'center':
+      default:
+        return { ...baseStyles, justifyContent: 'center' };
+    }
+  }, [position, isDragging]);
+
+  // Calculate styles for the card (applies drag offset when dragging)
+  const getCardStyles = useCallback((): React.CSSProperties => {
+    const baseStyles: React.CSSProperties = {
+      backgroundColor: 'var(--monarch-bg-card)',
+      border: '1px solid var(--monarch-border)',
+      boxShadow: cardShadow,
+    };
+
+    if (isDragging && dragOffset) {
+      return {
+        ...baseStyles,
+        position: 'fixed',
+        left: dragOffset.x,
+        bottom: 72,
+        width: dragOffset.width,
+        transition: 'none',
+      };
+    }
+
+    return {
+      ...baseStyles,
+      transition: 'all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+    };
+  }, [isDragging, dragOffset, cardShadow]);
+
   const floatingBar = createPortal(
     <>
       {/* Vignette gradient - full width, behind footer (z-10) */}
@@ -210,19 +343,86 @@ export function AvailableFundsBar({
             'linear-gradient(to top, var(--monarch-bg-page) 0%, var(--monarch-bg-page) 40%, transparent 100%)',
         }}
       />
-      {/* Fixed floating card - centered in content area (right of sidebar) */}
+      {/* Fixed floating card - positioned based on user preference */}
       <div
-        className="fixed bottom-18 right-0 z-40 flex justify-center pointer-events-none"
-        style={{ left: sidebarWidth }}
+        className="fixed bottom-18 right-0 z-40 flex pointer-events-none"
+        style={getContainerStyles()}
       >
         <div
-          className={`pointer-events-auto rounded-xl overflow-hidden max-w-75 w-full mx-4 ${shouldShake ? 'animate-error-shake' : ''}`}
-          style={{
-            backgroundColor: 'var(--monarch-bg-card)',
-            border: '1px solid var(--monarch-border)',
-            boxShadow: cardShadow,
-          }}
+          ref={cardRef}
+          className={`pointer-events-auto rounded-xl overflow-hidden max-w-75 w-full relative ${shouldShake ? 'animate-error-shake' : ''}`}
+          style={getCardStyles()}
         >
+          {/* Drag handle - full width invisible button with corner grip indicators */}
+          <button
+            type="button"
+            className="absolute inset-x-0 top-0 h-8 cursor-grab active:cursor-grabbing group bg-transparent border-0 outline-none focus-visible:ring-2 focus-visible:ring-(--monarch-orange) focus-visible:ring-inset rounded-t-xl z-10"
+            onMouseDown={handleDragStart}
+            aria-label={`Reposition widget. Currently ${position}. Use arrow keys to move.`}
+            onKeyDown={(e) => {
+              if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                const newPos = position === 'right' ? 'center' : 'left';
+                setPosition(newPos);
+                savePosition(newPos);
+              } else if (e.key === 'ArrowRight') {
+                e.preventDefault();
+                const newPos = position === 'left' ? 'center' : 'right';
+                setPosition(newPos);
+                savePosition(newPos);
+              }
+            }}
+          >
+            {/* Corner grip indicators - 9 dots wide, 2 rows */}
+            <div className="absolute top-1.5 left-2 flex flex-col gap-0.5 transition-opacity opacity-0 group-hover:opacity-60">
+              <div className="flex gap-0.5">
+                <div className="w-1 h-1 rounded-full bg-(--monarch-text-muted)" />
+                <div className="w-1 h-1 rounded-full bg-(--monarch-text-muted)" />
+                <div className="w-1 h-1 rounded-full bg-(--monarch-text-muted)" />
+                <div className="w-1 h-1 rounded-full bg-(--monarch-text-muted)" />
+                <div className="w-1 h-1 rounded-full bg-(--monarch-text-muted)" />
+                <div className="w-1 h-1 rounded-full bg-(--monarch-text-muted)" />
+                <div className="w-1 h-1 rounded-full bg-(--monarch-text-muted)" />
+                <div className="w-1 h-1 rounded-full bg-(--monarch-text-muted)" />
+                <div className="w-1 h-1 rounded-full bg-(--monarch-text-muted)" />
+              </div>
+              <div className="flex gap-0.5">
+                <div className="w-1 h-1 rounded-full bg-(--monarch-text-muted)" />
+                <div className="w-1 h-1 rounded-full bg-(--monarch-text-muted)" />
+                <div className="w-1 h-1 rounded-full bg-(--monarch-text-muted)" />
+                <div className="w-1 h-1 rounded-full bg-(--monarch-text-muted)" />
+                <div className="w-1 h-1 rounded-full bg-(--monarch-text-muted)" />
+                <div className="w-1 h-1 rounded-full bg-(--monarch-text-muted)" />
+                <div className="w-1 h-1 rounded-full bg-(--monarch-text-muted)" />
+                <div className="w-1 h-1 rounded-full bg-(--monarch-text-muted)" />
+                <div className="w-1 h-1 rounded-full bg-(--monarch-text-muted)" />
+              </div>
+            </div>
+            <div className="absolute top-1.5 right-2 flex flex-col gap-0.5 transition-opacity opacity-0 group-hover:opacity-60">
+              <div className="flex gap-0.5">
+                <div className="w-1 h-1 rounded-full bg-(--monarch-text-muted)" />
+                <div className="w-1 h-1 rounded-full bg-(--monarch-text-muted)" />
+                <div className="w-1 h-1 rounded-full bg-(--monarch-text-muted)" />
+                <div className="w-1 h-1 rounded-full bg-(--monarch-text-muted)" />
+                <div className="w-1 h-1 rounded-full bg-(--monarch-text-muted)" />
+                <div className="w-1 h-1 rounded-full bg-(--monarch-text-muted)" />
+                <div className="w-1 h-1 rounded-full bg-(--monarch-text-muted)" />
+                <div className="w-1 h-1 rounded-full bg-(--monarch-text-muted)" />
+                <div className="w-1 h-1 rounded-full bg-(--monarch-text-muted)" />
+              </div>
+              <div className="flex gap-0.5">
+                <div className="w-1 h-1 rounded-full bg-(--monarch-text-muted)" />
+                <div className="w-1 h-1 rounded-full bg-(--monarch-text-muted)" />
+                <div className="w-1 h-1 rounded-full bg-(--monarch-text-muted)" />
+                <div className="w-1 h-1 rounded-full bg-(--monarch-text-muted)" />
+                <div className="w-1 h-1 rounded-full bg-(--monarch-text-muted)" />
+                <div className="w-1 h-1 rounded-full bg-(--monarch-text-muted)" />
+                <div className="w-1 h-1 rounded-full bg-(--monarch-text-muted)" />
+                <div className="w-1 h-1 rounded-full bg-(--monarch-text-muted)" />
+                <div className="w-1 h-1 rounded-full bg-(--monarch-text-muted)" />
+              </div>
+            </div>
+          </button>
           {/* Header section */}
           <div
             className="flex items-center justify-center gap-2 px-4 py-2"

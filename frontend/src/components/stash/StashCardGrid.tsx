@@ -1,7 +1,7 @@
 /**
  * StashCardGrid - Grid layout for stash cards with drag/drop reordering
  *
- * Displays stash items in a responsive grid (1-3 columns).
+ * Displays stash items in a responsive grid (1-2 columns).
  * Supports drag/drop reordering using @dnd-kit.
  * Includes empty state when no items are present.
  */
@@ -190,13 +190,12 @@ function EmptyState({ message }: { message: string }) {
     <div className="relative">
       {/* Placeholder cards grid with fade mask */}
       <div
-        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 opacity-30"
+        className="grid grid-cols-1 md:grid-cols-2 gap-4 opacity-30"
         style={{
           maskImage: 'linear-gradient(to bottom, black 0%, black 30%, transparent 100%)',
           WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black 30%, transparent 100%)',
         }}
       >
-        <PlaceholderCard />
         <PlaceholderCard />
         <PlaceholderCard />
       </div>
@@ -262,7 +261,7 @@ export const StashCardGrid = memo(function StashCardGrid({
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
       <SortableContext items={itemIds} strategy={rectSortingStrategy}>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {items.map((item) => (
             <SortableCard
               key={item.id}

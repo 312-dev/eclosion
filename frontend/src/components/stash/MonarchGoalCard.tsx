@@ -56,6 +56,25 @@ function getMonarchImageUrl(
   return null;
 }
 
+/** Calculate required monthly contribution to reach goal by target date */
+function calculateMonthlyTarget(
+  currentBalance: number,
+  targetAmount: number | null,
+  targetDate: string | null
+): number {
+  if (!targetAmount || !targetDate) return 0;
+
+  const now = new Date();
+  const target = new Date(targetDate + 'T00:00:00');
+
+  // Calculate months remaining (at least 1 to avoid division by zero)
+  const msPerMonth = 1000 * 60 * 60 * 24 * 30.44; // Average days per month
+  const monthsRemaining = Math.max(1, Math.ceil((target.getTime() - now.getTime()) / msPerMonth));
+
+  const remaining = Math.max(0, targetAmount - currentBalance);
+  return Math.round(remaining / monthsRemaining);
+}
+
 /** Format target date in short form (matching StashCard style) */
 function formatTargetDateShort(targetDate: string | null): string {
   if (!targetDate) return '';
@@ -97,30 +116,30 @@ function formatGoalDescription(
   return `${prefix}${formattedTarget} by ${dateStr}`;
 }
 
-/** Status badge colors and labels */
+/** Status badge colors and labels - uses CSS variables for theme support */
 const STATUS_CONFIG = {
   ahead: {
     label: 'Ahead',
-    bg: 'rgba(16, 185, 129, 0.2)',
-    color: '#10b981',
+    bg: 'var(--monarch-success-bg)',
+    color: 'var(--monarch-success)',
     icon: null,
   },
   on_track: {
     label: 'On track',
-    bg: 'rgba(59, 130, 246, 0.2)',
-    color: '#3b82f6',
+    bg: 'var(--monarch-info-bg)',
+    color: 'var(--monarch-info)',
     icon: null,
   },
   at_risk: {
     label: 'At risk',
-    bg: 'rgba(251, 191, 36, 0.2)',
-    color: '#fbbf24',
+    bg: 'var(--monarch-warning-bg)',
+    color: 'var(--monarch-warning)',
     icon: null,
   },
   completed: {
     label: 'Completed',
-    bg: 'rgba(16, 185, 129, 0.2)',
-    color: '#10b981',
+    bg: 'var(--monarch-success-bg)',
+    color: 'var(--monarch-success)',
     icon: 'check' as const,
   },
   no_target: {
@@ -228,22 +247,38 @@ export const MonarchGoalCard = memo(function MonarchGoalCard({
           </div>
         )}
 
-        {/* Goal badge - top left (only shown when showTypeBadge is true) */}
+        {/* Monarch Goal badge - top left (only shown when showTypeBadge is true) */}
         {showTypeBadge && (
           <div className="absolute top-2 left-2">
             <span
               className="inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium"
               style={{
-                backgroundColor: 'rgba(0, 0, 0, 0.5)',
-                color: 'var(--monarch-text-muted)',
+                backgroundColor: 'rgba(0, 0, 0, 0.75)',
+                color: 'rgba(255, 255, 255, 0.9)',
                 backdropFilter: 'blur(4px)',
               }}
             >
-              <Target size={12} />
-              Goal
+              <Target size={12} style={{ color: 'rgb(255, 105, 45)' }} />
+              Monarch Goal
             </span>
           </div>
         )}
+
+        {/* External link button - top right, shown on hover (links to Monarch) */}
+        <a
+          href={`https://app.monarch.com/goals/savings/${goal.id}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="absolute top-2 right-2 p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity icon-btn-hover"
+          style={{
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            backdropFilter: 'blur(4px)',
+          }}
+          aria-label={`Open ${goal.name} in Monarch Money`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Icons.ExternalLink size={18} style={{ color: '#fff' }} />
+        </a>
 
         {/* Status badge - bottom right */}
         <div className="absolute bottom-2 right-2">
@@ -254,8 +289,8 @@ export const MonarchGoalCard = memo(function MonarchGoalCard({
       {/* Content Area - clickable to open in Monarch */}
       <button
         onClick={openMonarchGoal}
-        className="p-4 shrink-0 flex flex-col text-left w-full hover:bg-opacity-50 transition-colors"
-        style={{ height: 140 }}
+        className="px-4 pt-3 pb-4 shrink-0 flex flex-col text-left w-full hover:bg-opacity-50 transition-colors"
+        style={{ height: 112 }}
         aria-label={`Open ${goal.name} in Monarch Money`}
       >
         {/* Top row: Title and info */}
@@ -263,7 +298,7 @@ export const MonarchGoalCard = memo(function MonarchGoalCard({
           {/* Left: Title and goal description */}
           <div className="min-w-0 flex-1">
             {/* Title */}
-            <div className="mb-1 flex items-center gap-1.5 min-w-0">
+            <div className="flex items-center gap-1.5 min-w-0">
               <h3
                 className="text-base font-medium truncate hover:underline"
                 style={{ color: 'var(--monarch-text-dark)' }}
@@ -275,10 +310,12 @@ export const MonarchGoalCard = memo(function MonarchGoalCard({
             </div>
             {/* Goal description (matching Stash card style) - "Save" hidden on narrow cards */}
             <div
-              className="@container flex items-center gap-1 text-sm min-w-0"
+              className="flex items-center gap-1 text-sm min-w-0"
               style={{ color: 'var(--monarch-text-muted)' }}
             >
-              <Target size={14} className="shrink-0" style={{ color: '#a78bfa' }} />
+              <span className="shrink-0 inline-flex">
+                <Icons.Calendar size={14} style={{ color: 'var(--monarch-text-muted)' }} />
+              </span>
               <span
                 className="truncate"
                 title={formatGoalDescription(goal.targetAmount, goal.targetDate, true)}
@@ -292,20 +329,35 @@ export const MonarchGoalCard = memo(function MonarchGoalCard({
           </div>
 
           {/* Right: Monthly contribution (read-only, styled like StashBudgetInput) */}
-          <div className="shrink-0 flex flex-col items-end">
-            <div
-              className="flex items-center whitespace-nowrap rounded bg-monarch-bg-card border border-monarch-border px-2 py-1"
-              aria-label="Planned monthly contribution"
-            >
-              <span className="font-medium text-monarch-text-dark">$</span>
-              <span className="w-12 text-right font-medium text-monarch-text-dark">
-                {Math.round(goal.plannedMonthlyContribution)}
-              </span>
-            </div>
-            <span className="text-xs mt-0.5" style={{ color: 'var(--monarch-text-muted)' }}>
-              budgeted in {currentMonthAbbr}.
-            </span>
-          </div>
+          {(() => {
+            const monthlyTarget = calculateMonthlyTarget(
+              goal.currentBalance,
+              goal.targetAmount,
+              goal.targetDate
+            );
+            const showTarget = goal.targetAmount !== null && goal.targetDate !== null;
+            return (
+              <div className="shrink-0 flex flex-col items-end">
+                <div
+                  className="flex items-center w-35 rounded bg-monarch-bg-card border border-monarch-border px-2 py-1"
+                  aria-label="Planned monthly contribution"
+                >
+                  <span className="font-medium text-monarch-text-dark">$</span>
+                  <span className="w-14 ml-auto inline-block text-right font-medium text-monarch-text-dark tabular-nums">
+                    {Math.round(goal.plannedMonthlyContribution).toLocaleString('en-US')}
+                  </span>
+                  {showTarget && (
+                    <span className="text-monarch-text-muted tabular-nums ml-1">
+                      / {monthlyTarget.toLocaleString('en-US')}
+                    </span>
+                  )}
+                </div>
+                <span className="text-xs mt-0.5" style={{ color: 'var(--monarch-text-muted)' }}>
+                  budgeted in {currentMonthAbbr}.
+                </span>
+              </div>
+            );
+          })()}
         </div>
 
         {/* Progress bar - pushed to bottom */}

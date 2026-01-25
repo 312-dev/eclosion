@@ -56,15 +56,18 @@ export function NameInputWithEmoji({
       >
         Name
       </label>
-      <div className="flex gap-2 items-center">
+      <div className="flex items-stretch">
+        {/* Emoji picker prefix - joined to input */}
         <div
-          className="w-12 h-10 flex items-center justify-center text-lg rounded-md shrink-0"
+          className="flex items-center justify-center text-lg rounded-l-md shrink-0 pl-3 pr-2"
           style={{
             backgroundColor: 'var(--monarch-bg-page)',
-            border: '1px solid var(--monarch-border)',
+            borderTop: '1px solid var(--monarch-border)',
+            borderBottom: '1px solid var(--monarch-border)',
+            borderLeft: '1px solid var(--monarch-border)',
           }}
         >
-          <EmojiPicker currentEmoji={emoji || '💰'} onSelect={handleEmojiSelect} />
+          <EmojiPicker currentEmoji={emoji || '💰'} onSelect={handleEmojiSelect} showChevron />
         </div>
         <input
           id={id}
@@ -74,7 +77,7 @@ export function NameInputWithEmoji({
           onFocus={() => onFocusChange?.(true)}
           onBlur={() => onFocusChange?.(false)}
           placeholder={placeholder}
-          className="flex-1 px-3 py-2 rounded-md"
+          className="flex-1 px-3 py-2 rounded-l-none rounded-r-md"
           style={{
             backgroundColor: 'var(--monarch-bg-page)',
             border: '1px solid var(--monarch-border)',
@@ -464,21 +467,34 @@ interface TargetDateInputProps {
   value: string;
   onChange: (value: string) => void;
   minDate?: string | undefined;
+  maxDate?: string | undefined;
   quickPickOptions?: Array<{ label: string; date: string }> | undefined;
   /** Hide the label for inline/sentence layouts */
   hideLabel?: boolean;
 }
+
+/** Max date: 85 years from now */
+const MAX_YEARS_OUT = 85;
 
 export function TargetDateInput({
   id,
   value,
   onChange,
   minDate,
+  maxDate,
   quickPickOptions,
   hideLabel = false,
 }: TargetDateInputProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const quickPicks = useMemo(() => getQuickPickDates(), []);
+
+  // Default max date: 85 years from now
+  const defaultMaxDate = useMemo(() => {
+    const date = new Date();
+    date.setFullYear(date.getFullYear() + MAX_YEARS_OUT);
+    return date.toISOString().split('T')[0];
+  }, []);
+  const effectiveMaxDate = maxDate ?? defaultMaxDate;
   const defaultQuickPicks = [
     { label: 'in 2 months', date: quickPicks.twoMonths },
     { label: 'in 3 months', date: quickPicks.threeMonths },
@@ -511,12 +527,13 @@ export function TargetDateInput({
         </label>
       )}
       {hideLabel ? (
-        <div className="inline-flex">
+        <div className="inline-flex h-10 items-center">
           <input
             id={id}
             type="date"
             value={value}
             min={minDate}
+            max={effectiveMaxDate}
             onChange={(e) => onChange(e.target.value)}
             className="px-3 py-2 rounded-md leading-normal"
             style={{
@@ -546,6 +563,7 @@ export function TargetDateInput({
             type="date"
             value={value}
             min={minDate}
+            max={effectiveMaxDate}
             onChange={(e) => onChange(e.target.value)}
             className="absolute inset-0 opacity-0 pointer-events-none"
             tabIndex={-1}
@@ -553,23 +571,154 @@ export function TargetDateInput({
           />
         </div>
       )}
-      <div className="flex flex-wrap gap-2 mt-2">
-        {picks.map((pick) => (
-          <button
-            key={pick.label}
-            type="button"
-            onClick={() => onChange(pick.date)}
-            className={`px-2 py-1 text-xs rounded-md btn-press ${value === pick.date ? 'ring-2 ring-(--monarch-teal)' : ''}`}
-            style={{
-              backgroundColor:
-                value === pick.date ? 'var(--monarch-teal-light)' : 'var(--monarch-bg-page)',
-              color: value === pick.date ? 'var(--monarch-teal)' : 'var(--monarch-text-muted)',
-              border: '1px solid var(--monarch-border)',
-            }}
-          >
-            {pick.label}
-          </button>
-        ))}
+      {picks.length > 0 && (
+        <div className="flex flex-wrap gap-2 mt-2">
+          {picks.map((pick) => (
+            <button
+              key={pick.label}
+              type="button"
+              onClick={() => onChange(pick.date)}
+              className={`px-2 py-1 text-xs rounded-md btn-press ${value === pick.date ? 'ring-2 ring-(--monarch-teal)' : ''}`}
+              style={{
+                backgroundColor:
+                  value === pick.date ? 'var(--monarch-teal-light)' : 'var(--monarch-bg-page)',
+                color: value === pick.date ? 'var(--monarch-teal)' : 'var(--monarch-text-muted)',
+                border: '1px solid var(--monarch-border)',
+              }}
+            >
+              {pick.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface StartingBalanceInputProps {
+  readonly value: string;
+  readonly onChange: (value: string) => void;
+  readonly availableAmount: number | undefined;
+  readonly isLoading?: boolean;
+  /** Whether this field is focused (controls visibility of available amount) */
+  readonly isFocused: boolean;
+  readonly onFocusChange: (focused: boolean) => void;
+  /**
+   * Initial/existing value for edit mode. When set, validation checks the DELTA
+   * (increase from initial) against available, not the absolute value.
+   * This allows keeping existing committed funds without showing an error.
+   */
+  readonly initialValue?: number;
+}
+
+/**
+ * Starting balance input with Available to Stash validation.
+ * Shows available amount underneath when focused.
+ * Color codes: green if > $0, gray if == $0, red if over.
+ */
+export function StartingBalanceInput({
+  value,
+  onChange,
+  availableAmount,
+  isLoading = false,
+  isFocused,
+  onFocusChange,
+  initialValue = 0,
+}: StartingBalanceInputProps) {
+  const handleChange = (inputValue: string) => {
+    const cleaned = inputValue.replaceAll(/\D/g, '');
+    onChange(cleaned);
+  };
+
+  // Format the display value with commas
+  const displayValue = useMemo(() => {
+    if (!value || value === '0') return '';
+    const numericValue = Number.parseInt(value, 10);
+    if (Number.isNaN(numericValue)) return '';
+    return numericValue.toLocaleString('en-US');
+  }, [value]);
+
+  // Auto-size: min 3ch, grows with formatted content (including commas)
+  const inputWidth = Math.max(3, displayValue.length + 1);
+
+  // Calculate if over available
+  // For edit mode (initialValue > 0), check if the INCREASE exceeds available
+  // For new mode (initialValue = 0), check if the absolute value exceeds available
+  const numericValue = Number.parseInt(value, 10) || 0;
+  const delta = numericValue - initialValue;
+  const isOverAvailable =
+    availableAmount !== undefined && delta > 0 && delta > availableAmount;
+
+  const showAvailable = isFocused || isOverAvailable;
+
+  // Compute available message and color
+  // Shows remaining amount after accounting for the typed value (live updates as user types)
+  const { availableMessage, availableColor } = useMemo(() => {
+    const formatAmount = (amount: number) => `${amount < 0 ? '-' : ''}$${Math.abs(Math.round(amount)).toLocaleString('en-US')}`;
+
+    if (isLoading) {
+      return { availableMessage: 'Loading...', availableColor: 'var(--monarch-text-muted)' };
+    }
+    if (availableAmount === undefined) {
+      return { availableMessage: null, availableColor: 'var(--monarch-text-muted)' };
+    }
+
+    // Calculate remaining after the typed delta
+    const remaining = availableAmount - Math.max(0, delta);
+
+    if (remaining < 0) {
+      return { availableMessage: `${formatAmount(remaining)} left`, availableColor: 'var(--monarch-error)' };
+    }
+    if (remaining === 0 && availableAmount === 0 && initialValue === 0) {
+      return { availableMessage: 'No additional funds available', availableColor: 'var(--monarch-text-muted)' };
+    }
+    return { availableMessage: `${formatAmount(remaining)} left`, availableColor: 'var(--monarch-success)' };
+  }, [isLoading, availableAmount, delta, initialValue]);
+
+  return (
+    <div
+      className={`inline-flex flex-col self-start relative transition-[margin-bottom] duration-200 ${
+        showAvailable ? 'mb-5' : 'mb-0'
+      }`}
+    >
+      <div className="relative inline-flex h-10 items-center">
+        <span
+          className="absolute left-3 top-1/2 -translate-y-1/2"
+          style={{ color: 'var(--monarch-text-muted)' }}
+        >
+          $
+        </span>
+        <input
+          type="text"
+          inputMode="numeric"
+          value={displayValue}
+          onChange={(e) => handleChange(e.target.value)}
+          onFocus={() => onFocusChange(true)}
+          onBlur={() => onFocusChange(false)}
+          placeholder="0"
+          className="pl-7 pr-3 py-2 rounded-md tabular-nums"
+          style={{
+            width: `${inputWidth + 3}ch`,
+            minWidth: '5ch',
+            backgroundColor: 'var(--monarch-bg-page)',
+            border: `1px solid ${isOverAvailable ? 'var(--monarch-error)' : 'var(--monarch-border)'}`,
+            color: 'var(--monarch-text)',
+          }}
+          aria-label="Starting balance"
+          aria-invalid={isOverAvailable}
+        />
+      </div>
+      {/* Available amount indicator - absolutely positioned to not affect inline layout */}
+      <div
+        className={`absolute top-full mt-1 left-1/2 text-xs whitespace-nowrap transition-all duration-200 ${
+          showAvailable ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        }`}
+        style={{
+          color: availableColor,
+          transform: `translateX(-50%) translateY(${showAvailable ? '0' : '-0.25rem'})`,
+        }}
+      >
+        {availableMessage}
       </div>
     </div>
   );
@@ -587,18 +736,25 @@ const GOAL_TYPE_OPTIONS: Array<{
   title: string;
   description: string;
   examples: string;
-  icon: 'Gift' | 'PiggyBank';
+  icon: 'BadgeDollarSign' | 'HandCoins' | 'PiggyBank';
 }> = [
+  {
+    value: 'debt',
+    title: 'debt',
+    description: 'Pay down a debt. Track progress as you chip away.',
+    examples: 'e.g. Credit card, student loan, car loan',
+    icon: 'HandCoins',
+  },
   {
     value: 'one_time',
     title: 'purchase',
     description: 'Save up to buy something. Mark complete when done.',
     examples: 'e.g. New laptop, vacation, furniture',
-    icon: 'Gift',
+    icon: 'BadgeDollarSign',
   },
   {
     value: 'savings_buffer',
-    title: 'savings buffer',
+    title: 'savings fund',
     description: 'A fund to dip into and refill. Spending reduces progress.',
     examples: 'e.g. Emergency fund, car maintenance, gifts',
     icon: 'PiggyBank',
@@ -622,8 +778,8 @@ export function GoalTypeSelector({ value, onChange, hideLabel = false }: GoalTyp
   useLayoutEffect(() => {
     if (isOpen && triggerRef.current) {
       const triggerRect = triggerRef.current.getBoundingClientRect();
-      const dropdownHeight = 220; // Approximate height of dropdown
-      const dropdownWidth = 420; // Wide enough for full descriptions
+      const dropdownHeight = 180; // Approximate height of dropdown (scaled to ~80%)
+      const dropdownWidth = 340; // Wide enough for full descriptions (scaled to ~80%)
       const spaceBelow = window.innerHeight - triggerRect.bottom;
       const spaceAbove = triggerRect.top;
       const openUpward = spaceBelow < dropdownHeight && spaceAbove > spaceBelow;
@@ -682,8 +838,12 @@ export function GoalTypeSelector({ value, onChange, hideLabel = false }: GoalTyp
           }}
         >
           {GOAL_TYPE_OPTIONS.map((option) => {
-            const IconComponent = option.icon === 'Gift' ? Icons.Gift : Icons.PiggyBank;
-            const iconColor = option.icon === 'Gift' ? '#60a5fa' : '#a78bfa';
+            const iconMap = {
+              BadgeDollarSign: { component: Icons.BadgeDollarSign, color: 'var(--monarch-info)' },
+              HandCoins: { component: Icons.HandCoins, color: 'var(--monarch-warning)' },
+              PiggyBank: { component: Icons.PiggyBank, color: 'var(--monarch-accent)' },
+            } as const;
+            const { component: IconComponent, color: iconColor } = iconMap[option.icon];
             const isSelected = option.value === value;
             return (
               <button
@@ -693,27 +853,26 @@ export function GoalTypeSelector({ value, onChange, hideLabel = false }: GoalTyp
                   onChange(option.value);
                   setIsOpen(false);
                 }}
-                className="w-full px-3 py-3 text-left hover:bg-(--monarch-bg-page) first:rounded-t-md last:rounded-b-md"
-                style={{
-                  backgroundColor: isSelected ? 'var(--monarch-bg-page)' : 'transparent',
-                }}
+                className={`w-full px-2.5 py-2.5 text-left first:rounded-t-md last:rounded-b-md transition-colors ${
+                  isSelected ? 'bg-(--monarch-bg-page)' : 'bg-transparent hover:bg-(--monarch-bg-page)'
+                }`}
               >
-                <div className="flex items-start gap-3">
-                  <IconComponent className="w-5 h-5 mt-0.5 shrink-0" style={{ color: iconColor }} />
+                <div className="flex items-start gap-2.5">
+                  <IconComponent className="w-4 h-4 mt-0.5 shrink-0" style={{ color: iconColor }} />
                   <div className="flex-1">
-                    <div className="font-medium" style={{ color: 'var(--monarch-text-dark)' }}>
+                    <div className="text-sm font-medium" style={{ color: 'var(--monarch-text-dark)' }}>
                       {option.title}
                     </div>
-                    <div className="text-sm" style={{ color: 'var(--monarch-text-muted)' }}>
+                    <div className="text-xs" style={{ color: 'var(--monarch-text-muted)' }}>
                       {option.description}
                     </div>
-                    <div className="text-xs mt-0.5" style={{ color: 'var(--monarch-text-muted)' }}>
+                    <div className="text-[11px] mt-0.5" style={{ color: 'var(--monarch-text-muted)' }}>
                       {option.examples}
                     </div>
                   </div>
                   {isSelected && (
                     <Icons.Check
-                      className="w-4 h-4 mt-0.5"
+                      className="w-3.5 h-3.5 mt-0.5"
                       style={{ color: 'var(--monarch-teal)' }}
                     />
                   )}
@@ -727,7 +886,7 @@ export function GoalTypeSelector({ value, onChange, hideLabel = false }: GoalTyp
     : null;
 
   return (
-    <div>
+    <div className={hideLabel ? 'inline-flex h-10 items-center' : ''}>
       {!hideLabel && (
         <label
           htmlFor="goal-type-selector"
@@ -753,10 +912,14 @@ export function GoalTypeSelector({ value, onChange, hideLabel = false }: GoalTyp
           aria-haspopup="true"
           aria-expanded={isOpen}
         >
-          {selectedOption.icon === 'Gift' ? (
-            <Icons.Gift className="w-4 h-4" style={{ color: '#60a5fa' }} />
-          ) : (
-            <Icons.PiggyBank className="w-4 h-4" style={{ color: '#a78bfa' }} />
+          {selectedOption.icon === 'BadgeDollarSign' && (
+            <Icons.BadgeDollarSign className="w-4 h-4" style={{ color: 'var(--monarch-info)' }} />
+          )}
+          {selectedOption.icon === 'HandCoins' && (
+            <Icons.HandCoins className="w-4 h-4" style={{ color: 'var(--monarch-warning)' }} />
+          )}
+          {selectedOption.icon === 'PiggyBank' && (
+            <Icons.PiggyBank className="w-4 h-4" style={{ color: 'var(--monarch-accent)' }} />
           )}
           {selectedOption.title}
           <Icons.ChevronDown

@@ -173,7 +173,7 @@ export function StashCategoryModal({
   const isDisabled = isSubmitting || isRateLimited || !isValid;
 
   const footer = (
-    <>
+    <div className="flex items-center justify-end gap-2 w-full">
       <button
         type="button"
         onClick={onClose}
@@ -199,7 +199,7 @@ export function StashCategoryModal({
       >
         {isSubmitting ? 'Creating...' : 'Create Stash'}
       </button>
-    </>
+    </div>
   );
 
   return (

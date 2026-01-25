@@ -156,16 +156,27 @@ export function calculateShortfall(currentBalance: number, amount: number): numb
  * Format months remaining as a human-readable string.
  *
  * @param monthsRemaining - Number of months
- * @returns Formatted string like "2 months", "1 month", "This month"
+ * @returns Formatted string like "1 year 2 months", "2 months", "1 month", "This month"
  */
 export function formatMonthsRemaining(monthsRemaining: number): string {
   if (monthsRemaining <= 0) {
     return 'This month';
   }
-  if (monthsRemaining === 1) {
-    return '1 month';
+  if (monthsRemaining < 12) {
+    return monthsRemaining === 1 ? '1 month' : `${monthsRemaining} months`;
   }
-  return `${monthsRemaining} months`;
+
+  const years = Math.floor(monthsRemaining / 12);
+  const months = monthsRemaining % 12;
+
+  const yearStr = years === 1 ? '1 year' : `${years} years`;
+
+  if (months === 0) {
+    return yearStr;
+  }
+
+  const monthStr = months === 1 ? '1 month' : `${months} months`;
+  return `${yearStr} ${monthStr}`;
 }
 
 /**

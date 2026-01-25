@@ -18,10 +18,12 @@ import type { StashEventsMap } from './stashEvent';
  *
  * - one_time: Save up to buy something once. Progress = total budgeted.
  *             Spending doesn't reduce progress until marked complete.
+ * - debt: Pay down a debt. Progress = total paid toward principal.
+ *         Similar to one_time but semantically for debt payoff.
  * - savings_buffer: Ongoing fund. Progress = current balance.
  *                   Spending immediately reduces progress.
  */
-export type StashGoalType = 'one_time' | 'savings_buffer';
+export type StashGoalType = 'one_time' | 'debt' | 'savings_buffer';
 
 /**
  * A stash item represents a savings goal.
@@ -149,6 +151,8 @@ export interface CreateStashItemRequest {
   goal_type?: StashGoalType;
   /** Custom start date for tracking (one_time goals only, YYYY-MM-DD) */
   tracking_start_date?: string;
+  /** Initial starting balance to set on the category's rollover */
+  starting_balance?: number;
 }
 
 /**

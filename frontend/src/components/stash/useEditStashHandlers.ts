@@ -5,7 +5,6 @@
  */
 
 import { useCallback } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
 import {
   useUpdateStashMutation,
   useArchiveStashMutation,
@@ -14,9 +13,9 @@ import {
   useLinkStashCategoryMutation,
   useCompleteStashMutation,
   useUncompleteStashMutation,
+  useUpdateCategoryRolloverMutation,
+  useUpdateGroupRolloverMutation,
 } from '../../api/queries';
-import { queryKeys, getQueryKey } from '../../api/queries/keys';
-import { useDemo } from '../../context/DemoContext';
 import { useToast } from '../../context/ToastContext';
 import { handleApiError } from '../../utils';
 import type { CategorySelection } from './StashCategoryModal';
@@ -28,11 +27,17 @@ interface StashUpdates {
   emoji: string;
   source_url: string | null;
   custom_image_path: string | null;
+  /** Change in starting balance (delta from original) */
+  starting_balance_delta?: number;
 }
 
 interface UseEditStashHandlersParams {
   itemId: string | null;
   isArchived: boolean;
+  /** Category ID for rollover balance updates (mutually exclusive with flexibleGroupId) */
+  categoryId?: string | null;
+  /** Flexible group ID for group-level rollover updates */
+  flexibleGroupId?: string | null;
   buildUpdates: () => StashUpdates;
   validateForm: () => boolean;
   onCategoryMissing: (itemId: string) => void;
@@ -43,6 +48,8 @@ interface UseEditStashHandlersParams {
 export function useEditStashHandlers({
   itemId,
   isArchived,
+  categoryId,
+  flexibleGroupId,
   buildUpdates,
   validateForm,
   onCategoryMissing,
@@ -50,8 +57,6 @@ export function useEditStashHandlers({
   onClose,
 }: UseEditStashHandlersParams) {
   const toast = useToast();
-  const queryClient = useQueryClient();
-  const isDemo = useDemo();
   const updateMutation = useUpdateStashMutation();
   const archiveMutation = useArchiveStashMutation();
   const unarchiveMutation = useUnarchiveStashMutation();
@@ -59,24 +64,60 @@ export function useEditStashHandlers({
   const linkCategoryMutation = useLinkStashCategoryMutation();
   const completeMutation = useCompleteStashMutation();
   const uncompleteMutation = useUncompleteStashMutation();
+  const updateCategoryRolloverMutation = useUpdateCategoryRolloverMutation();
+  const updateGroupRolloverMutation = useUpdateGroupRolloverMutation();
 
-  const refetchAndClose = useCallback(async () => {
-    await queryClient.refetchQueries({ queryKey: getQueryKey(queryKeys.stash, isDemo) });
+  // Close immediately - mutations already invalidate the query for background refetch
+  const closeImmediately = useCallback(() => {
     onSuccess?.();
     onClose();
-  }, [queryClient, isDemo, onSuccess, onClose]);
+  }, [onSuccess, onClose]);
 
   const handleSubmit = useCallback(async () => {
     if (!itemId || !validateForm()) return;
     try {
-      await updateMutation.mutateAsync({ id: itemId, updates: buildUpdates() });
+      const updates = buildUpdates();
+      const { starting_balance_delta, ...stashUpdates } = updates;
+
+      // Update the stash item
+      await updateMutation.mutateAsync({ id: itemId, updates: stashUpdates });
+
+      // If starting balance changed, update the rollover balance
+      if (starting_balance_delta && starting_balance_delta !== 0) {
+        if (flexibleGroupId) {
+          // Group-level rollover for flexible groups
+          await updateGroupRolloverMutation.mutateAsync({
+            groupId: flexibleGroupId,
+            amount: starting_balance_delta,
+          });
+        } else if (categoryId) {
+          // Category-level rollover
+          await updateCategoryRolloverMutation.mutateAsync({
+            categoryId,
+            amount: starting_balance_delta,
+          });
+        }
+      }
+
       toast.success('Stash updated');
       onSuccess?.();
       onClose();
     } catch (err) {
       toast.error(handleApiError(err, 'Updating stash'));
     }
-  }, [itemId, validateForm, buildUpdates, updateMutation, toast, onSuccess, onClose]);
+  }, [
+    itemId,
+    validateForm,
+    buildUpdates,
+    updateMutation,
+    categoryId,
+    flexibleGroupId,
+    updateCategoryRolloverMutation,
+    updateGroupRolloverMutation,
+    toast,
+    onSuccess,
+    onClose,
+  ]);
 
   const handleUnarchiveItem = useCallback(async (): Promise<boolean> => {
     if (!itemId) return false;
@@ -92,10 +133,29 @@ export function useEditStashHandlers({
   const handleSaveAndRestore = useCallback(async () => {
     if (!itemId || !validateForm()) return;
     try {
-      await updateMutation.mutateAsync({ id: itemId, updates: buildUpdates() });
+      const updates = buildUpdates();
+      const { starting_balance_delta, ...stashUpdates } = updates;
+
+      await updateMutation.mutateAsync({ id: itemId, updates: stashUpdates });
+
+      // If starting balance changed, update the rollover balance
+      if (starting_balance_delta && starting_balance_delta !== 0) {
+        if (flexibleGroupId) {
+          await updateGroupRolloverMutation.mutateAsync({
+            groupId: flexibleGroupId,
+            amount: starting_balance_delta,
+          });
+        } else if (categoryId) {
+          await updateCategoryRolloverMutation.mutateAsync({
+            categoryId,
+            amount: starting_balance_delta,
+          });
+        }
+      }
+
       const success = await handleUnarchiveItem();
       if (!success) return;
-      await refetchAndClose();
+      closeImmediately();
     } catch (err) {
       toast.error(handleApiError(err, 'Restoring stash'));
     }
@@ -104,8 +164,12 @@ export function useEditStashHandlers({
     validateForm,
     buildUpdates,
     updateMutation,
+    categoryId,
+    flexibleGroupId,
+    updateCategoryRolloverMutation,
+    updateGroupRolloverMutation,
     handleUnarchiveItem,
-    refetchAndClose,
+    closeImmediately,
     toast,
   ]);
 
@@ -119,11 +183,11 @@ export function useEditStashHandlers({
         await archiveMutation.mutateAsync(itemId);
         toast.success('Stash archived');
       }
-      await refetchAndClose();
+      closeImmediately();
     } catch (err) {
       toast.error(handleApiError(err, isArchived ? 'Restoring' : 'Archiving'));
     }
-  }, [itemId, isArchived, handleUnarchiveItem, archiveMutation, toast, refetchAndClose]);
+  }, [itemId, isArchived, handleUnarchiveItem, archiveMutation, toast, closeImmediately]);
 
   const handleCategorySelection = useCallback(
     async (selection: CategorySelection, categoryMissingItemId: string | null) => {
@@ -172,12 +236,12 @@ export function useEditStashHandlers({
       try {
         await completeMutation.mutateAsync({ id: itemId, releaseFunds });
         toast.success('Goal marked as completed!');
-        await refetchAndClose();
+        closeImmediately();
       } catch (err) {
         toast.error(handleApiError(err, 'Completing stash'));
       }
     },
-    [itemId, completeMutation, toast, refetchAndClose]
+    [itemId, completeMutation, toast, closeImmediately]
   );
 
   const handleUncomplete = useCallback(async () => {
@@ -185,11 +249,11 @@ export function useEditStashHandlers({
     try {
       await uncompleteMutation.mutateAsync(itemId);
       toast.success('Goal restored to active');
-      await refetchAndClose();
+      closeImmediately();
     } catch (err) {
       toast.error(handleApiError(err, 'Restoring stash'));
     }
-  }, [itemId, uncompleteMutation, toast, refetchAndClose]);
+  }, [itemId, uncompleteMutation, toast, closeImmediately]);
 
   const isSubmitting =
     updateMutation.isPending ||
@@ -198,7 +262,9 @@ export function useEditStashHandlers({
     deleteMutation.isPending ||
     linkCategoryMutation.isPending ||
     completeMutation.isPending ||
-    uncompleteMutation.isPending;
+    uncompleteMutation.isPending ||
+    updateCategoryRolloverMutation.isPending ||
+    updateGroupRolloverMutation.isPending;
 
   return {
     handleSubmit,

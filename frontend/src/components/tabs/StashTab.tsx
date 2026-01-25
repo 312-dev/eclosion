@@ -93,9 +93,6 @@ export function StashTab() {
   const isBrowserConfigured =
     !!configData?.selectedBrowser && (configData?.selectedFolderIds?.length ?? 0) > 0;
 
-  const includeExpectedIncome = configData?.includeExpectedIncome ?? false;
-  const bufferAmount = configData?.bufferAmount ?? 0;
-
   // Get Left to Budget (ready_to_assign) from dashboard for distribute button
   const { data: dashboardData } = useDashboardQuery();
   const leftToBudget = dashboardData?.ready_to_assign?.ready_to_assign ?? 0;
@@ -372,12 +369,7 @@ export function StashTab() {
 
       {/* Available Funds Bar with Distribute Button - floats at bottom */}
       {activeView === 'stashes' && stashData && (
-        <AvailableFundsBar
-          includeExpectedIncome={includeExpectedIncome}
-          bufferAmount={bufferAmount}
-          leftToBudget={leftToBudget}
-          items={stashData.items}
-        />
+        <AvailableFundsBar leftToBudget={leftToBudget} items={stashData.items} />
       )}
 
       {activeView === 'stashes' ? (

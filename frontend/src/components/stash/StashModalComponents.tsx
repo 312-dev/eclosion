@@ -86,21 +86,30 @@ export function CategoryInfoDisplay({
   categoryGroupName,
 }: CategoryInfoDisplayProps) {
   return (
-    <div
-      className="flex items-center justify-between p-3 rounded-lg"
-      style={{
-        backgroundColor: 'var(--monarch-bg-page)',
-        border: '1px solid var(--monarch-border)',
-      }}
-    >
+    <div>
+      <span
+        className="block text-sm font-medium mb-1"
+        style={{ color: 'var(--monarch-text)' }}
+      >
+        Linked Category
+      </span>
+      <div
+        className="flex items-center justify-between p-3 rounded-lg"
+        style={{
+          backgroundColor: 'var(--monarch-bg-page)',
+          border: '1px solid var(--monarch-border)',
+        }}
+      >
       <div className="flex items-center gap-2">
         <Icons.ListTree size={14} style={{ color: 'var(--monarch-text-muted)' }} />
         <div className="text-sm">
-          <span style={{ color: 'var(--monarch-text)' }}>"{categoryName}"</span>
-          <span style={{ color: 'var(--monarch-text-muted)' }}> category</span>
           {categoryGroupName && (
-            <span style={{ color: 'var(--monarch-text-muted)' }}> under "{categoryGroupName}"</span>
+            <>
+              <span style={{ color: 'var(--monarch-text-muted)' }}>{categoryGroupName}</span>
+              <span style={{ color: 'var(--monarch-text-muted)' }}> › </span>
+            </>
           )}
+          <span style={{ color: 'var(--monarch-text)' }}>{categoryName}</span>
         </div>
       </div>
       <a
@@ -114,6 +123,7 @@ export function CategoryInfoDisplay({
         <span>View</span>
         <Icons.ExternalLink size={12} />
       </a>
+      </div>
     </div>
   );
 }

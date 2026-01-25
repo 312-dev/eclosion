@@ -20,6 +20,7 @@ import {
   calculateProjectedDateWithEvents,
   calculateMinimumRateWithEvents,
 } from '../../utils/eventProjection';
+import { formatCurrency } from '../../utils/formatters';
 
 type InputMode = 'amount' | 'percent';
 type ScreenType = 'savings' | 'monthly';
@@ -59,19 +60,12 @@ interface DistributeItemRowProps {
   readonly onUpdateEvent?: ((eventId: string, updates: Partial<StashEvent>) => void) | undefined;
   /** Callback to remove an event */
   readonly onRemoveEvent?: ((eventId: string) => void) | undefined;
+  /** Row index for alternating background */
+  readonly index?: number;
 }
 
-/**
- * Format currency for display.
- */
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 0,
-    minimumFractionDigits: 0,
-  }).format(amount);
-}
+/** Currency formatting options for whole dollars */
+const currencyOpts = { maximumFractionDigits: 0 };
 
 /**
  * Format a date with shorthand year ('27) or no year if current year.
@@ -123,6 +117,7 @@ export function DistributeItemRow({
   onAddEvent,
   onUpdateEvent,
   onRemoveEvent,
+  index: _index = 0,
 }: DistributeItemRowProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isFocused, setIsFocused] = useState(false);
@@ -244,20 +239,22 @@ export function DistributeItemRow({
       return <span>No target set</span>;
     }
 
-    const isSavingsBuffer = item.goal_type === 'savings_buffer';
-    const icon = isSavingsBuffer ? (
-      <Icons.PiggyBank size={14} style={{ color: '#a78bfa' }} />
-    ) : (
-      <Icons.Gift size={14} style={{ color: '#60a5fa' }} />
-    );
-    const verb = isSavingsBuffer ? 'Maintain' : 'Save';
+    const goalTypeConfig = {
+      one_time: { icon: Icons.BadgeDollarSign, color: 'var(--monarch-info)', verb: 'Save' },
+      debt: { icon: Icons.HandCoins, color: 'var(--monarch-warning)', verb: 'Pay off' },
+      savings_buffer: { icon: Icons.PiggyBank, color: 'var(--monarch-accent)', verb: 'Store' },
+    } as const;
+    const config = goalTypeConfig[item.goal_type ?? 'one_time'];
+    const IconComponent = config.icon;
+    const icon = <IconComponent size={14} style={{ color: config.color }} />;
+    const verb = config.verb;
     const dateStr = item.target_date ? ` by ${formatDate(item.target_date)}` : '';
 
     return (
       <span className="flex items-center gap-1">
         {icon}
         <span>
-          {verb} {formatCurrency(item.amount)}
+          {verb} {formatCurrency(item.amount, currencyOpts)}
           {dateStr}
         </span>
       </span>
@@ -284,214 +281,238 @@ export function DistributeItemRow({
     return <img src={item.logo_url} alt="" className="w-6 h-6 object-contain" />;
   })();
 
+  // Calculate progress percentages for split bar (existing vs additional)
+  const startingBalance = showLiveProjection ? newStartingBalance : item.current_balance;
+  const existingPercent = item.amount > 0
+    ? Math.min(100, (startingBalance / item.amount) * 100)
+    : 0;
+  const additionalPercent = item.amount > 0
+    ? Math.min(100 - existingPercent, (amount / item.amount) * 100)
+    : 0;
+
+  // Determine if item is funded (has enough saved)
+  const isFunded = startingBalance + amount >= item.amount && item.amount > 0;
+
   return (
-    <div className="bg-monarch-bg-card hover:bg-monarch-bg-hover transition-colors">
-      {/* Main row content */}
-      <div className="flex items-center gap-3 py-3 px-4">
-        {/* Thumbnail / Emoji */}
-        <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-xl bg-monarch-bg-page">
-          {thumbnailContent}
+    <div className="group relative bg-monarch-bg-card hover:bg-monarch-bg-hover rounded-xl border border-monarch-border hover:border-monarch-border transition-all duration-200 p-4 mx-2 mb-2">
+      <div className="flex items-center gap-4">
+        {/* Enhanced thumbnail */}
+        <div className="relative shrink-0">
+          <div className="w-16 h-16 rounded-xl bg-monarch-bg-elevated border border-monarch-border flex items-center justify-center overflow-hidden text-3xl">
+            {thumbnailContent}
+          </div>
+          {/* Status indicator dot */}
+          {isFunded && (
+            <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-monarch-success border-2 border-monarch-bg-card flex items-center justify-center">
+              <Icons.Check size={10} className="text-white" />
+            </div>
+          )}
         </div>
 
-        {/* Name and target info */}
+        {/* Content area */}
         <div className="flex-1 min-w-0">
-          <div className="font-medium truncate text-monarch-text-dark">{item.name}</div>
-          {/* Balance badge - shows current vs new balance with flip animation */}
-          <div className="relative h-6 my-1" style={{ perspective: '200px' }}>
-            {/* Starting balance - flips down when contribution is added */}
-            <div
-              className="flex items-center w-fit px-2 py-1 rounded-full text-xs font-medium leading-none absolute inset-0"
-              style={{
-                backgroundColor: 'color-mix(in srgb, var(--monarch-text-muted) 20%, transparent)',
-                color: 'var(--monarch-text-muted)',
-                transform: amount > 0 ? 'rotateX(90deg)' : 'rotateX(0deg)',
-                opacity: amount > 0 ? 0 : 1,
-                transition: 'transform 200ms ease-out, opacity 150ms ease-out',
-                transformOrigin: 'bottom center',
-                backfaceVisibility: 'hidden',
-              }}
-            >
-              {formatCurrency(
-                Math.round(showLiveProjection ? newStartingBalance : item.current_balance)
-              )}{' '}
-              stashed
-              {showLiveProjection && (() => {
-                const now = new Date();
-                const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-                return ` by ${lastDay.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
-              })()}
+          <div className={`flex justify-between gap-3 ${screenType === 'monthly' ? 'items-center' : 'items-start'}`}>
+            {/* Name and info */}
+            <div className="min-w-0">
+              <h3 className="font-semibold text-monarch-text-dark truncate">{item.name}</h3>
+              {/* On monthly screen: show goal info inline under name */}
+              {screenType === 'monthly' && showTargetInfo && (
+                <div className="text-xs text-monarch-text-muted mt-0.5">
+                  {renderTargetInfo()}
+                </div>
+              )}
+              {/* Balance display with flip animation - hidden on monthly screen */}
+              {screenType !== 'monthly' && (
+                <div className="relative h-5 mt-0.5" style={{ perspective: '200px' }}>
+                  {/* Starting balance */}
+                  <p
+                    className="text-sm text-monarch-text-muted absolute inset-0 whitespace-nowrap"
+                    style={{
+                      transform: amount > 0 ? 'rotateX(90deg)' : 'rotateX(0deg)',
+                      opacity: amount > 0 ? 0 : 1,
+                      transition: 'transform 200ms ease-out, opacity 150ms ease-out',
+                      transformOrigin: 'bottom center',
+                      backfaceVisibility: 'hidden',
+                    }}
+                  >
+                    {formatCurrency(
+                      Math.round(showLiveProjection ? newStartingBalance : item.current_balance),
+                      currencyOpts
+                    )}{' '}
+                    of {formatCurrency(item.amount, currencyOpts)} stashed
+                  </p>
+                  {/* New balance after contribution */}
+                  <p
+                    className="text-sm text-monarch-success absolute inset-0 whitespace-nowrap"
+                    style={{
+                      transform: amount > 0 ? 'rotateX(0deg)' : 'rotateX(-90deg)',
+                      opacity: amount > 0 ? 1 : 0,
+                      transition: 'transform 200ms ease-out, opacity 150ms ease-out',
+                      transformOrigin: 'top center',
+                      backfaceVisibility: 'hidden',
+                    }}
+                  >
+                    {formatCurrency(
+                      Math.round(
+                        showLiveProjection
+                          ? newStartingBalance + amount
+                          : item.current_balance + amount
+                      ),
+                      currencyOpts
+                    )}{' '}
+                    of {formatCurrency(item.amount, currencyOpts)} stashed
+                  </p>
+                </div>
+              )}
             </div>
-            {/* New balance - flips up when contribution is added */}
-            <div
-              className="flex items-center w-fit px-2 py-1 rounded-full text-xs font-medium leading-none absolute inset-0"
-              style={{
-                backgroundColor: 'color-mix(in srgb, var(--monarch-success) 15%, transparent)',
-                color: 'var(--monarch-success)',
-                transform: amount > 0 ? 'rotateX(0deg)' : 'rotateX(-90deg)',
-                opacity: amount > 0 ? 1 : 0,
-                transition: 'transform 200ms ease-out, opacity 150ms ease-out',
-                transformOrigin: 'top center',
-                backfaceVisibility: 'hidden',
-              }}
-            >
-              {formatCurrency(
-                Math.round(
-                  showLiveProjection
-                    ? newStartingBalance + amount // Monthly: starting balance + monthly contribution
-                    : item.current_balance + amount // Savings: current + one-time boost
-                )
-              )}{' '}
-              stashed
-              {showLiveProjection && (() => {
-                const now = new Date();
-                const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-                return ` by ${lastDay.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+
+            {/* Amount/Percent input - elevated card style */}
+            <div className="flex flex-col items-end shrink-0">
+              <div
+                className={`flex items-center bg-monarch-bg-input rounded-lg border transition-all duration-200 ${
+                  isFocused ? 'border-monarch-orange ring-1 ring-monarch-orange/30' : 'border-monarch-border'
+                }`}
+              >
+                <UnitSelector mode={inputMode} onChange={onInputModeChange} />
+                <input
+                  ref={inputRef}
+                  type="text"
+                  inputMode="numeric"
+                  value={displayValue}
+                  onChange={handleChange}
+                  onFocus={handleFocus}
+                  onBlur={handleBlur}
+                  onKeyDown={handleKeyDown}
+                  placeholder="0"
+                  className="w-20 px-3 py-2 text-right text-lg font-semibold bg-transparent outline-none text-monarch-text-dark placeholder:text-monarch-text-muted tabular-nums"
+                  aria-label={
+                    inputMode === 'percent' ? `Percent for ${item.name}` : `Amount for ${item.name}`
+                  }
+                />
+                {inputMode === 'amount' && showLiveProjection && (
+                  <span className="pr-3 text-sm text-monarch-text-muted">/mo</span>
+                )}
+              </div>
+              {/* Suggestion hint when user enters excessive amount */}
+              {showSuggestion && (
+                <Tooltip
+                  content={
+                    itemEvents.length > 0
+                      ? 'You only need to contribute this amount to reach your goal in time due to upcoming events for this stash'
+                      : 'You only need to contribute this amount to reach your goal in time'
+                  }
+                >
+                  <button
+                    type="button"
+                    onClick={() => onApplySuggestion(item.id, suggestedAmount)}
+                    className="flex items-center gap-1 mt-1.5 text-xs text-monarch-info hover:opacity-80 transition-colors cursor-pointer"
+                    aria-label={`Apply suggested amount of ${formatCurrency(suggestedAmount, currencyOpts)}`}
+                  >
+                    <Icons.Lightbulb size={12} />
+                    <span>{formatCurrency(suggestedAmount, currencyOpts)} instead</span>
+                  </button>
+                </Tooltip>
+              )}
+              {/* "Needed" hint when current rate is insufficient */}
+              {(() => {
+                if (!showLiveProjection || !item.target_date || !onApplySuggestion) return null;
+                if (newStartingBalance >= item.amount) return null;
+                const requiredMonthlyRate = calculateMinimumRateWithEvents(
+                  newStartingBalance,
+                  item.amount,
+                  item.target_date,
+                  itemEvents
+                );
+                if (amount >= requiredMonthlyRate) return null;
+                return (
+                  <Tooltip content="Click to set the monthly amount needed to reach your goal on time">
+                    <button
+                      type="button"
+                      onClick={() => onApplySuggestion(item.id, requiredMonthlyRate)}
+                      className="flex items-center gap-1 mt-1.5 text-xs text-monarch-warning hover:opacity-80 transition-colors cursor-pointer"
+                      aria-label={`Apply required amount of ${formatCurrency(requiredMonthlyRate, currencyOpts)} per month`}
+                    >
+                      <Icons.Sparkles size={12} />
+                      <span>{formatCurrency(requiredMonthlyRate, currencyOpts)}/mo needed</span>
+                    </button>
+                  </Tooltip>
+                );
               })()}
+              {/* Events section */}
+              {showLiveProjection && (
+                <div className="flex flex-col items-end mt-1.5">
+                  {itemEvents.map((event) => (
+                    <EventRow
+                      key={event.id}
+                      event={event}
+                      onUpdate={(updates) => onUpdateEvent?.(event.id, updates)}
+                      onRemove={() => onRemoveEvent?.(event.id)}
+                    />
+                  ))}
+                  {itemEvents.length < 10 && onAddEvent && (
+                    <button
+                      type="button"
+                      onClick={onAddEvent}
+                      className="flex items-center gap-1 text-xs text-monarch-text-muted hover:text-monarch-orange transition-colors"
+                    >
+                      <Icons.Plus size={12} />
+                      <span>Add event</span>
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           </div>
-          {showTargetInfo && (
-            <div className="text-xs space-y-0.5 text-monarch-text-muted">
-              <div>{renderTargetInfo()}</div>
-              {showLiveProjection && showProjection && (() => {
-                // Case 1: Won't reach goal within 10 years
+
+          {/* Progress bar - gray for existing, green for additional - hidden on monthly screen */}
+          {screenType !== 'monthly' && (
+            <div className="mt-3 h-1.5 bg-monarch-bg-input rounded-full overflow-hidden flex">
+              {/* Existing balance segment (gray) */}
+              {existingPercent > 0 && (
+                <div
+                  className="h-full bg-monarch-text-muted/40 transition-all duration-500 ease-out"
+                  style={{ width: `${existingPercent}%` }}
+                />
+              )}
+              {/* Additional contribution segment (green) */}
+              {additionalPercent > 0 && (
+                <div
+                  className="h-full bg-monarch-success transition-all duration-500 ease-out"
+                  style={{ width: `${additionalPercent}%` }}
+                />
+              )}
+            </div>
+          )}
+
+          {/* Goal info - on monthly screen, only show projection (target info is inline under name) */}
+          {showTargetInfo && screenType !== 'monthly' && (
+            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-monarch-text-muted">
+              {renderTargetInfo()}
+            </div>
+          )}
+          {/* Projection info - shown on monthly screen when projection differs from target */}
+          {showLiveProjection && showProjection && (
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-monarch-text-muted">
+              {(() => {
                 if (projectionWontReach) {
                   return (
-                    <div
-                      className="flex items-center gap-1"
-                      style={{ color: 'var(--monarch-error)' }}
-                    >
+                    <span className="flex items-center gap-1 text-monarch-error">
                       <Icons.ClockAlert size={12} />
-                      <span>Won't reach goal in time</span>
-                    </div>
+                      Won't reach in time
+                    </span>
                   );
                 }
-                // Case 2: Will reach, but at a different time than target
                 if (projectedDate && targetDate) {
                   const isSooner = projectedDate.getTime() < targetDate.getTime();
                   return (
-                    <div
-                      className="flex items-center gap-1"
-                      style={{ color: isSooner ? 'var(--monarch-success)' : 'var(--monarch-warning)' }}
-                    >
-                      {isSooner ? (
-                        <Icons.ClockArrowDown size={12} />
-                      ) : (
-                        <Icons.ClockArrowUp size={12} />
-                      )}
-                      <span>{formatDateShortYear(projectedDate)} per trajectory</span>
-                    </div>
+                    <span className={`flex items-center gap-1 ${isSooner ? 'text-monarch-success' : 'text-monarch-warning'}`}>
+                      {isSooner ? <Icons.ClockArrowDown size={12} /> : <Icons.ClockArrowUp size={12} />}
+                      {formatDateShortYear(projectedDate)} per trajectory
+                    </span>
                   );
                 }
                 return null;
               })()}
-            </div>
-          )}
-        </div>
-
-        {/* Amount/Percent input */}
-        <div className="flex flex-col items-end shrink-0">
-          <div className="flex items-center gap-1">
-            <div
-              className={`flex items-center rounded-md border px-2.5 py-1.5 bg-monarch-bg-card transition-colors ${
-                isFocused ? 'border-monarch-orange' : 'border-monarch-border'
-              }`}
-            >
-              <UnitSelector mode={inputMode} onChange={onInputModeChange} />
-              <input
-                ref={inputRef}
-                type="text"
-                inputMode="numeric"
-                value={displayValue}
-                onChange={handleChange}
-                onFocus={handleFocus}
-                onBlur={handleBlur}
-                onKeyDown={handleKeyDown}
-                placeholder="0"
-                className="w-16 text-right font-medium bg-transparent outline-none text-monarch-text-dark placeholder:text-monarch-text-muted tabular-nums"
-                aria-label={
-                  inputMode === 'percent' ? `Percent for ${item.name}` : `Amount for ${item.name}`
-                }
-              />
-              {inputMode === 'amount' && showLiveProjection && (
-                <span className="font-medium text-monarch-text-muted ml-0.5">/ mo</span>
-              )}
-            </div>
-          </div>
-          {/* Suggestion hint when user enters excessive amount */}
-          {showSuggestion && (
-            <Tooltip
-              content={
-                itemEvents.length > 0
-                  ? 'You only need to contribute this amount to reach your goal in time due to upcoming events for this stash'
-                  : 'You only need to contribute this amount to reach your goal in time'
-              }
-            >
-              <button
-                type="button"
-                onClick={() => onApplySuggestion(item.id, suggestedAmount)}
-                className="flex items-center gap-1 mt-1 text-xs text-blue-400 hover:text-blue-300 transition-colors cursor-pointer"
-                aria-label={`Apply suggested amount of ${formatCurrency(suggestedAmount)}`}
-              >
-                <Icons.Lightbulb size={12} />
-                <span>{formatCurrency(suggestedAmount)} instead</span>
-              </button>
-            </Tooltip>
-          )}
-          {/* "Needed" hint when current rate is insufficient to reach goal on time */}
-          {(() => {
-            // Only show on monthly screen with a target date
-            if (!showLiveProjection || !item.target_date || !onApplySuggestion) return null;
-            // Already funded - no hint needed
-            if (newStartingBalance >= item.amount) return null;
-            // Calculate the monthly rate required to reach goal by target date
-            const requiredMonthlyRate = calculateMinimumRateWithEvents(
-              newStartingBalance,
-              item.amount,
-              item.target_date,
-              itemEvents
-            );
-            // Only show if current amount is less than required
-            if (amount >= requiredMonthlyRate) return null;
-            return (
-              <Tooltip content="Click to set the monthly amount needed to reach your goal on time">
-                <button
-                  type="button"
-                  onClick={() => onApplySuggestion(item.id, requiredMonthlyRate)}
-                  className="flex items-center gap-1 mt-1 text-xs transition-colors cursor-pointer"
-                  style={{ color: 'var(--monarch-warning)' }}
-                  aria-label={`Apply required amount of ${formatCurrency(requiredMonthlyRate)} per month`}
-                >
-                  <Icons.Sparkles size={12} />
-                  <span>{formatCurrency(requiredMonthlyRate)}/mo needed</span>
-                </button>
-              </Tooltip>
-            );
-          })()}
-
-          {/* Events section - only on monthly screen, right-aligned under input */}
-          {showLiveProjection && (
-            <div className="flex flex-col items-end mt-1">
-              {/* Existing events */}
-              {itemEvents.map((event) => (
-                <EventRow
-                  key={event.id}
-                  event={event}
-                  onUpdate={(updates) => onUpdateEvent?.(event.id, updates)}
-                  onRemove={() => onRemoveEvent?.(event.id)}
-                />
-              ))}
-
-              {/* Add event link */}
-              {itemEvents.length < 10 && onAddEvent && (
-                <button
-                  type="button"
-                  onClick={onAddEvent}
-                  className="flex items-center gap-1 text-xs transition-colors text-monarch-text-muted hover:text-monarch-orange"
-                >
-                  <Icons.Plus size={12} />
-                  <span className="hover:underline">Add event</span>
-                </button>
-              )}
             </div>
           )}
         </div>

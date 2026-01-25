@@ -8,6 +8,7 @@
  * - Remaining (targets - stashed)
  */
 
+import { formatCurrency } from '../../utils/formatters';
 import type { StashHistoryResponse } from '../../types';
 
 interface StashSummaryCardsProps {
@@ -100,16 +101,8 @@ function calculateMetrics(
   };
 }
 
-/**
- * Format currency.
- */
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 0,
-  }).format(amount);
-}
+/** Currency formatting options for whole dollars */
+const currencyOpts = { maximumFractionDigits: 0 };
 
 /**
  * Format percentage change (without parentheses).
@@ -169,7 +162,7 @@ export function StashSummaryCards({ data, visibleStashIds }: StashSummaryCardsPr
           )}
         </div>
         <div className="text-4xl font-semibold" style={{ color: 'var(--monarch-success)' }}>
-          {formatCurrency(metrics.totalStashed)}
+          {formatCurrency(metrics.totalStashed, currencyOpts)}
         </div>
       </div>
 
@@ -187,7 +180,7 @@ export function StashSummaryCards({ data, visibleStashIds }: StashSummaryCardsPr
           </div>
         </div>
         <div className="text-4xl font-semibold" style={{ color: 'white' }}>
-          {formatCurrency(metrics.totalTargets)}
+          {formatCurrency(metrics.totalTargets, currencyOpts)}
         </div>
       </div>
 
@@ -210,7 +203,7 @@ export function StashSummaryCards({ data, visibleStashIds }: StashSummaryCardsPr
           )}
         </div>
         <div className="text-4xl font-semibold" style={{ color: getThisMonthColor(metrics.thisMonth) }}>
-          {formatCurrency(metrics.thisMonth)}
+          {formatCurrency(metrics.thisMonth, currencyOpts)}
         </div>
       </div>
 
@@ -233,7 +226,7 @@ export function StashSummaryCards({ data, visibleStashIds }: StashSummaryCardsPr
           )}
         </div>
         <div className="text-4xl font-semibold" style={{ color: 'white' }}>
-          {formatCurrency(metrics.remaining)}
+          {formatCurrency(metrics.remaining, currencyOpts)}
         </div>
       </div>
     </div>

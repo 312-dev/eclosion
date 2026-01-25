@@ -18,6 +18,12 @@ interface EditStashProgressProps {
   readonly onComplete: (releaseFunds?: boolean) => Promise<void>;
   readonly onUncomplete: () => Promise<void>;
   readonly isCompletingItem: boolean;
+  /** Change in starting balance (delta) for live preview updates */
+  readonly startingBalanceDelta?: number;
+  /** Current goal type from form state (for live preview) */
+  readonly currentGoalType?: 'one_time' | 'savings_buffer' | 'debt';
+  /** Current target date from form state (for live preview) */
+  readonly targetDate?: string;
 }
 
 export function EditStashProgress({
@@ -27,19 +33,38 @@ export function EditStashProgress({
   onComplete,
   onUncomplete,
   isCompletingItem,
+  startingBalanceDelta = 0,
+  currentGoalType,
+  targetDate,
 }: EditStashProgressProps) {
+  // Use form's targetDate if provided, otherwise fall back to item's saved value
+  const effectiveTargetDate = targetDate ?? item.target_date;
   const monthsRemaining = useMemo(
-    () => calculateMonthsRemaining(item.target_date),
-    [item.target_date]
+    () => calculateMonthsRemaining(effectiveTargetDate),
+    [effectiveTargetDate]
   );
+
+  // Adjust balance and rollover for starting balance changes (live preview)
+  const adjustedBalance = item.current_balance + startingBalanceDelta;
   const progressPercent =
-    goalAmount > 0 ? Math.min(100, (item.current_balance / goalAmount) * 100) : 0;
-  const displayStatus: ItemStatus = item.status;
-  // Use actual rollover from Monarch, falling back to calculated value for backwards compatibility
-  const rolloverAmount =
+    goalAmount > 0 ? Math.min(100, (adjustedBalance / goalAmount) * 100) : 0;
+
+  // Recalculate status based on adjusted balance
+  const getAdjustedStatus = (): ItemStatus => {
+    if (adjustedBalance >= goalAmount) return 'funded';
+    if (adjustedBalance > 0) return item.status;
+    return 'behind';
+  };
+  const displayStatus: ItemStatus = getAdjustedStatus();
+
+  // Use actual rollover from Monarch, adjusted for delta
+  const baseRollover =
     item.rollover_amount ?? Math.max(0, item.current_balance - item.planned_budget);
+  const rolloverAmount = baseRollover + startingBalanceDelta;
+
   const creditsThisMonth = item.credits_this_month ?? 0;
-  const goalType = item.goal_type ?? 'one_time';
+  // Use form state if provided, otherwise fall back to item's saved value
+  const goalType = currentGoalType ?? item.goal_type ?? 'one_time';
 
   // For one-time goals with spending, show available balance info
   const hasSpending =
@@ -52,7 +77,7 @@ export function EditStashProgress({
       {/* Progress Bar Section */}
       <div>
         <SavingsProgressBar
-          totalSaved={item.current_balance}
+          totalSaved={adjustedBalance}
           targetAmount={goalAmount}
           progressPercent={progressPercent}
           displayStatus={displayStatus}
@@ -61,7 +86,9 @@ export function EditStashProgress({
           budgetedThisMonth={item.planned_budget}
           creditsThisMonth={creditsThisMonth}
           goalType={goalType}
-          {...(item.available_to_spend !== undefined && { availableToSpend: item.available_to_spend })}
+          {...(item.available_to_spend !== undefined && {
+            availableToSpend: (item.available_to_spend ?? 0) + startingBalanceDelta,
+          })}
         />
 
         {/* Available balance info for one-time goals with spending */}
@@ -95,9 +122,9 @@ export function EditStashProgress({
             disabled={isCompletingItem}
             className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg font-medium transition-colors btn-press"
             style={{
-              backgroundColor: 'rgba(16, 185, 129, 0.15)',
-              color: '#10b981',
-              border: '1px solid rgba(16, 185, 129, 0.3)',
+              backgroundColor: 'var(--monarch-success-bg)',
+              color: 'var(--monarch-success)',
+              border: '1px solid var(--monarch-success)',
             }}
           >
             <Icons.Check size={18} />
@@ -115,11 +142,11 @@ export function EditStashProgress({
           <div
             className="p-3 rounded-lg flex items-center justify-between"
             style={{
-              backgroundColor: 'rgba(16, 185, 129, 0.1)',
-              border: '1px solid rgba(16, 185, 129, 0.2)',
+              backgroundColor: 'var(--monarch-success-bg)',
+              border: '1px solid var(--monarch-success)',
             }}
           >
-            <div className="flex items-center gap-2" style={{ color: '#10b981' }}>
+            <div className="flex items-center gap-2" style={{ color: 'var(--monarch-success)' }}>
               <Icons.Check size={16} />
               <span className="font-medium">
                 Completed{' '}

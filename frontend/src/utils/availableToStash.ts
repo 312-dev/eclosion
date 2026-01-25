@@ -230,15 +230,17 @@ export function calculateAvailableToStash(
   const stashBalances = stashItemsDetail.reduce((sum, item) => sum + item.amount, 0);
   const bufferAmount = options.bufferAmount ?? 0;
 
-  // Apply the formula
-  const available =
+  // Apply the formula and round to whole dollars for consistency
+  // Rounding here ensures the calculated value matches Monarch's rounded "Left to budget"
+  const available = Math.round(
     cashOnHand +
     expectedIncome -
     creditCardDebt -
     unspentBudgets -
     goalBalances -
     stashBalances -
-    bufferAmount;
+    bufferAmount
+  );
 
   // Build detailed breakdown
   const detailedBreakdown: DetailedBreakdown = {
@@ -252,13 +254,13 @@ export function calculateAvailableToStash(
   return {
     available,
     breakdown: {
-      cashOnHand,
-      expectedIncome,
-      creditCardDebt,
-      unspentBudgets,
-      goalBalances,
-      stashBalances,
-      bufferAmount,
+      cashOnHand: Math.round(cashOnHand),
+      expectedIncome: Math.round(expectedIncome),
+      creditCardDebt: Math.round(creditCardDebt),
+      unspentBudgets: Math.round(unspentBudgets),
+      goalBalances: Math.round(goalBalances),
+      stashBalances: Math.round(stashBalances),
+      bufferAmount: Math.round(bufferAmount),
     },
     detailedBreakdown,
     includesExpectedIncome: options.includeExpectedIncome,
@@ -270,6 +272,8 @@ export function calculateAvailableToStash(
  * Shows as currency with appropriate sign.
  */
 export function formatAvailableAmount(amount: number): string {
+  // Round to whole dollars first to avoid floating-point display issues
+  const rounded = Math.round(amount);
   const formatter = new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
@@ -277,20 +281,22 @@ export function formatAvailableAmount(amount: number): string {
     maximumFractionDigits: 0,
   });
 
-  if (amount < 0) {
+  if (rounded < 0) {
     // Show negative amounts clearly
-    return `-${formatter.format(Math.abs(amount))}`;
+    return `-${formatter.format(Math.abs(rounded))}`;
   }
-  return formatter.format(amount);
+  return formatter.format(rounded);
 }
 
 /**
  * Get a human-readable status based on the available amount.
  */
 export function getAvailableStatus(amount: number): 'healthy' | 'low' | 'zero' | 'negative' {
-  if (amount < 0) return 'negative';
-  if (amount === 0) return 'zero';
-  if (amount < 100) return 'low';
+  // Round to whole dollars for consistent threshold checks
+  const rounded = Math.round(amount);
+  if (rounded < 0) return 'negative';
+  if (rounded === 0) return 'zero';
+  if (rounded < 100) return 'low';
   return 'healthy';
 }
 

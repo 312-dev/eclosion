@@ -5,19 +5,13 @@
  * Shows calculation breakdown for how the distributable amount was derived.
  */
 
-import { BreakdownRow } from './BreakdownRow';
+import { BreakdownRow, ExpectedIncomeRow, BREAKDOWN_LABELS } from './BreakdownComponents';
 import { BufferInputRow } from './BufferInputRow';
+import { formatCurrency } from '../../utils/formatters';
 import type { AvailableToStashBreakdown, DetailedBreakdown } from '../../types';
 
-/** Format currency with no decimals */
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 0,
-    minimumFractionDigits: 0,
-  }).format(amount);
-}
+/** Currency formatting options for whole dollars */
+const currencyOpts = { maximumFractionDigits: 0 };
 
 interface SavingsTooltipProps {
   readonly breakdown: AvailableToStashBreakdown;
@@ -30,6 +24,10 @@ interface SavingsTooltipProps {
   readonly savedBuffer: number;
   /** Callback to save the buffer value */
   readonly onSaveBuffer: (value: number) => Promise<void>;
+  /** Raw expected income amount (regardless of toggle state) */
+  readonly rawExpectedIncome: number;
+  /** Callback to toggle expected income inclusion */
+  readonly onToggleExpectedIncome: () => void;
 }
 
 /**
@@ -45,6 +43,8 @@ export function SavingsInfoTooltip({
   existingSavings,
   savedBuffer,
   onSaveBuffer,
+  rawExpectedIncome,
+  onToggleExpectedIncome,
 }: SavingsTooltipProps) {
   // Calculate available before buffer for the BufferInputRow cap
   const availableBeforeBuffer =
@@ -64,32 +64,34 @@ export function SavingsInfoTooltip({
         Calculation Breakdown
       </div>
       <div className="space-y-1">
+        <ExpectedIncomeRow
+          amount={rawExpectedIncome}
+          isEnabled={includeExpectedIncome}
+          onToggle={onToggleExpectedIncome}
+        />
         <BreakdownRow
-          label="Cash on hand"
+          label={BREAKDOWN_LABELS.cashOnHand}
           amount={breakdown.cashOnHand}
           isPositive
           items={detailedBreakdown.cashAccounts}
         />
         <BreakdownRow
-          label="Remaining goal funds"
+          label={BREAKDOWN_LABELS.goalBalances}
           amount={breakdown.goalBalances}
           items={detailedBreakdown.goals}
         />
-        {includeExpectedIncome && breakdown.expectedIncome > 0 && (
-          <BreakdownRow label="Expected income" amount={breakdown.expectedIncome} isPositive />
-        )}
         <BreakdownRow
-          label="Credit card debt"
+          label={BREAKDOWN_LABELS.creditCardDebt}
           amount={breakdown.creditCardDebt}
           items={detailedBreakdown.creditCards}
         />
         <BreakdownRow
-          label="Unspent budgets"
+          label={BREAKDOWN_LABELS.unspentBudgets}
           amount={breakdown.unspentBudgets}
           items={detailedBreakdown.unspentCategories}
         />
         <BreakdownRow
-          label="Stash balances"
+          label={BREAKDOWN_LABELS.stashBalances}
           amount={breakdown.stashBalances}
           items={detailedBreakdown.stashItems}
         />
@@ -104,18 +106,18 @@ export function SavingsInfoTooltip({
         style={{ borderColor: 'var(--monarch-border)' }}
       >
         <span style={{ color: 'var(--monarch-text-muted)' }}>Available Funds</span>
-        <span style={{ color: 'var(--monarch-success)' }}>{formatCurrency(availableAmount)}</span>
+        <span style={{ color: 'var(--monarch-success)' }}>{formatCurrency(availableAmount, currencyOpts)}</span>
       </div>
       <div className="flex justify-between">
         <span style={{ color: 'var(--monarch-text-muted)' }}>Left to Budget</span>
-        <span style={{ color: 'var(--monarch-red)' }}>−{formatCurrency(leftToBudget)}</span>
+        <span style={{ color: 'var(--monarch-red)' }}>−{formatCurrency(leftToBudget, currencyOpts)}</span>
       </div>
       <div
         className="flex justify-between font-medium pt-2 border-t"
         style={{ borderColor: 'var(--monarch-border)' }}
       >
         <span>Existing Savings</span>
-        <span style={{ color: 'var(--monarch-text-dark)' }}>{formatCurrency(existingSavings)}</span>
+        <span style={{ color: 'var(--monarch-text-dark)' }}>{formatCurrency(existingSavings, currencyOpts)}</span>
       </div>
     </div>
   );
@@ -188,7 +190,7 @@ export function MonthlyInfoTooltip({ monthlyAmount, onRefresh, isRefreshing }: M
         style={{ borderColor: 'var(--monarch-border)' }}
       >
         <span>Monthly Income</span>
-        <span style={{ color: 'var(--monarch-text-dark)' }}>{formatCurrency(monthlyAmount)}</span>
+        <span style={{ color: 'var(--monarch-text-dark)' }}>{formatCurrency(monthlyAmount, currencyOpts)}</span>
       </div>
     </div>
   );

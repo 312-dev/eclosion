@@ -117,8 +117,8 @@ export function BufferInputRow({
             placeholder="0"
             className="w-20 pl-5 pr-2 py-0.5 text-sm text-right rounded tabular-nums"
             style={{
-              backgroundColor: 'var(--monarch-bg-card)',
-              border: '1px solid var(--monarch-border)',
+              backgroundColor: 'var(--monarch-tooltip-input-bg)',
+              border: '1px solid var(--monarch-tooltip-border)',
               color: showWarning ? 'var(--monarch-warning)' : 'var(--monarch-red)',
             }}
             aria-label="Reserved buffer amount"

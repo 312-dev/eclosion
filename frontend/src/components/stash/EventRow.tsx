@@ -183,7 +183,7 @@ export function EventRow({ event, onUpdate, onRemove }: EventRowProps) {
       </button>
 
       {/* Amount input with type dropdown */}
-      <div className="flex items-center w-28 rounded border border-monarch-border bg-monarch-bg-card text-xs">
+      <div className="flex items-center w-28 rounded border border-monarch-border bg-monarch-bg-input text-xs">
         <span className="pl-1.5 text-monarch-text-muted">$</span>
         <input
           type="text"
@@ -213,7 +213,7 @@ export function EventRow({ event, onUpdate, onRemove }: EventRowProps) {
       {/* Month selector - native input with label trigger, or custom dropdown for Safari */}
       {supportsNativeMonth ? (
         <div
-          className="relative flex items-center justify-center w-18 gap-0.5 px-1.5 py-0.5 text-xs font-medium rounded border border-monarch-border bg-monarch-bg-card text-monarch-text-muted hover:text-monarch-text-dark hover:bg-monarch-bg-hover transition-colors cursor-pointer"
+          className="relative flex items-center justify-center w-18 gap-0.5 px-1.5 py-0.5 text-xs font-medium rounded border border-monarch-border bg-monarch-bg-input text-monarch-text-muted hover:text-monarch-text-dark hover:bg-monarch-bg-hover transition-colors cursor-pointer"
           onClick={() => {
             // showPicker() requires user gesture - this click handler provides it
             monthInputRef.current?.showPicker();
@@ -241,7 +241,7 @@ export function EventRow({ event, onUpdate, onRemove }: EventRowProps) {
             setIsMonthOpen(!isMonthOpen);
             setIsTypeOpen(false);
           }}
-          className="flex items-center justify-center w-18 gap-0.5 px-1.5 py-0.5 text-xs font-medium rounded border border-monarch-border bg-monarch-bg-card text-monarch-text-muted hover:text-monarch-text-dark hover:bg-monarch-bg-hover transition-colors"
+          className="flex items-center justify-center w-18 gap-0.5 px-1.5 py-0.5 text-xs font-medium rounded border border-monarch-border bg-monarch-bg-input text-monarch-text-muted hover:text-monarch-text-dark hover:bg-monarch-bg-hover transition-colors"
           aria-haspopup="listbox"
           aria-expanded={isMonthOpen}
           aria-controls={monthMenuId}

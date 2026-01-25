@@ -6,7 +6,8 @@
  */
 
 import { useState, useMemo, useCallback } from 'react';
-import { useCreateStashMutation, useStashConfigQuery } from '../../api/queries';
+import { useModalFooter } from '../ui/Modal';
+import { useCreateStashMutation, useStashConfigQuery, useAvailableToStash } from '../../api/queries';
 import { useToast } from '../../context/ToastContext';
 import { useIsRateLimited } from '../../context/RateLimitContext';
 import { useStashImageUpload } from '../../hooks';
@@ -26,6 +27,7 @@ import {
   AmountInput,
   TargetDateInput,
   GoalTypeSelector,
+  StartingBalanceInput,
 } from './StashFormFields';
 import type { StashGoalType, ImageSelection } from '../../types';
 
@@ -44,7 +46,7 @@ interface NewStashFormProps {
   readonly renderFooter: (props: {
     isDisabled: boolean;
     isSubmitting: boolean;
-    onSubmit: () => void;
+    onSubmit: () => void | Promise<void>;
   }) => React.ReactNode;
 }
 
@@ -58,6 +60,7 @@ export function NewStashForm({
 }: NewStashFormProps) {
   const toast = useToast();
   const isRateLimited = useIsRateLimited();
+  const renderInFooter = useModalFooter();
   const createMutation = useCreateStashMutation();
   const { data: stashConfig } = useStashConfigQuery();
   const { uploadImage, isUploading } = useStashImageUpload();
@@ -78,18 +81,28 @@ export function NewStashForm({
   const [openverseImage, setOpenverseImage] = useState<ImageSelection | null>(null);
   const [isNameFocused, setIsNameFocused] = useState(false);
   const [isUrlModalOpen, setIsUrlModalOpen] = useState(false);
+  const [startingBalance, setStartingBalance] = useState('');
+  const [isStartingBalanceFocused, setIsStartingBalanceFocused] = useState(false);
+
+  // Get available to stash amount for validation
+  // Use the same options as the widget so the numbers match
+  const { data: availableData, isLoading: isLoadingAvailable } = useAvailableToStash({
+    includeExpectedIncome: stashConfig?.includeExpectedIncome ?? false,
+    bufferAmount: stashConfig?.bufferAmount ?? 0,
+  });
 
   const today = useMemo(() => new Date().toISOString().split('T')[0], []);
 
+  const startingBalanceNum = Number.parseInt(startingBalance, 10) || 0;
+
   const monthlyTarget = useMemo(() => {
     const amountNum = Number.parseFloat(amount) || 0;
-    return amountNum > 0 && targetDate ? calculateStashMonthlyTarget(amountNum, 0, targetDate) : 0;
-  }, [amount, targetDate]);
+    return amountNum > 0 && targetDate
+      ? calculateStashMonthlyTarget(amountNum, startingBalanceNum, targetDate)
+      : 0;
+  }, [amount, targetDate, startingBalanceNum]);
 
-  const monthsRemaining = useMemo(
-    () => (targetDate ? calculateMonthsRemaining(targetDate) : 0),
-    [targetDate]
-  );
+  const monthsRemaining = targetDate ? calculateMonthsRemaining(targetDate) : 0;
 
   const handleImageSelect = useCallback((file: File) => {
     setSelectedImage(file);
@@ -161,6 +174,8 @@ export function NewStashForm({
         ...(customImagePath && { custom_image_path: customImagePath }),
         // Store Openverse attribution if using an Openverse image
         ...(openverseImage?.attribution && { image_attribution: openverseImage.attribution }),
+        // Starting balance - set initial rollover balance
+        ...(startingBalanceNum > 0 && { starting_balance: startingBalanceNum }),
       };
 
       let request;
@@ -205,6 +220,7 @@ export function NewStashForm({
     onPendingConverted,
     onSuccess,
     onClose,
+    startingBalanceNum,
   ]);
 
   const isSubmitting = createMutation.isPending || isUploading;
@@ -216,12 +232,22 @@ export function NewStashForm({
       ? Boolean(categorySelection.categoryGroupId)
       : Boolean(categorySelection.categoryId) || Boolean(categorySelection.flexibleGroupId);
 
-  const isFormValid = name.trim() && amountNum > 0 && targetDate && monthlyTarget >= 1 && isCategoryValid;
+  // Starting balance validation - cannot exceed available to stash
+  const availableAmount = availableData?.available;
+  const isStartingBalanceOverAvailable =
+    availableAmount !== undefined && startingBalanceNum > availableAmount;
+
+  const isFormValid =
+    name.trim() &&
+    amountNum > 0 &&
+    targetDate &&
+    monthlyTarget >= 1 &&
+    isCategoryValid &&
+    !isStartingBalanceOverAvailable;
   const isDisabled = isSubmitting || isRateLimited || !isFormValid;
 
   return (
-    <>
-      <div className="space-y-3">
+    <div className="space-y-3">
         <NewStashImageUpload
           sourceUrl={prefill?.sourceUrl}
           selectedImage={selectedImage}
@@ -264,16 +290,25 @@ export function NewStashForm({
         >
           {/* Sentence-style intention input: "Save $X as a [type] by [date]" */}
           <div className="flex items-center gap-x-2 gap-y-1 flex-wrap justify-center">
-            <span className="py-2" style={{ color: 'var(--monarch-text-muted)' }}>
+            <span
+              className="h-10 inline-flex items-center"
+              style={{ color: 'var(--monarch-text-muted)' }}
+            >
               I intend to save
             </span>
             <AmountInput id="stash-amount" value={amount} onChange={setAmount} hideLabel />
-            <span className="py-2" style={{ color: 'var(--monarch-text-muted)' }}>
+            <span
+              className="h-10 inline-flex items-center"
+              style={{ color: 'var(--monarch-text-muted)' }}
+            >
               {goalType === 'one_time' ? 'for a' : 'as a'}
             </span>
             <div className="basis-full h-0" />
             <GoalTypeSelector value={goalType} onChange={setGoalType} hideLabel />
-            <span className="py-2" style={{ color: 'var(--monarch-text-muted)' }}>
+            <span
+              className="h-10 inline-flex items-center"
+              style={{ color: 'var(--monarch-text-muted)' }}
+            >
               by
             </span>
             <TargetDateInput
@@ -284,6 +319,21 @@ export function NewStashForm({
               quickPickOptions={[]}
               hideLabel
             />
+            <div className="basis-full h-0" />
+            <span
+              className="h-10 inline-flex items-center self-start"
+              style={{ color: 'var(--monarch-text-muted)' }}
+            >
+              I&apos;ve already saved
+            </span>
+            <StartingBalanceInput
+              value={startingBalance}
+              onChange={setStartingBalance}
+              availableAmount={availableAmount}
+              isLoading={isLoadingAvailable}
+              isFocused={isStartingBalanceFocused}
+              onFocusChange={setIsStartingBalanceFocused}
+            />
           </div>
 
           {/* Progress Preview - shows calculated monthly rate and timeline */}
@@ -291,10 +341,12 @@ export function NewStashForm({
             <>
               <div className="my-3 border-t" style={{ borderColor: 'var(--monarch-border)' }} />
               <SavingsProgressBar
-                totalSaved={0}
+                totalSaved={startingBalanceNum}
                 targetAmount={amountNum}
-                progressPercent={0}
-                displayStatus="behind"
+                progressPercent={
+                  amountNum > 0 ? Math.min(100, (startingBalanceNum / amountNum) * 100) : 0
+                }
+                displayStatus={startingBalanceNum >= amountNum ? 'funded' : 'behind'}
                 isEnabled={true}
               />
               <div
@@ -321,11 +373,17 @@ export function NewStashForm({
           onChange={setCategorySelection}
           defaultCategoryGroupId={stashConfig?.defaultCategoryGroupId ?? undefined}
         />
-      </div>
 
-      <div className="flex items-center justify-end gap-2 mt-6 pt-4 border-t border-(--monarch-border)">
-        {renderFooter({ isDisabled, isSubmitting, onSubmit: handleSubmit })}
-      </div>
-    </>
+        {/* Footer portaled to Modal's sticky footer area */}
+        {renderInFooter(
+          <div className="p-4 border-t" style={{ borderColor: 'var(--monarch-border)' }}>
+            {renderFooter({
+              isDisabled,
+              isSubmitting,
+              onSubmit: handleSubmit,
+            })}
+          </div>
+        )}
+    </div>
   );
 }

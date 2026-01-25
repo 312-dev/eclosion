@@ -4,6 +4,7 @@
  * Modal for editing an existing stash.
  */
 
+import { useState, useCallback } from 'react';
 import { Modal } from '../ui/Modal';
 import { Tooltip } from '../ui/Tooltip';
 import { Icons } from '../icons';
@@ -23,10 +24,10 @@ interface EditModalFooterProps {
   readonly isArchived: boolean;
   readonly isDisabled: boolean;
   readonly isSubmitting: boolean;
-  readonly onArchive: () => void;
+  readonly onArchive: () => void | Promise<void>;
   readonly onDelete: () => void;
-  readonly onSaveAndRestore: () => void;
-  readonly onSubmit: () => void;
+  readonly onSaveAndRestore: () => void | Promise<void>;
+  readonly onSubmit: () => void | Promise<void>;
 }
 
 function ArchiveButton({
@@ -158,13 +159,20 @@ interface EditStashModalProps {
 }
 
 export function EditStashModal({ isOpen, onClose, item, onSuccess }: EditStashModalProps) {
+  const [displayName, setDisplayName] = useState(item?.name ?? '');
+
+  // Reset display name when item changes
+  const handleNameChange = useCallback((name: string) => {
+    setDisplayName(name);
+  }, []);
+
   if (!item) return null;
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={item.name}
+      title={displayName || item.name}
       description="Adjust your target or update details"
       maxWidth="md"
     >
@@ -173,6 +181,7 @@ export function EditStashModal({ isOpen, onClose, item, onSuccess }: EditStashMo
         item={item}
         onSuccess={onSuccess}
         onClose={onClose}
+        onNameChange={handleNameChange}
         renderFooter={(props) => <EditModalFooter {...props} />}
       />
     </Modal>

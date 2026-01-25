@@ -15,6 +15,7 @@ import { StashProgressChart } from './StashProgressChart';
 import { StashSummaryCards } from './StashSummaryCards';
 import { PageLoadingSpinner } from '../ui/LoadingSpinner';
 import { Icons } from '../icons';
+import { formatCurrency } from '../../utils/formatters';
 import type { StashReportTimeRange } from '../../types';
 
 const TIME_RANGE_OPTIONS: { value: StashReportTimeRange; label: string }[] = [
@@ -24,16 +25,8 @@ const TIME_RANGE_OPTIONS: { value: StashReportTimeRange; label: string }[] = [
   { value: 'all', label: 'All' },
 ];
 
-/**
- * Format currency for the chart.
- */
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 0,
-  }).format(amount);
-}
+/** Currency formatting options for whole dollars */
+const currencyOpts = { maximumFractionDigits: 0 };
 
 /**
  * Skeleton placeholder for summary cards (4-card grid).
@@ -325,7 +318,7 @@ export function StashReportsView() {
               months={data.months}
               visibleStashIds={visibleStashIds}
               activeTab={settings.activeTab}
-              formatCurrency={formatCurrency}
+              formatCurrency={(amount) => formatCurrency(amount, currencyOpts)}
             />
           </div>
         </>

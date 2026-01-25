@@ -152,11 +152,15 @@ export function ExpectedIncomeRow({ amount, isEnabled, onToggle }: ExpectedIncom
         <input
           type="checkbox"
           checked={isEnabled}
-          onChange={onToggle}
-          onClick={(e) => e.stopPropagation()}
-          className="w-3.5 h-3.5 rounded border cursor-pointer accent-(--monarch-orange)"
+          onChange={() => {}}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggle();
+          }}
+          className="w-3.5 h-3.5 rounded border cursor-pointer"
           style={{
             borderColor: 'var(--monarch-border)',
+            accentColor: isEnabled ? 'var(--monarch-green)' : undefined,
           }}
           aria-label="Include expected income in calculation"
         />

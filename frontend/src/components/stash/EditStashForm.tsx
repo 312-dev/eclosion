@@ -5,8 +5,9 @@
  * Uses the same layout pattern as NewStashForm for consistency.
  */
 
-import { useState, useMemo, useCallback } from 'react';
-import { useStashConfigQuery } from '../../api/queries';
+import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useModalFooter } from '../ui/Modal';
+import { useStashConfigQuery, useAvailableToStash } from '../../api/queries';
 import { StashCategoryModal, type CategorySelection } from './StashCategoryModal';
 import { useToast } from '../../context/ToastContext';
 import { useIsRateLimited } from '../../context/RateLimitContext';
@@ -21,6 +22,7 @@ import {
   TargetDateInput,
   GoalTypeSelector,
   CategoryInfoDisplay,
+  StartingBalanceInput,
 } from './StashFormFields';
 import { useEditStashHandlers } from './useEditStashHandlers';
 import type { StashItem, StashGoalType } from '../../types';
@@ -44,25 +46,38 @@ interface EditStashFormProps {
   readonly item: StashItem;
   readonly onSuccess?: (() => void) | undefined;
   readonly onClose: () => void;
+  readonly onNameChange?: (name: string) => void;
   readonly renderFooter: (props: {
     isArchived: boolean;
     isDisabled: boolean;
     isSubmitting: boolean;
-    onArchive: () => void;
+    onArchive: () => void | Promise<void>;
     onDelete: () => void;
-    onSaveAndRestore: () => void;
-    onSubmit: () => void;
+    onSaveAndRestore: () => void | Promise<void>;
+    onSubmit: () => void | Promise<void>;
   }) => React.ReactNode;
 }
 
-export function EditStashForm({ item, onSuccess, onClose, renderFooter }: EditStashFormProps) {
+export function EditStashForm({
+  item,
+  onSuccess,
+  onClose,
+  onNameChange,
+  renderFooter,
+}: EditStashFormProps) {
   const toast = useToast();
   const isRateLimited = useIsRateLimited();
+  const renderInFooter = useModalFooter();
   const { data: stashConfig } = useStashConfigQuery();
 
   // Initialize form state from item
   const [name, setName] = useState(item.name);
   const [url, setUrl] = useState(item.source_url || '');
+
+  // Notify parent when name changes for live title updates
+  useEffect(() => {
+    onNameChange?.(name);
+  }, [name, onNameChange]);
   const [amount, setAmount] = useState(item.amount.toString());
   const [targetDate, setTargetDate] = useState(getInitialTargetDate(item));
   const [emoji, setEmoji] = useState(item.emoji || '');
@@ -79,13 +94,31 @@ export function EditStashForm({ item, onSuccess, onClose, renderFooter }: EditSt
   const [isNameFocused, setIsNameFocused] = useState(false);
   const [isUrlModalOpen, setIsUrlModalOpen] = useState(false);
 
+  // Starting balance - pre-populate with existing rollover amount
+  const initialStartingBalance = item.rollover_amount ?? 0;
+  const [startingBalance, setStartingBalance] = useState(
+    initialStartingBalance > 0 ? initialStartingBalance.toString() : ''
+  );
+  const [isStartingBalanceFocused, setIsStartingBalanceFocused] = useState(false);
+
+  // Get available to stash amount for validation
+  // Use the same options as the widget so the numbers match
+  const { data: availableData, isLoading: isLoadingAvailable } = useAvailableToStash({
+    includeExpectedIncome: stashConfig?.includeExpectedIncome ?? false,
+    bufferAmount: stashConfig?.bufferAmount ?? 0,
+  });
+  const startingBalanceNum = Number.parseInt(startingBalance, 10) || 0;
+  const startingBalanceDelta = startingBalanceNum - initialStartingBalance;
+  const availableAmount = availableData?.available;
+
   const monthlyTarget = useMemo(() => {
     const amountNum = Number.parseFloat(amount) || 0;
     const isValid = amountNum > 0 && targetDate;
     // Use current_balance minus planned_budget so inflows reduce target but budget doesn't
-    const effectiveBalance = item.current_balance - item.planned_budget;
+    // Also account for starting balance changes (delta from original)
+    const effectiveBalance = item.current_balance - item.planned_budget + startingBalanceDelta;
     return isValid ? calculateStashMonthlyTarget(amountNum, effectiveBalance, targetDate) : 0;
-  }, [amount, targetDate, item.current_balance, item.planned_budget]);
+  }, [amount, targetDate, item.current_balance, item.planned_budget, startingBalanceDelta]);
 
   const handleImageUploaded = useCallback((imagePath: string) => setCustomImagePath(imagePath), []);
   const handleImageRemoved = useCallback(() => {
@@ -125,8 +158,20 @@ export function EditStashForm({ item, onSuccess, onClose, renderFooter }: EditSt
       custom_image_path: customImagePath || null,
       image_attribution: imageAttribution || null,
       goal_type: goalType,
+      // Starting balance change (delta from original) - handled separately via rollover API
+      starting_balance_delta: startingBalanceDelta,
     }),
-    [name, amount, targetDate, emoji, url, customImagePath, imageAttribution, goalType]
+    [
+      name,
+      amount,
+      targetDate,
+      emoji,
+      url,
+      customImagePath,
+      imageAttribution,
+      goalType,
+      startingBalanceDelta,
+    ]
   );
 
   const {
@@ -144,6 +189,8 @@ export function EditStashForm({ item, onSuccess, onClose, renderFooter }: EditSt
   } = useEditStashHandlers({
     itemId: item.id,
     isArchived: item.is_archived,
+    categoryId: item.is_flexible_group ? null : item.category_id,
+    flexibleGroupId: item.is_flexible_group ? item.category_group_id : null,
     buildUpdates,
     validateForm,
     onCategoryMissing: handleCategoryMissing,
@@ -151,7 +198,14 @@ export function EditStashForm({ item, onSuccess, onClose, renderFooter }: EditSt
     onClose,
   });
 
-  const isDisabled = isSubmitting || isRateLimited;
+  // Starting balance validation - only block if INCREASING beyond what's available
+  // If delta <= 0 (same or reducing), always allow since funds are already committed
+  const isStartingBalanceOverAvailable =
+    availableAmount !== undefined &&
+    startingBalanceDelta > 0 &&
+    startingBalanceDelta > availableAmount;
+
+  const isDisabled = isSubmitting || isRateLimited || isStartingBalanceOverAvailable;
 
   const today = useMemo(() => new Date().toISOString().split('T')[0], []);
   const amountNum = Number.parseFloat(amount) || 0;
@@ -212,16 +266,25 @@ export function EditStashForm({ item, onSuccess, onClose, renderFooter }: EditSt
         >
           {/* Sentence-style intention input: "Save $[amount] as a [goal type] by [date]" */}
           <div className="flex items-center gap-x-2 gap-y-1 flex-wrap justify-center">
-            <span className="py-2" style={{ color: 'var(--monarch-text-muted)' }}>
+            <span
+              className="h-10 inline-flex items-center"
+              style={{ color: 'var(--monarch-text-muted)' }}
+            >
               I intend to save
             </span>
             <AmountInput id="edit-stash-amount" value={amount} onChange={setAmount} hideLabel />
-            <span className="py-2" style={{ color: 'var(--monarch-text-muted)' }}>
+            <span
+              className="h-10 inline-flex items-center"
+              style={{ color: 'var(--monarch-text-muted)' }}
+            >
               {goalType === 'one_time' ? 'for a' : 'as a'}
             </span>
             <div className="basis-full h-0" />
             <GoalTypeSelector value={goalType} onChange={setGoalType} hideLabel />
-            <span className="py-2" style={{ color: 'var(--monarch-text-muted)' }}>
+            <span
+              className="h-10 inline-flex items-center"
+              style={{ color: 'var(--monarch-text-muted)' }}
+            >
               by
             </span>
             <TargetDateInput
@@ -232,6 +295,28 @@ export function EditStashForm({ item, onSuccess, onClose, renderFooter }: EditSt
               quickPickOptions={[]}
               hideLabel
             />
+            <div className="basis-full h-0" />
+            <span
+              className="h-10 inline-flex items-center self-start"
+              style={{ color: 'var(--monarch-text-muted)' }}
+            >
+              with a
+            </span>
+            <StartingBalanceInput
+              value={startingBalance}
+              onChange={setStartingBalance}
+              availableAmount={availableAmount}
+              isLoading={isLoadingAvailable}
+              isFocused={isStartingBalanceFocused}
+              onFocusChange={setIsStartingBalanceFocused}
+              initialValue={initialStartingBalance}
+            />
+            <span
+              className="h-10 inline-flex items-center self-start"
+              style={{ color: 'var(--monarch-text-muted)' }}
+            >
+              starting balance.
+            </span>
           </div>
 
           {/* Progress section - edit-specific */}
@@ -245,6 +330,9 @@ export function EditStashForm({ item, onSuccess, onClose, renderFooter }: EditSt
                 onComplete={handleComplete}
                 onUncomplete={handleUncomplete}
                 isCompletingItem={isCompletingItem}
+                startingBalanceDelta={startingBalanceDelta}
+                currentGoalType={goalType}
+                targetDate={targetDate}
               />
             </>
           )}
@@ -260,17 +348,20 @@ export function EditStashForm({ item, onSuccess, onClose, renderFooter }: EditSt
         )}
       </div>
 
-      <div className="flex items-center justify-end gap-2 mt-6 pt-4 border-t border-(--monarch-border)">
-        {renderFooter({
-          isArchived: item.is_archived,
-          isDisabled,
-          isSubmitting,
-          onArchive: handleArchive,
-          onDelete: () => setShowDeleteModal(true),
-          onSaveAndRestore: handleSaveAndRestore,
-          onSubmit: handleSubmit,
-        })}
-      </div>
+      {/* Footer portaled to Modal's sticky footer area */}
+      {renderInFooter(
+        <div className="p-4 border-t" style={{ borderColor: 'var(--monarch-border)' }}>
+          {renderFooter({
+            isArchived: item.is_archived,
+            isDisabled,
+            isSubmitting,
+            onArchive: handleArchive,
+            onDelete: () => setShowDeleteModal(true),
+            onSaveAndRestore: handleSaveAndRestore,
+            onSubmit: handleSubmit,
+          })}
+        </div>
+      )}
 
       <DeleteStashConfirmModal
         isOpen={showDeleteModal}

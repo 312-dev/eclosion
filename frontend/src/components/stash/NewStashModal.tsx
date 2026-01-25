@@ -5,8 +5,8 @@
  */
 
 import { Modal } from '../ui/Modal';
+import { ModalFooter } from '../ui/ModalButtons';
 import { NewStashForm } from './NewStashForm';
-import { ModalFooterButtons } from './StashFormFields';
 
 interface NewStashModalProps {
   readonly isOpen: boolean;
@@ -50,13 +50,13 @@ export function NewStashModal({
         onSuccess={onSuccess}
         onClose={onClose}
         renderFooter={({ isDisabled, isSubmitting, onSubmit }) => (
-          <ModalFooterButtons
+          <ModalFooter
             onCancel={onClose}
             onSubmit={onSubmit}
             isDisabled={isDisabled}
             isSubmitting={isSubmitting}
             submitLabel="Create"
-            submittingLabel="Creating..."
+            submitLoadingLabel="Creating..."
           />
         )}
       />

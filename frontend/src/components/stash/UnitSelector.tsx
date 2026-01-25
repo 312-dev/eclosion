@@ -180,7 +180,7 @@ export function UnitSelector({ mode, onChange }: UnitSelectorProps) {
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         aria-controls={isOpen ? menuId : undefined}
-        className={`flex items-center gap-0.5 rounded transition-colors font-medium text-monarch-text-muted ${
+        className={`flex items-center gap-0.5 ml-1.5 px-1.5 py-1 rounded transition-colors font-medium text-monarch-text-muted ${
           onChange ? 'hover:bg-monarch-bg-hover hover:text-monarch-text-dark cursor-pointer' : ''
         }`}
       >

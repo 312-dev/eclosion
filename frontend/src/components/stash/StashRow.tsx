@@ -88,7 +88,6 @@ export const StashRow = memo(function StashRow({
     }
   }, [isEditingName]);
 
-  const progressPercent = Math.min(item.progress_percent, 100);
   const displayStatus: ItemStatus = item.status;
 
   // Calculate rollover for progress bar tooltip
@@ -97,6 +96,13 @@ export const StashRow = memo(function StashRow({
     item.rollover_amount ?? Math.max(0, item.current_balance - item.planned_budget);
   const budgetedThisMonth = item.planned_budget;
   const creditsThisMonth = item.credits_this_month ?? 0;
+
+  // For flex categories, progress bar should be based on total contributions (saved),
+  // not remaining balance. This matches purchase goal behavior where progress is immune to spending.
+  const totalContributions = rolloverAmount + budgetedThisMonth + creditsThisMonth;
+  const progressPercent = item.is_flexible_group
+    ? Math.min(100, item.amount > 0 ? (totalContributions / item.amount) * 100 : 0)
+    : Math.min(item.progress_percent, 100);
 
   const handleChangeGroup = useCallback(
     async (groupId: string, groupName: string) => {
@@ -309,6 +315,9 @@ export const StashRow = memo(function StashRow({
                 rolloverAmount={rolloverAmount}
                 budgetedThisMonth={budgetedThisMonth}
                 creditsThisMonth={creditsThisMonth}
+                // Flex categories behave like savings_buffer (spending reduces balance)
+                goalType={item.is_flexible_group ? 'savings_buffer' : item.goal_type}
+                {...(item.available_to_spend !== undefined && { availableToSpend: item.available_to_spend })}
               />
             </div>
           </div>

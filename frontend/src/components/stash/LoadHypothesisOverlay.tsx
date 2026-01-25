@@ -8,7 +8,11 @@
 import { useState } from 'react';
 import { Modal } from '../ui/Modal';
 import { Icons } from '../icons';
+import { formatCurrency } from '../../utils/formatters';
 import type { StashHypothesis } from '../../types';
+
+/** Currency formatting options for whole dollars */
+const currencyOpts = { maximumFractionDigits: 0 };
 
 interface LoadHypothesisOverlayProps {
   readonly isOpen: boolean;
@@ -61,22 +65,14 @@ export function LoadHypothesisOverlay({
     });
   };
 
-  // Format currency
-  const formatCurrency = (amount: number) =>
-    new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      maximumFractionDigits: 0,
-    }).format(amount);
-
   // Get summary for a hypothesis
   const getSummary = (hypothesis: StashHypothesis) => {
     const parts: string[] = [];
     if (hypothesis.savingsTotal > 0) {
-      parts.push(`${formatCurrency(hypothesis.savingsTotal)} savings`);
+      parts.push(`${formatCurrency(hypothesis.savingsTotal, currencyOpts)} savings`);
     }
     if (hypothesis.monthlyTotal > 0) {
-      parts.push(`${formatCurrency(hypothesis.monthlyTotal)}/mo`);
+      parts.push(`${formatCurrency(hypothesis.monthlyTotal, currencyOpts)}/mo`);
     }
     return parts.length > 0 ? parts.join(' + ') : 'No allocations';
   };

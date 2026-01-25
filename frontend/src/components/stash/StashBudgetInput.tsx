@@ -96,7 +96,7 @@ export function StashBudgetInput({
 
   return (
     <div
-      className="flex items-center whitespace-nowrap rounded bg-monarch-bg-card border border-monarch-border px-2 py-1 focus-within:border-monarch-orange"
+      className="flex items-center w-35 rounded bg-monarch-bg-card border border-monarch-border px-2 py-1 focus-within:border-monarch-orange"
       data-no-dnd="true"
     >
       <span className="font-medium text-monarch-text-dark">$</span>
@@ -111,7 +111,7 @@ export function StashBudgetInput({
         disabled={isDisabled}
         placeholder="0"
         aria-label="Budget amount"
-        className="w-14 text-right font-medium text-monarch-text-dark bg-transparent font-inherit disabled:opacity-50 outline-none tabular-nums"
+        className="w-14 ml-auto text-right font-medium text-monarch-text-dark bg-transparent font-inherit disabled:opacity-50 outline-none tabular-nums placeholder:text-right"
       />
       <Tooltip content="Monthly savings target to reach your goal by the target date" side="bottom">
         <span className="text-monarch-text-muted ml-1 cursor-help">/ {target}</span>

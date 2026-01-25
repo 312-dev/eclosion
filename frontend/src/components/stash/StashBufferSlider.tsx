@@ -17,6 +17,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { useStashConfigQuery, useUpdateStashConfigMutation, useAvailableToStash } from '../../api/queries';
 import { useToast } from '../../context/ToastContext';
+import { formatCurrency } from '../../utils/formatters';
 
 interface StashBufferSliderProps {
   /** Callback to open New Stash modal with pre-filled name */
@@ -25,17 +26,8 @@ interface StashBufferSliderProps {
   readonly className?: string;
 }
 
-/**
- * Format currency for display (whole dollars, no cents).
- */
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 0,
-    minimumFractionDigits: 0,
-  }).format(amount);
-}
+/** Currency formatting options for whole dollars */
+const currencyOpts = { maximumFractionDigits: 0 };
 
 /**
  * Format currency compactly for tick labels (e.g., $5K, $10K)
@@ -191,7 +183,7 @@ export function StashBufferSlider({ onCreateEmergencyFund, className = '' }: Sta
                 color: 'var(--monarch-primary)',
               }}
             >
-              {formatCurrency(localBuffer)}
+              {formatCurrency(localBuffer, currencyOpts)}
             </div>
             {/* Tooltip arrow */}
             <div
@@ -241,7 +233,7 @@ export function StashBufferSlider({ onCreateEmergencyFund, className = '' }: Sta
               aria-valuemin={0}
               aria-valuemax={sliderMax}
               aria-valuenow={localBuffer}
-              aria-valuetext={formatCurrency(localBuffer)}
+              aria-valuetext={formatCurrency(localBuffer, currencyOpts)}
             />
           </div>
 
@@ -290,7 +282,7 @@ export function StashBufferSlider({ onCreateEmergencyFund, className = '' }: Sta
           className="mt-4 text-sm font-medium tabular-nums"
           style={{ color: 'var(--monarch-text-muted)' }}
         >
-          Current: <span style={{ color: 'var(--monarch-primary)' }}>{formatCurrency(localBuffer)}</span>
+          Current: <span style={{ color: 'var(--monarch-primary)' }}>{formatCurrency(localBuffer, currencyOpts)}</span>
         </div>
       </div>
 

@@ -10,7 +10,6 @@
  */
 
 import { memo } from 'react';
-import { TbMoneybag } from 'react-icons/tb';
 import type { StashItem, ItemStatus } from '../../types';
 import { SavingsProgressBar } from '../shared';
 import { Icons } from '../icons';
@@ -82,8 +81,8 @@ function StatusBadge({
       <span
         className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium"
         style={{
-          background: 'rgba(16, 185, 129, 0.2)',
-          color: '#10b981',
+          background: 'var(--monarch-success-bg)',
+          color: 'var(--monarch-success)',
         }}
       >
         <Icons.Check size={12} />
@@ -98,8 +97,8 @@ function StatusBadge({
       <span
         className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
         style={{
-          background: '#374151',
-          color: '#9ca3af',
+          background: 'var(--monarch-bg-elevated)',
+          color: 'var(--monarch-text-muted)',
         }}
       >
         Archived{dateStr ? ` ${dateStr}` : ''}
@@ -131,7 +130,6 @@ export const StashCard = memo(function StashCard({
   onViewReport,
   showTypeBadge = true,
 }: StashCardProps) {
-  const progressPercent = Math.min(item.progress_percent, 100);
   const displayStatus: ItemStatus = item.status;
 
   // Format target date (parseLocalDate avoids timezone shift bugs with ISO dates)
@@ -160,6 +158,13 @@ export const StashCard = memo(function StashCard({
   const budgetedThisMonth = item.planned_budget;
   const creditsThisMonth = item.credits_this_month ?? 0;
 
+  // For flex categories, progress bar should be based on total contributions (saved),
+  // not remaining balance. This matches purchase goal behavior where progress is immune to spending.
+  const totalContributions = rolloverAmount + budgetedThisMonth + creditsThisMonth;
+  const progressPercent = item.is_flexible_group
+    ? Math.min(100, item.amount > 0 ? (totalContributions / item.amount) * 100 : 0)
+    : Math.min(item.progress_percent, 100);
+
   return (
     <div
       className="group rounded-xl border overflow-hidden transition-shadow hover:shadow-md h-full flex flex-col"
@@ -187,22 +192,32 @@ export const StashCard = memo(function StashCard({
           className={hasImage ? 'w-full h-full object-cover' : 'opacity-50'}
         />
 
-        {/* Stash badge - top left (only shown when showTypeBadge is true) */}
-        {showTypeBadge && (
-          <div className="absolute top-2 left-2">
-            <span
-              className="inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium"
-              style={{
-                backgroundColor: 'rgba(0, 0, 0, 0.5)',
-                color: 'var(--monarch-text-muted)',
-                backdropFilter: 'blur(4px)',
-              }}
-            >
-              <TbMoneybag size={12} />
-              Stash
-            </span>
-          </div>
-        )}
+        {/* Goal type badge - top left (only shown when showTypeBadge is true) */}
+        {showTypeBadge &&
+          (() => {
+            const badgeConfig = {
+              one_time: { icon: Icons.BadgeDollarSign, color: 'var(--monarch-info)', label: 'Purchase' },
+              debt: { icon: Icons.HandCoins, color: 'var(--monarch-warning)', label: 'Debt' },
+              savings_buffer: { icon: Icons.PiggyBank, color: 'var(--monarch-accent)', label: 'Savings Fund' },
+            } as const;
+            const config = badgeConfig[item.goal_type ?? 'one_time'];
+            const BadgeIcon = config.icon;
+            return (
+              <div className="absolute top-2 left-2">
+                <span
+                  className="inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium"
+                  style={{
+                    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+                    color: 'rgba(255, 255, 255, 0.9)',
+                    backdropFilter: 'blur(4px)',
+                  }}
+                >
+                  <BadgeIcon size={12} style={{ color: config.color }} />
+                  {config.label}
+                </span>
+              </div>
+            );
+          })()}
 
         {/* Edit button - top right, shown on hover */}
         {!item.is_archived && (
@@ -232,13 +247,13 @@ export const StashCard = memo(function StashCard({
       </div>
 
       {/* Content Area - fixed height for consistency */}
-      <div className="p-4 shrink-0 flex flex-col" style={{ height: 140 }}>
+      <div className="px-4 pt-3 pb-4 shrink-0 flex flex-col" style={{ height: 112 }}>
         {/* Top row: Title + info on left, budget input on right */}
         <div className="flex items-start justify-between gap-3 mb-3">
           {/* Left side: Title and date */}
           <div className="min-w-0 flex-1">
             {/* Title */}
-            <div className="mb-1 min-w-0 overflow-hidden">
+            <div className="flex items-center gap-1.5 min-w-0">
               {onViewReport ? (
                 <StashTitleDropdown
                   stashName={item.name}
@@ -296,26 +311,32 @@ export const StashCard = memo(function StashCard({
                 </>
               )}
             </div>
-            {/* Goal type, amount, and target date - "Save"/"Maintain" hidden on narrow cards */}
-            <div
-              className="@container flex items-center gap-1 text-sm min-w-0"
-              style={{ color: 'var(--monarch-text-muted)' }}
-            >
-              {item.goal_type === 'savings_buffer' ? (
-                <Icons.PiggyBank size={14} className="shrink-0" style={{ color: '#a78bfa' }} />
-              ) : (
-                <Icons.Gift size={14} className="shrink-0" style={{ color: '#60a5fa' }} />
-              )}
-              <span
-                className="truncate"
-                title={`${item.goal_type === 'savings_buffer' ? 'Maintain' : 'Save'} ${formatCurrency(item.amount, { maximumFractionDigits: 0 })} by ${dateDisplay}`}
-              >
-                <span className="hidden @[140px]:inline">
-                  {item.goal_type === 'savings_buffer' ? 'Maintain ' : 'Save '}
-                </span>
-                {formatCurrency(item.amount, { maximumFractionDigits: 0 })} by {dateDisplay}
-              </span>
-            </div>
+            {/* Goal amount and target date - "Save"/"Store"/"Pay off" hidden on narrow cards */}
+            {(() => {
+              const goalTypeConfig = {
+                one_time: { verb: 'Save' },
+                debt: { verb: 'Pay off' },
+                savings_buffer: { verb: 'Store' },
+              } as const;
+              const config = goalTypeConfig[item.goal_type ?? 'one_time'];
+              return (
+                <div
+                  className="flex items-center gap-1 text-sm min-w-0"
+                  style={{ color: 'var(--monarch-text-muted)' }}
+                >
+                  <span className="shrink-0 inline-flex">
+                    <Icons.Calendar size={14} style={{ color: 'var(--monarch-text-muted)' }} />
+                  </span>
+                  <span
+                    className="truncate"
+                    title={`${config.verb} ${formatCurrency(item.amount, { maximumFractionDigits: 0 })} by ${dateDisplay}`}
+                  >
+                    <span className="hidden @[140px]:inline">{config.verb} </span>
+                    {formatCurrency(item.amount, { maximumFractionDigits: 0 })} by {dateDisplay}
+                  </span>
+                </div>
+              );
+            })()}
           </div>
 
           {/* Right side: Budget input (hidden for archived items) */}
@@ -359,7 +380,8 @@ export const StashCard = memo(function StashCard({
               rolloverAmount={rolloverAmount}
               budgetedThisMonth={budgetedThisMonth}
               creditsThisMonth={creditsThisMonth}
-              goalType={item.goal_type}
+              // Flex categories behave like savings_buffer (spending reduces balance)
+              goalType={item.is_flexible_group ? 'savings_buffer' : item.goal_type}
               {...(item.available_to_spend !== undefined && { availableToSpend: item.available_to_spend })}
             />
           )}

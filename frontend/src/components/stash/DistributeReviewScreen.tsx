@@ -7,6 +7,7 @@
  */
 
 import type { StashItem } from '../../types';
+import { formatCurrency } from '../../utils/formatters';
 
 interface DistributeReviewScreenProps {
   /** Savings allocations (balance boosts) by item ID */
@@ -17,14 +18,8 @@ interface DistributeReviewScreenProps {
   readonly items: StashItem[];
 }
 
-/** Format currency without cents */
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 0,
-  }).format(amount);
-}
+/** Format currency options for whole dollars */
+const currencyOpts = { maximumFractionDigits: 0 };
 
 export function DistributeReviewScreen({
   savingsAllocations,
@@ -67,10 +62,10 @@ export function DistributeReviewScreen({
                     </span>
                     <div className="flex items-center gap-3">
                       <span className="text-sm font-medium text-monarch-text-dark">
-                        {formatCurrency(newBalance)}
+                        {formatCurrency(newBalance, currencyOpts)}
                       </span>
                       <span className="text-sm font-medium text-monarch-success">
-                        (+{formatCurrency(allocation)})
+                        (+{formatCurrency(allocation, currencyOpts)})
                       </span>
                     </div>
                   </div>
@@ -88,8 +83,9 @@ export function DistributeReviewScreen({
             </h4>
             <div className="bg-monarch-bg-hover rounded-lg divide-y divide-monarch-border">
               {itemsWithMonthly.map((item) => {
-                const newBudget = monthlyAllocations[item.id] ?? 0;
+                const allocation = monthlyAllocations[item.id] ?? 0;
                 const currentBudget = item.planned_budget ?? 0;
+                const newBudget = currentBudget + allocation;
 
                 return (
                   <div
@@ -99,13 +95,16 @@ export function DistributeReviewScreen({
                     <span className="text-sm text-monarch-text-dark truncate flex-1 mr-2">
                       {item.name}
                     </span>
-                    <div className="flex items-center gap-2 tabular-nums">
-                      <span className="text-sm text-monarch-text-muted text-right w-20">
-                        {formatCurrency(currentBudget)}/mo
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm text-monarch-text-muted">
+                        {formatCurrency(currentBudget, currencyOpts)}/mo
                       </span>
                       <span className="text-monarch-text-muted">→</span>
-                      <span className="text-sm font-medium text-monarch-text-dark text-right w-20">
-                        {formatCurrency(newBudget)}/mo
+                      <span className="text-sm font-medium text-monarch-text-dark">
+                        {formatCurrency(newBudget, currencyOpts)}/mo
+                      </span>
+                      <span className="text-sm font-medium text-monarch-success">
+                        (+{formatCurrency(allocation, currencyOpts)})
                       </span>
                     </div>
                   </div>
@@ -121,13 +120,13 @@ export function DistributeReviewScreen({
         <div className="flex items-center justify-center gap-2 text-sm text-monarch-text-muted">
           {hasSavings && (
             <span className="text-monarch-success font-medium">
-              +{formatCurrency(totalSavings)} to stash balances
+              +{formatCurrency(totalSavings, currencyOpts)} to stash balances
             </span>
           )}
           {hasSavings && hasMonthly && <span>•</span>}
           {hasMonthly && (
-            <span className="font-medium">
-              {formatCurrency(totalMonthly)}/mo to stashes
+            <span className="text-monarch-success font-medium">
+              +{formatCurrency(totalMonthly, currencyOpts)}/mo to stashes
             </span>
           )}
         </div>

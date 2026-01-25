@@ -2,7 +2,7 @@
  * StashWidgetGrid - Resizable widget grid for stash cards
  *
  * Uses react-grid-layout for iOS/Android-style widget resizing.
- * Cards can span 1-3 columns and 1-2 rows.
+ * Cards can span 1-2 columns and 1-2 rows.
  *
  * Layout Strategy:
  * - Custom horizontal+vertical compaction (items flow left-to-right, wrap to next row)
@@ -28,15 +28,15 @@ import { Icons } from '../icons';
 // Use RGL directly instead of WidthProvider to avoid ref conflicts
 const GridLayout = RGL;
 
-const COLS = 3;
-const ROW_HEIGHT = 280;
+const COLS = 2;
+const ROW_HEIGHT = 300;
 const MARGIN: [number, number] = [16, 16];
 const ADD_PLACEHOLDER_ID = '__add_stash_placeholder__';
 const ARCHIVED_PREFIX = '__archived__';
 
 // Card size constraints
 const MIN_W = 1;
-const MAX_W = 3;
+const MAX_W = 2;
 const MIN_H = 1;
 const MAX_H = 2;
 
@@ -151,10 +151,10 @@ function AddStashCard({
         </div>
       </div>
 
-      {/* Content Area - matches StashCard p-4 with maxHeight 140 */}
+      {/* Content Area - matches StashCard px-4 pt-3 pb-4 with height 112 */}
       <div
-        className="p-4 shrink-0 flex flex-col items-center justify-center"
-        style={{ maxHeight: 140 }}
+        className="px-4 pt-3 pb-4 shrink-0 flex flex-col items-center justify-center"
+        style={{ maxHeight: 112 }}
       >
         <h3
           className="text-base font-semibold mb-1"
@@ -174,13 +174,12 @@ function EmptyState({ message }: { readonly message: string }) {
   return (
     <div className="relative">
       <div
-        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 opacity-30"
+        className="grid grid-cols-1 md:grid-cols-2 gap-4 opacity-30"
         style={{
           maskImage: 'linear-gradient(to bottom, black 0%, black 30%, transparent 100%)',
           WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black 30%, transparent 100%)',
         }}
       >
-        <PlaceholderCard />
         <PlaceholderCard />
         <PlaceholderCard />
       </div>
@@ -391,8 +390,7 @@ export const StashWidgetGrid = memo(function StashWidgetGrid({
   // Calculate effective columns based on width
   const effectiveCols = useMemo(() => {
     if (containerWidth < 480) return 1;
-    if (containerWidth < 768) return 2;
-    return COLS;
+    return COLS; // 2 columns for medium+ screens
   }, [containerWidth]);
 
   // Create a stable key for items to detect meaningful changes
