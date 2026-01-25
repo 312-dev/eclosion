@@ -14,7 +14,7 @@ Migrations are idempotent - they only run if DB version < migration version.
 
 import logging
 import sqlite3
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -101,7 +101,8 @@ def migrate_v5_wishlist_goal_type(conn: sqlite3.Connection) -> None:
     # Add goal_type column (default 'one_time')
     if not column_exists(conn, "wishlist_items", "goal_type"):
         cursor.execute(
-            "ALTER TABLE wishlist_items ADD COLUMN goal_type VARCHAR(20) NOT NULL DEFAULT 'one_time'"
+            "ALTER TABLE wishlist_items "
+            "ADD COLUMN goal_type VARCHAR(20) NOT NULL DEFAULT 'one_time'"
         )
 
     # Add completed_at column
@@ -276,7 +277,7 @@ def set_schema_version(conn: sqlite3.Connection, version: int) -> None:
             version = excluded.version,
             updated_at = excluded.updated_at
     """,
-        (version, datetime.utcnow().isoformat()),
+        (version, datetime.now(UTC).isoformat()),
     )
 
     conn.commit()

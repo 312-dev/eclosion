@@ -229,6 +229,46 @@ async def calculate_total_budgeted(
         return remaining
 
 
+async def get_category_rollover_starting_balances(
+    category_ids: list[str],
+) -> dict[str, float]:
+    """
+    Fetch rollover starting balances for a list of categories.
+
+    This is used to capture manual distributions made via the Distribute wizard
+    to category-level rollover (for items not in flexible groups).
+
+    Args:
+        category_ids: List of Monarch category IDs to fetch
+
+    Returns:
+        Dict mapping category_id -> starting_balance (0 if no rollover)
+    """
+    if not category_ids:
+        return {}
+
+    mm = await get_mm()
+    result: dict[str, float] = {}
+
+    for cat_id in category_ids:
+        try:
+            rollover_data = await mm.get_category_rollover(cat_id)
+            category_data = rollover_data.get("category", {})
+            rollover_period = category_data.get("rolloverPeriod")
+            if rollover_period:
+                starting_balance = float(rollover_period.get("startingBalance", 0) or 0)
+                if starting_balance > 0:
+                    result[cat_id] = starting_balance
+                    logger.debug(
+                        f"[Stash] Category {cat_id} has rollover "
+                        f"starting_balance={starting_balance}"
+                    )
+        except Exception as e:
+            logger.warning(f"Failed to get rollover for category {cat_id}: {e}")
+
+    return result
+
+
 class StashService:
     """Service for managing stash savings goals."""
 
@@ -289,8 +329,9 @@ class StashService:
                 "total_monthly_target": 0,
             }
 
-        # Get budget data for all categories (current and previous month)
+        # Get budget data for all categories and groups (current and previous month)
         budget_data = await self.category_manager.get_all_category_budget_data()
+        group_budget_data = await self.category_manager.get_all_category_group_budget_data()
         last_month_budgets = await self.category_manager.get_last_month_planned_budgets()
         current_month = datetime.now().strftime("%Y-%m-01")
 
@@ -301,6 +342,28 @@ class StashService:
             for g in groups_detailed
             if g.get("budget_variability") == "flexible" and g.get("rollover_enabled")
         }
+
+        # Build lookup for group rollover starting balances
+        # This captures manual adjustments made via the Distribute wizard
+        group_rollover_starting_balances: dict[str, float] = {}
+        for g in groups_detailed:
+            rollover_period = g.get("rollover_period")
+            if rollover_period and rollover_period.get("starting_balance"):
+                group_rollover_starting_balances[g["id"]] = float(
+                    rollover_period.get("starting_balance", 0) or 0
+                )
+
+        # Fetch category-level rollover starting balances for items NOT in flexible groups
+        # These are items that use category-level rollover instead of group-level
+        non_flexible_category_ids: list[str] = [
+            cat_id
+            for item in items
+            if (cat_id := item.get("monarch_category_id"))
+            and item.get("category_group_id") not in flexible_group_ids
+        ]
+        category_rollover_starting_balances = await get_category_rollover_starting_balances(
+            non_flexible_category_ids
+        )
 
         active_items = []
         archived_items = []
@@ -324,43 +387,64 @@ class StashService:
             if item["monarch_category_id"]:
                 last_month_planned_budget = last_month_budgets.get(item["monarch_category_id"], 0)
 
-            if item["monarch_category_id"] and item["monarch_category_id"] in budget_data:
-                cat_data = budget_data[item["monarch_category_id"]]
+            # Determine if this item uses group-level or category-level budget data
+            group_id = item.get("category_group_id")
+            is_flexible_group = group_id and group_id in flexible_group_ids
 
+            # For flexible groups, use group-level budget data; otherwise use category-level
+            if is_flexible_group and group_id in group_budget_data:
+                # Group-level budgeting: budget and remaining are at the group level
+                budget_source = group_budget_data[group_id]
+                budget_source_type = "group"
+            elif item["monarch_category_id"] and item["monarch_category_id"] in budget_data:
+                # Category-level budgeting: budget and remaining are at the category level
+                budget_source = budget_data[item["monarch_category_id"]]
+                budget_source_type = "category"
+            else:
+                budget_source = None
+                budget_source_type = None
+
+            if budget_source:
                 # Debug logging for Testing category
                 if item["name"] == "Testing":
-                    logger.info(f"[Stash] Testing category budget data: {cat_data}")
+                    logger.info(
+                        f"[Stash] Testing {budget_source_type} budget data: {budget_source}"
+                    )
 
-                rollover_balance = cat_data.get("rollover", 0)
-                remaining_balance = cat_data.get("remaining", 0)
-                planned_budget = int(cat_data.get("budgeted", 0))
+                rollover_balance = budget_source.get("rollover", 0)
+                remaining_balance = budget_source.get("remaining", 0)
+                planned_budget = int(budget_source.get("budgeted", 0))
 
                 # Get credits (positive transactions) for current month
-                # We need to fetch transactions and sum positive amounts
-                try:
-                    mm = await get_mm()
-                    month_start, month_end = get_month_range()
+                # Only fetch if we have a category ID (not just group-level data)
+                category_id = item.get("monarch_category_id")
+                if category_id:
+                    try:
+                        mm = await get_mm()
+                        month_start, month_end = get_month_range()
 
-                    # Fetch transactions for this category this month
-                    transactions = await get_category_transactions(
-                        mm,
-                        category_id=item["monarch_category_id"],
-                        start_date=month_start,
-                        end_date=month_end,
-                    )
+                        # Fetch transactions for this category this month
+                        transactions = await get_category_transactions(
+                            mm,
+                            category_id=category_id,
+                            start_date=month_start,
+                            end_date=month_end,
+                        )
 
-                    # Sum up positive amounts (credits/income)
-                    credits_this_month = sum(
-                        txn.get("amount", 0) for txn in transactions if txn.get("amount", 0) > 0
-                    )
+                        # Sum up positive amounts (credits/income)
+                        credits_this_month = sum(
+                            txn.get("amount", 0)
+                            for txn in transactions
+                            if txn.get("amount", 0) > 0
+                        )
 
-                    logger.info(
-                        f"[Stash] {item['name']}: {len(transactions)} transactions, "
-                        f"credits_this_month={credits_this_month}"
-                    )
-                except Exception as e:
-                    logger.warning(f"Failed to get credits for {item['name']}: {e}")
-                    credits_this_month = 0.0
+                        logger.info(
+                            f"[Stash] {item['name']}: {len(transactions)} transactions, "
+                            f"credits_this_month={credits_this_month}"
+                        )
+                    except Exception as e:
+                        logger.warning(f"Failed to get credits for {item['name']}: {e}")
+                        credits_this_month = 0.0
 
                 # Calculate current_balance based on goal_type
                 if is_completed:
@@ -376,23 +460,50 @@ class StashService:
                 elif rollover_balance == 0 and planned_budget == 0 and credits_this_month > 0:
                     current_balance = credits_this_month
                     available_to_spend = remaining_balance
-                else:
-                    # Use aggregate query to calculate total budgeted
+                elif category_id:
+                    # Use aggregate query to calculate total budgeted (requires category)
                     tracking_start = get_tracking_start_date(item)
                     current_balance = await calculate_total_budgeted(
-                        category_id=item["monarch_category_id"],
+                        category_id=category_id,
                         start_date=tracking_start,
                         remaining=remaining_balance,
                     )
                     # Available to spend is the actual remaining balance
                     available_to_spend = remaining_balance
+                else:
+                    # Flexible group without category - use remaining as balance
+                    current_balance = remaining_balance
+                    available_to_spend = remaining_balance
+
+                # Add category-level rollover starting balance (NOT for flexible groups)
+                # For flexible groups: Monarch's remainingAmount already includes the
+                # starting balance via "Rollover from last month", so we don't add it again.
+                # For category-level rollover: the starting balance may not be reflected
+                # in the current month's remainingAmount, so we add it here.
+                rollover_starting_balance = 0.0
+                if not is_completed and not is_flexible_group:
+                    cat_id = item.get("monarch_category_id")
+                    if cat_id:
+                        rollover_starting_balance = category_rollover_starting_balances.get(
+                            cat_id, 0.0
+                        )
+                        if rollover_starting_balance > 0:
+                            current_balance += rollover_starting_balance
 
                 # Log balance retrieval for all items
                 logger.info(
                     f"[Stash] {item['name']}: goal_type={goal_type}, "
+                    f"budget_source={budget_source_type}, "
                     f"current_balance={current_balance}, remaining={remaining_balance}, "
                     f"rollover={rollover_balance}, budgeted={planned_budget}, "
-                    f"credits_this_month={credits_this_month}"
+                    f"credits_this_month={credits_this_month}, "
+                    f"rollover_starting_balance={rollover_starting_balance}"
+                )
+            elif is_flexible_group and group_id:
+                # Flexible group but no group budget data found
+                logger.warning(
+                    f"[Stash] {item['name']}: flexible group {group_id} "
+                    f"NOT in group_budget_data (has {len(group_budget_data)} groups)"
                 )
             elif item["monarch_category_id"]:
                 # Category ID exists but not found in budget data
@@ -525,6 +636,7 @@ class StashService:
         image_attribution: str | None = None,
         goal_type: str = "one_time",
         tracking_start_date: str | None = None,
+        starting_balance: int | None = None,
     ) -> dict[str, Any]:
         """
         Create a new stash item with a Monarch category.
@@ -535,9 +647,9 @@ class StashService:
         3. Create in flexible group: Provide flexible_group_id (group with group-level rollover)
 
         Args:
-            goal_type: 'one_time' (default) or 'savings_buffer'
+            goal_type: 'one_time' (default), 'debt', or 'savings_buffer'
             tracking_start_date: Custom start date for aggregate queries (YYYY-MM-DD).
-                               Only used for one_time goals when linking existing category.
+                               Only used for one_time/debt goals when linking existing category.
 
         Steps:
         1. Generate unique ID
@@ -633,6 +745,19 @@ class StashService:
                 tracking_start_date=tracking_start_date,
             )
 
+        # Set initial rollover starting balance if provided
+        if starting_balance and starting_balance > 0:
+            if flexible_group_id:
+                # Group-level rollover for flexible groups
+                await self.category_manager.update_group_rollover_balance(
+                    flexible_group_id, starting_balance
+                )
+            else:
+                # Category-level rollover
+                from monarch_utils import update_category_rollover_balance
+
+                await update_category_rollover_balance(category_id, starting_balance)
+
         return {
             "success": True,
             "id": item_id,
@@ -649,7 +774,8 @@ class StashService:
         """
         Update a stash item.
 
-        Supports updating: name, amount, target_date, emoji, source_url, custom_image_path, image_attribution
+        Supports updating: name, amount, target_date, emoji, source_url,
+        custom_image_path, image_attribution.
         If name or emoji changes, also updates the Monarch category.
         """
         with db_session() as session:
@@ -765,7 +891,7 @@ class StashService:
 
     async def mark_complete(self, item_id: str, release_funds: bool = False) -> dict[str, Any]:
         """
-        Mark a one-time purchase goal as completed (archived).
+        Mark a one-time purchase or debt goal as completed (archived).
 
         Args:
             item_id: The stash item ID
@@ -773,7 +899,7 @@ class StashService:
                           If False, keep funds assigned to the category.
 
         Sets completed_at to current timestamp and is_archived to True.
-        Only valid for goal_type='one_time'.
+        Only valid for goal_type='one_time' or 'debt'.
         """
         with db_session() as session:
             repo = TrackerRepository(session)
@@ -783,8 +909,11 @@ class StashService:
                 return {"success": False, "error": "Item not found"}
 
             goal_type = getattr(item, "goal_type", "one_time")
-            if goal_type != "one_time":
-                return {"success": False, "error": "Only one-time goals can be marked complete"}
+            if goal_type not in ("one_time", "debt"):
+                return {
+                    "success": False,
+                    "error": "Only one-time and debt goals can be marked complete",
+                }
 
             category_id = item.monarch_category_id
 
@@ -805,7 +934,7 @@ class StashService:
 
     def unmark_complete(self, item_id: str) -> dict[str, Any]:
         """
-        Unmark a completed one-time purchase goal.
+        Unmark a completed one-time purchase or debt goal.
 
         Clears completed_at timestamp and is_archived flag.
         Note: If funds were released, they cannot be automatically restored.
@@ -870,6 +999,7 @@ class StashService:
         Set budget amounts for multiple stash items in a single operation.
 
         Used by the Distribute feature to update all stash budgets at once.
+        Handles both category-level and group-level budgeting (flexible groups).
 
         Args:
             allocations: List of dicts with 'id' and 'budget' keys
@@ -877,30 +1007,57 @@ class StashService:
         Returns:
             Success status with count of updated items
         """
-        # Build mapping of item_id -> category_id
+        # Get flexible group IDs (groups with flexible budget and rollover enabled)
+        groups_detailed = await self.category_manager.get_category_groups_detailed()
+        flexible_group_ids = {
+            g["id"]
+            for g in groups_detailed
+            if g.get("budget_variability") == "flexible" and g.get("rollover_enabled")
+        }
+
+        # Build mappings of item_id -> category_id and item_id -> group_id
+        # Also track which items are in flexible groups
         category_mapping: dict[str, str] = {}
+        group_mapping: dict[str, str] = {}
+        flexible_items: set[str] = set()
+
         with db_session() as session:
             repo = TrackerRepository(session)
             for allocation in allocations:
                 item = repo.get_stash_item(allocation["id"])
-                if item and item.monarch_category_id:
-                    category_mapping[allocation["id"]] = item.monarch_category_id
+                if item:
+                    if item.monarch_category_id:
+                        category_mapping[allocation["id"]] = item.monarch_category_id
+                    if item.category_group_id:
+                        group_mapping[allocation["id"]] = item.category_group_id
+                        if item.category_group_id in flexible_group_ids:
+                            flexible_items.add(allocation["id"])
 
         # Set budgets in Monarch for each item
+        # Use group-level budget for flexible groups, category-level for others
         updated_count = 0
         errors = []
         for allocation in allocations:
             item_id = allocation["id"]
             budget = allocation["budget"]
 
-            category_id = category_mapping.get(item_id)
-            if not category_id:
-                errors.append(f"Item {item_id}: no linked category")
-                continue
-
             try:
-                await self.category_manager.set_category_budget(category_id, budget)
-                updated_count += 1
+                if item_id in flexible_items:
+                    # Flexible group: set budget at group level
+                    group_id = group_mapping.get(item_id)
+                    if not group_id:
+                        errors.append(f"Item {item_id}: no linked group")
+                        continue
+                    await self.category_manager.set_group_budget(group_id, budget)
+                    updated_count += 1
+                else:
+                    # Regular category: set budget at category level
+                    category_id = category_mapping.get(item_id)
+                    if not category_id:
+                        errors.append(f"Item {item_id}: no linked category")
+                        continue
+                    await self.category_manager.set_category_budget(category_id, budget)
+                    updated_count += 1
             except Exception as e:
                 errors.append(f"Item {item_id}: {e!s}")
 
@@ -985,7 +1142,10 @@ class StashService:
         if options_provided == 0:
             return {
                 "success": False,
-                "error": "Must provide category_group_id, existing_category_id, or flexible_group_id",
+                "error": (
+                    "Must provide category_group_id, existing_category_id, "
+                    "or flexible_group_id"
+                ),
             }
         if options_provided > 1 and existing_category_id and effective_group_id:
             return {
@@ -1143,7 +1303,8 @@ class StashService:
         # Log ALL layout data for debugging
         for goal_id, layout_data in layouts.items():
             logger.info(
-                f"[Stash] Layout from DB - goal {goal_id}: x={layout_data['grid_x']}, y={layout_data['grid_y']}"
+                f"[Stash] Layout from DB - goal {goal_id}: "
+                f"x={layout_data['grid_x']}, y={layout_data['grid_y']}"
             )
 
         # Track occupied positions to avoid collisions for goals without layouts
@@ -1168,7 +1329,7 @@ class StashService:
         def find_next_available_position(
             col_span: int = 1, row_span: int = 1, cols: int = 3
         ) -> tuple[int, int]:
-            """Find the first available grid position that doesn't collide with occupied positions."""
+            """Find first available grid position without collisions."""
 
             def collides(x: int, y: int, w: int, h: int) -> bool:
                 for ox, oy, ow, oh in occupied_positions:
@@ -1239,7 +1400,7 @@ class StashService:
                 "planned_monthly_contribution": goal["planned_monthly_contribution"],
                 # Status from Monarch API
                 "status": status,
-                "months_ahead_behind": None,  # Not calculated anymore, can be derived from forecasted date if needed
+                "months_ahead_behind": None,  # Derive from forecasted date if needed
                 # Grid layout
                 "grid_x": grid_x,
                 "grid_y": grid_y,
@@ -1257,7 +1418,8 @@ class StashService:
             enriched_goals.append(enriched_goal)
             # Log each goal's final position with its name for tracing
             logger.info(
-                f"[Stash] Enriched goal '{enriched_goal['name']}' (id={goal_id}): x={enriched_goal['grid_x']}, y={enriched_goal['grid_y']}"
+                f"[Stash] Enriched goal '{enriched_goal['name']}' (id={goal_id}): "
+                f"x={enriched_goal['grid_x']}, y={enriched_goal['grid_y']}"
             )
 
         logger.info(f"[Stash] Returning {len(enriched_goals)} enriched goals")
@@ -1838,7 +2000,7 @@ class StashService:
                 month_data = monthly_lookup.get((cat_id, month))
                 remaining = (month_data.get("remainingAmount", 0) or 0) if month_data else 0
 
-                # Calculate spending for this month (don't include income, it's already in remaining)
+                # Calculate spending for this month (income already in remaining)
                 month_txns = transactions_by_month.get(month, [])
                 spending_this_month = sum(
                     abs(t.get("amount", 0)) for t in month_txns if t.get("amount", 0) < 0
@@ -1990,7 +2152,10 @@ class StashService:
             if count >= self.MAX_HYPOTHESES:
                 return {
                     "success": False,
-                    "error": f"Maximum of {self.MAX_HYPOTHESES} hypotheses reached. Delete one to save a new one.",
+                    "error": (
+                        f"Maximum of {self.MAX_HYPOTHESES} hypotheses reached. "
+                        "Delete one to save a new one."
+                    ),
                 }
 
             # Create new hypothesis

@@ -2,7 +2,7 @@
 Credentials repository with encryption support.
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
 
@@ -44,7 +44,7 @@ class CredentialsRepository:
             passphrase: User's encryption passphrase
         """
         enc = CredentialEncryption(passphrase=passphrase)
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
 
         # Delete existing and insert new (single row table)
         self.session.query(Credentials).delete()
@@ -130,7 +130,7 @@ class CredentialsRepository:
             consent_acknowledged: Whether user consented
         """
         enc = CredentialEncryption(passphrase=server_key)
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
 
         self.session.query(AutomationCredentials).delete()
         self.session.add(

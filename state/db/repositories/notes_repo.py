@@ -5,7 +5,7 @@ All note content is encrypted with the user's passphrase.
 """
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
 
@@ -58,7 +58,7 @@ class NotesRepository:
 
         Returns the note as a dict (with decrypted content).
         """
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
 
         # Check for existing note
         existing = (
@@ -231,7 +231,7 @@ class NotesRepository:
 
     def save_general_note(self, month_key: str, content: str, passphrase: str) -> dict:
         """Save or update a general note for a month."""
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         encrypted, salt = self._encrypt_content(content, passphrase)
 
         existing = (
@@ -321,7 +321,7 @@ class NotesRepository:
 
         Returns number of notes archived.
         """
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         notes = self.session.query(Note).filter(Note.category_id == category_id).all()
 
         archived_count = 0
@@ -436,7 +436,7 @@ class NotesRepository:
         """
         import json
 
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
 
         # Find existing state record
         if note_id:

@@ -5,7 +5,7 @@ User credentials are encrypted with the user's passphrase (PBKDF2 + Fernet).
 Automation credentials are encrypted with a server-derived key.
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import Boolean, CheckConstraint, DateTime, Integer, Text
 from sqlalchemy.orm import Mapped, mapped_column
@@ -28,9 +28,14 @@ class Credentials(Base):
     email_encrypted: Mapped[str] = mapped_column(Text, nullable=False)
     password_encrypted: Mapped[str] = mapped_column(Text, nullable=False)
     mfa_secret_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), nullable=False
+    )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+        DateTime,
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
     )
 
     __table_args__ = (CheckConstraint("id = 1", name="single_row_credentials"),)
@@ -53,6 +58,8 @@ class AutomationCredentials(Base):
     mfa_secret_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
     consent_acknowledged: Mapped[bool] = mapped_column(Boolean, default=False)
     consent_timestamp: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), nullable=False
+    )
 
     __table_args__ = (CheckConstraint("id = 1", name="single_row_automation"),)

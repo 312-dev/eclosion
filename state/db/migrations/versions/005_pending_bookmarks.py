@@ -30,7 +30,7 @@ def upgrade() -> None:
         sa.Column("bookmark_id", sa.String(100), nullable=False),
         sa.Column("browser_type", sa.String(20), nullable=False),  # chrome/edge/brave/safari
         sa.Column("logo_url", sa.String(2048), nullable=True),  # Favicon URL
-        # Status: 'pending' (needs review), 'skipped' (user skipped), 'converted' (became wishlist item)
+        # Status: 'pending', 'skipped', or 'converted' (became stash item)
         sa.Column("status", sa.String(20), nullable=False, default="pending"),
         # Link to wishlist item if converted
         sa.Column("wishlist_item_id", sa.String(100), nullable=True),

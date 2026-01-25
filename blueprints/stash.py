@@ -259,13 +259,25 @@ async def create_item():
     custom_image_path = sanitize_path(data.get("custom_image_path"))
     image_attribution = data.get("image_attribution")  # Attribution for Openverse images
 
-    # Goal type: 'one_time' (default) or 'savings_buffer'
+    # Goal type: 'one_time' (default), 'debt', or 'savings_buffer'
     goal_type = data.get("goal_type", "one_time")
-    if goal_type not in ("one_time", "savings_buffer"):
-        raise ValidationError("Invalid 'goal_type'. Must be 'one_time' or 'savings_buffer'")
+    if goal_type not in ("one_time", "debt", "savings_buffer"):
+        raise ValidationError(
+            "Invalid 'goal_type'. Must be 'one_time', 'debt', or 'savings_buffer'"
+        )
 
     # Tracking start date for one_time goals (optional, YYYY-MM-DD)
     tracking_start_date = data.get("tracking_start_date")
+
+    # Initial starting balance (optional, sets rollover starting balance)
+    starting_balance = data.get("starting_balance")
+    if starting_balance is not None:
+        try:
+            starting_balance = int(starting_balance)
+            if starting_balance < 0:
+                raise ValidationError("'starting_balance' must be non-negative")
+        except (ValueError, TypeError):
+            raise ValidationError("'starting_balance' must be an integer")
 
     result = await service.create_item(
         name=name,
@@ -282,6 +294,7 @@ async def create_item():
         image_attribution=image_attribution,
         goal_type=goal_type,
         tracking_start_date=tracking_start_date,
+        starting_balance=starting_balance,
     )
 
     return sanitize_api_result(result, "Failed to create stash.")
@@ -327,8 +340,10 @@ async def update_item(item_id: str):
         updates["image_attribution"] = data["image_attribution"]
     if "goal_type" in data:
         goal_type = data["goal_type"]
-        if goal_type not in ("one_time", "savings_buffer"):
-            raise ValidationError("Invalid 'goal_type'. Must be 'one_time' or 'savings_buffer'")
+        if goal_type not in ("one_time", "debt", "savings_buffer"):
+            raise ValidationError(
+            "Invalid 'goal_type'. Must be 'one_time', 'debt', or 'savings_buffer'"
+        )
         updates["goal_type"] = goal_type
     if "tracking_start_date" in data:
         updates["tracking_start_date"] = data["tracking_start_date"]
@@ -588,12 +603,10 @@ async def update_group_rollover_balance():
     except ValueError as e:
         raise ValidationError(str(e))
 
-    return jsonify(
-        {
-            "success": True,
-            "group": result,
-        }
-    )
+    return {
+        "success": True,
+        "group": result,
+    }
 
 
 @stash_bp.route("/<item_id>/change-group", methods=["POST"])

@@ -3,7 +3,7 @@ Tracker state repository.
 """
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
 
@@ -65,7 +65,7 @@ class TrackerRepository:
     def mark_sync_complete(self) -> None:
         """Update last sync timestamp."""
         config = self.get_config()
-        config.last_sync = datetime.utcnow()
+        config.last_sync = datetime.now(UTC)
 
     # === Enabled Items ===
 
@@ -112,7 +112,7 @@ class TrackerRepository:
         **kwargs,
     ) -> Category:
         """Create or update a category."""
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         category = self.get_category(recurring_id)
 
         if category:
@@ -147,7 +147,7 @@ class TrackerRepository:
         category = self.get_category(recurring_id)
         if category:
             category.emoji = emoji
-            category.last_synced_at = datetime.utcnow()
+            category.last_synced_at = datetime.now(UTC)
         return category
 
     def update_category_name(self, recurring_id: str, name: str) -> Category | None:
@@ -155,7 +155,7 @@ class TrackerRepository:
         category = self.get_category(recurring_id)
         if category:
             category.name = name
-            category.last_synced_at = datetime.utcnow()
+            category.last_synced_at = datetime.now(UTC)
         return category
 
     def set_frozen_target(
@@ -181,8 +181,8 @@ class TrackerRepository:
                 name=recurring_id,
                 target_amount=amount,
                 is_active=True,
-                created_at=datetime.utcnow(),
-                last_synced_at=datetime.utcnow(),
+                created_at=datetime.now(UTC),
+                last_synced_at=datetime.now(UTC),
             )
             self.session.add(category)
 
@@ -238,7 +238,7 @@ class TrackerRepository:
             self.session.add(RollupItem(recurring_id=recurring_id, rollup_id=1))
             rollup = self.get_rollup()
             rollup.total_budgeted += monthly_rate
-            rollup.last_updated_at = datetime.utcnow()
+            rollup.last_updated_at = datetime.now(UTC)
         return self.get_rollup()
 
     def remove_from_rollup(self, recurring_id: str, monthly_rate: float) -> Rollup:
@@ -246,7 +246,7 @@ class TrackerRepository:
         self.session.query(RollupItem).filter(RollupItem.recurring_id == recurring_id).delete()
         rollup = self.get_rollup()
         rollup.total_budgeted = max(0, rollup.total_budgeted - monthly_rate)
-        rollup.last_updated_at = datetime.utcnow()
+        rollup.last_updated_at = datetime.now(UTC)
         return rollup
 
     def toggle_rollup_enabled(self, enabled: bool) -> Rollup:
@@ -254,36 +254,36 @@ class TrackerRepository:
         rollup = self.get_rollup()
         rollup.enabled = enabled
         if enabled and not rollup.created_at:
-            rollup.created_at = datetime.utcnow()
-        rollup.last_updated_at = datetime.utcnow()
+            rollup.created_at = datetime.now(UTC)
+        rollup.last_updated_at = datetime.now(UTC)
         return rollup
 
     def set_rollup_category_id(self, category_id: str) -> Rollup:
         """Set Monarch category ID for rollup."""
         rollup = self.get_rollup()
         rollup.monarch_category_id = category_id
-        rollup.last_updated_at = datetime.utcnow()
+        rollup.last_updated_at = datetime.now(UTC)
         return rollup
 
     def set_rollup_budget(self, amount: float) -> Rollup:
         """Set rollup budget amount."""
         rollup = self.get_rollup()
         rollup.total_budgeted = amount
-        rollup.last_updated_at = datetime.utcnow()
+        rollup.last_updated_at = datetime.now(UTC)
         return rollup
 
     def update_rollup_emoji(self, emoji: str) -> Rollup:
         """Update rollup emoji."""
         rollup = self.get_rollup()
         rollup.emoji = emoji
-        rollup.last_updated_at = datetime.utcnow()
+        rollup.last_updated_at = datetime.now(UTC)
         return rollup
 
     def update_rollup_category_name(self, name: str) -> Rollup:
         """Update rollup category name."""
         rollup = self.get_rollup()
         rollup.category_name = name
-        rollup.last_updated_at = datetime.utcnow()
+        rollup.last_updated_at = datetime.now(UTC)
         return rollup
 
     # === Removed Item Notices ===
@@ -302,7 +302,7 @@ class TrackerRepository:
             name=name,
             category_name=category_name,
             was_rollup=was_rollup,
-            removed_at=datetime.utcnow(),
+            removed_at=datetime.now(UTC),
             dismissed=False,
         )
         self.session.add(notice)
@@ -352,13 +352,13 @@ class TrackerRepository:
         if consent_acknowledged is not None:
             state.consent_acknowledged = consent_acknowledged
             if consent_acknowledged:
-                state.consent_timestamp = datetime.utcnow()
+                state.consent_timestamp = datetime.now(UTC)
         return state
 
     def record_auto_sync_result(self, success: bool, error: str | None = None) -> None:
         """Record result of automatic sync."""
         state = self.get_auto_sync_state()
-        state.last_auto_sync = datetime.utcnow()
+        state.last_auto_sync = datetime.now(UTC)
         state.last_auto_sync_success = success
         state.last_auto_sync_error = error
 
@@ -513,7 +513,7 @@ class TrackerRepository:
             target_date=target_date,
             category_group_id=category_group_id,
             category_group_name=category_group_name,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(UTC),
             **kwargs,
         )
         self.session.add(item)
@@ -533,7 +533,7 @@ class TrackerRepository:
             if hasattr(item, key):
                 setattr(item, key, value)
 
-        item.updated_at = datetime.utcnow()
+        item.updated_at = datetime.now(UTC)
         return item
 
     def delete_stash_item(self, item_id: str) -> bool:
@@ -546,8 +546,8 @@ class TrackerRepository:
         item = self.get_stash_item(item_id)
         if item:
             item.is_archived = True
-            item.archived_at = datetime.utcnow()
-            item.updated_at = datetime.utcnow()
+            item.archived_at = datetime.now(UTC)
+            item.updated_at = datetime.now(UTC)
         return item
 
     def unarchive_stash_item(self, item_id: str) -> WishlistItem | None:
@@ -556,7 +556,7 @@ class TrackerRepository:
         if item:
             item.is_archived = False
             item.archived_at = None
-            item.updated_at = datetime.utcnow()
+            item.updated_at = datetime.now(UTC)
         return item
 
     def set_stash_category(
@@ -568,7 +568,7 @@ class TrackerRepository:
         item = self.get_stash_item(item_id)
         if item:
             item.monarch_category_id = monarch_category_id
-            item.updated_at = datetime.utcnow()
+            item.updated_at = datetime.now(UTC)
         return item
 
     def update_stash_group(
@@ -582,7 +582,7 @@ class TrackerRepository:
         if item:
             item.category_group_id = group_id
             item.category_group_name = group_name
-            item.updated_at = datetime.utcnow()
+            item.updated_at = datetime.now(UTC)
         return item
 
     def get_stash_items_by_category_id(self, category_id: str) -> list[WishlistItem]:
@@ -624,7 +624,7 @@ class TrackerRepository:
                 item.col_span = layout.get("col_span", 1)
                 item.row_span = layout.get("row_span", 1)
                 item.sort_order = layout.get("sort_order", 0)
-                item.updated_at = datetime.utcnow()
+                item.updated_at = datetime.now(UTC)
                 logger.debug(
                     "[TrackerRepo] update_stash_layouts: item %s updated",
                     item.id,
@@ -689,7 +689,7 @@ class TrackerRepository:
             layout.col_span = col_span
             layout.row_span = row_span
             layout.sort_order = sort_order
-            layout.updated_at = datetime.utcnow()
+            layout.updated_at = datetime.now(UTC)
         else:
             layout = MonarchGoalLayout(
                 goal_id=goal_id,
@@ -810,7 +810,7 @@ class TrackerRepository:
             browser_type=browser_type,
             logo_url=logo_url,
             status="pending",
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(UTC),
         )
         self.session.add(pending)
         return pending
@@ -820,7 +820,7 @@ class TrackerRepository:
         pending = self.get_pending_bookmark_by_id(bookmark_id)
         if pending:
             pending.status = "skipped"
-            pending.skipped_at = datetime.utcnow()
+            pending.skipped_at = datetime.now(UTC)
         return pending
 
     def convert_pending_bookmark(
@@ -834,7 +834,7 @@ class TrackerRepository:
             pending.status = "converted"
             if wishlist_item_id:
                 pending.wishlist_item_id = wishlist_item_id
-            pending.converted_at = datetime.utcnow()
+            pending.converted_at = datetime.now(UTC)
         return pending
 
     def import_bookmarks_batch(self, bookmarks: list[dict]) -> dict:
@@ -943,8 +943,8 @@ class TrackerRepository:
             monthly_allocations=monthly_allocations,
             monthly_total=monthly_total,
             events=events,
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
         )
         self.session.add(hypothesis)
         return hypothesis
@@ -963,7 +963,7 @@ class TrackerRepository:
             if hasattr(hypothesis, key):
                 setattr(hypothesis, key, value)
 
-        hypothesis.updated_at = datetime.utcnow()
+        hypothesis.updated_at = datetime.now(UTC)
         return hypothesis
 
     def delete_hypothesis(self, hypothesis_id: str) -> bool:

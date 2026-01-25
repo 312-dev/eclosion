@@ -6,7 +6,7 @@ using SQLite via SQLAlchemy.
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Literal, cast
 
 from state.db import db_session
@@ -362,7 +362,7 @@ class StateManager:
             cat = repo.get_category(recurring_id)
             if cat:
                 cat.is_active = False
-                cat.last_synced_at = datetime.utcnow()
+                cat.last_synced_at = datetime.now(UTC)
 
     def update_category_emoji(self, recurring_id: str, emoji: str) -> CategoryState | None:
         """Update the emoji for a category."""

@@ -315,10 +315,21 @@ class CategoryManager:
         # Calculate new balance
         new_balance = current_balance + amount_to_add
 
-        # Update via existing method
+        # Get rollover config from existing settings
+        rollover_start_month = rollover_period.get("start_month")
+        rollover_type = rollover_period.get("type", "monthly")
+
+        # IMPORTANT: Monarch API requires ALL fields when updating a category group
+        # Missing fields cause "Something went wrong" errors
         return await self.update_category_group_settings(
             group_id=group_id,
+            name=group.get("name"),
+            budget_variability=group.get("budget_variability"),
+            group_level_budgeting_enabled=group.get("group_level_budgeting_enabled"),
+            rollover_enabled=True,
+            rollover_start_month=rollover_start_month,
             rollover_starting_balance=new_balance,
+            rollover_type=rollover_type,
         )
 
     async def get_all_categories_grouped(self) -> list[dict[str, Any]]:
@@ -597,6 +608,40 @@ class CategoryManager:
         # Clear budget cache after mutation
         clear_cache("budget")
 
+    async def set_group_budget(
+        self,
+        group_id: str,
+        amount: float,
+        apply_to_future: bool = False,
+    ) -> None:
+        """
+        Set budget amount for a category group (flexible budgeting).
+
+        Used for groups with group_level_budgeting_enabled=True, where budgets
+        are managed at the group level rather than individual categories.
+
+        Args:
+            group_id: Monarch category group ID
+            amount: Budget amount (rounded to nearest dollar)
+            apply_to_future: Whether to apply to future months
+        """
+        mm = await get_mm()
+        start, _ = get_month_range()
+
+        await retry_with_backoff(
+            lambda: mm.set_budget_amount(
+                int(amount),  # Monarch expects integer
+                category_id=None,
+                category_group_id=group_id,
+                timeframe="month",
+                start_date=start,
+                apply_to_future=apply_to_future,
+            )
+        )
+
+        # Clear budget cache after mutation
+        clear_cache("budget")
+
     async def _get_categories_cached(self, force_refresh: bool = False) -> dict[str, Any]:
         """
         Get all categories with caching.
@@ -676,6 +721,7 @@ class CategoryManager:
             if cat_id:
                 for month in entry.get("monthlyAmounts", []):
                     if month.get("month") == start:
+
                         planned[cat_id] = int(month.get("plannedCashFlowAmount", 0))
                         break
 
@@ -762,6 +808,41 @@ class CategoryManager:
                 for month in entry.get("monthlyAmounts", []):
                     if month.get("month") == start:
                         data[cat_id] = {
+                            "rollover": float(month.get("previousMonthRolloverAmount") or 0),
+                            "budgeted": float(month.get("plannedCashFlowAmount") or 0),
+                            "remaining": float(month.get("remainingAmount") or 0),
+                            "actual": float(month.get("actualAmount") or 0),
+                        }
+                        break
+
+        return data
+
+    async def get_all_category_group_budget_data(self) -> dict[str, dict[str, float]]:
+        """
+        Get comprehensive budget data for all category groups.
+
+        This is used for groups with group_level_budgeting_enabled=True,
+        where budgets are set at the group level rather than category level.
+
+        Returns all budget fields:
+        - rollover: previousMonthRolloverAmount (start of month balance)
+        - budgeted: plannedCashFlowAmount (what was budgeted this month)
+        - remaining: remainingAmount (current balance)
+        - actual: actualAmount (spending this month)
+
+        Returns dict: group_id -> {rollover, budgeted, remaining, actual}
+        Uses cached budget data.
+        """
+        start, _ = get_month_range()
+        budgets = await self._get_budgets_cached()
+
+        data: dict[str, dict[str, float]] = {}
+        for entry in budgets.get("budgetData", {}).get("monthlyAmountsByCategoryGroup", []):
+            group_id = entry.get("categoryGroup", {}).get("id")
+            if group_id:
+                for month in entry.get("monthlyAmounts", []):
+                    if month.get("month") == start:
+                        data[group_id] = {
                             "rollover": float(month.get("previousMonthRolloverAmount") or 0),
                             "budgeted": float(month.get("plannedCashFlowAmount") or 0),
                             "remaining": float(month.get("remainingAmount") or 0),

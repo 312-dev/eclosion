@@ -17,7 +17,7 @@ from __future__ import annotations
 import json
 import uuid
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from state import StateManager, TrackerState
@@ -600,13 +600,13 @@ class SettingsExportService:
             salt=salt,
             created_at=datetime.fromisoformat(note["created_at"])
             if note.get("created_at")
-            else datetime.utcnow(),
+            else datetime.now(UTC),
             updated_at=datetime.fromisoformat(note["updated_at"])
             if note.get("updated_at")
-            else datetime.utcnow(),
+            else datetime.now(UTC),
             archived_at=datetime.fromisoformat(note["archived_at"])
             if note.get("archived_at")
-            else datetime.utcnow(),
+            else datetime.now(UTC),
             original_category_name=note.get("original_category_name", note["category_name"]),
             original_group_name=note.get("original_group_name", note.get("group_name")),
         )
@@ -632,7 +632,7 @@ class SettingsExportService:
 
         from state.db.models import CheckboxState
 
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
 
         for key, states in checkbox_states.items():
             if key.startswith("general:"):

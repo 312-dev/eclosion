@@ -5,7 +5,7 @@ These store the recurring expense tracking configuration and state.
 No encryption needed - contains only IDs, amounts, and preferences.
 """
 
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 
 from sqlalchemy import (
     Boolean,
@@ -78,7 +78,9 @@ class Category(Base):
     # New fields for improved frozen target calculation (v3)
     frozen_rollover_amount: Mapped[float | None] = mapped_column(Float, nullable=True)
     frozen_next_due_date: Mapped[str | None] = mapped_column(String(20), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC)
+    )
     last_synced_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
@@ -209,7 +211,9 @@ class WishlistItem(Base):
     # State tracking
     is_archived: Mapped[bool] = mapped_column(Boolean, default=False)
     archived_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC)
+    )
     updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     # Grid layout (for widget-style resizable cards)
@@ -303,7 +307,9 @@ class PendingBookmark(Base):
     wishlist_item_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     # Timestamps
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), nullable=False
+    )
     skipped_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     converted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
@@ -325,9 +331,13 @@ class MonarchGoalLayout(Base):
     row_span: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     # Sequential sort order for drag-to-reorder (0-indexed, lower = earlier)
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC)
+    )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+        DateTime,
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
     )
 
 
@@ -355,7 +365,11 @@ class StashHypothesis(Base):
     # Hypothetical events (JSON: StashEventsMap)
     events: Mapped[str] = mapped_column(Text, default="{}")
 
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC)
+    )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+        DateTime,
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
     )

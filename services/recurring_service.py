@@ -187,7 +187,8 @@ class RecurringService:
                 import logging
 
                 logging.getLogger(__name__).warning(
-                    f"Unknown frequency '{freq_str}' for recurring item '{stream.get('name', 'Unknown')}'"
+                    f"Unknown frequency '{freq_str}' for recurring item "
+                    f"'{stream.get('name', 'Unknown')}'"
                 )
                 continue
 

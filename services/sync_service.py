@@ -606,7 +606,7 @@ class SyncService:
 
         state = self.state_manager.load()
 
-        # Rate limit: prevent syncing more than once every 5 minutes
+        # Rate limit: prevent syncing more than once every 1 minute
         if state.last_sync:
             from datetime import datetime
 
@@ -615,14 +615,14 @@ class SyncService:
             last_sync_time = datetime.fromisoformat(last_sync_str)
             now = datetime.now(UTC)
             diff_seconds = (now - last_sync_time).total_seconds()
-            min_interval = 5 * 60  # 5 minutes in seconds
+            min_interval = 60  # 1 minute in seconds
             if diff_seconds < min_interval:
                 remaining = int(min_interval - diff_seconds)
-                remaining_mins = remaining // 60
                 from core.exceptions import RateLimitError
 
                 raise RateLimitError(
-                    f"Eclosion limits syncs to once every 5 minutes. Please wait {remaining_mins} more minute(s).",
+                    f"Eclosion limits syncs to once every minute. "
+                    f"Please wait {remaining} more second(s).",
                     retry_after=remaining,
                     source="eclosion_sync_cooldown",
                 )
@@ -650,7 +650,8 @@ class SyncService:
         # Filter to only enabled items
         enabled_items = [item for item in recurring_items if state.is_item_enabled(item.id)]
 
-        # Get all current balances, planned budgets, and category info (bulk fetch to avoid per-item API calls)
+        # Get all current balances, planned budgets, and category info
+        # (bulk fetch to avoid per-item API calls)
         all_balances = await self.category_manager.get_all_category_balances()
         all_planned_budgets = await self.category_manager.get_all_planned_budgets()
         all_category_info = await self.category_manager.get_all_category_info()
@@ -743,7 +744,8 @@ class SyncService:
                 categorizer = TransactionCategorizerService(self.state_manager)
                 auto_categorize_result = await categorizer.auto_categorize_new_transactions()
                 logger.info(
-                    f"[SYNC] Auto-categorized {auto_categorize_result.get('categorized_count', 0)} transactions"
+                    "[SYNC] Auto-categorized %d transactions",
+                    auto_categorize_result.get("categorized_count", 0),
                 )
             except Exception as e:
                 logger.warning(f"[SYNC] Auto-categorize failed: {e}")
@@ -1126,6 +1128,70 @@ class SyncService:
 
         return results
 
+    async def sync_stash_data(self) -> dict[str, Any]:
+        """
+        Sync only stash-related data from Monarch.
+
+        This is a lighter-weight sync that only fetches:
+        - Account data (for available-to-stash calculation)
+        - Budget data (for stash item balances)
+        - Savings goals (for monarch goals display)
+
+        Does NOT sync:
+        - Recurring transactions
+        - Category creation/updates
+        - Auto-categorization
+
+        Used by the Stash tab's sync button for faster refreshes.
+        """
+        from datetime import datetime
+
+        from core.exceptions import RateLimitError
+        from monarch_utils import clear_cache
+
+        state = self.state_manager.load()
+
+        # Rate limit: prevent syncing more than once every 1 minute
+        if state.last_sync:
+            last_sync_str = state.last_sync.replace("Z", "+00:00")
+            last_sync_time = datetime.fromisoformat(last_sync_str)
+            now = datetime.now(UTC)
+            diff_seconds = (now - last_sync_time).total_seconds()
+            min_interval = 60  # 1 minute in seconds
+            if diff_seconds < min_interval:
+                remaining = int(min_interval - diff_seconds)
+                raise RateLimitError(
+                    f"Eclosion limits syncs to once every minute. "
+                    f"Please wait {remaining} more second(s).",
+                    retry_after=remaining,
+                    source="eclosion_sync_cooldown",
+                )
+
+        # Clear only stash-related caches
+        clear_cache("budget_data")
+        clear_cache("accounts_data")
+        clear_cache("savings_goals")
+
+        try:
+            # Fetch fresh data from Monarch (triggers cache refresh)
+            # These calls populate the cache with fresh data
+            await self.category_manager.get_all_category_balances()
+
+            # Mark sync complete
+            self.state_manager.mark_sync_complete()
+
+            return {
+                "success": True,
+                "sync_time": datetime.now().isoformat(),
+                "message": "Stash data refreshed",
+            }
+        except Exception as e:
+            logger.warning(f"[STASH_SYNC] Failed to sync stash data: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+            }
+
     async def get_dashboard_data(self) -> dict[str, Any]:
         """Get all data needed for the frontend dashboard."""
         state = self.state_manager.load()
@@ -1143,7 +1209,7 @@ class SyncService:
                         {
                             "id": item.id,
                             "name": item.category_name,
-                            "merchant_name": item.name,  # Just the merchant name without date/frequency
+                            "merchant_name": item.name,  # Merchant name only
                             "logo_url": item.logo_url,
                             "amount": item.amount,
                             "frequency": (item.frequency.value if item.frequency else "monthly"),
@@ -1262,7 +1328,8 @@ class SyncService:
                     logger.warning(f"[Dashboard] {item.name}: balance is 0 but key exists")
                 elif cat_state.monarch_category_id not in all_budget_data:
                     logger.warning(
-                        f"[Dashboard] {item.name}: monarch_category_id {cat_state.monarch_category_id} NOT in all_budget_data"
+                        f"[Dashboard] {item.name}: monarch_category_id "
+                        f"{cat_state.monarch_category_id} NOT in all_budget_data"
                     )
                 # Use cached info - no individual lookups to avoid extra API calls
                 category_group_name = cat_info.get("group_name") if cat_info else None
@@ -1294,7 +1361,7 @@ class SyncService:
                     "id": item.id,
                     "merchant_id": item.merchant_id,
                     "logo_url": item.logo_url,
-                    # Use stored name from state if enabled (allows user renames), otherwise stream name
+                    # Use stored name if enabled (allows renames), else stream name
                     "name": cat_state.name if cat_state and is_enabled else item.name,
                     "category_name": item.category_name,
                     "category_id": cat_state.monarch_category_id if cat_state else None,
@@ -1308,7 +1375,7 @@ class SyncService:
                     "months_until_due": item.months_until_due,
                     "current_balance": rollover_amount + budgeted_this_month,
                     "planned_budget": int(budgeted_this_month) if cat_state else 0,
-                    "rollover_amount": rollover_amount,  # Direct from Monarch (previousMonthRolloverAmount)
+                    "rollover_amount": rollover_amount,  # From Monarch API
                     "is_active": is_active,
                     "is_enabled": is_enabled,
                     "is_stale": item.is_stale,
@@ -1468,24 +1535,51 @@ class SyncService:
 
         return {"success": True}
 
+    def set_visibility(self, is_foreground: bool) -> dict[str, Any]:
+        """
+        Update auto-sync interval based on app visibility.
+
+        When app is in foreground, uses 5-minute interval.
+        When app is in background, uses 60-minute interval.
+
+        Args:
+            is_foreground: True if app is visible/active
+
+        Returns:
+            Result with new interval if changed
+        """
+        new_interval = self.scheduler.set_foreground(is_foreground)
+
+        if new_interval is not None:
+            mode = "foreground" if is_foreground else "background"
+            logger.info(f"Auto-sync interval changed to {new_interval} minutes ({mode})")
+            return {
+                "success": True,
+                "interval_minutes": new_interval,
+                "is_foreground": is_foreground,
+            }
+
+        return {"success": True, "changed": False, "is_foreground": is_foreground}
+
     def get_auto_sync_status(self) -> dict[str, Any]:
         """
         Get current auto-sync status and configuration.
 
         Returns:
-            Status dict with enabled, interval, next run, and last sync info
+            Status dict with enabled, interval, next run, last sync info, and visibility
         """
         auto_sync_state = self.state_manager.get_auto_sync_state()
         scheduler_status = self.scheduler.get_status()
 
         return {
             "enabled": auto_sync_state.enabled,
-            "interval_minutes": auto_sync_state.interval_minutes,
+            "interval_minutes": scheduler_status.get("interval_minutes"),
             "next_run": scheduler_status.get("next_run"),
             "last_sync": auto_sync_state.last_auto_sync,
             "last_sync_success": auto_sync_state.last_auto_sync_success,
             "last_sync_error": auto_sync_state.last_auto_sync_error,
             "consent_acknowledged": auto_sync_state.consent_acknowledged,
+            "is_foreground": scheduler_status.get("is_foreground", True),
         }
 
     def restore_auto_sync(self) -> bool:

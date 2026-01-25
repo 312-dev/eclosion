@@ -6,6 +6,7 @@ Jobs are recreated on startup from persisted state in the SQLite database.
 """
 
 import asyncio
+import contextlib
 import logging
 from collections.abc import Callable
 from typing import Optional
@@ -23,15 +24,20 @@ class SyncScheduler:
 
     Singleton pattern ensures only one scheduler instance exists.
     Jobs are executed in background threads via APScheduler.
+
+    Supports adaptive intervals based on app visibility:
+    - Foreground: More frequent syncing (5 min) when user is active
+    - Background: Less frequent syncing (60 min) when app is hidden
     """
 
     _instance: Optional["SyncScheduler"] = None
     _scheduler: BackgroundScheduler | None = None
 
     SYNC_JOB_ID = "automated_sync"
-    MIN_INTERVAL_MINUTES = 60  # Maximum hourly per tool requirement
+    FOREGROUND_INTERVAL_MINUTES = 5  # When app is visible/active
+    BACKGROUND_INTERVAL_MINUTES = 60  # When app is hidden/background
     MAX_INTERVAL_MINUTES = 1440  # 24 hours max
-    DEFAULT_INTERVAL_MINUTES = 360  # 6 hours default
+    DEFAULT_INTERVAL_MINUTES = 360  # 6 hours default (legacy)
 
     @classmethod
     def get_instance(cls) -> "SyncScheduler":
@@ -50,6 +56,8 @@ class SyncScheduler:
         )
         self._sync_callback: Callable | None = None
         self._is_started = False
+        self._is_foreground = True  # Assume foreground on start
+        self._auto_sync_enabled = False  # Track if auto-sync is active
 
     def start(self) -> None:
         """Start the scheduler if not already running."""
@@ -74,25 +82,37 @@ class SyncScheduler:
         """
         self._sync_callback = callback
 
-    def enable_auto_sync(self, interval_minutes: int = DEFAULT_INTERVAL_MINUTES) -> int:
+    def enable_auto_sync(self, _interval_minutes: int | None = None) -> int:
         """
-        Enable automatic sync at specified interval.
+        Enable automatic sync with adaptive intervals based on visibility.
+
+        Uses foreground interval (5 min) when app is visible,
+        background interval (60 min) when app is hidden.
 
         Args:
-            interval_minutes: Minutes between sync runs (clamped to min/max)
+            interval_minutes: Ignored (kept for API compatibility).
+                             Interval is now determined by visibility state.
 
         Returns:
-            Actual interval used (after clamping)
+            Current interval in use (foreground or background)
         """
-        # Enforce limits
-        interval = max(self.MIN_INTERVAL_MINUTES, min(interval_minutes, self.MAX_INTERVAL_MINUTES))
+        # Determine interval based on visibility state
+        interval = (
+            self.FOREGROUND_INTERVAL_MINUTES
+            if self._is_foreground
+            else self.BACKGROUND_INTERVAL_MINUTES
+        )
 
         # Remove existing job if present
-        self.disable_auto_sync()
+        if self._scheduler is not None:
+            with contextlib.suppress(Exception):
+                self._scheduler.remove_job(self.SYNC_JOB_ID)
 
         if self._scheduler is None:
             logger.error("Cannot enable auto-sync: scheduler not initialized")
             return interval
+
+        self._auto_sync_enabled = True
 
         # Add new job
         self._scheduler.add_job(
@@ -104,19 +124,43 @@ class SyncScheduler:
             max_instances=1,
             coalesce=True,  # Combine missed runs
         )
-        logger.info(f"Auto-sync enabled: every {interval} minutes")
+        mode = "foreground" if self._is_foreground else "background"
+        logger.info(f"Auto-sync enabled: every {interval} minutes ({mode} mode)")
         return interval
 
     def disable_auto_sync(self) -> None:
         """Disable automatic sync."""
+        self._auto_sync_enabled = False
+
         if self._scheduler is None:
             return
 
-        try:
+        with contextlib.suppress(Exception):
             self._scheduler.remove_job(self.SYNC_JOB_ID)
             logger.info("Auto-sync disabled")
-        except Exception:
-            pass  # Job didn't exist
+
+    def set_foreground(self, is_foreground: bool) -> int | None:
+        """
+        Set visibility state and adjust sync interval accordingly.
+
+        Args:
+            is_foreground: True if app is visible/active, False if hidden
+
+        Returns:
+            New interval in minutes, or None if auto-sync is not enabled
+        """
+        if self._is_foreground == is_foreground:
+            return None  # No change needed
+
+        self._is_foreground = is_foreground
+        mode = "foreground" if is_foreground else "background"
+        logger.info(f"App visibility changed to {mode}")
+
+        # If auto-sync is enabled, reschedule with new interval
+        if self._auto_sync_enabled:
+            return self.enable_auto_sync()
+
+        return None
 
     def is_enabled(self) -> bool:
         """Check if auto-sync is currently enabled."""
@@ -130,10 +174,15 @@ class SyncScheduler:
         Get current scheduler status.
 
         Returns:
-            Dict with enabled, next_run, and interval_minutes
+            Dict with enabled, next_run, interval_minutes, and is_foreground
         """
         if self._scheduler is None:
-            return {"enabled": False, "next_run": None, "interval_minutes": None}
+            return {
+                "enabled": False,
+                "next_run": None,
+                "interval_minutes": None,
+                "is_foreground": self._is_foreground,
+            }
 
         job = self._scheduler.get_job(self.SYNC_JOB_ID)
         if job:
@@ -147,8 +196,14 @@ class SyncScheduler:
                 "enabled": True,
                 "next_run": next_run,
                 "interval_minutes": interval,
+                "is_foreground": self._is_foreground,
             }
-        return {"enabled": False, "next_run": None, "interval_minutes": None}
+        return {
+            "enabled": False,
+            "next_run": None,
+            "interval_minutes": None,
+            "is_foreground": self._is_foreground,
+        }
 
     def _run_sync_wrapper(self) -> None:
         """

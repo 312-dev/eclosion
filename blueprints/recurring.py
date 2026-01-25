@@ -43,17 +43,32 @@ async def recurring_dashboard():
 @api_handler(handle_mfa=True)
 async def recurring_sync():
     """
-    Trigger full synchronization of recurring transactions.
+    Trigger synchronization of data from Monarch.
+
+    Accepts an optional 'scope' parameter to control what data is synced:
+    - 'recurring': Sync recurring items, budgets, categories (for Recurring tab)
+    - 'stash': Sync stash-related data: accounts, goals (for Stash tab)
+    - 'notes': No sync needed (notes are local) - returns immediately
+    - 'full': Full sync of all data (default)
 
     In desktop mode, accepts an optional passphrase parameter to unlock
     credentials before syncing. This enables background sync when the app
     is locked but has the passphrase stored in OS-level secure storage.
     """
     services = get_services()
+    data = request.get_json(silent=True) or {}
+
+    # Get sync scope (default to 'full' for backward compatibility)
+    scope = data.get("scope", "full")
+    if scope not in ("recurring", "stash", "notes", "full"):
+        scope = "full"
+
+    # Notes don't need Monarch sync - return immediately
+    if scope == "notes":
+        return {"success": True, "scope": "notes", "message": "Notes sync not required"}
 
     # In desktop mode, accept optional passphrase for unlocking
     if config.is_desktop_environment():
-        data = request.get_json(silent=True) or {}
         passphrase = data.get("passphrase")
 
         if passphrase:
@@ -67,7 +82,15 @@ async def recurring_sync():
                         "Failed to unlock credentials for sync.",
                     )
 
-    result = await services.sync_service.full_sync()
+    # Call appropriate sync method based on scope
+    if scope == "stash":
+        result = await services.sync_service.sync_stash_data()
+    else:
+        # 'recurring' and 'full' both use full_sync for now
+        # (recurring data is the core of full_sync)
+        result = await services.sync_service.full_sync()
+
+    result["scope"] = scope
     # Sanitize all error messages to prevent stack trace exposure
     return sanitize_api_result(result, "Sync failed. Please try again.")
 
@@ -222,7 +245,12 @@ def get_settings():
 @recurring_bp.route("/settings", methods=["POST"])
 @api_handler(handle_mfa=False)
 def update_settings():
-    """Update settings like auto_sync_new, auto_track_threshold, auto_update_targets, auto_categorize_enabled, and show_category_group."""
+    """
+    Update settings.
+
+    Supports: auto_sync_new, auto_track_threshold, auto_update_targets,
+    auto_categorize_enabled, and show_category_group.
+    """
     services = get_services()
     data = request.get_json()
     if "auto_sync_new" in data:
@@ -307,6 +335,23 @@ def disable_auto_sync():
     result = services.sync_service.disable_auto_sync()
     audit_log(services.security_service, "AUTO_SYNC_DISABLE", result.get("success", False), "")
     return sanitize_api_result(result, "Failed to disable auto-sync.")
+
+
+@recurring_bp.route("/auto-sync/visibility", methods=["POST"])
+@api_handler(handle_mfa=False)
+def set_auto_sync_visibility():
+    """
+    Update auto-sync interval based on app visibility.
+
+    When app is in foreground, syncs every 5 minutes.
+    When app is in background, syncs every 60 minutes.
+    """
+    services = get_services()
+    data = request.get_json()
+    is_foreground = data.get("is_foreground", True)
+
+    result = services.sync_service.set_visibility(is_foreground)
+    return result
 
 
 # ---- NOTICES ENDPOINTS ----
@@ -626,7 +671,8 @@ async def reset_rollup():
         services.security_service,
         "RESET_ROLLUP",
         result.get("success", False),
-        f"deleted_category={result.get('deleted_category', False)}, untracked={result.get('items_disabled', 0)}",
+        f"deleted_category={result.get('deleted_category', False)}, "
+        f"untracked={result.get('items_disabled', 0)}",
     )
     # Sanitize all error messages to prevent stack trace exposure
     return sanitize_api_result(result, "Reset rollup failed. Please try again.")
@@ -645,7 +691,8 @@ async def reset_recurring_tool():
         services.security_service,
         "RESET_RECURRING_TOOL",
         result.get("success", False),
-        f"dedicated_deleted={result.get('dedicated_deleted', 0)}, rollup_deleted={result.get('rollup_deleted', False)}",
+        f"dedicated_deleted={result.get('dedicated_deleted', 0)}, "
+        f"rollup_deleted={result.get('rollup_deleted', False)}",
     )
     # Sanitize all error messages to prevent stack trace exposure
     return sanitize_api_result(result, "Reset failed. Please try again.")

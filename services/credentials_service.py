@@ -423,7 +423,10 @@ class CredentialsService:
                 "unlock_success": True,
                 "validation_success": False,
                 "needs_credential_update": True,
-                "error": "Your Monarch credentials are no longer valid. Please enter new credentials.",
+                "error": (
+                    "Your Monarch credentials are no longer valid. "
+                    "Please enter new credentials."
+                ),
             }
 
     async def update_credentials(
