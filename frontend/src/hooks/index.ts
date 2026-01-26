@@ -129,3 +129,14 @@ export {
 } from './useBackgroundPoller';
 
 export { useAnimatedValue } from './useAnimatedValue';
+
+export {
+  useProjectedStashItem,
+  useProjectedStashItems,
+  type ProjectedStashItem,
+} from './useProjectedStashItem';
+
+// Timeline hooks (hypothesize mode)
+export { useTimelineProjection, useTimelineItemConfig } from './useTimelineProjection';
+export { useTimelineCursor, useProjectedCardStateAtCursor } from './useTimelineCursor';
+export { useTimelineZoom } from './useTimelineZoom';
