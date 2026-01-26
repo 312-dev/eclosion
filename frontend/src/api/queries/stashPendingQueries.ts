@@ -68,30 +68,113 @@ export function useSkippedBookmarksQuery(options?: { enabled?: boolean }) {
 }
 
 /**
- * Skip pending bookmark mutation
+ * Skip pending bookmark mutation with optimistic updates
  */
 export function useSkipPendingMutation() {
   const isDemo = useDemo();
+  const queryClient = useQueryClient();
   const smartInvalidate = useSmartInvalidate();
+  const pendingKey = getQueryKey(queryKeys.pendingBookmarks, isDemo);
+  const countKey = getQueryKey(queryKeys.pendingBookmarksCount, isDemo);
+  const skippedKey = getQueryKey(queryKeys.skippedBookmarks, isDemo);
+
   return useMutation({
     mutationFn: (id: string) =>
       isDemo ? demoApi.skipPendingBookmark(id) : api.skipPendingBookmark(id),
-    onSuccess: () => {
+
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: pendingKey });
+      await queryClient.cancelQueries({ queryKey: countKey });
+      await queryClient.cancelQueries({ queryKey: skippedKey });
+
+      const previousPending = queryClient.getQueryData<PendingBookmark[]>(pendingKey);
+      const previousCount = queryClient.getQueryData<number>(countKey);
+      const previousSkipped = queryClient.getQueryData<PendingBookmark[]>(skippedKey);
+
+      // Find the bookmark to move
+      const bookmarkToSkip = previousPending?.find((b) => b.id === id);
+
+      if (previousPending) {
+        queryClient.setQueryData<PendingBookmark[]>(pendingKey, (old) =>
+          old ? old.filter((b) => b.id !== id) : old
+        );
+      }
+
+      if (previousCount !== undefined) {
+        queryClient.setQueryData<number>(countKey, Math.max(0, previousCount - 1));
+      }
+
+      if (previousSkipped && bookmarkToSkip) {
+        queryClient.setQueryData<PendingBookmark[]>(skippedKey, (old) =>
+          old ? [...old, { ...bookmarkToSkip, is_skipped: true }] : old
+        );
+      }
+
+      return { previousPending, previousCount, previousSkipped };
+    },
+
+    onError: (_err, _id, context) => {
+      if (context?.previousPending) {
+        queryClient.setQueryData(pendingKey, context.previousPending);
+      }
+      if (context?.previousCount !== undefined) {
+        queryClient.setQueryData(countKey, context.previousCount);
+      }
+      if (context?.previousSkipped) {
+        queryClient.setQueryData(skippedKey, context.previousSkipped);
+      }
+    },
+
+    onSettled: () => {
       smartInvalidate('skipPending');
     },
   });
 }
 
 /**
- * Convert pending bookmark mutation
+ * Convert pending bookmark mutation with optimistic updates
  */
 export function useConvertPendingMutation() {
   const isDemo = useDemo();
+  const queryClient = useQueryClient();
   const smartInvalidate = useSmartInvalidate();
+  const pendingKey = getQueryKey(queryKeys.pendingBookmarks, isDemo);
+  const countKey = getQueryKey(queryKeys.pendingBookmarksCount, isDemo);
+
   return useMutation({
     mutationFn: (id: string) =>
       isDemo ? demoApi.convertPendingBookmark(id) : api.convertPendingBookmark(id),
-    onSuccess: () => {
+
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: pendingKey });
+      await queryClient.cancelQueries({ queryKey: countKey });
+
+      const previousPending = queryClient.getQueryData<PendingBookmark[]>(pendingKey);
+      const previousCount = queryClient.getQueryData<number>(countKey);
+
+      if (previousPending) {
+        queryClient.setQueryData<PendingBookmark[]>(pendingKey, (old) =>
+          old ? old.filter((b) => b.id !== id) : old
+        );
+      }
+
+      if (previousCount !== undefined) {
+        queryClient.setQueryData<number>(countKey, Math.max(0, previousCount - 1));
+      }
+
+      return { previousPending, previousCount };
+    },
+
+    onError: (_err, _id, context) => {
+      if (context?.previousPending) {
+        queryClient.setQueryData(pendingKey, context.previousPending);
+      }
+      if (context?.previousCount !== undefined) {
+        queryClient.setQueryData(countKey, context.previousCount);
+      }
+    },
+
+    onSettled: () => {
       smartInvalidate('convertPending');
     },
   });

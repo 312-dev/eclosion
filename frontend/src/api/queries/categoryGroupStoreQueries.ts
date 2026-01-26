@@ -5,12 +5,13 @@
  * Single source of truth for dropdown selections, wizards, and modals.
  */
 
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { useDemo } from '../../context/DemoContext';
 import * as api from '../client';
 import * as demoApi from '../demoClient';
 import { queryKeys, getQueryKey } from './keys';
+import { useSmartInvalidate } from '../../hooks/useSmartInvalidate';
 import type {
   CategoryGroup,
   CategoryGroupDetailed,
@@ -349,30 +350,34 @@ export function useRefreshFlexibleCategoryGroups() {
 
 /**
  * Update a category group's settings (name, rollover, flexible budget, etc.)
+ * Uses smart invalidation from the dependency registry.
+ */
+export function useUpdateCategoryGroupSettingsMutation() {
+  const isDemo = useDemo();
+  const smartInvalidate = useSmartInvalidate();
+
+  return useMutation({
+    mutationFn: (request: UpdateCategoryGroupSettingsRequest) =>
+      isDemo
+        ? demoApi.updateCategoryGroupSettings(request)
+        : api.updateCategoryGroupSettings(request),
+    onSuccess: () => {
+      smartInvalidate('updateCategoryGroupSettings');
+    },
+  });
+}
+
+/**
+ * @deprecated Use useUpdateCategoryGroupSettingsMutation instead.
+ * Legacy callback-based wrapper for backwards compatibility.
  */
 export function useUpdateCategoryGroupSettings() {
-  const queryClient = useQueryClient();
-  const isDemo = useDemo();
+  const mutation = useUpdateCategoryGroupSettingsMutation();
 
   return useCallback(
     async (request: UpdateCategoryGroupSettingsRequest): Promise<CategoryGroupDetailed> => {
-      const result = isDemo
-        ? await demoApi.updateCategoryGroupSettings(request)
-        : await api.updateCategoryGroupSettings(request);
-
-      // Invalidate related queries
-      await queryClient.invalidateQueries({
-        queryKey: getQueryKey(queryKeys.categoryGroupsDetailed, isDemo),
-      });
-      await queryClient.invalidateQueries({
-        queryKey: getQueryKey(queryKeys.flexibleCategoryGroups, isDemo),
-      });
-      await queryClient.invalidateQueries({
-        queryKey: getQueryKey(queryKeys.categoryGroups, isDemo),
-      });
-
-      return result;
+      return mutation.mutateAsync(request);
     },
-    [queryClient, isDemo]
+    [mutation]
   );
 }

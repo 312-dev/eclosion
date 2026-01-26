@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 /**
  * Demo Stash API
  *
@@ -223,7 +224,12 @@ export async function updateCategoryRolloverBalance(
       current_balance: newBalance,
       progress_percent: calculateProgressPercent(newBalance, item.amount),
       shortfall: calculateShortfall(newBalance, item.amount),
-      status: calculateBudgetStatus(newBalance, item.planned_budget, item.amount, item.monthly_target),
+      status: calculateBudgetStatus(
+        newBalance,
+        item.planned_budget,
+        item.amount,
+        item.monthly_target
+      ),
     };
 
     const newItems = [...state.stash.items];
@@ -260,9 +266,7 @@ export async function updateGroupRolloverBalance(
 
   updateDemoState((state) => {
     // Find all stash items in this group
-    const itemsInGroup = state.stash.items.filter(
-      (item) => item.category_group_id === groupId
-    );
+    const itemsInGroup = state.stash.items.filter((item) => item.category_group_id === groupId);
 
     if (itemsInGroup.length === 0) {
       // No items in this group - silently succeed
@@ -286,7 +290,12 @@ export async function updateGroupRolloverBalance(
         current_balance: newBalance,
         progress_percent: calculateProgressPercent(newBalance, item.amount),
         shortfall: calculateShortfall(newBalance, item.amount),
-        status: calculateBudgetStatus(newBalance, item.planned_budget, item.amount, item.monthly_target),
+        status: calculateBudgetStatus(
+          newBalance,
+          item.planned_budget,
+          item.amount,
+          item.monthly_target
+        ),
       };
     });
 
@@ -501,6 +510,7 @@ export async function syncStash(): Promise<StashSyncResult> {
  * Demo mode returns realistic simulated data:
  * - Cash accounts: Checking ($5,200) + Savings ($8,500)
  * - Credit card: Chase Sapphire ($1,850)
+ * - Loans: Student Loan ($24,500), Auto Loan ($12,800), Mortgage ($285,000)
  * - Category budgets derived from dashboard ready_to_assign
  * - Goals: Emergency Fund ($3,000), Vacation Fund ($1,200)
  * - Stash balances from current stash state
@@ -538,6 +548,28 @@ export async function getAvailableToStashData(): Promise<AvailableToStashData> {
       name: 'Chase Sapphire',
       balance: 1850,
       accountType: 'credit_card',
+      isEnabled: true,
+    },
+    // Loan accounts for debt tracking (using Monarch's loan subtypes)
+    {
+      id: 'demo-student-loan',
+      name: 'Federal Student Loans',
+      balance: 24500,
+      accountType: 'student',
+      isEnabled: true,
+    },
+    {
+      id: 'demo-car-loan',
+      name: 'Honda Civic Auto Loan',
+      balance: 12800,
+      accountType: 'auto',
+      isEnabled: true,
+    },
+    {
+      id: 'demo-mortgage',
+      name: 'Home Mortgage',
+      balance: 285000,
+      accountType: 'mortgage',
       isEnabled: true,
     },
   ];
@@ -631,6 +663,8 @@ export async function getAvailableToStashData(): Promise<AvailableToStashData> {
     plannedIncome: readyToAssign.planned_income,
     actualIncome: readyToAssign.actual_income,
     stashBalances,
+    // Left to Budget (ready_to_assign) - subtracted from Cash to Stash calculation
+    leftToBudget: readyToAssign.ready_to_assign,
   };
 }
 

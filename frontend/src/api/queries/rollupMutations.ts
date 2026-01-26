@@ -14,34 +14,88 @@ import { queryKeys, getQueryKey } from './keys';
 import type { DashboardData } from '../../types';
 
 /**
- * Add item to rollup
+ * Add item to rollup with optimistic updates for instant UI feedback
  */
 export function useAddToRollupMutation() {
   const isDemo = useDemo();
+  const queryClient = useQueryClient();
   const smartInvalidate = useSmartInvalidate();
+  const queryKey = getQueryKey(queryKeys.dashboard, isDemo);
+
   return useMutation({
     mutationFn: (recurringId: string) =>
-      isDemo
-        ? demoApi.addToRollup(recurringId)
-        : api.addToRollup(recurringId),
-    onSuccess: () => {
-      smartInvalidate('removeFromRollup'); // Same effect as remove (dashboard only)
+      isDemo ? demoApi.addToRollup(recurringId) : api.addToRollup(recurringId),
+
+    onMutate: async (recurringId) => {
+      await queryClient.cancelQueries({ queryKey });
+      const previousData = queryClient.getQueryData<DashboardData>(queryKey);
+
+      if (previousData) {
+        queryClient.setQueryData<DashboardData>(queryKey, (old) => {
+          if (!old) return old;
+          return {
+            ...old,
+            items: old.items.map((item) =>
+              item.id === recurringId ? { ...item, in_rollup: true } : item
+            ),
+          };
+        });
+      }
+
+      return { previousData };
+    },
+
+    onError: (_err, _recurringId, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(queryKey, context.previousData);
+      }
+    },
+
+    onSettled: () => {
+      smartInvalidate('addToRollup');
     },
   });
 }
 
 /**
- * Remove item from rollup
+ * Remove item from rollup with optimistic updates for instant UI feedback
  */
 export function useRemoveFromRollupMutation() {
   const isDemo = useDemo();
+  const queryClient = useQueryClient();
   const smartInvalidate = useSmartInvalidate();
+  const queryKey = getQueryKey(queryKeys.dashboard, isDemo);
+
   return useMutation({
     mutationFn: (recurringId: string) =>
-      isDemo
-        ? demoApi.removeFromRollup(recurringId)
-        : api.removeFromRollup(recurringId),
-    onSuccess: () => {
+      isDemo ? demoApi.removeFromRollup(recurringId) : api.removeFromRollup(recurringId),
+
+    onMutate: async (recurringId) => {
+      await queryClient.cancelQueries({ queryKey });
+      const previousData = queryClient.getQueryData<DashboardData>(queryKey);
+
+      if (previousData) {
+        queryClient.setQueryData<DashboardData>(queryKey, (old) => {
+          if (!old) return old;
+          return {
+            ...old,
+            items: old.items.map((item) =>
+              item.id === recurringId ? { ...item, in_rollup: false } : item
+            ),
+          };
+        });
+      }
+
+      return { previousData };
+    },
+
+    onError: (_err, _recurringId, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(queryKey, context.previousData);
+      }
+    },
+
+    onSettled: () => {
       smartInvalidate('removeFromRollup');
     },
   });
@@ -49,6 +103,7 @@ export function useRemoveFromRollupMutation() {
 
 /**
  * Set rollup budget with optimistic updates for instant UI feedback
+ * Also adjusts ready_to_assign by the budget delta for immediate "Left to Budget" feedback
  */
 export function useSetRollupBudgetMutation() {
   const isDemo = useDemo();
@@ -65,11 +120,19 @@ export function useSetRollupBudgetMutation() {
       const previousData = queryClient.getQueryData<DashboardData>(queryKey);
 
       if (previousData) {
+        const oldBudget = previousData.rollup.budgeted;
+        const budgetDelta = amount - oldBudget;
+
         queryClient.setQueryData<DashboardData>(queryKey, (old) => {
           if (!old) return old;
           return {
             ...old,
             rollup: { ...old.rollup, budgeted: amount },
+            // Adjust ready_to_assign: budgeting more = less left to budget
+            ready_to_assign: {
+              ...old.ready_to_assign,
+              ready_to_assign: old.ready_to_assign.ready_to_assign - budgetDelta,
+            },
           };
         });
       }

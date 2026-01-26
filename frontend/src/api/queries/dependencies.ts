@@ -31,14 +31,17 @@ export type MutationType =
   | 'toggleItem'
   | 'allocateFunds'
   | 'setRollupBudget'
+  | 'addToRollup'
   | 'removeFromRollup'
   | 'updateRollupEmoji'
   | 'updateRollupName'
   | 'recreateCategory'
+  | 'refreshItem'
   | 'linkCategory'
   | 'updateCategoryGroup'
   | 'updateCategoryEmoji'
   | 'updateCategoryName'
+  | 'updateCategoryGroupSettings'
   // Stash mutations
   | 'stashSync'
   | 'createStash'
@@ -47,15 +50,19 @@ export type MutationType =
   | 'archiveStash'
   | 'unarchiveStash'
   | 'completeStash'
+  | 'uncompleteStash'
   | 'allocateStash'
   | 'allocateStashBatch'
-  | 'distributeToStash'
+  | 'changeStashGroup'
+  | 'linkStashCategory'
   | 'updateCategoryRollover'
   | 'updateGroupRollover'
   | 'skipPending'
   | 'convertPending'
   | 'importBookmarks'
   | 'clearUnconvertedBookmarks'
+  | 'saveHypothesis'
+  | 'deleteHypothesis'
   // Notes mutations
   | 'saveNote'
   | 'deleteNote'
@@ -315,6 +322,10 @@ export const mutationEffects: Record<MutationType, MutationEffect> = {
     invalidate: ['dashboard'],
     markStale: [],
   },
+  addToRollup: {
+    invalidate: ['dashboard'],
+    markStale: [],
+  },
   removeFromRollup: {
     invalidate: ['dashboard'],
     markStale: [],
@@ -330,6 +341,10 @@ export const mutationEffects: Record<MutationType, MutationEffect> = {
   recreateCategory: {
     invalidate: ['dashboard'],
     markStale: ['categoryStore', 'categoryGroups'],
+  },
+  refreshItem: {
+    invalidate: ['dashboard'],
+    markStale: [],
   },
   linkCategory: {
     invalidate: ['dashboard'],
@@ -347,6 +362,10 @@ export const mutationEffects: Record<MutationType, MutationEffect> = {
     invalidate: ['dashboard', 'categoryStore'],
     markStale: [],
   },
+  updateCategoryGroupSettings: {
+    invalidate: ['categoryGroupsDetailed', 'flexibleCategoryGroups'],
+    markStale: ['categoryGroups', 'stash', 'availableToStash'],
+  },
 
   // Stash mutations
   stashSync: {
@@ -355,7 +374,7 @@ export const mutationEffects: Record<MutationType, MutationEffect> = {
   },
   createStash: {
     invalidate: ['stash', 'availableToStash'],
-    markStale: ['dashboard', 'categoryGroups'],
+    markStale: ['dashboard', 'categoryGroups', 'stashCategoryGroups'],
   },
   updateStash: {
     invalidate: ['stash'],
@@ -363,7 +382,7 @@ export const mutationEffects: Record<MutationType, MutationEffect> = {
   },
   deleteStash: {
     invalidate: ['stash', 'availableToStash'],
-    markStale: ['dashboard', 'categoryGroups'],
+    markStale: ['dashboard', 'categoryGroups', 'stashCategoryGroups'],
   },
   archiveStash: {
     invalidate: ['stash'],
@@ -377,17 +396,25 @@ export const mutationEffects: Record<MutationType, MutationEffect> = {
     invalidate: ['stash'],
     markStale: ['availableToStash', 'dashboard'],
   },
+  uncompleteStash: {
+    invalidate: ['stash'],
+    markStale: ['availableToStash'],
+  },
   allocateStash: {
-    invalidate: ['stash', 'availableToStash'],
-    markStale: ['dashboard'],
+    invalidate: ['stash', 'availableToStash', 'dashboard'],
+    markStale: [],
   },
   allocateStashBatch: {
     invalidate: ['stash', 'availableToStash', 'dashboard'],
     markStale: [],
   },
-  distributeToStash: {
-    invalidate: ['stash', 'availableToStash', 'dashboard'],
-    markStale: ['stashHistory'],
+  changeStashGroup: {
+    invalidate: ['stash'],
+    markStale: ['categoryGroups', 'stashCategoryGroups'],
+  },
+  linkStashCategory: {
+    invalidate: ['stash'],
+    markStale: ['categoryGroups', 'stashCategoryGroups', 'availableToStash'],
   },
   updateCategoryRollover: {
     invalidate: ['stash', 'availableToStash'],
@@ -411,6 +438,14 @@ export const mutationEffects: Record<MutationType, MutationEffect> = {
   },
   clearUnconvertedBookmarks: {
     invalidate: ['pendingBookmarks', 'pendingBookmarksCount'],
+    markStale: [],
+  },
+  saveHypothesis: {
+    invalidate: ['stashHypotheses'],
+    markStale: [],
+  },
+  deleteHypothesis: {
+    invalidate: ['stashHypotheses'],
     markStale: [],
   },
 

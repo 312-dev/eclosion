@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 /**
  * Dependency Registry Tests
  *
@@ -273,7 +274,7 @@ describe('Specific Mutation Configurations', () => {
       'createStash',
       'deleteStash',
       'allocateStash',
-      'distributeToStash',
+      'allocateStashBatch',
     ];
 
     stashMutations.forEach((mutation) => {
@@ -317,5 +318,70 @@ describe('Specific Mutation Configurations', () => {
       const targets = getInvalidationTargets(mutation);
       expect(targets, `${mutation} should invalidate monthNotes`).toContain('monthNotes');
     });
+  });
+
+  it('rollup mutations should affect dashboard', () => {
+    const rollupMutations: MutationType[] = [
+      'addToRollup',
+      'removeFromRollup',
+      'setRollupBudget',
+      'updateRollupEmoji',
+      'updateRollupName',
+    ];
+
+    rollupMutations.forEach((mutation) => {
+      const targets = getInvalidationTargets(mutation);
+      expect(targets, `${mutation} should invalidate dashboard`).toContain('dashboard');
+    });
+  });
+
+  it('item mutations should affect dashboard', () => {
+    const itemMutations: MutationType[] = [
+      'toggleItem',
+      'allocateFunds',
+      'recreateCategory',
+      'refreshItem',
+      'linkCategory',
+      'updateCategoryGroup',
+    ];
+
+    itemMutations.forEach((mutation) => {
+      const targets = getInvalidationTargets(mutation);
+      expect(targets, `${mutation} should invalidate dashboard`).toContain('dashboard');
+    });
+  });
+
+  it('hypothesis mutations should only affect stashHypotheses', () => {
+    const hypothesisMutations: MutationType[] = ['saveHypothesis', 'deleteHypothesis'];
+
+    hypothesisMutations.forEach((mutation) => {
+      const targets = getInvalidationTargets(mutation);
+      expect(targets, `${mutation} should invalidate stashHypotheses`).toContain('stashHypotheses');
+      expect(targets.length, `${mutation} should only invalidate stashHypotheses`).toBe(1);
+    });
+  });
+
+  it('changeStashGroup and linkStashCategory should mark categoryGroups stale', () => {
+    const staleTargets1 = getStaleTargets('changeStashGroup');
+    expect(staleTargets1).toContain('categoryGroups');
+    expect(staleTargets1).toContain('stashCategoryGroups');
+
+    const staleTargets2 = getStaleTargets('linkStashCategory');
+    expect(staleTargets2).toContain('categoryGroups');
+    expect(staleTargets2).toContain('stashCategoryGroups');
+  });
+
+  it('updateCategoryGroupSettings should invalidate detailed group queries', () => {
+    const targets = getInvalidationTargets('updateCategoryGroupSettings');
+    expect(targets).toContain('categoryGroupsDetailed');
+    expect(targets).toContain('flexibleCategoryGroups');
+  });
+
+  it('createStash and deleteStash should mark stashCategoryGroups stale', () => {
+    const createStaleTargets = getStaleTargets('createStash');
+    expect(createStaleTargets).toContain('stashCategoryGroups');
+
+    const deleteStaleTargets = getStaleTargets('deleteStash');
+    expect(deleteStaleTargets).toContain('stashCategoryGroups');
   });
 });
