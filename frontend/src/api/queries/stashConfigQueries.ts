@@ -40,7 +40,12 @@ export function useStashConfigQuery(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: getQueryKey(queryKeys.stashConfig, isDemo),
     queryFn: async (): Promise<StashConfig> => {
-      const raw = isDemo ? await demoApi.getStashConfig() : await api.getStashConfig();
+      if (isDemo) {
+        // Demo mode returns data in camelCase format already
+        return await demoApi.getStashConfig();
+      }
+      // Backend returns snake_case, needs transformation
+      const raw = await api.getStashConfig();
       return transformStashConfig(raw as unknown as Record<string, unknown>);
     },
     staleTime: 5 * 60 * 1000,
