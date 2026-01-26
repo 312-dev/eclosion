@@ -1,20 +1,19 @@
 /**
  * App Header Component
  *
- * Header with logo/brand, left-to-budget badge, sync button, and help dropdown.
+ * Header with logo/brand, sync button, and help dropdown.
  */
 
 import { Link } from 'react-router-dom';
 import { SyncButton } from '../SyncButton';
 import { HelpDropdown } from './HelpDropdown';
-import { LeftToBudgetBadge } from '../LeftToBudgetBadge';
 import { AppIcon } from '../wizards/WizardComponents';
 import { RateLimitBanner } from '../ui/RateLimitBanner';
 import { OfflineIndicator } from '../OfflineIndicator';
 import { UpdateBanner } from '../UpdateBanner';
 import { DesktopUpdateBanner } from '../update';
 import { MonthTransitionBanner } from '../ui/MonthTransitionBanner';
-import type { ReadyToAssign } from '../../types';
+import { DistributionModeBanner } from '../stash/DistributionModeBanner';
 
 interface AppHeaderProps {
   isDemo: boolean;
@@ -22,7 +21,6 @@ interface AppHeaderProps {
   isMacOSElectron: boolean;
   isWindowsElectron: boolean;
   pathPrefix: string;
-  readyToAssign: ReadyToAssign;
   lastSync: string | null;
   isSyncing: boolean;
   isFetching: boolean;
@@ -37,7 +35,6 @@ export function AppHeader({
   isMacOSElectron,
   isWindowsElectron,
   pathPrefix,
-  readyToAssign,
   lastSync,
   isSyncing,
   isFetching,
@@ -45,13 +42,11 @@ export function AppHeader({
   onSync,
   onStartTour,
 }: Readonly<AppHeaderProps>) {
-  // Platform-specific padding for desktop title bar integration
-  const getDesktopPaddingTop = (): string | undefined => {
-    if (isMacOSElectron) return '20px';
-    // Windows title bar overlay is 32px - use 10px padding to push content below it
-    if (isWindowsElectron) return '10px';
-    return undefined;
-  };
+  // Desktop title bar: compact height with vertically centered content
+  const desktopHeaderHeight = 48;
+  // Account for native window controls
+  const macOSTrafficLightWidth = 80;
+  const windowsControlsWidth = 150;
 
   return (
     <header className="app-header" role="banner">
@@ -61,22 +56,43 @@ export function AppHeader({
           isDesktop
             ? {
                 justifyContent: 'center',
-                minHeight: '70px',
-                paddingLeft: isMacOSElectron ? '80px' : undefined,
-                paddingTop: getDesktopPaddingTop(),
-                paddingRight: isWindowsElectron ? '150px' : undefined,
+                height: `${desktopHeaderHeight}px`,
+                minHeight: `${desktopHeaderHeight}px`,
+                paddingLeft: isMacOSElectron ? `${macOSTrafficLightWidth}px` : undefined,
+                paddingRight: isWindowsElectron ? `${windowsControlsWidth}px` : undefined,
               }
             : undefined
         }
       >
-        {/* Logo/brand - shown on web and Windows/Linux desktop (macOS shows in sidebar) */}
-        {(!isDesktop || !isMacOSElectron) && (
+        {/* Desktop: Centered logo in title bar */}
+        {isDesktop && (
           <div
             className="app-brand"
-            style={
-              isDesktop && !isMacOSElectron ? { position: 'absolute', left: '1rem' } : undefined
-            }
+            style={{
+              position: 'absolute',
+              left: '50%',
+              transform: 'translateX(-50%)',
+            }}
           >
+            <Link
+              to={`${pathPrefix}/`}
+              className="flex items-center gap-2"
+              style={{ textDecoration: 'none' }}
+              aria-label="Eclosion - Go to home"
+            >
+              <AppIcon size={26} />
+              <h1
+                className="app-title"
+                style={{ fontFamily: 'Unbounded, sans-serif', fontWeight: 600, fontSize: '16px' }}
+              >
+                Eclosion
+              </h1>
+            </Link>
+          </div>
+        )}
+        {/* Web: Logo on left with optional slogan */}
+        {!isDesktop && (
+          <div className="app-brand">
             <Link
               to={isDemo ? '/' : `${pathPrefix}/`}
               className="flex items-center gap-2"
@@ -111,26 +127,12 @@ export function AppHeader({
           </div>
         )}
         <div
-          style={
-            isDesktop
-              ? {
-                  position: 'absolute',
-                  left: '50%',
-                  transform: 'translateX(-50%)',
-                }
-              : undefined
-          }
-        >
-          <LeftToBudgetBadge data={readyToAssign} />
-        </div>
-        <div
           className="app-header-actions"
           style={
             isDesktop
               ? {
                   position: 'absolute',
-                  // On Windows, position further from right to avoid window controls overlay (~140px)
-                  right: isWindowsElectron ? '150px' : '1rem',
+                  right: isWindowsElectron ? `${windowsControlsWidth}px` : '1rem',
                 }
               : undefined
           }
@@ -150,6 +152,7 @@ export function AppHeader({
       <UpdateBanner />
       <DesktopUpdateBanner />
       <MonthTransitionBanner />
+      <DistributionModeBanner />
     </header>
   );
 }

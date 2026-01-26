@@ -178,8 +178,7 @@ export function AppShell() {
         className="app-layout"
         style={{
           backgroundColor: 'var(--monarch-bg-page)',
-          ...(isMacOSElectron && ({ '--header-height': '73px' } as React.CSSProperties)),
-          ...(isWindowsElectron && ({ '--header-height': '73px' } as React.CSSProperties)),
+          ...(isDesktop && ({ '--header-height': '48px' } as React.CSSProperties)),
         }}
       >
         <a href="#main-content" className="skip-link">
@@ -192,7 +191,6 @@ export function AppShell() {
           isMacOSElectron={isMacOSElectron}
           isWindowsElectron={isWindowsElectron}
           pathPrefix={pathPrefix}
-          readyToAssign={data.ready_to_assign}
           lastSync={data.last_sync}
           isSyncing={isPageSyncing}
           isFetching={isFetching}

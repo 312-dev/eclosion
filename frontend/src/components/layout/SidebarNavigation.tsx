@@ -30,7 +30,7 @@ import { RecurringIcon, NotesIcon, StashIcon, AppIcon } from '../wizards/WizardC
 import { Tooltip } from '../ui/Tooltip';
 import { Icons } from '../icons';
 import { useDemo } from '../../context/DemoContext';
-import { useMediaQuery, useMacOSElectron } from '../../hooks';
+import { useMediaQuery } from '../../hooks';
 import { getComingSoonFeatures } from '../../data/features';
 import { isDesktopMode } from '../../utils/apiBase';
 
@@ -164,7 +164,6 @@ export function SidebarNavigation({ onLock }: Readonly<SidebarNavigationProps>) 
   const location = useLocation();
   const isDemo = useDemo();
   const isDesktop = isDesktopMode();
-  const isMacOSElectron = useMacOSElectron();
   const isMobile = useMediaQuery('(max-width: 767px)');
   const [showLockButton, setShowLockButton] = useState(!isDesktop);
   const { dashboardItem, toolkitItems, otherItems } = getNavItems(isDemo);
@@ -207,8 +206,8 @@ export function SidebarNavigation({ onLock }: Readonly<SidebarNavigationProps>) 
 
   return (
     <nav className="sidebar-nav" aria-label="Main navigation">
-      {/* Logo section - macOS desktop only (Windows/Linux show logo in header) */}
-      {isMacOSElectron && (
+      {/* Logo section - web only (desktop shows logo in title bar) */}
+      {!isDesktop && (
         <div className="sidebar-logo sidebar-desktop-only">
           <Link to={`${prefix}/`} className="sidebar-logo-link" aria-label="Eclosion - Go to home">
             <AppIcon size={28} />
@@ -341,7 +340,6 @@ export function SidebarNavigation({ onLock }: Readonly<SidebarNavigationProps>) 
           </div>
         </div>
       )}
-
     </nav>
   );
 }
