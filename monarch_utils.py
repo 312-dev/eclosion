@@ -9,7 +9,6 @@ from typing import Any
 
 from cachetools import TTLCache
 from dotenv import load_dotenv
-from gql import gql
 from monarchmoney import MonarchMoney
 
 from core import config
@@ -474,36 +473,119 @@ async def get_savings_goals(mm, start_month: str, end_month: str) -> list[Any]:
         cached: list[Any] = _savings_goals_cache[cache_key]
         return cached
 
-    query = gql("""
-        query GetSavingsGoals($startDate: Date!, $endDate: Date!) {
-            savingsGoalMonthlyBudgetAmounts(startMonth: $startDate, endMonth: $endDate) {
-                id
-                savingsGoal {
-                    id
-                    name
-                    type
-                    status
-                    archivedAt
-                    completedAt
-                }
-                monthlyAmounts {
-                    month
-                    plannedAmount
-                    actualAmount
-                    remainingAmount
-                }
-            }
-        }
-    """)
-
-    result = await mm.gql_call(
-        operation="GetSavingsGoals",
-        graphql_query=query,
-        variables={"startDate": start_month, "endDate": end_month},
-    )
+    # Use library method
+    result = await mm.get_savings_goal_budgets(start_month, end_month)
 
     goals: list[Any] = result.get("savingsGoalMonthlyBudgetAmounts", [])
     _savings_goals_cache[cache_key] = goals
+    return goals
+
+
+# Cache for goal balances (from savingsGoals query)
+_goal_balances_cache: TTLCache = TTLCache(maxsize=10, ttl=_CACHE_TTL)
+
+
+async def get_goal_balances(mm) -> list[dict[str, Any]]:
+    """
+    Fetch Monarch savings goal balances using the library's get_savings_goals().
+
+    This returns the actual goal balances (currentBalance), not the monthly
+    contribution amounts. Used for the Available Funds calculation.
+
+    Returns:
+        List of dicts with 'id', 'name', 'balance' for each active goal
+    """
+    cache_key = "goal_balances"
+    if cache_key in _goal_balances_cache:
+        cached: list[dict[str, Any]] = _goal_balances_cache[cache_key]
+        return cached
+
+    # Use the library's get_savings_goals() which returns full goal data
+    result = await mm.get_savings_goals()
+    raw_goals = result.get("savingsGoals", [])
+
+    # Extract just the balance info we need, filtering out archived/completed
+    balances: list[dict[str, Any]] = []
+    for goal in raw_goals:
+        # Skip archived or completed goals
+        if goal.get("archivedAt") or goal.get("completedAt"):
+            continue
+
+        balances.append(
+            {
+                "id": goal.get("id"),
+                "name": goal.get("name"),
+                "balance": goal.get("currentBalance", 0),
+            }
+        )
+
+    _goal_balances_cache[cache_key] = balances
+    return balances
+
+
+# Cache for full goals data
+_full_goals_cache: TTLCache = TTLCache(maxsize=10, ttl=_CACHE_TTL)
+
+
+async def get_savings_goals_full(mm) -> list[dict[str, Any]]:
+    """
+    Fetch full Monarch savings goal data for display in Stash grid.
+
+    Returns complete goal information including financial data, time-based
+    forecasting, and display metadata. Used when rendering goals as cards
+    alongside Stash items.
+
+    Unlike get_goal_balances() which returns minimal data for calculations,
+    this returns all fields needed for the goal card UI.
+
+    Returns:
+        List of dicts with complete goal data for each active (non-archived) goal
+    """
+    cache_key = "full_goals"
+    if cache_key in _full_goals_cache:
+        cached: list[dict[str, Any]] = _full_goals_cache[cache_key]
+        return cached
+
+    # Use the library's get_savings_goals() which returns full goal data
+    result = await mm.get_savings_goals()
+    raw_goals = result.get("savingsGoals", [])
+
+    # Extract full goal info, filtering out archived (but keeping completed - they show in UI)
+    goals: list[dict[str, Any]] = []
+    for goal in raw_goals:
+        # Skip archived goals (but include completed ones)
+        if goal.get("archivedAt"):
+            continue
+
+        goals.append(
+            {
+                "id": goal.get("id"),
+                "name": goal.get("name"),
+                # Financial data
+                "current_balance": goal.get("currentBalance", 0),
+                "net_contribution": goal.get(
+                    "netContribution", 0
+                ),  # Total amount saved (for display)
+                "target_amount": goal.get("targetAmount"),  # Can be None
+                "target_date": goal.get("targetDate"),  # Can be None
+                "progress": goal.get("progress", 0),
+                # Time-based forecasting
+                "estimated_months_until_completion": goal.get("estimatedMonthsUntilCompletion"),
+                "forecasted_completion_date": goal.get("forecastedCompletionDate"),
+                "planned_monthly_contribution": goal.get("plannedMonthlyContribution", 0),
+                # Status from Monarch API (can be null, "ahead", "on_track", "at_risk", "completed")
+                "status": goal.get("status"),
+                # State flags
+                # Goal is completed if EITHER completedAt is set OR status is "completed"
+                # (status="completed" means balance >= target, even if user hasn't manually marked it)
+                "is_completed": bool(goal.get("completedAt")) or goal.get("status") == "completed",
+                # Image data
+                "image_storage_provider": goal.get("imageStorageProvider"),
+                "image_storage_provider_id": goal.get("imageStorageProviderId"),
+            }
+        )
+
+    _full_goals_cache[cache_key] = goals
     return goals
 
 
@@ -523,20 +605,8 @@ async def get_user_profile(mm) -> dict[str, Any]:
         cached: dict[str, Any] = _user_profile_cache[cache_key]
         return cached
 
-    query = gql("""
-        query Common_GetMe {
-            me {
-                id
-                name
-                email
-            }
-        }
-    """)
-
-    result = await mm.gql_call(
-        operation="Common_GetMe",
-        graphql_query=query,
-    )
+    # Use library method
+    result = await mm.get_user_profile()
 
     profile: dict[str, Any] = result.get("me", {})
     _user_profile_cache[cache_key] = profile
@@ -550,6 +620,87 @@ def get_user_first_name(profile: dict[str, Any]) -> str:
         # Split on spaces and take the first part
         return str(name).split()[0]
     return ""
+
+
+# Cache for aggregate data (spending totals)
+_aggregates_cache: TTLCache = TTLCache(maxsize=100, ttl=_CACHE_TTL)
+
+
+async def get_category_aggregates(
+    mm, category_id: str, start_date: str, end_date: str
+) -> dict[str, Any]:
+    """
+    Get aggregate spending data for a category over a date range.
+
+    Uses Monarch's GetAggregates query to fetch total income and expenses
+    for a specific category. This is useful for calculating "total ever budgeted"
+    for one-time purchase goals.
+
+    Args:
+        mm: Authenticated MonarchMoney client
+        category_id: The category ID to get aggregates for
+        start_date: Start date in YYYY-MM-DD format
+        end_date: End date in YYYY-MM-DD format
+
+    Returns:
+        dict with 'sumExpense' and 'sumIncome' (both are floats, expense is negative)
+    """
+    cache_key = f"aggregates_{category_id}_{start_date}_{end_date}"
+    if cache_key in _aggregates_cache:
+        cached: dict[str, Any] = _aggregates_cache[cache_key]
+        return cached
+
+    # Use library method
+    result = await mm.get_aggregates(
+        start_date=start_date,
+        end_date=end_date,
+        category_ids=[category_id],
+    )
+
+    # Handle both list and dict responses from the API
+    aggregates_data = result.get("aggregates", {})
+    if isinstance(aggregates_data, list):
+        # If it's a list, get the first item's summary
+        summary = aggregates_data[0].get("summary", {}) if aggregates_data else {}
+    else:
+        summary = aggregates_data.get("summary", {})
+
+    aggregates: dict[str, Any] = {
+        "sumExpense": summary.get("sumExpense", 0.0),
+        "sumIncome": summary.get("sumIncome", 0.0),
+    }
+    _aggregates_cache[cache_key] = aggregates
+    return aggregates
+
+
+async def get_category_transactions(
+    mm: MonarchMoney,
+    category_id: str,
+    start_date: str,
+    end_date: str,
+) -> list[dict[str, Any]]:
+    """
+    Get transactions for a category within a date range.
+
+    Args:
+        mm: MonarchMoney client instance
+        category_id: Category ID to get transactions for
+        start_date: Start date (YYYY-MM-DD)
+        end_date: End date (YYYY-MM-DD)
+
+    Returns:
+        List of transaction dicts with 'amount', 'date', etc.
+    """
+    # Use library method with category_ids filter
+    result = await mm.get_transactions(
+        limit=1000,
+        start_date=start_date,
+        end_date=end_date,
+        category_ids=[category_id],
+    )
+
+    transactions: list[dict[str, Any]] = result.get("allTransactions", {}).get("results", [])
+    return transactions
 
 
 # Helper to build category id<->name maps and monthly lookup
@@ -597,3 +748,70 @@ def build_category_maps(budgets):
             "categoryGroups": monthly_category_groups_lookup,
         },
     )
+
+
+async def update_category_rollover_balance(
+    category_id: str,
+    amount_to_add: int,
+) -> dict[str, Any]:
+    """
+    Add funds to a category's rollover starting balance.
+
+    This is used by the Distribute wizard to allocate "available to stash"
+    funds that exceed "left to budget". The excess goes into the category's
+    rollover starting balance, effectively adding savings to that category.
+
+    If the category doesn't have rollover enabled, this will enable it with
+    monthly rollover type and set the starting month to the current month.
+
+    Args:
+        category_id: The Monarch category ID to update
+        amount_to_add: Amount (in dollars) to add to the starting balance
+
+    Returns:
+        dict with the updated category data
+    """
+    mm = await get_mm()
+
+    # First, get the current category to check existing rollover settings
+    # Use library method
+    current = await mm.get_category_rollover(category_id)
+
+    category_data = current.get("category", {})
+    rollover_period = category_data.get("rolloverPeriod")
+
+    # Calculate new starting balance
+    current_balance = 0
+    if rollover_period:
+        current_balance = rollover_period.get("startingBalance", 0) or 0
+
+    new_balance = current_balance + amount_to_add
+
+    # Use current month as start month if enabling rollover for first time
+    current_month = datetime.now().replace(day=1)
+
+    if not rollover_period:
+        # Enable rollover for the first time using library method
+        result = await retry_with_backoff(
+            lambda: mm.enable_category_rollover(
+                category_id=category_id,
+                rollover_start_month=current_month,
+                rollover_starting_balance=new_balance,
+                rollover_frequency="monthly",
+            )
+        )
+    else:
+        # Update existing rollover using library method
+        result = await retry_with_backoff(
+            lambda: mm.update_category_rollover(
+                category_id=category_id,
+                starting_balance=new_balance,
+            )
+        )
+
+    # Clear caches after mutation
+    clear_cache("category")
+    clear_cache("budget")
+
+    result_dict: dict[str, Any] = result if isinstance(result, dict) else {}
+    return result_dict

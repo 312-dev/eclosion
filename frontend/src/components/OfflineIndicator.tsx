@@ -42,10 +42,11 @@ export function OfflineIndicator() {
 
   return (
     <div
-      className="flex items-center justify-center gap-2 py-2 px-4 text-sm"
+      className="offline-banner flex items-center justify-center gap-2 py-2 px-4 text-sm"
       style={{
-        backgroundColor: 'var(--monarch-red)',
-        color: 'white',
+        backgroundColor: 'var(--monarch-error-bg)',
+        borderTop: '1px solid var(--monarch-border)',
+        color: 'var(--monarch-error)',
         flexShrink: 0,
       }}
       role="alert"

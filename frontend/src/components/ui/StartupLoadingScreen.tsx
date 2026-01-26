@@ -182,17 +182,19 @@ export function StartupLoadingScreen({
 
   return (
     <div
-      className={`fixed inset-0 flex flex-col items-center justify-center transition-opacity duration-500 ${
+      className={`fixed inset-0 flex flex-col items-center justify-center transition-opacity duration-500 cursor-default ${
         isFadingOut ? 'opacity-0' : 'opacity-100'
       }`}
-      style={{ backgroundColor: 'var(--monarch-bg-page)' }}
+      style={
+        {
+          backgroundColor: 'var(--monarch-bg-page)',
+          WebkitAppRegion: 'drag',
+        } as React.CSSProperties
+      }
     >
       <div className="flex flex-col items-center gap-6 max-w-md px-6 text-center">
-        {/* Logo/Brand - draggable region for window */}
-        <div
-          className="flex items-center gap-3 mb-4 cursor-default"
-          style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
-        >
+        {/* Logo/Brand */}
+        <div className="flex items-center gap-3 mb-4">
           <AppIcon size={48} />
           <span
             className="text-2xl font-semibold"
@@ -282,11 +284,14 @@ export function StartupLoadingScreen({
         {isTimedOut && (
           <button
             onClick={() => globalThis.location.reload()}
-            className="mt-4 px-4 py-2 rounded-lg font-medium transition-colors btn-press"
-            style={{
-              backgroundColor: 'var(--monarch-orange)',
-              color: 'white',
-            }}
+            className="mt-4 px-4 py-2 rounded-lg font-medium transition-colors btn-press cursor-pointer"
+            style={
+              {
+                backgroundColor: 'var(--monarch-orange)',
+                color: 'white',
+                WebkitAppRegion: 'no-drag',
+              } as React.CSSProperties
+            }
           >
             Try Again
           </button>

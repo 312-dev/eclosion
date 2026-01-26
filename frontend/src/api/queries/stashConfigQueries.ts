@@ -1,0 +1,87 @@
+/**
+ * Stash Configuration Queries
+ *
+ * Queries and mutations for stash configuration and category groups.
+ */
+
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { useDemo } from '../../context/DemoContext';
+import * as api from '../client';
+import * as demoApi from '../demoClient';
+import { queryKeys, getQueryKey } from './keys';
+import { useSmartInvalidate } from '../../hooks/useSmartInvalidate';
+import type { StashConfig } from '../../types';
+
+/**
+ * Transform backend config (snake_case) to frontend format (camelCase).
+ */
+function transformStashConfig(raw: Record<string, unknown>): StashConfig {
+  return {
+    isConfigured: Boolean(raw['is_configured']),
+    defaultCategoryGroupId: (raw['default_category_group_id'] as string) ?? null,
+    defaultCategoryGroupName: (raw['default_category_group_name'] as string) ?? null,
+    selectedBrowser: (raw['selected_browser'] as StashConfig['selectedBrowser']) ?? null,
+    selectedFolderIds: (raw['selected_folder_ids'] as string[]) ?? [],
+    selectedFolderNames: (raw['selected_folder_names'] as string[]) ?? [],
+    autoArchiveOnBookmarkDelete: Boolean(raw['auto_archive_on_bookmark_delete']),
+    autoArchiveOnGoalMet: Boolean(raw['auto_archive_on_goal_met']),
+    includeExpectedIncome: Boolean(raw['include_expected_income']),
+    selectedCashAccountIds: (raw['selected_cash_account_ids'] as string[] | null) ?? null,
+    showMonarchGoals: Boolean(raw['show_monarch_goals']),
+    bufferAmount: Number(raw['buffer_amount']) || 0,
+  };
+}
+
+/**
+ * Stash config query - fetches configuration settings
+ */
+export function useStashConfigQuery(options?: { enabled?: boolean }) {
+  const isDemo = useDemo();
+  return useQuery({
+    queryKey: getQueryKey(queryKeys.stashConfig, isDemo),
+    queryFn: async (): Promise<StashConfig> => {
+      const raw = isDemo ? await demoApi.getStashConfig() : await api.getStashConfig();
+      return transformStashConfig(raw as unknown as Record<string, unknown>);
+    },
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    ...options,
+  });
+}
+
+/**
+ * Update stash config mutation
+ */
+export function useUpdateStashConfigMutation() {
+  const isDemo = useDemo();
+  const smartInvalidate = useSmartInvalidate();
+  return useMutation({
+    mutationFn: (updates: Partial<StashConfig>) =>
+      isDemo ? demoApi.updateStashConfig(updates) : api.updateStashConfig(updates),
+    onSuccess: () => {
+      smartInvalidate('updateStashConfig');
+    },
+  });
+}
+
+/**
+ * Helper: Check if stash is configured
+ */
+export function useIsStashConfigured(): boolean {
+  const { data } = useStashConfigQuery();
+  return data?.isConfigured ?? false;
+}
+
+/**
+ * Stash category groups query - fetches groups for dropdown selections
+ */
+export function useStashCategoryGroupsQuery() {
+  const isDemo = useDemo();
+  return useQuery({
+    queryKey: getQueryKey(queryKeys.stashCategoryGroups, isDemo),
+    queryFn: async () => {
+      return isDemo ? await demoApi.getStashCategoryGroups() : await api.getStashCategoryGroups();
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+}

@@ -5,9 +5,19 @@ These store the recurring expense tracking configuration and state.
 No encryption needed - contains only IDs, amounts, and preferences.
 """
 
-from datetime import datetime
+from datetime import UTC, date, datetime
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    Date,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
@@ -68,7 +78,7 @@ class Category(Base):
     # New fields for improved frozen target calculation (v3)
     frozen_rollover_amount: Mapped[float | None] = mapped_column(Float, nullable=True)
     frozen_next_due_date: Mapped[str | None] = mapped_column(String(20), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
     last_synced_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
@@ -191,13 +201,15 @@ class WishlistItem(Base):
     source_bookmark_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
     logo_url: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    # Custom image (user-uploaded)
+    # Custom image (user-uploaded or Openverse URL)
     custom_image_path: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Attribution text for Openverse images
+    image_attribution: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # State tracking
     is_archived: Mapped[bool] = mapped_column(Boolean, default=False)
     archived_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     # Grid layout (for widget-style resizable cards)
@@ -205,6 +217,24 @@ class WishlistItem(Base):
     grid_y: Mapped[int] = mapped_column(Integer, default=0)
     col_span: Mapped[int] = mapped_column(Integer, default=1)
     row_span: Mapped[int] = mapped_column(Integer, default=1)
+    # Sequential sort order for drag-to-reorder (0-indexed, lower = earlier)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+
+    # Goal type determines how progress is calculated
+    # - 'one_time': Save up to buy something, mark complete when done.
+    #               Progress = total ever budgeted (immune to spending).
+    # - 'savings_buffer': Ongoing fund that can be spent and refilled.
+    #                     Progress = current remaining balance.
+    goal_type: Mapped[str] = mapped_column(String(20), default="one_time")
+
+    # When the one-time purchase was marked as completed (archived)
+    # Null = not completed, timestamp = completed
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    # Custom start date for tracking progress (one_time goals only)
+    # Used as startDate filter in Monarch aggregate query
+    # Null = use 1st of created_at month
+    tracking_start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
 
 
 class WishlistConfig(Base):
@@ -231,6 +261,16 @@ class WishlistConfig(Base):
     # Auto-archive settings
     auto_archive_on_bookmark_delete: Mapped[bool] = mapped_column(Boolean, default=True)
     auto_archive_on_goal_met: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    # Available to Stash calculation settings
+    include_expected_income: Mapped[bool] = mapped_column(Boolean, default=True)
+    selected_cash_account_ids: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON array
+    buffer_amount: Mapped[int] = mapped_column(
+        Integer, default=0
+    )  # Reserved buffer for Available to Stash
+
+    # Display settings
+    show_monarch_goals: Mapped[bool] = mapped_column(Boolean, default=True)
 
     # Configuration state
     is_configured: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -263,6 +303,65 @@ class PendingBookmark(Base):
     wishlist_item_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     # Timestamps
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), nullable=False
+    )
     skipped_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     converted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class MonarchGoalLayout(Base):
+    """
+    Grid layout positions for Monarch savings goals displayed in Stash view.
+
+    Stores user-customized grid positions (x, y, column span, row span) for
+    Monarch goals when the "Show Monarch goals" setting is enabled.
+    """
+
+    __tablename__ = "monarch_goal_layout"
+
+    goal_id: Mapped[str] = mapped_column(String(100), primary_key=True)
+    grid_x: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    grid_y: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    col_span: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    row_span: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    # Sequential sort order for drag-to-reorder (0-indexed, lower = earlier)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+    )
+
+
+class StashHypothesis(Base):
+    """
+    Saved hypothesis for what-if planning in the Distribute Wizard.
+
+    Stores both savings and monthly allocation configurations along with
+    hypothetical events. Users can save up to 10 hypotheses.
+    """
+
+    __tablename__ = "stash_hypotheses"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)  # UUID
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+
+    # Screen 1: Savings allocations (JSON: Record<stashId, amount>)
+    savings_allocations: Mapped[str] = mapped_column(Text, default="{}")
+    savings_total: Mapped[float] = mapped_column(Float, default=0.0)
+
+    # Screen 2: Monthly allocations (JSON: Record<stashId, amount>)
+    monthly_allocations: Mapped[str] = mapped_column(Text, default="{}")
+    monthly_total: Mapped[float] = mapped_column(Float, default=0.0)
+
+    # Hypothetical events (JSON: StashEventsMap)
+    events: Mapped[str] = mapped_column(Text, default="{}")
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+    )

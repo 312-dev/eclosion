@@ -6,7 +6,10 @@
 
 export const queryKeys = {
   dashboard: ['dashboard'] as const,
+  autoSyncStatus: ['autoSyncStatus'] as const,
   categoryGroups: ['categoryGroups'] as const,
+  categoryGroupsDetailed: ['categoryGroupsDetailed'] as const,
+  flexibleCategoryGroups: ['flexibleCategoryGroups'] as const,
   unmappedCategories: ['unmappedCategories'] as const,
   deletableCategories: ['deletableCategories'] as const,
   securityStatus: ['securityStatus'] as const,
@@ -25,13 +28,22 @@ export const queryKeys = {
   checkboxStates: ['checkboxStates'] as const,
   // Shared stores (normalized caches)
   categoryStore: ['categoryStore'] as const,
-  // Wishlist
-  wishlist: ['wishlist'] as const,
-  wishlistConfig: ['wishlistConfig'] as const,
-  wishlistCategoryGroups: ['wishlistCategoryGroups'] as const,
+  // Stash
+  stash: ['stash'] as const,
+  stashConfig: ['stashConfig'] as const,
+  stashCategoryGroups: ['stashCategoryGroups'] as const,
+  monarchGoals: ['monarchGoals'] as const,
   pendingBookmarks: ['pendingBookmarks'] as const,
   pendingBookmarksCount: ['pendingBookmarksCount'] as const,
   skippedBookmarks: ['skippedBookmarks'] as const,
+  // Available to Stash
+  availableToStash: ['availableToStash'] as const,
+  // Stash History (Reports)
+  stashHistory: ['stashHistory'] as const,
+  // Stash Hypotheses
+  stashHypotheses: ['stashHypotheses'] as const,
+  // Openverse (image search)
+  openverseSearch: ['openverseSearch'] as const,
 };
 
 /**

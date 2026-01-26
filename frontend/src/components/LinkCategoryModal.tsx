@@ -8,6 +8,7 @@ import { useToast } from '../context/ToastContext';
 import { useIsRateLimited } from '../context/RateLimitContext';
 import { handleApiError, decodeHtmlEntities } from '../utils';
 import { Portal } from './Portal';
+import { CancelButton, WarningButton } from './ui/ModalButtons';
 
 export interface PendingLink {
   categoryId: string;
@@ -149,9 +150,12 @@ export function LinkCategoryModal({
         <div className="absolute inset-0 bg-black/50 modal-backdrop" onClick={onClose} />
 
         {/* Modal */}
-        <div className="relative w-full max-w-lg mx-4 rounded-xl shadow-xl max-h-[80vh] flex flex-col modal-content bg-monarch-bg-card border border-monarch-border">
+        <div className="relative w-full max-w-lg mx-4 rounded-xl shadow-xl max-h-[90vh] flex flex-col modal-content bg-monarch-bg-card border border-monarch-border">
           {/* Header */}
-          <div className="p-4 border-b border-monarch-border">
+          <div
+            className="p-4 border-b border-monarch-border rounded-t-xl"
+            style={{ backgroundColor: 'var(--monarch-bg-page)' }}
+          >
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-monarch-text-dark">
                 Link to Existing Category
@@ -345,20 +349,22 @@ export function LinkCategoryModal({
           </div>
 
           {/* Footer */}
-          <div className="p-4 border-t border-monarch-border flex gap-3">
-            <button
-              onClick={onClose}
-              className="flex-1 px-4 py-2 text-sm rounded-lg transition-colors btn-hover-lift border border-monarch-border text-monarch-text-dark bg-monarch-bg-card"
-            >
+          <div
+            className="p-4 border-t border-monarch-border rounded-b-xl flex gap-3"
+            style={{ backgroundColor: 'var(--monarch-bg-page)' }}
+          >
+            <CancelButton onClick={onClose} fullWidth>
               Cancel
-            </button>
-            <button
+            </CancelButton>
+            <WarningButton
               onClick={handleLink}
-              disabled={!selectedCategory || saving || isRateLimited}
-              className={`flex-1 px-4 py-2 text-sm text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed btn-hover-lift ${!selectedCategory || saving || isRateLimited ? 'bg-monarch-orange-disabled' : 'bg-monarch-orange'}`}
+              disabled={!selectedCategory || isRateLimited}
+              isLoading={saving}
+              loadingText="Linking..."
+              fullWidth
             >
-              {saving ? 'Linking...' : 'Link Category'}
-            </button>
+              Link Category
+            </WarningButton>
           </div>
         </div>
       </div>

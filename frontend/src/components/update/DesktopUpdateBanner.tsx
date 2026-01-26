@@ -55,10 +55,10 @@ function ReadyToInstallBanner({
     <div
       role="alert"
       aria-live="polite"
-      className="flex items-center justify-between gap-4 px-4 py-2 text-sm"
+      className="desktop-update-banner flex items-center justify-between gap-4 px-4 py-2 text-sm"
       style={{
         backgroundColor: 'var(--monarch-bg-elevated)',
-        borderLeft: `3px solid ${accentColor}`,
+        borderTop: '1px solid var(--monarch-border)',
         color: 'var(--monarch-text-dark)',
         flexShrink: 0,
       }}
@@ -157,10 +157,10 @@ export function DesktopUpdateBanner() {
       <output
         aria-live="polite"
         aria-label={`Downloading update v${version}: ${progress}% complete`}
-        className="flex items-center justify-between gap-4 px-4 py-2 text-sm"
+        className="desktop-update-banner flex items-center justify-between gap-4 px-4 py-2 text-sm"
         style={{
           backgroundColor: 'var(--monarch-bg-card)',
-          borderBottom: '1px solid var(--monarch-border)',
+          borderTop: '1px solid var(--monarch-border)',
           flexShrink: 0,
           display: 'flex',
         }}

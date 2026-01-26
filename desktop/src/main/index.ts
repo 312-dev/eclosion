@@ -141,34 +141,41 @@ function checkRunningFromVolume(): { isVolume: boolean; volumePath?: string } {
 }
 
 // Single instance lock - prevent multiple instances
-debugLog('Requesting single instance lock...');
-logStartupTiming('Requesting single instance lock');
-const gotTheLock = app.requestSingleInstanceLock();
-logStartupTiming(`Single instance lock result: ${gotTheLock}`);
-debugLog(`Got lock: ${gotTheLock}`);
+// Skip in dev mode to allow hot reloading without lock conflicts
+const skipSingletonLock = process.env.ECLOSION_DEV_MODE === '1';
 
-if (gotTheLock) {
-  // Handle second instance - focus existing window and handle deep links
-  app.on('second-instance', (_event, commandLine) => {
-    const mainWindow = getMainWindow();
-    if (mainWindow) {
-      if (mainWindow.isMinimized()) {
-        mainWindow.restore();
-      }
-      mainWindow.show();
-      mainWindow.focus();
-    }
-
-    // Check if opened via deep link
-    const deepLink = getDeepLinkFromArgs(commandLine);
-    if (deepLink) {
-      debugLog(`Second instance deep link: ${deepLink}`);
-      void handleDeepLink(deepLink);
-    }
-  });
+if (skipSingletonLock) {
+  debugLog('Skipping single instance lock (dev mode)');
 } else {
-  debugLog('Another instance is already running - quitting');
-  app.quit();
+  debugLog('Requesting single instance lock...');
+  logStartupTiming('Requesting single instance lock');
+  const gotTheLock = app.requestSingleInstanceLock();
+  logStartupTiming(`Single instance lock result: ${gotTheLock}`);
+  debugLog(`Got lock: ${gotTheLock}`);
+
+  if (gotTheLock) {
+    // Handle second instance - focus existing window and handle deep links
+    app.on('second-instance', (_event, commandLine) => {
+      const mainWindow = getMainWindow();
+      if (mainWindow) {
+        if (mainWindow.isMinimized()) {
+          mainWindow.restore();
+        }
+        mainWindow.show();
+        mainWindow.focus();
+      }
+
+      // Check if opened via deep link
+      const deepLink = getDeepLinkFromArgs(commandLine);
+      if (deepLink) {
+        debugLog(`Second instance deep link: ${deepLink}`);
+        void handleDeepLink(deepLink);
+      }
+    });
+  } else {
+    debugLog('Another instance is already running - quitting');
+    app.quit();
+  }
 }
 
 // Backend manager instance
@@ -335,10 +342,15 @@ async function initialize(): Promise<void> {
     setupDeepLinkHandlers(handleSyncClick);
 
     // Initialize lock manager (handles auto-lock on system lock or idle)
-    logStartupTiming('Initializing lock manager');
-    const mainWindow = getMainWindow();
-    if (mainWindow) {
-      initializeLockManager(mainWindow);
+    // Skip in dev mode to avoid auto-locking on hot reloads
+    if (!skipSingletonLock) {
+      logStartupTiming('Initializing lock manager');
+      const mainWindow = getMainWindow();
+      if (mainWindow) {
+        initializeLockManager(mainWindow);
+      }
+    } else {
+      debugLog('Skipping lock manager initialization (dev mode)');
     }
 
     // Setup power monitor for sleep/wake handling
@@ -505,15 +517,18 @@ async function startBackendAndInitialize(): Promise<void> {
 
   // Check if auto-lock is enabled - if so, don't restore session automatically
   // User will need to unlock via the UnlockPage
-  const lockTrigger = getLockTrigger();
-  const autoLockEnabled = lockTrigger !== 'never';
-  const hasCredentials = hasMonarchCredentials();
+  // Skip this check in dev mode to avoid locking on hot reloads
+  if (!skipSingletonLock) {
+    const lockTrigger = getLockTrigger();
+    const autoLockEnabled = lockTrigger !== 'never';
+    const hasCredentials = hasMonarchCredentials();
 
-  if (autoLockEnabled && hasCredentials) {
-    debugLog(`Auto-lock enabled (${lockTrigger}) - starting locked, skipping session restore`);
-    // Session will be restored when user unlocks via the UnlockPage
-    // The frontend will detect this state via checkAuth and show unlock screen
-    return;
+    if (autoLockEnabled && hasCredentials) {
+      debugLog(`Auto-lock enabled (${lockTrigger}) - starting locked, skipping session restore`);
+      // Session will be restored when user unlocks via the UnlockPage
+      // The frontend will detect this state via checkAuth and show unlock screen
+      return;
+    }
   }
 
   // Restore session from stored credentials

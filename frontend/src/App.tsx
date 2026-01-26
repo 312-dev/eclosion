@@ -5,17 +5,21 @@
  * Supports two modes:
  * - Production: Real API with authentication
  * - Demo: LocalStorage-based data, no auth required
+ *
+ * Uses React Router's data router API (createBrowserRouter/createHashRouter)
+ * which enables features like useBlocker for navigation guards.
  */
 
 import { useEffect } from 'react';
 import {
-  BrowserRouter,
-  HashRouter,
-  Routes,
-  Route,
+  createBrowserRouter,
+  createHashRouter,
+  RouterProvider,
   Navigate,
   useLocation,
   useNavigate,
+  Outlet,
+  type RouteObject,
 } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TooltipProvider } from './components/ui/Tooltip';
@@ -27,6 +31,7 @@ import { RateLimitProvider } from './context/RateLimitContext';
 import { RateLimitToastBridge } from './components/RateLimitToastBridge';
 import { DemoAuthProvider } from './context/DemoAuthContext';
 import { MonthTransitionProvider } from './context/MonthTransitionContext';
+import { DistributionModeProvider } from './context/DistributionModeContext';
 import { AppShell } from './components/layout/AppShell';
 import { MacOSDragRegion } from './components/layout/MacOSDragRegion';
 import { ProtectedRoute } from './components/layout/ProtectedRoute';
@@ -39,11 +44,10 @@ import { DownloadPage } from './pages/download';
 import { DashboardTab } from './components/tabs/DashboardTab';
 import { RecurringTab } from './components/tabs/RecurringTab';
 import { NotesTab } from './components/tabs/NotesTab';
-import { WishlistTab } from './components/tabs/WishlistTab';
+import { StashTab } from './components/tabs/StashTab';
 import { SettingsTab } from './components/tabs/SettingsTab';
 import { RateLimitError, AuthRequiredError } from './api/client';
 import { ErrorPage } from './components/ui/ErrorPage';
-import { useIsMarketingSite } from './hooks/useIsMarketingSite';
 import { useElectronNavigation } from './hooks/useElectronNavigation';
 import { BetaBanner } from './components/ui/BetaBanner';
 import { MfaReauthPrompt } from './components/MfaReauthPrompt';
@@ -53,13 +57,28 @@ import { UpdateProvider } from './context/UpdateContext';
 const LANDING_PAGE_KEY = 'eclosion-landing-page';
 
 /**
+ * Marketing site hostnames.
+ * Keep in sync with useIsMarketingSite.ts
+ */
+const MARKETING_HOSTNAMES = ['eclosion.app', 'pages.dev'];
+
+/**
+ * Check if current hostname is marketing site (non-hook version for router creation)
+ */
+function isMarketingSiteHostname(): boolean {
+  if (globalThis.electron !== undefined) return false;
+  const hostname = globalThis.location?.hostname ?? '';
+  if (hostname === 'localhost' || hostname === '127.0.0.1') return true;
+  return MARKETING_HOSTNAMES.some((domain) => hostname.includes(domain));
+}
+
+/**
  * Scrolls to top on route changes, unless there's a hash anchor
  */
 function ScrollToTop() {
   const { pathname, hash } = useLocation();
 
   useEffect(() => {
-    // If there's a hash, let the browser handle scrolling to the element
     if (hash) {
       const element = document.getElementById(hash.slice(1));
       if (element) {
@@ -67,8 +86,6 @@ function ScrollToTop() {
       }
       return;
     }
-
-    // Otherwise scroll to top
     window.scrollTo(0, 0);
   }, [pathname, hash]);
 
@@ -99,7 +116,6 @@ function GlobalDemoDefaultRedirect() {
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      // Don't retry on rate limit or auth errors - these won't resolve with retries
       retry: (failureCount, error) => {
         if (error instanceof RateLimitError || error instanceof AuthRequiredError) {
           return false;
@@ -107,10 +123,9 @@ const queryClient = new QueryClient({
         return failureCount < 1;
       },
       refetchOnWindowFocus: false,
-      staleTime: 2 * 60 * 1000, // 2 minutes default
+      staleTime: 2 * 60 * 1000,
     },
     mutations: {
-      // Same retry logic for mutations
       retry: (failureCount, error) => {
         if (error instanceof RateLimitError || error instanceof AuthRequiredError) {
           return false;
@@ -122,14 +137,68 @@ const queryClient = new QueryClient({
 });
 
 /**
- * Production routes with authentication
+ * Root layout that provides context needed by all routes.
+ * Contains providers that need router context.
  */
-function ProductionRoutes() {
+function RootLayout() {
+  useElectronNavigation();
+
+  return (
+    <>
+      <MacOSDragRegion />
+      <ScrollToTop />
+      <RateLimitProvider>
+        <RateLimitToastBridge />
+        <DemoProvider>
+          <MonthTransitionProvider>
+            <UpdateProvider>
+              <DistributionModeProvider>
+                <Outlet />
+              </DistributionModeProvider>
+            </UpdateProvider>
+          </MonthTransitionProvider>
+        </DemoProvider>
+      </RateLimitProvider>
+    </>
+  );
+}
+
+/**
+ * Production root with AuthProvider
+ */
+function ProductionRootLayout() {
+  useElectronNavigation();
+
+  return (
+    <>
+      <MacOSDragRegion />
+      <ScrollToTop />
+      <RateLimitProvider>
+        <RateLimitToastBridge />
+        <DemoProvider>
+          <MonthTransitionProvider>
+            <UpdateProvider>
+              <DistributionModeProvider>
+                <AuthProvider>
+                  <ProductionAuthWrapper />
+                </AuthProvider>
+              </DistributionModeProvider>
+            </UpdateProvider>
+          </MonthTransitionProvider>
+        </DemoProvider>
+      </RateLimitProvider>
+    </>
+  );
+}
+
+/**
+ * Handles auth state and renders appropriate UI
+ */
+function ProductionAuthWrapper() {
   const { loading, error, checkAuth, mfaRequiredData, clearMfaRequired, setAuthenticated } =
     useAuth();
   const navigate = useNavigate();
 
-  // Show error page if auth check failed
   if (!loading && error) {
     return (
       <ErrorPage
@@ -142,7 +211,6 @@ function ProductionRoutes() {
     );
   }
 
-  // Show MFA re-auth prompt if needed (desktop mode, 6-digit code users on restart)
   if (mfaRequiredData) {
     return (
       <MfaReauthPrompt
@@ -155,7 +223,6 @@ function ProductionRoutes() {
         }}
         onUseOtherAccount={() => {
           clearMfaRequired();
-          // Clear stored credentials so user can log in fresh
           globalThis.electron?.credentials.clear();
           navigate('/login', { replace: true });
         }}
@@ -165,77 +232,32 @@ function ProductionRoutes() {
 
   return (
     <>
-      <Routes>
-        {/* Public routes */}
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/unlock" element={<UnlockPage />} />
-
-        {/* Protected routes */}
-        <Route element={<ProtectedRoute />}>
-          <Route element={<AppShell />}>
-            <Route index element={<DefaultRedirect />} />
-            <Route path="/dashboard" element={<DashboardTab />} />
-            <Route path="/recurring" element={<RecurringTab />} />
-            <Route path="/notes" element={<NotesTab />} />
-            <Route path="/wishlist" element={<WishlistTab />} />
-            <Route path="/settings" element={<SettingsTab />} />
-          </Route>
-        </Route>
-
-        {/* Catch-all redirect */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-
-      {/* Session expired overlay - shows when session expires during normal use */}
+      <Outlet />
       <SessionExpiredOverlay />
     </>
   );
 }
 
 /**
- * Demo routes - no authentication required
- * Used when accessing /demo/* paths
+ * Demo layout with DemoAuthProvider
  */
-function DemoRoutes() {
+function DemoLayout() {
   return (
     <DemoAuthProvider>
-      <Routes>
-        <Route element={<AppShell />}>
-          <Route path="/demo" element={<DemoDefaultRedirect />} />
-          <Route path="/demo/dashboard" element={<DashboardTab />} />
-          <Route path="/demo/recurring" element={<RecurringTab />} />
-          <Route path="/demo/notes" element={<NotesTab />} />
-          <Route path="/demo/wishlist" element={<WishlistTab />} />
-          <Route path="/demo/settings" element={<SettingsTab />} />
-        </Route>
-        {/* Catch-all redirect within demo */}
-        <Route path="*" element={<Navigate to="/demo/dashboard" replace />} />
-      </Routes>
+      <Outlet />
     </DemoAuthProvider>
   );
 }
 
 /**
- * Global demo routes - entire app runs as demo
- * Used when VITE_DEMO_MODE=true is set at build time
- * Serves demo content at root paths (/, /dashboard, /recurring, /settings, /notes)
+ * Marketing layout with BetaBanner
  */
-function GlobalDemoRoutes() {
+function MarketingLayout() {
   return (
-    <DemoAuthProvider>
-      <Routes>
-        <Route element={<AppShell />}>
-          <Route index element={<GlobalDemoDefaultRedirect />} />
-          <Route path="/dashboard" element={<DashboardTab />} />
-          <Route path="/recurring" element={<RecurringTab />} />
-          <Route path="/notes" element={<NotesTab />} />
-          <Route path="/wishlist" element={<WishlistTab />} />
-          <Route path="/settings" element={<SettingsTab />} />
-        </Route>
-        {/* Catch-all redirect */}
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
-      </Routes>
-    </DemoAuthProvider>
+    <>
+      <BetaBanner />
+      <Outlet />
+    </>
   );
 }
 
@@ -270,102 +292,188 @@ function DocsDevMessage() {
 }
 
 /**
- * Handles routing for the marketing site (Cloudflare Pages)
+ * Handles /docs route - redirects in production, shows message in dev
  */
-function MarketingSiteRoutes() {
+function DocsHandler() {
   const location = useLocation();
+  const isLocalhost =
+    globalThis.location.hostname === 'localhost' || globalThis.location.hostname === '127.0.0.1';
 
-  const isDemo = location.pathname.startsWith('/demo');
-  const isLanding = location.pathname === '/';
-  const isDownload = location.pathname === '/download' || location.pathname === '/download/';
-  const isFeatures =
-    location.pathname === '/features' || location.pathname.startsWith('/features/');
-  const isDocs = location.pathname.startsWith('/docs');
-
-  if (isLanding) {
-    return (
-      <>
-        <BetaBanner />
-        <LandingPage />
-      </>
-    );
-  }
-
-  if (isFeatures) {
-    return (
-      <>
-        <BetaBanner />
-        <Routes>
-          <Route path="/features" element={<FeaturesPage />} />
-          <Route path="/features/:featureId" element={<FeatureDetailPage />} />
-        </Routes>
-      </>
-    );
-  }
-
-  if (isDownload) {
-    return (
-      <>
-        <BetaBanner />
-        <DownloadPage />
-      </>
-    );
-  }
-
-  if (isDemo) {
-    return (
-      <>
-        <BetaBanner />
-        <DemoRoutes />
-      </>
-    );
-  }
-
-  if (isDocs) {
-    const isLocalhost =
-      globalThis.location.hostname === 'localhost' || globalThis.location.hostname === '127.0.0.1';
-    if (isLocalhost) {
-      return <DocsDevMessage />;
+  useEffect(() => {
+    if (!isLocalhost) {
+      globalThis.location.replace(location.pathname + location.search + location.hash);
     }
-    globalThis.location.replace(location.pathname + location.search + location.hash);
-    return null;
+  }, [isLocalhost, location]);
+
+  if (isLocalhost) {
+    return <DocsDevMessage />;
   }
 
-  return <Navigate to="/" replace />;
+  return null;
 }
+
+// ============================================================================
+// Route Configurations
+// ============================================================================
 
 /**
- * Main router that handles all route matching
+ * App shell routes - used by production and demo modes
  */
-function AppRouter() {
-  const location = useLocation();
-  const isMarketingSite = useIsMarketingSite();
+const appShellChildren: RouteObject[] = [
+  { path: 'dashboard', element: <DashboardTab /> },
+  { path: 'recurring', element: <RecurringTab /> },
+  { path: 'notes', element: <NotesTab /> },
+  { path: 'stash', element: <StashTab /> },
+  { path: 'settings', element: <SettingsTab /> },
+];
 
-  // Listen for navigation events from Electron main process (e.g., Settings menu)
-  useElectronNavigation();
+/**
+ * Production routes (desktop and self-hosted web)
+ */
+const productionRoutes: RouteObject[] = [
+  {
+    element: <ProductionRootLayout />,
+    children: [
+      { path: '/login', element: <LoginPage /> },
+      { path: '/unlock', element: <UnlockPage /> },
+      {
+        element: <ProtectedRoute />,
+        children: [
+          {
+            element: <AppShell />,
+            children: [{ index: true, element: <DefaultRedirect /> }, ...appShellChildren],
+          },
+        ],
+      },
+      { path: '*', element: <Navigate to="/" replace /> },
+    ],
+  },
+];
 
-  if (isMarketingSite) {
-    return <MarketingSiteRoutes />;
-  }
+/**
+ * Demo routes (/demo/*)
+ */
+const demoRouteChildren: RouteObject[] = [
+  {
+    element: <AppShell />,
+    children: [
+      { index: true, element: <DemoDefaultRedirect /> },
+      { path: 'dashboard', element: <DashboardTab /> },
+      { path: 'recurring', element: <RecurringTab /> },
+      { path: 'notes', element: <NotesTab /> },
+      { path: 'stash', element: <StashTab /> },
+      { path: 'settings', element: <SettingsTab /> },
+    ],
+  },
+  { path: '*', element: <Navigate to="/demo/dashboard" replace /> },
+];
 
+/**
+ * Global demo routes (VITE_DEMO_MODE=true)
+ * Serves demo at root paths
+ */
+const globalDemoRoutes: RouteObject[] = [
+  {
+    element: <RootLayout />,
+    children: [
+      {
+        element: <DemoLayout />,
+        children: [
+          {
+            element: <AppShell />,
+            children: [
+              { index: true, element: <GlobalDemoDefaultRedirect /> },
+              ...appShellChildren,
+            ],
+          },
+          { path: '*', element: <Navigate to="/dashboard" replace /> },
+        ],
+      },
+    ],
+  },
+];
+
+/**
+ * Marketing site routes (Cloudflare Pages)
+ * Includes landing page, features, download, and demo routes
+ */
+const marketingRoutes: RouteObject[] = [
+  {
+    element: <RootLayout />,
+    children: [
+      // Landing page
+      {
+        path: '/',
+        element: <MarketingLayout />,
+        children: [{ index: true, element: <LandingPage /> }],
+      },
+      // Features pages
+      {
+        path: '/features',
+        element: <MarketingLayout />,
+        children: [
+          { index: true, element: <FeaturesPage /> },
+          { path: ':featureId', element: <FeatureDetailPage /> },
+        ],
+      },
+      // Download page
+      {
+        path: '/download',
+        element: <MarketingLayout />,
+        children: [{ index: true, element: <DownloadPage /> }],
+      },
+      // Docs handler
+      { path: '/docs/*', element: <DocsHandler /> },
+      // Demo routes
+      {
+        path: '/demo',
+        element: (
+          <>
+            <BetaBanner />
+            <DemoLayout />
+          </>
+        ),
+        children: demoRouteChildren,
+      },
+      // Catch-all redirect to landing
+      { path: '*', element: <Navigate to="/" replace /> },
+    ],
+  },
+];
+
+// ============================================================================
+// Router Creation
+// ============================================================================
+
+// Determine environment before creating router
+const isDesktop = globalThis.window !== undefined && globalThis.electron !== undefined;
+const isMarketingSite = isMarketingSiteHostname();
+
+/**
+ * Create the appropriate router based on environment
+ */
+function createAppRouter() {
+  const createRouter = isDesktop ? createHashRouter : createBrowserRouter;
+
+  // Global demo mode (VITE_DEMO_MODE=true)
   if (isGlobalDemoMode) {
-    return <GlobalDemoRoutes />;
+    return createRouter(globalDemoRoutes);
   }
 
-  if (location.pathname.startsWith('/demo')) {
-    return <DemoRoutes />;
+  // Marketing site (Cloudflare Pages)
+  if (isMarketingSite) {
+    return createRouter(marketingRoutes);
   }
 
-  return (
-    <AuthProvider>
-      <ProductionRoutes />
-    </AuthProvider>
-  );
+  // Production (desktop or self-hosted)
+  return createRouter(productionRoutes);
 }
 
-// Use HashRouter for desktop (Electron) to handle refresh properly with file:// protocol
-const isDesktop = globalThis.window !== undefined && globalThis.electron !== undefined;
-const Router = isDesktop ? HashRouter : BrowserRouter;
+const router = createAppRouter();
+
+// ============================================================================
+// App Component
+// ============================================================================
 
 export default function App() {
   return (
@@ -373,20 +481,7 @@ export default function App() {
       <QueryClientProvider client={queryClient}>
         <ToastProvider>
           <TooltipProvider>
-            <Router>
-              <MacOSDragRegion />
-              <ScrollToTop />
-              <RateLimitProvider>
-                <RateLimitToastBridge />
-                <DemoProvider>
-                  <MonthTransitionProvider>
-                    <UpdateProvider>
-                      <AppRouter />
-                    </UpdateProvider>
-                  </MonthTransitionProvider>
-                </DemoProvider>
-              </RateLimitProvider>
-            </Router>
+            <RouterProvider router={router} />
           </TooltipProvider>
         </ToastProvider>
       </QueryClientProvider>

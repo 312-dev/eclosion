@@ -1,7 +1,7 @@
 /**
  * Savings Calculation Utilities
  *
- * Shared calculation functions for both Recurring items and Wishlist items.
+ * Shared calculation functions for both Recurring items and Stash items.
  * These handle the core "save towards a goal" calculations.
  *
  * Rounding Policy (same as recurring):
@@ -60,7 +60,7 @@ export function monthsBetween(fromDateStr: string, toDateStr: string): number {
 }
 
 /**
- * Calculate the monthly savings target for a wishlist item (date-based goal).
+ * Calculate the monthly savings target for a stash item (date-based goal).
  *
  * This is simpler than recurring items because there's no frequency -
  * just a target date to reach.
@@ -76,7 +76,7 @@ export function monthsBetween(fromDateStr: string, toDateStr: string): number {
  * @param currentMonth - Current month start date (ISO string, defaults to now)
  * @returns Monthly target in whole dollars (rounded, minimum $1 for non-zero)
  */
-export function calculateWishlistMonthlyTarget(
+export function calculateStashMonthlyTarget(
   amount: number,
   currentBalance: number,
   targetDate: string,
@@ -156,16 +156,27 @@ export function calculateShortfall(currentBalance: number, amount: number): numb
  * Format months remaining as a human-readable string.
  *
  * @param monthsRemaining - Number of months
- * @returns Formatted string like "2 months", "1 month", "This month"
+ * @returns Formatted string like "1 year 2 months", "2 months", "1 month", "This month"
  */
 export function formatMonthsRemaining(monthsRemaining: number): string {
   if (monthsRemaining <= 0) {
     return 'This month';
   }
-  if (monthsRemaining === 1) {
-    return '1 month';
+  if (monthsRemaining < 12) {
+    return monthsRemaining === 1 ? '1 month' : `${monthsRemaining} months`;
   }
-  return `${monthsRemaining} months`;
+
+  const years = Math.floor(monthsRemaining / 12);
+  const months = monthsRemaining % 12;
+
+  const yearStr = years === 1 ? '1 year' : `${years} years`;
+
+  if (months === 0) {
+    return yearStr;
+  }
+
+  const monthStr = months === 1 ? '1 month' : `${months} months`;
+  return `${yearStr} ${monthStr}`;
 }
 
 /**

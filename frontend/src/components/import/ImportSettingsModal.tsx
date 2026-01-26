@@ -14,6 +14,7 @@ import type { EclosionExport, ImportPreview } from '../../types';
 import { FilePickerSection } from './FilePickerSection';
 import { ImportPreviewSection } from './ImportPreviewSection';
 import { Portal } from '../Portal';
+import { CancelButton, WarningButton } from '../ui/ModalButtons';
 
 interface ImportSettingsModalProps {
   readonly isOpen: boolean;
@@ -88,7 +89,7 @@ export function ImportSettingsModal({ isOpen, onClose }: ImportSettingsModalProp
 
     try {
       const result = await client.importSettings(exportData, {
-        tools: Array.from(selectedTools) as ('recurring' | 'notes' | 'wishlist')[],
+        tools: Array.from(selectedTools) as ('recurring' | 'notes' | 'stash')[],
       });
 
       if (!result.success) {
@@ -143,7 +144,10 @@ export function ImportSettingsModal({ isOpen, onClose }: ImportSettingsModalProp
           }}
         >
           {/* Header */}
-          <div className="p-4 border-b" style={{ borderColor: 'var(--monarch-border)' }}>
+          <div
+            className="p-4 border-b rounded-t-xl"
+            style={{ borderColor: 'var(--monarch-border)', backgroundColor: 'var(--monarch-bg-page)' }}
+          >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Upload size={20} style={{ color: 'var(--monarch-orange)' }} />
@@ -211,55 +215,22 @@ export function ImportSettingsModal({ isOpen, onClose }: ImportSettingsModalProp
           </div>
 
           {/* Footer */}
-          <div className="p-4 border-t flex gap-3" style={{ borderColor: 'var(--monarch-border)' }}>
-            <button
-              type="button"
-              onClick={handleClose}
-              disabled={importing}
-              className="flex-1 px-4 py-2 rounded-lg transition-colors"
-              style={{
-                backgroundColor: 'var(--monarch-bg-elevated)',
-                color: 'var(--monarch-text-dark)',
-                border: '1px solid var(--monarch-border)',
-              }}
-            >
+          <div
+            className="p-4 border-t rounded-b-xl flex gap-3"
+            style={{ borderColor: 'var(--monarch-border)', backgroundColor: 'var(--monarch-bg-page)' }}
+          >
+            <CancelButton onClick={handleClose} disabled={importing} fullWidth>
               Cancel
-            </button>
-            <button
-              type="button"
+            </CancelButton>
+            <WarningButton
               onClick={handleImport}
-              disabled={!preview || selectedTools.size === 0 || importing}
-              className="flex-1 px-4 py-2 rounded-lg transition-colors text-white flex items-center justify-center gap-2"
-              style={{
-                backgroundColor: importing
-                  ? 'var(--monarch-orange-disabled)'
-                  : 'var(--monarch-orange)',
-                opacity: (!preview || selectedTools.size === 0) && !importing ? 0.5 : 1,
-              }}
+              disabled={!preview || selectedTools.size === 0}
+              isLoading={importing}
+              loadingText="Importing..."
+              fullWidth
             >
-              {importing ? (
-                <>
-                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    />
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    />
-                  </svg>
-                  Importing...
-                </>
-              ) : (
-                'Import'
-              )}
-            </button>
+              Import
+            </WarningButton>
           </div>
         </div>
       </div>

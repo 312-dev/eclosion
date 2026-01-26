@@ -17,7 +17,7 @@ from __future__ import annotations
 import json
 import uuid
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from state import StateManager, TrackerState
@@ -55,14 +55,14 @@ class SettingsExportService:
     Export includes:
     - Tool settings (recurring tracker config, category mappings, rollup)
     - Notes tool (category notes, general notes, archived notes, checkbox states)
-    - Wishlist tool (items, config, pending bookmarks)
+    - Stash tool (items, config, pending bookmarks)
     - App settings (theme preference, landing page - if provided)
 
     Export excludes:
     - Credentials (email, password, MFA secret)
     - Runtime state (last_sync, frozen targets, balances)
     - Auto-sync job state
-    - Wishlist custom_image_path (not portable across machines)
+    - Stash custom_image_path (not portable across machines)
 
     Security:
     - Notes require passphrase for export (decryption) and import (re-encryption)
@@ -101,7 +101,7 @@ class SettingsExportService:
         app_settings: dict[str, Any] | None = None,
         passphrase: str | None = None,
         include_notes: bool = False,
-        include_wishlist: bool = True,
+        include_stash: bool = True,
     ) -> ExportResult:
         """
         Export current settings to a portable format.
@@ -110,7 +110,7 @@ class SettingsExportService:
             app_settings: Optional frontend app settings (theme, landing_page)
             passphrase: Required for notes export (decrypts note content)
             include_notes: Include notes tool data (requires passphrase)
-            include_wishlist: Include wishlist tool data
+            include_stash: Include stash tool data
 
         Returns:
             ExportResult with the export data or error
@@ -133,7 +133,7 @@ class SettingsExportService:
                 app_settings=app_settings,
                 passphrase=passphrase,
                 include_notes=include_notes,
-                include_wishlist=include_wishlist,
+                include_stash=include_stash,
             )
             return ExportResult(success=True, data=export_data)
         except Exception as e:
@@ -196,13 +196,13 @@ class SettingsExportService:
                 elif tools is not None and "notes" in tools:
                     warnings.append("Notes tool data not found in export")
 
-            # Import wishlist tool if requested
-            if tools is None or "wishlist" in tools:
-                if "wishlist" in tools_data:
-                    self._import_wishlist(tools_data["wishlist"], warnings)
-                    imported["wishlist"] = True
-                elif tools is not None and "wishlist" in tools:
-                    warnings.append("Wishlist tool data not found in export")
+            # Import stash tool if requested
+            if tools is None or "stash" in tools:
+                if "stash" in tools_data:
+                    self._import_stash(tools_data["stash"], warnings)
+                    imported["stash"] = True
+                elif tools is not None and "stash" in tools:
+                    warnings.append("Stash tool data not found in export")
 
             # Save the updated state (for recurring tool)
             self.state_manager.save(state)
@@ -287,16 +287,16 @@ class SettingsExportService:
                 "has_checkbox_states": bool(notes.get("checkbox_states")),
             }
 
-        if "wishlist" in tools_data:
-            wishlist = tools_data["wishlist"]
-            items = wishlist.get("items", [])
+        if "stash" in tools_data:
+            stash = tools_data["stash"]
+            items = stash.get("items", [])
             active_items = [i for i in items if not i.get("is_archived")]
             archived_items = [i for i in items if i.get("is_archived")]
-            preview["tools"]["wishlist"] = {
-                "has_config": bool(wishlist.get("config")),
+            preview["tools"]["stash"] = {
+                "has_config": bool(stash.get("config")),
                 "items_count": len(active_items),
                 "archived_items_count": len(archived_items),
-                "pending_bookmarks_count": len(wishlist.get("pending_bookmarks", [])),
+                "pending_bookmarks_count": len(stash.get("pending_bookmarks", [])),
             }
 
         return preview
@@ -307,16 +307,16 @@ class SettingsExportService:
         app_settings: dict[str, Any] | None,
         passphrase: str | None = None,
         include_notes: bool = False,
-        include_wishlist: bool = True,
+        include_stash: bool = True,
     ) -> dict[str, Any]:
         """Build the export dictionary from state."""
         tools: dict[str, Any] = {
             "recurring": self._export_recurring(state),
         }
 
-        # Add wishlist tool if requested
-        if include_wishlist:
-            tools["wishlist"] = self._export_wishlist()
+        # Add stash tool if requested
+        if include_stash:
+            tools["stash"] = self._export_stash()
 
         # Add notes tool if requested (requires passphrase)
         if include_notes and passphrase:
@@ -600,13 +600,13 @@ class SettingsExportService:
             salt=salt,
             created_at=datetime.fromisoformat(note["created_at"])
             if note.get("created_at")
-            else datetime.utcnow(),
+            else datetime.now(UTC),
             updated_at=datetime.fromisoformat(note["updated_at"])
             if note.get("updated_at")
-            else datetime.utcnow(),
+            else datetime.now(UTC),
             archived_at=datetime.fromisoformat(note["archived_at"])
             if note.get("archived_at")
-            else datetime.utcnow(),
+            else datetime.now(UTC),
             original_category_name=note.get("original_category_name", note["category_name"]),
             original_group_name=note.get("original_group_name", note.get("group_name")),
         )
@@ -632,7 +632,7 @@ class SettingsExportService:
 
         from state.db.models import CheckboxState
 
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
 
         for key, states in checkbox_states.items():
             if key.startswith("general:"):
@@ -671,18 +671,18 @@ class SettingsExportService:
                         )
                         repo.session.add(checkbox)
 
-    # ========== Wishlist Export/Import ==========
+    # ========== Stash Export/Import ==========
 
-    def _export_wishlist(self) -> dict[str, Any]:
+    def _export_stash(self) -> dict[str, Any]:
         """
-        Export wishlist items, config, and pending bookmarks.
+        Export stash items, config, and pending bookmarks.
 
         NOTE: custom_image_path is excluded as it's not portable.
         """
         repo = self._get_tracker_repo()
 
         # Get config
-        config = repo.get_wishlist_config()
+        config = repo.get_stash_config()
         config_export = {
             "is_configured": config.is_configured,
             "default_category_group_id": config.default_category_group_id,
@@ -695,21 +695,26 @@ class SettingsExportService:
         }
 
         # Get all items (active + archived)
-        items = repo.get_all_wishlist_items()
-        items_export = [self._wishlist_item_to_export(item) for item in items]
+        items = repo.get_all_stash_items()
+        items_export = [self._stash_item_to_export(item) for item in items]
 
         # Get pending bookmarks
         bookmarks = repo.get_pending_bookmarks()
         bookmarks_export = [self._bookmark_to_export(bm) for bm in bookmarks]
 
+        # Get hypotheses
+        hypotheses = repo.get_all_hypotheses()
+        hypotheses_export = [self._hypothesis_to_export(h) for h in hypotheses]
+
         return {
             "config": config_export,
             "items": items_export,
             "pending_bookmarks": bookmarks_export,
+            "hypotheses": hypotheses_export,
         }
 
-    def _wishlist_item_to_export(self, item: Any) -> dict[str, Any]:
-        """Convert a WishlistItem to export format."""
+    def _stash_item_to_export(self, item: Any) -> dict[str, Any]:
+        """Convert a StashItem to export format."""
         return {
             "id": item.id,
             "name": item.name,
@@ -741,23 +746,37 @@ class SettingsExportService:
             "browser_type": bm.browser_type,
             "logo_url": bm.logo_url,
             "status": bm.status,
-            "wishlist_item_id": bm.wishlist_item_id,
+            "stash_item_id": bm.stash_item_id,
             "created_at": bm.created_at.isoformat() if bm.created_at else None,
         }
 
-    def _import_wishlist(
+    def _hypothesis_to_export(self, h: Any) -> dict[str, Any]:
+        """Convert a StashHypothesis to export format."""
+        return {
+            "id": h.id,
+            "name": h.name,
+            "savings_allocations": json.loads(h.savings_allocations),
+            "savings_total": h.savings_total,
+            "monthly_allocations": json.loads(h.monthly_allocations),
+            "monthly_total": h.monthly_total,
+            "events": json.loads(h.events),
+            "created_at": h.created_at.isoformat() if h.created_at else None,
+            "updated_at": h.updated_at.isoformat() if h.updated_at else None,
+        }
+
+    def _import_stash(
         self,
-        wishlist_data: dict[str, Any],
+        stash_data: dict[str, Any],
         warnings: list[str],
     ) -> dict[str, int]:
         """
-        Import wishlist items and config.
+        Import stash items and config.
 
         NOTE: monarch_category_id values are NOT imported because they may not
         exist in the target account. Items are imported unlinked.
 
         Args:
-            wishlist_data: Wishlist export data
+            stash_data: Stash export data
             warnings: List to append warnings to
 
         Returns:
@@ -767,9 +786,9 @@ class SettingsExportService:
         imported = {"items": 0, "pending_bookmarks": 0}
 
         # Import config (but not category IDs - they may not exist)
-        config = wishlist_data.get("config", {})
+        config = stash_data.get("config", {})
         if config:
-            repo.update_wishlist_config(
+            repo.update_stash_config(
                 is_configured=config.get("is_configured", False),
                 # Don't import category group IDs - may not exist in target account
                 default_category_group_id=None,
@@ -782,10 +801,10 @@ class SettingsExportService:
             )
 
         # Import items (unlinked - user must re-link to Monarch categories)
-        items = wishlist_data.get("items", [])
+        items = stash_data.get("items", [])
         for item in items:
             try:
-                repo.create_wishlist_item(
+                repo.create_stash_item(
                     item_id=str(uuid.uuid4()),
                     name=item["name"],
                     amount=item["amount"],
@@ -805,10 +824,10 @@ class SettingsExportService:
                 )
                 imported["items"] += 1
             except Exception as e:
-                warnings.append(f"Failed to import wishlist item '{item.get('name')}': {e}")
+                warnings.append(f"Failed to import stash '{item.get('name')}': {e}")
 
         # Import pending bookmarks (skip converted ones - they're tied to old items)
-        bookmarks = wishlist_data.get("pending_bookmarks", [])
+        bookmarks = stash_data.get("pending_bookmarks", [])
         for bm in bookmarks:
             # Only import pending or skipped bookmarks, not converted ones
             if bm.get("status") in ("pending", "skipped"):
@@ -830,14 +849,32 @@ class SettingsExportService:
                     # Likely duplicate URL, skip silently
                     pass
 
+        # Import hypotheses
+        hypotheses = stash_data.get("hypotheses", [])
+        imported["hypotheses"] = 0
+        for hyp in hypotheses:
+            try:
+                repo.create_hypothesis(
+                    hypothesis_id=hyp.get("id") or str(uuid.uuid4()),
+                    name=hyp["name"],
+                    savings_allocations=json.dumps(hyp.get("savings_allocations", {})),
+                    savings_total=hyp.get("savings_total", 0),
+                    monthly_allocations=json.dumps(hyp.get("monthly_allocations", {})),
+                    monthly_total=hyp.get("monthly_total", 0),
+                    events=json.dumps(hyp.get("events", {})),
+                )
+                imported["hypotheses"] += 1
+            except Exception as e:
+                warnings.append(f"Failed to import hypothesis '{hyp.get('name')}': {e}")
+
         # Commit
         repo.session.commit()
 
         # Add warning about unlinked items
         if imported["items"] > 0:
             warnings.append(
-                f"Imported {imported['items']} wishlist item(s). "
-                "Items are unlinked and need to be connected to Monarch categories."
+                f"Imported {imported['items']} stash(es). "
+                "Stashes are unlinked and need to be connected to Monarch categories."
             )
 
         return imported

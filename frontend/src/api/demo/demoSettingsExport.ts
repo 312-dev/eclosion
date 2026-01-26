@@ -2,17 +2,17 @@
  * Demo Settings Export Functions
  *
  * Handles export of settings in demo mode.
- * Supports recurring, notes, and wishlist tools.
+ * Supports recurring, notes, and stash tools.
  */
 
 import type { DemoState } from '../demoData';
-import type { EclosionExport, NotesExport, WishlistExport } from '../../types';
+import type { EclosionExport, NotesExport, StashExport } from '../../types';
 import { getDemoState, simulateDelay } from './demoState';
 
 // Re-export import functions for backward compatibility
 export { importSettings, previewImport } from './demoSettingsImport';
 
-/** Export settings to a backup file. Includes recurring, notes, and wishlist tools. */
+/** Export settings to a backup file. Includes recurring, notes, and stash tools. */
 export async function exportSettings(): Promise<EclosionExport> {
   await simulateDelay(100);
   const state = getDemoState();
@@ -46,8 +46,8 @@ export async function exportSettings(): Promise<EclosionExport> {
   // Notes export
   const notesExport = buildNotesExport(state);
 
-  // Wishlist export
-  const wishlistExport = buildWishlistExport(state);
+  // Stash export
+  const stashExport = buildStashExport(state);
 
   return {
     eclosion_export: { version: '1.1', exported_at: new Date().toISOString(), source_mode: 'demo' },
@@ -73,7 +73,7 @@ export async function exportSettings(): Promise<EclosionExport> {
         },
       },
       notes: notesExport,
-      wishlist: wishlistExport,
+      stash: stashExport,
     },
     app_settings: {},
   };
@@ -126,24 +126,25 @@ function buildNotesExport(state: DemoState): NotesExport {
   };
 }
 
-function buildWishlistExport(state: DemoState): WishlistExport {
-  const items = state.wishlist.items;
-  const archivedItems = state.wishlist.archived_items;
-  const allWishlistItems = [...items, ...archivedItems];
+function buildStashExport(state: DemoState): StashExport {
+  const items = state.stash.items;
+  const archivedItems = state.stash.archived_items;
+  const allStashItems = [...items, ...archivedItems];
   const pendingBookmarks = state.pendingBookmarks;
 
   return {
     config: {
-      is_configured: state.wishlistConfig.isConfigured,
-      default_category_group_id: state.wishlistConfig.defaultCategoryGroupId ?? null,
-      default_category_group_name: state.wishlistConfig.defaultCategoryGroupName ?? null,
-      selected_browser: state.wishlistConfig.selectedBrowser ?? null,
-      selected_folder_ids: state.wishlistConfig.selectedFolderIds ?? [],
-      selected_folder_names: state.wishlistConfig.selectedFolderNames ?? [],
-      auto_archive_on_bookmark_delete: state.wishlistConfig.autoArchiveOnBookmarkDelete ?? true,
-      auto_archive_on_goal_met: state.wishlistConfig.autoArchiveOnGoalMet ?? true,
+      is_configured: state.stashConfig.isConfigured,
+      default_category_group_id: state.stashConfig.defaultCategoryGroupId ?? null,
+      default_category_group_name: state.stashConfig.defaultCategoryGroupName ?? null,
+      selected_browser: state.stashConfig.selectedBrowser ?? null,
+      selected_folder_ids: state.stashConfig.selectedFolderIds ?? [],
+      selected_folder_names: state.stashConfig.selectedFolderNames ?? [],
+      auto_archive_on_bookmark_delete: state.stashConfig.autoArchiveOnBookmarkDelete ?? true,
+      auto_archive_on_goal_met: state.stashConfig.autoArchiveOnGoalMet ?? true,
+      include_expected_income: state.stashConfig.includeExpectedIncome ?? false,
     },
-    items: allWishlistItems.map((item) => ({
+    items: allStashItems.map((item) => ({
       id: item.id,
       name: item.name,
       amount: item.amount,
@@ -170,8 +171,19 @@ function buildWishlistExport(state: DemoState): WishlistExport {
       browser_type: bm.browser_type,
       logo_url: bm.logo_url,
       status: bm.status,
-      wishlist_item_id: null,
+      stash_item_id: null,
       created_at: bm.created_at,
+    })),
+    hypotheses: (state.stashHypotheses ?? []).map((h) => ({
+      id: h.id,
+      name: h.name,
+      savings_allocations: h.savingsAllocations,
+      savings_total: h.savingsTotal,
+      monthly_allocations: h.monthlyAllocations,
+      monthly_total: h.monthlyTotal,
+      events: h.events,
+      created_at: h.createdAt,
+      updated_at: h.updatedAt,
     })),
   };
 }

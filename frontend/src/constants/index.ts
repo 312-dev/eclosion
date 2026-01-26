@@ -51,6 +51,9 @@ export const API_CONFIG = {
 export const STORAGE_KEYS = {
   LANDING_PAGE: 'eclosion-landing-page',
   THEME: 'eclosion-theme',
+  FUNDS_BAR_POSITION: 'eclosion-funds-bar-position',
+  NOTES_UI_STATE: 'eclosion-notes-ui-state',
+  HYPOTHESIZE_SCENARIOS: 'eclosion-hypothesize-scenarios',
 } as const;
 
 // ============================================================================

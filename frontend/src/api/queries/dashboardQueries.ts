@@ -2,6 +2,7 @@
  * Dashboard Queries
  *
  * Queries for dashboard data, category groups, and sync mutation.
+ * Uses smart invalidation from the dependency registry for consistent cache management.
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -9,6 +10,7 @@ import { useDemo } from '../../context/DemoContext';
 import * as api from '../client';
 import * as demoApi from '../demoClient';
 import { queryKeys, getQueryKey } from './keys';
+import { useSmartInvalidate } from '../../hooks/useSmartInvalidate';
 import { transformDashboardData } from '../../utils/itemCalculations';
 
 /**
@@ -89,13 +91,11 @@ export function useDeploymentInfoQuery() {
  */
 export function useSyncMutation() {
   const isDemo = useDemo();
-  const queryClient = useQueryClient();
+  const smartInvalidate = useSmartInvalidate();
   return useMutation({
     mutationFn: isDemo ? demoApi.triggerSync : api.triggerSync,
     onSuccess: () => {
-      // Invalidate all data that depends on Monarch data
-      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.dashboard, isDemo) });
-      queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.categoryStore, isDemo) });
+      smartInvalidate('sync');
 
       // Notify Electron main process about sync completion to update tray menu
       if (!isDemo && globalThis.electron?.pendingSync?.notifyCompleted) {

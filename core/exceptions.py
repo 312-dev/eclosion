@@ -50,7 +50,7 @@ class RateLimitError(MonarchAPIError):
 
     The `source` field distinguishes between:
     - "monarch": Rate limited by Monarch's API
-    - "eclosion_sync_cooldown": Eclosion's internal 5-minute sync cooldown
+    - "eclosion_sync_cooldown": Eclosion's internal 1-minute sync cooldown
     - None: Unknown/legacy rate limit (treated as Monarch)
     """
 

@@ -3,7 +3,7 @@
  *
  * Manages browser selection and folder selection for bookmark syncing.
  * This wizard is specifically for setting up browser bookmark integration,
- * not general wishlist configuration.
+ * not general stash configuration.
  */
 
 import { useState, useCallback, useMemo, useEffect } from 'react';
@@ -12,9 +12,9 @@ import { useBrowserSelection } from './wizard/useBrowserSelection';
 import { useFolderSelection } from './wizard/useFolderSelection';
 import { useBookmarks } from './useBookmarks';
 import {
-  useUpdateWishlistConfigMutation,
+  useUpdateStashConfigMutation,
   useImportBookmarksMutation,
-} from '../api/queries/wishlistQueries';
+} from '../api/queries/stashQueries';
 import type { Bookmark, BrowserType, ImportBookmark } from '../types';
 
 // Wizard steps: Browser Selection → Folder Selection
@@ -107,7 +107,7 @@ export function useBrowserBookmarksSetup({
   const browserSelection = useBrowserSelection();
   const folderSelection = useFolderSelection();
   const { getBookmarkTree } = useBookmarks();
-  const updateConfigMutation = useUpdateWishlistConfigMutation();
+  const updateConfigMutation = useUpdateStashConfigMutation();
   const importBookmarksMutation = useImportBookmarksMutation();
 
   const [currentStep, setCurrentStep] = useState(0);

@@ -1,0 +1,225 @@
+/**
+ * Stash Pending Bookmarks Queries
+ *
+ * Queries and mutations for pending bookmark review functionality.
+ */
+
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useDemo } from '../../context/DemoContext';
+import * as api from '../client';
+import * as demoApi from '../demoClient';
+import { queryKeys, getQueryKey } from './keys';
+import { useSmartInvalidate } from '../../hooks/useSmartInvalidate';
+import type { PendingBookmark, ImportBookmark } from '../../types';
+
+/**
+ * Pending bookmarks query - fetches bookmarks awaiting review
+ */
+export function usePendingBookmarksQuery(options?: { enabled?: boolean }) {
+  const isDemo = useDemo();
+  return useQuery({
+    queryKey: getQueryKey(queryKeys.pendingBookmarks, isDemo),
+    queryFn: async (): Promise<PendingBookmark[]> => {
+      const response = isDemo
+        ? await demoApi.getPendingBookmarks()
+        : await api.getPendingBookmarks();
+      return response.bookmarks;
+    },
+    staleTime: 30 * 1000,
+    gcTime: 5 * 60 * 1000,
+    ...options,
+  });
+}
+
+/**
+ * Pending bookmarks count query - for banner display
+ */
+export function usePendingCountQuery(options?: { enabled?: boolean }) {
+  const isDemo = useDemo();
+  return useQuery({
+    queryKey: getQueryKey(queryKeys.pendingBookmarksCount, isDemo),
+    queryFn: async (): Promise<number> => {
+      const response = isDemo ? await demoApi.getPendingCount() : await api.getPendingCount();
+      return response.count;
+    },
+    staleTime: 30 * 1000,
+    gcTime: 5 * 60 * 1000,
+    ...options,
+  });
+}
+
+/**
+ * Skipped/ignored bookmarks query - for Ignored Bookmarks section
+ */
+export function useSkippedBookmarksQuery(options?: { enabled?: boolean }) {
+  const isDemo = useDemo();
+  return useQuery({
+    queryKey: getQueryKey(queryKeys.skippedBookmarks, isDemo),
+    queryFn: async (): Promise<PendingBookmark[]> => {
+      const response = isDemo
+        ? await demoApi.getSkippedBookmarks()
+        : await api.getSkippedBookmarks();
+      return response.bookmarks;
+    },
+    staleTime: 30 * 1000,
+    gcTime: 5 * 60 * 1000,
+    ...options,
+  });
+}
+
+/**
+ * Skip pending bookmark mutation with optimistic updates
+ */
+export function useSkipPendingMutation() {
+  const isDemo = useDemo();
+  const queryClient = useQueryClient();
+  const smartInvalidate = useSmartInvalidate();
+  const pendingKey = getQueryKey(queryKeys.pendingBookmarks, isDemo);
+  const countKey = getQueryKey(queryKeys.pendingBookmarksCount, isDemo);
+  const skippedKey = getQueryKey(queryKeys.skippedBookmarks, isDemo);
+
+  return useMutation({
+    mutationFn: (id: string) =>
+      isDemo ? demoApi.skipPendingBookmark(id) : api.skipPendingBookmark(id),
+
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: pendingKey });
+      await queryClient.cancelQueries({ queryKey: countKey });
+      await queryClient.cancelQueries({ queryKey: skippedKey });
+
+      const previousPending = queryClient.getQueryData<PendingBookmark[]>(pendingKey);
+      const previousCount = queryClient.getQueryData<number>(countKey);
+      const previousSkipped = queryClient.getQueryData<PendingBookmark[]>(skippedKey);
+
+      // Find the bookmark to move
+      const bookmarkToSkip = previousPending?.find((b) => b.id === id);
+
+      if (previousPending) {
+        queryClient.setQueryData<PendingBookmark[]>(pendingKey, (old) =>
+          old ? old.filter((b) => b.id !== id) : old
+        );
+      }
+
+      if (previousCount !== undefined) {
+        queryClient.setQueryData<number>(countKey, Math.max(0, previousCount - 1));
+      }
+
+      if (previousSkipped && bookmarkToSkip) {
+        queryClient.setQueryData<PendingBookmark[]>(skippedKey, (old) =>
+          old ? [...old, { ...bookmarkToSkip, is_skipped: true }] : old
+        );
+      }
+
+      return { previousPending, previousCount, previousSkipped };
+    },
+
+    onError: (_err, _id, context) => {
+      if (context?.previousPending) {
+        queryClient.setQueryData(pendingKey, context.previousPending);
+      }
+      if (context?.previousCount !== undefined) {
+        queryClient.setQueryData(countKey, context.previousCount);
+      }
+      if (context?.previousSkipped) {
+        queryClient.setQueryData(skippedKey, context.previousSkipped);
+      }
+    },
+
+    onSettled: () => {
+      smartInvalidate('skipPending');
+    },
+  });
+}
+
+/**
+ * Convert pending bookmark mutation with optimistic updates
+ */
+export function useConvertPendingMutation() {
+  const isDemo = useDemo();
+  const queryClient = useQueryClient();
+  const smartInvalidate = useSmartInvalidate();
+  const pendingKey = getQueryKey(queryKeys.pendingBookmarks, isDemo);
+  const countKey = getQueryKey(queryKeys.pendingBookmarksCount, isDemo);
+
+  return useMutation({
+    mutationFn: (id: string) =>
+      isDemo ? demoApi.convertPendingBookmark(id) : api.convertPendingBookmark(id),
+
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: pendingKey });
+      await queryClient.cancelQueries({ queryKey: countKey });
+
+      const previousPending = queryClient.getQueryData<PendingBookmark[]>(pendingKey);
+      const previousCount = queryClient.getQueryData<number>(countKey);
+
+      if (previousPending) {
+        queryClient.setQueryData<PendingBookmark[]>(pendingKey, (old) =>
+          old ? old.filter((b) => b.id !== id) : old
+        );
+      }
+
+      if (previousCount !== undefined) {
+        queryClient.setQueryData<number>(countKey, Math.max(0, previousCount - 1));
+      }
+
+      return { previousPending, previousCount };
+    },
+
+    onError: (_err, _id, context) => {
+      if (context?.previousPending) {
+        queryClient.setQueryData(pendingKey, context.previousPending);
+      }
+      if (context?.previousCount !== undefined) {
+        queryClient.setQueryData(countKey, context.previousCount);
+      }
+    },
+
+    onSettled: () => {
+      smartInvalidate('convertPending');
+    },
+  });
+}
+
+/**
+ * Import bookmarks mutation
+ */
+export function useImportBookmarksMutation() {
+  const isDemo = useDemo();
+  const smartInvalidate = useSmartInvalidate();
+  return useMutation({
+    mutationFn: (bookmarks: ImportBookmark[]) =>
+      isDemo ? demoApi.importBookmarks(bookmarks) : api.importBookmarks(bookmarks),
+    onSuccess: () => {
+      smartInvalidate('importBookmarks');
+    },
+  });
+}
+
+/**
+ * Clear unconverted pending bookmarks mutation
+ */
+export function useClearUnconvertedBookmarksMutation() {
+  const isDemo = useDemo();
+  const smartInvalidate = useSmartInvalidate();
+  return useMutation({
+    mutationFn: () =>
+      isDemo ? demoApi.clearUnconvertedBookmarks() : api.clearUnconvertedBookmarks(),
+    onSuccess: () => {
+      smartInvalidate('clearUnconvertedBookmarks');
+    },
+  });
+}
+
+/**
+ * Helper: Invalidate pending bookmarks data
+ */
+export function useInvalidatePendingBookmarks() {
+  const isDemo = useDemo();
+  const queryClient = useQueryClient();
+  return () => {
+    queryClient.invalidateQueries({ queryKey: getQueryKey(queryKeys.pendingBookmarks, isDemo) });
+    queryClient.invalidateQueries({
+      queryKey: getQueryKey(queryKeys.pendingBookmarksCount, isDemo),
+    });
+  };
+}

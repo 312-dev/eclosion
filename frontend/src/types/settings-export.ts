@@ -127,13 +127,13 @@ export interface NotesExport {
 }
 
 // ============================================================================
-// Wishlist Export Types
+// Stash Export Types
 // ============================================================================
 
 /**
- * Wishlist configuration in export format.
+ * Stash configuration in export format.
  */
-export interface WishlistExportConfig {
+export interface StashExportConfig {
   is_configured: boolean;
   default_category_group_id: string | null;
   default_category_group_name: string | null;
@@ -142,13 +142,15 @@ export interface WishlistExportConfig {
   selected_folder_names: string[];
   auto_archive_on_bookmark_delete: boolean;
   auto_archive_on_goal_met: boolean;
+  include_expected_income?: boolean;
+  show_monarch_goals?: boolean;
 }
 
 /**
- * Wishlist item in export format.
+ * Stash item in export format.
  * Note: custom_image_path is excluded (not portable).
  */
-export interface WishlistExportItem {
+export interface StashExportItem {
   id: string;
   name: string;
   amount: number;
@@ -172,24 +174,41 @@ export interface WishlistExportItem {
 /**
  * Pending bookmark in export format.
  */
-export interface WishlistExportBookmark {
+export interface StashExportBookmark {
   url: string;
   name: string;
   bookmark_id: string;
   browser_type: string;
   logo_url: string | null;
   status: 'pending' | 'skipped' | 'converted';
-  wishlist_item_id: string | null;
+  stash_item_id: string | null;
   created_at: string | null;
 }
 
 /**
- * Complete wishlist tool export data.
+ * Stash hypothesis in export format.
+ * Contains saved what-if scenarios for the Distribute Wizard.
  */
-export interface WishlistExport {
-  config: WishlistExportConfig;
-  items: WishlistExportItem[];
-  pending_bookmarks: WishlistExportBookmark[];
+export interface StashExportHypothesis {
+  id: string;
+  name: string;
+  savings_allocations: Record<string, number>;
+  savings_total: number;
+  monthly_allocations: Record<string, number>;
+  monthly_total: number;
+  events: Record<string, unknown[]>;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+/**
+ * Complete stash tool export data.
+ */
+export interface StashExport {
+  config: StashExportConfig;
+  items: StashExportItem[];
+  pending_bookmarks: StashExportBookmark[];
+  hypotheses?: StashExportHypothesis[];
 }
 
 // ============================================================================
@@ -201,7 +220,7 @@ export interface WishlistExport {
  *
  * Version history:
  * - 1.0: Initial version (recurring tool only)
- * - 1.1: Added notes and wishlist tools
+ * - 1.1: Added notes and stash tools
  */
 export interface EclosionExport {
   eclosion_export: EclosionExportMetadata;
@@ -209,8 +228,8 @@ export interface EclosionExport {
     recurring?: RecurringExport;
     /** Notes tool data. Only included in encrypted exports for security. */
     notes?: NotesExport;
-    /** Wishlist tool data. */
-    wishlist?: WishlistExport;
+    /** Stash tool data. */
+    stash?: StashExport;
   };
   app_settings: AppSettingsExport;
 }
@@ -224,7 +243,7 @@ export interface EclosionExport {
  */
 export interface ImportOptions {
   /** Specific tools to import. If not provided, all tools are imported. */
-  tools?: ('recurring' | 'notes' | 'wishlist')[];
+  tools?: ('recurring' | 'notes' | 'stash')[];
   /** Passphrase for notes re-encryption. Required if importing notes. */
   passphrase?: string;
 }
@@ -261,11 +280,12 @@ export interface ImportPreview {
       archived_notes_count: number;
       has_checkbox_states: boolean;
     };
-    wishlist?: {
+    stash?: {
       has_config: boolean;
       items_count: number;
       archived_items_count: number;
       pending_bookmarks_count: number;
+      hypotheses_count: number;
     };
   };
 }

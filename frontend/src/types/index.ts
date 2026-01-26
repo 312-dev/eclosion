@@ -10,27 +10,55 @@
 // Common types (shared across domains)
 export type { ItemStatus } from './common';
 
-// Savings goal base types (shared between recurring and wishlist)
+// Savings goal base types (shared between recurring and stash)
 export type { SavingsGoalBase, SavingsGoalComputed } from './savingsGoal';
 
-// Wishlist items
+// Stash items (savings goals)
 export type {
-  WishlistItem,
-  CreateWishlistItemRequest,
-  UpdateWishlistItemRequest,
-  WishlistSyncResult,
-  WishlistLayoutUpdate,
-  WishlistData,
-} from './wishlist';
+  StashGoalType,
+  StashItem,
+  CreateStashItemRequest,
+  UpdateStashItemRequest,
+  StashSyncResult,
+  StashLayoutUpdate,
+  StashData,
+  StashHypothesis,
+  SaveHypothesisRequest,
+  SaveHypothesisResponse,
+  GetHypothesesResponse,
+  DeleteHypothesisResponse,
+} from './stash';
 
-// Wishlist configuration
+// Stash configuration
 export type {
-  WishlistConfig,
-  WishlistWizardState,
+  StashConfig,
+  StashWizardState,
   CategoryMappingChoice,
   CategoryMappingRequest,
-  WishlistImageUploadResult,
-} from './wishlistConfig';
+  StashImageUploadResult,
+} from './stashConfig';
+
+// Stash events (ephemeral, for hypothetical projections)
+export type { StashEvent, StashEventType, StashEventsMap } from './stashEvent';
+
+// Timeline types (for hypothesize mode emulator)
+export type {
+  TimelineResolution,
+  NamedEventType,
+  NamedEvent,
+  TimelineDataPoint,
+  TimelineItemConfig,
+  TimelineZoomState,
+  ProjectedCardState,
+  EditingEventContext,
+  TimelineScenarioState,
+  TimelineProjectionResult,
+  TimelineProjectionInput,
+} from './timeline';
+export { createDefaultTimelineState, DEFAULT_TIMELINE_ZOOM } from './timeline';
+
+// Monarch goals (displayed in Stash grid)
+export type { GoalStatus, MonarchGoal, MonarchGoalLayoutUpdate } from './monarchGoal';
 
 // Recurring items and rollup
 export type { RecurringItem, RollupItem, RollupData } from './recurring';
@@ -57,6 +85,9 @@ export type {
 // Category operations
 export type {
   CategoryGroup,
+  CategoryGroupDetailed,
+  CategoryGroupRolloverPeriod,
+  UpdateCategoryGroupSettingsRequest,
   UnmappedCategory,
   LinkCategoryResult,
   DeletableCategory,
@@ -101,10 +132,10 @@ export type {
   NotesExportGeneralNote,
   NotesExportArchivedNote,
   NotesExport,
-  WishlistExportConfig,
-  WishlistExportItem,
-  WishlistExportBookmark,
-  WishlistExport,
+  StashExportConfig,
+  StashExportItem,
+  StashExportBookmark,
+  StashExport,
   EclosionExport,
   ImportOptions,
   ImportResult,
@@ -168,3 +199,51 @@ export type {
   ImportBookmarksResponse,
   PendingBookmarkActionResponse,
 } from './pendingBookmark';
+
+// Available Funds calculation
+export type {
+  AccountBalance,
+  CategoryBudget,
+  GoalBalance,
+  StashItemBalance,
+  AvailableToStashData,
+  AvailableToStashOptions,
+  AvailableToStashBreakdown,
+  AvailableToStashResult,
+  BreakdownLineItem,
+  DetailedBreakdown,
+} from './availableToStash';
+export {
+  CASH_ACCOUNT_TYPES,
+  CREDIT_CARD_ACCOUNT_TYPES,
+  DEBT_ACCOUNT_TYPES,
+  isCashAccount,
+  isCreditCardAccount,
+  isDebtAccount,
+} from './availableToStash';
+
+// Stash history and reports
+export type {
+  StashMonthData,
+  StashHistoryItem,
+  StashHistoryResponse,
+  StashReportTimeRange,
+  StashReportTabMode,
+  StashReportSettings,
+} from './stashHistory';
+export { DEFAULT_REPORT_SETTINGS, timeRangeToMonths } from './stashHistory';
+
+// Openverse image search
+export type {
+  OpenverseCredentials,
+  OpenverseAccessToken,
+  OpenverseImage,
+  OpenverseSearchRequest,
+  OpenverseLicenseFilter,
+  OpenverseSearchResult,
+  OpenverseRegisterRequest,
+  OpenverseRegisterResponse,
+  OpenverseTokenRequest,
+  OpenverseTokenResponse,
+  ImageSelection,
+} from './openverse';

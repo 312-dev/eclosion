@@ -1,7 +1,7 @@
 """
 Metadata Service
 
-Fetches Open Graph metadata from URLs for wishlist item images.
+Fetches Open Graph metadata from URLs for stash item images.
 """
 
 import base64
@@ -244,6 +244,7 @@ async def _extract_og_image_url(session: aiohttp.ClientSession, url: str) -> str
             soup = BeautifulSoup(html, "lxml")
 
             # Try og:image first
+            # bs4 type stubs are incomplete - find() returns Tag which has .get()
             og_tag = soup.find("meta", property="og:image")
             if og_tag and og_tag.get("content"):
                 return str(og_tag["content"])

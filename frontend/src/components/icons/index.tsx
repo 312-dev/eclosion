@@ -25,17 +25,24 @@ import {
   X,
   Plus,
   Minus,
+  CircleMinus,
   Pencil,
+  PencilOff,
   Trash2,
   ExternalLink,
   Link,
+  ListTree,
   Info,
   AlertCircle,
   AlertTriangle,
   CheckCircle,
   Clock,
+  ClockAlert,
+  ClockArrowUp,
+  ClockArrowDown,
   ArrowUp,
   ArrowDown,
+  ArrowBigDownDash,
   Menu,
   Search,
   Filter,
@@ -70,13 +77,16 @@ import {
   Inbox,
   Package,
   Ban,
+  BarChart2,
   Eye,
   EyeOff,
   Download,
   Upload,
+  Save,
   Copy,
   Folder,
   FolderCheck,
+  FolderOpen,
   Bookmark,
   Circle,
   Frown,
@@ -102,8 +112,21 @@ import {
   PiggyBank,
   Coins,
   Wallet,
+  Banknote,
+  BanknoteArrowUp,
+  TrendingUpDown,
   Square,
   CheckSquare,
+  Landmark,
+  Maximize2,
+  ThumbsUp,
+  ThumbsDown,
+  FlaskConical,
+  FlaskConicalOff,
+  Wrench,
+  Sparkles,
+  BadgeDollarSign,
+  HandCoins,
 } from 'lucide-react';
 import type { SVGProps } from 'react';
 
@@ -132,20 +155,27 @@ export const CheckSimpleIcon = Check;
 export const XIcon = X;
 export const PlusIcon = Plus;
 export const MinusIcon = Minus;
+export const CircleMinusIcon = CircleMinus;
 export const EditIcon = Pencil;
+export const EditOffIcon = PencilOff;
 export const TrashIcon = Trash2;
 export const ExternalLinkIcon = ExternalLink;
 export const LinkIcon = Link;
+export const ListTreeIcon = ListTree;
 export const InfoIcon = Info;
 
 export const AlertCircleIcon = AlertCircle;
 export const WarningIcon = AlertTriangle;
 export const CheckCircleIcon = CheckCircle;
 export const ClockIcon = Clock;
+export const ClockAlertIcon = ClockAlert;
+export const ClockArrowUpIcon = ClockArrowUp;
+export const ClockArrowDownIcon = ClockArrowDown;
 export const TrendUpIcon = ChevronsUp;
 export const TrendDownIcon = ChevronsDown;
 export const ArrowUpIcon = ArrowUp;
 export const ArrowDownIcon = ArrowDown;
+export const ArrowBigDownDashIcon = ArrowBigDownDash;
 export const MenuIcon = Menu;
 export const SearchIcon = Search;
 export const FilterIcon = Filter;
@@ -180,14 +210,17 @@ export const NewspaperIcon = Newspaper;
 export const RepeatIcon = Repeat;
 export const InboxIcon = Inbox;
 export const PackageIcon = Package;
+export const BarChart2Icon = BarChart2;
 export const BlockedIcon = Ban;
 export const EyeIcon = Eye;
 export const EyeOffIcon = EyeOff;
 export const DownloadIcon = Download;
 export const UploadIcon = Upload;
+export const SaveIcon = Save;
 export const CopyIcon = Copy;
 export const FolderIcon = Folder;
 export const FolderCheckIcon = FolderCheck;
+export const FolderOpenIcon = FolderOpen;
 export const BookmarkIcon = Bookmark;
 export const CircleIcon = Circle;
 export const SadFaceIcon = Frown;
@@ -213,8 +246,19 @@ export const AwardIcon = Award;
 export const PiggyBankIcon = PiggyBank;
 export const CoinsIcon = Coins;
 export const WalletIcon = Wallet;
+export const BanknoteIcon = Banknote;
+export const BanknoteArrowUpIcon = BanknoteArrowUp;
+export const TrendingUpDownIcon = TrendingUpDown;
 export const SquareIcon = Square;
 export const CheckSquareIcon = CheckSquare;
+export const ThumbsUpIcon = ThumbsUp;
+export const ThumbsDownIcon = ThumbsDown;
+export const FlaskConicalIcon = FlaskConical;
+export const FlaskConicalOffIcon = FlaskConicalOff;
+export const WrenchIcon = Wrench;
+export const SparklesIcon = Sparkles;
+export const BadgeDollarSignIcon = BadgeDollarSign;
+export const HandCoinsIcon = HandCoins;
 
 // =============================================================================
 // Custom Icons (not available in Lucide)
@@ -234,10 +278,10 @@ export function SpinnerIcon({
 export function CheckFilledIcon({ size = 24, color: _color = 'currentColor', ...rest }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" {...rest}>
-      <circle cx="12" cy="12" r="10" fill="#10B981" />
+      <circle cx="12" cy="12" r="10" style={{ fill: 'var(--monarch-success)' }} />
       <path
         d="M8 12l2.5 2.5L16 9"
-        stroke="white"
+        style={{ stroke: 'var(--monarch-bg-card, white)' }}
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -256,14 +300,18 @@ export function WarningFilledIcon({
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" {...rest}>
       <path
         d="M12 2L2 20h20L12 2z"
-        fill="#F59E0B"
-        stroke="#F59E0B"
+        style={{ fill: 'var(--monarch-warning)', stroke: 'var(--monarch-warning)' }}
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <path d="M12 9v4" stroke="white" strokeWidth="2" strokeLinecap="round" />
-      <circle cx="12" cy="16" r="1" fill="white" />
+      <path
+        d="M12 9v4"
+        style={{ stroke: 'var(--monarch-bg-card, white)' }}
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+      <circle cx="12" cy="16" r="1" style={{ fill: 'var(--monarch-bg-card, white)' }} />
     </svg>
   );
 }
@@ -276,9 +324,14 @@ export function AlertCircleFilledIcon({
 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" {...rest}>
-      <circle cx="12" cy="12" r="10" fill="#EF4444" />
-      <path d="M12 8v4" stroke="white" strokeWidth="2" strokeLinecap="round" />
-      <circle cx="12" cy="16" r="1" fill="white" />
+      <circle cx="12" cy="12" r="10" style={{ fill: 'var(--monarch-error)' }} />
+      <path
+        d="M12 8v4"
+        style={{ stroke: 'var(--monarch-bg-card, white)' }}
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+      <circle cx="12" cy="16" r="1" style={{ fill: 'var(--monarch-bg-card, white)' }} />
     </svg>
   );
 }
@@ -494,10 +547,13 @@ export const Icons = {
   X: XIcon,
   Plus: PlusIcon,
   Minus: MinusIcon,
+  CircleMinus: CircleMinusIcon,
   Edit: EditIcon,
+  EditOff: EditOffIcon,
   Trash: TrashIcon,
   ExternalLink: ExternalLinkIcon,
   Link: LinkIcon,
+  ListTree: ListTreeIcon,
 
   // Status
   Info: InfoIcon,
@@ -507,12 +563,16 @@ export const Icons = {
   WarningFilled: WarningFilledIcon,
   CheckCircle: CheckCircleIcon,
   Clock: ClockIcon,
+  ClockAlert: ClockAlertIcon,
+  ClockArrowUp: ClockArrowUpIcon,
+  ClockArrowDown: ClockArrowDownIcon,
 
   // Trends
   TrendUp: TrendUpIcon,
   TrendDown: TrendDownIcon,
   ArrowUp: ArrowUpIcon,
   ArrowDown: ArrowDownIcon,
+  ArrowBigDownDash: ArrowBigDownDashIcon,
 
   // UI
   Menu: MenuIcon,
@@ -520,6 +580,7 @@ export const Icons = {
   SearchAlert: SearchAlertIcon,
   Filter: FilterIcon,
   MoreVertical: MoreVerticalIcon,
+  Maximize2,
 
   // Calendar
   Calendar: CalendarIcon,
@@ -560,13 +621,16 @@ export const Icons = {
   Blocked: BlockedIcon,
 
   // Misc
+  BarChart2: BarChart2Icon,
   Eye: EyeIcon,
   EyeOff: EyeOffIcon,
   Download: DownloadIcon,
   Upload: UploadIcon,
+  Save: SaveIcon,
   Copy: CopyIcon,
   Folder: FolderIcon,
   FolderCheck: FolderCheckIcon,
+  FolderOpen: FolderOpenIcon,
   Bookmark: BookmarkIcon,
   Circle: CircleIcon,
   SadFace: SadFaceIcon,
@@ -608,11 +672,33 @@ export const Icons = {
   Award: AwardIcon,
   PiggyBank: PiggyBankIcon,
   Coins: CoinsIcon,
+  Landmark,
   Wallet: WalletIcon,
+  Banknote: BanknoteIcon,
+  BanknoteArrowUp: BanknoteArrowUpIcon,
+  TrendingUpDown: TrendingUpDownIcon,
 
   // Selection
   Square: SquareIcon,
   CheckSquare: CheckSquareIcon,
+
+  // Feedback
+  ThumbsUp: ThumbsUpIcon,
+  ThumbsDown: ThumbsDownIcon,
+
+  // Science/Analysis
+  FlaskConical: FlaskConicalIcon,
+  FlaskConicalOff: FlaskConicalOffIcon,
+
+  // Tools
+  Wrench: WrenchIcon,
+
+  // Effects
+  Sparkles: SparklesIcon,
+
+  // Money/Debt
+  BadgeDollarSign: BadgeDollarSignIcon,
+  HandCoins: HandCoinsIcon,
 };
 
 export { Mail as MailIcon, HelpCircle as HelpIcon } from 'lucide-react';

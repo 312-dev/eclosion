@@ -24,7 +24,7 @@ import {
   RecurringToolSettings,
   RecurringResetModal,
   NotesToolCard,
-  WishlistToolSettings,
+  StashToolSettings,
   SyncingSection,
   UpdatesSection,
   DesktopSection,
@@ -38,9 +38,9 @@ import {
   DeveloperSection,
   SettingsHeader,
 } from '../settings';
-import { BrowserBookmarksSetupWizard } from '../wizards/wishlist/BrowserBookmarksSetupWizard';
+import { BrowserBookmarksSetupWizard } from '../wizards/stash/BrowserBookmarksSetupWizard';
 import {
-  useUpdateWishlistConfigMutation,
+  useUpdateStashConfigMutation,
   useClearUnconvertedBookmarksMutation,
 } from '../../api/queries';
 
@@ -61,9 +61,9 @@ export function SettingsTab() {
   const isDesktop = isDesktopMode();
   const recurringSettingsRef = useRef<HTMLDivElement>(null);
   const notesSettingsRef = useRef<HTMLDivElement>(null);
-  const wishlistSettingsRef = useRef<HTMLDivElement>(null);
+  const stashSettingsRef = useRef<HTMLDivElement>(null);
   const client = useApiClient();
-  const updateWishlistConfig = useUpdateWishlistConfigMutation();
+  const updateStashConfig = useUpdateStashConfigMutation();
   const clearUnconvertedBookmarks = useClearUnconvertedBookmarksMutation();
   const location = useLocation();
 
@@ -71,7 +71,7 @@ export function SettingsTab() {
   const expandedTool = useMemo(() => {
     if (initialHash === '#recurring') return 'recurring';
     if (initialHash === '#notes') return 'notes';
-    if (initialHash === '#wishlist') return 'wishlist';
+    if (initialHash === '#stash') return 'stash';
     return null;
   }, [initialHash]);
 
@@ -90,7 +90,7 @@ export function SettingsTab() {
         const refMap = {
           recurring: recurringSettingsRef,
           notes: notesSettingsRef,
-          wishlist: wishlistSettingsRef,
+          stash: stashSettingsRef,
         };
         refMap[expandedTool].current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }, UI.SCROLL.AFTER_MOUNT);
@@ -136,7 +136,7 @@ export function SettingsTab() {
     if (!result.success) throw new Error(result.error || 'Failed to disable auto-sync');
   };
 
-  const resetWishlistConfig = {
+  const resetStashConfig = {
     isConfigured: false,
     selectedBrowser: null,
     selectedFolderIds: [],
@@ -146,7 +146,7 @@ export function SettingsTab() {
   const handleChangeBookmarkSource = async () => {
     try {
       await clearUnconvertedBookmarks.mutateAsync();
-      await updateWishlistConfig.mutateAsync(resetWishlistConfig);
+      await updateStashConfig.mutateAsync(resetStashConfig);
       setShowBookmarkSetupModal(true);
     } catch {
       toast.error('Failed to reset bookmark source');
@@ -156,7 +156,7 @@ export function SettingsTab() {
   const handleUnlinkBookmarks = async () => {
     try {
       await clearUnconvertedBookmarks.mutateAsync();
-      await updateWishlistConfig.mutateAsync(resetWishlistConfig);
+      await updateStashConfig.mutateAsync(resetStashConfig);
       toast.success('Bookmark sync unlinked');
     } catch {
       toast.error('Failed to unlink bookmark sync');
@@ -200,9 +200,9 @@ export function SettingsTab() {
               defaultExpanded={expandedTool === 'recurring'}
             />
             <NotesToolCard ref={notesSettingsRef} defaultExpanded={expandedTool === 'notes'} />
-            <WishlistToolSettings
-              ref={wishlistSettingsRef}
-              defaultExpanded={expandedTool === 'wishlist'}
+            <StashToolSettings
+              ref={stashSettingsRef}
+              defaultExpanded={expandedTool === 'stash'}
               onSetupBookmarkSync={isDesktop ? () => setShowBookmarkSetupModal(true) : undefined}
               onChangeBookmarkSource={isDesktop ? handleChangeBookmarkSource : undefined}
               onUnlinkBookmarks={isDesktop ? handleUnlinkBookmarks : undefined}

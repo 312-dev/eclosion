@@ -109,7 +109,8 @@ import {
   updateBackgroundSyncInterval,
 } from './background-sync';
 import { setupBookmarkIpcHandlers } from './bookmarks';
-import { setupWishlistIpcHandlers } from './wishlist';
+import { setupStashIpcHandlers } from './stash';
+import { setupOpenverseIpcHandlers } from './openverse';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
@@ -1229,9 +1230,16 @@ export function setupIpcHandlers(backendManager: BackendManager): void {
   setupBookmarkIpcHandlers();
 
   // =========================================================================
-  // Wishlist
+  // Stash
   // =========================================================================
 
-  // Setup wishlist-related IPC handlers (image storage)
-  setupWishlistIpcHandlers();
+  // Setup stash-related IPC handlers (image storage)
+  setupStashIpcHandlers();
+
+  // =========================================================================
+  // Openverse
+  // =========================================================================
+
+  // Setup Openverse credential storage IPC handlers
+  setupOpenverseIpcHandlers();
 }

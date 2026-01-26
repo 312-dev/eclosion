@@ -3,7 +3,7 @@ Security events repository.
 """
 
 import json
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy.orm import Session
 
@@ -33,7 +33,7 @@ class SecurityRepository:
         event = SecurityEvent(
             event_type=event_type,
             success=success,
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(UTC),
             ip_address=ip_address,
             country=country,
             city=city,
@@ -70,7 +70,7 @@ class SecurityRepository:
 
     def count_recent_failures(self, event_type: str, minutes: int = 60) -> int:
         """Count failed events of a type in the last N minutes."""
-        cutoff = datetime.utcnow() - timedelta(minutes=minutes)
+        cutoff = datetime.now(UTC) - timedelta(minutes=minutes)
         return (
             self.session.query(SecurityEvent)
             .filter(
@@ -84,7 +84,7 @@ class SecurityRepository:
     def cleanup_old_events(self, days: int | None = None) -> int:
         """Delete events older than retention period."""
         retention_days = days or config.SECURITY_EVENT_RETENTION_DAYS
-        cutoff = datetime.utcnow() - timedelta(days=retention_days)
+        cutoff = datetime.now(UTC) - timedelta(days=retention_days)
 
         result = self.session.query(SecurityEvent).filter(SecurityEvent.timestamp < cutoff).delete()
         return result
@@ -112,20 +112,20 @@ class SecurityRepository:
         if existing:
             existing.country = country
             existing.city = city
-            existing.cached_at = datetime.utcnow()
+            existing.cached_at = datetime.now(UTC)
         else:
             self.session.add(
                 GeolocationCache(
                     ip_address=ip_address,
                     country=country,
                     city=city,
-                    cached_at=datetime.utcnow(),
+                    cached_at=datetime.now(UTC),
                 )
             )
 
     def cleanup_old_cache(self, hours: int = 24) -> int:
         """Delete cache entries older than N hours."""
-        cutoff = datetime.utcnow() - timedelta(hours=hours)
+        cutoff = datetime.now(UTC) - timedelta(hours=hours)
         result = (
             self.session.query(GeolocationCache)
             .filter(GeolocationCache.cached_at < cutoff)

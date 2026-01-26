@@ -12,13 +12,16 @@ import type {
   RollupItem,
   RollupData,
   CategoryGroup,
+  CategoryGroupDetailed,
   UnmappedCategory,
   Note,
   GeneralMonthNote,
   ArchivedNote,
-  WishlistItem,
-  WishlistData,
-  WishlistConfig,
+  StashItem,
+  StashData,
+  StashConfig,
+  StashHypothesis,
+  MonarchGoal,
   PendingBookmark,
 } from '../types';
 import type { NotesCategoryGroup } from '../types/notes';
@@ -46,6 +49,7 @@ export interface DemoNotesState {
 export interface DemoState {
   dashboard: DashboardData;
   categoryGroups: CategoryGroup[];
+  categoryGroupsDetailed: CategoryGroupDetailed[];
   unmappedCategories: UnmappedCategory[];
   settings: {
     auto_sync_new: boolean;
@@ -55,8 +59,10 @@ export interface DemoState {
     show_category_group: boolean;
   };
   notes: DemoNotesState;
-  wishlist: WishlistData;
-  wishlistConfig: WishlistConfig;
+  stash: StashData;
+  stashConfig: StashConfig;
+  stashHypotheses: StashHypothesis[];
+  monarchGoals: MonarchGoal[];
   pendingBookmarks: PendingBookmark[];
 }
 
@@ -156,6 +162,108 @@ const DEMO_CATEGORY_GROUPS: CategoryGroup[] = [
   { id: 'group-subscriptions', name: 'Subscriptions' },
   { id: 'group-insurance', name: 'Insurance' },
   { id: 'group-utilities', name: 'Utilities' },
+];
+
+/**
+ * Detailed category groups with rollover/flexible settings.
+ * Includes some flexible groups that can be used for stash items.
+ */
+const DEMO_CATEGORY_GROUPS_DETAILED: CategoryGroupDetailed[] = [
+  {
+    id: 'group-recurring',
+    name: 'Recurring Expenses',
+    type: 'expense',
+    order: 0,
+    budget_variability: 'fixed',
+    group_level_budgeting_enabled: false,
+    rollover_enabled: false,
+    rollover_period: null,
+  },
+  {
+    id: 'group-subscriptions',
+    name: 'Subscriptions',
+    type: 'expense',
+    order: 1,
+    budget_variability: 'fixed',
+    group_level_budgeting_enabled: false,
+    rollover_enabled: false,
+    rollover_period: null,
+  },
+  {
+    id: 'group-insurance',
+    name: 'Insurance',
+    type: 'expense',
+    order: 2,
+    budget_variability: 'fixed',
+    group_level_budgeting_enabled: false,
+    rollover_enabled: false,
+    rollover_period: null,
+  },
+  {
+    id: 'group-utilities',
+    name: 'Utilities',
+    type: 'expense',
+    order: 3,
+    budget_variability: 'fixed',
+    group_level_budgeting_enabled: false,
+    rollover_enabled: false,
+    rollover_period: null,
+  },
+  // Flexible groups with rollover - can be used for stash items
+  {
+    id: 'group-dining',
+    name: '🙏 Dining Out',
+    type: 'expense',
+    order: 4,
+    budget_variability: 'flexible',
+    group_level_budgeting_enabled: true,
+    rollover_enabled: true,
+    rollover_period: {
+      id: 'rollover-dining',
+      start_month: '2025-01-01',
+      end_month: null,
+      starting_balance: 0,
+      type: 'monthly',
+      frequency: 'monthly',
+      target_amount: null,
+    },
+  },
+  {
+    id: 'group-lifestyle',
+    name: '🙏 Lifestyle',
+    type: 'expense',
+    order: 5,
+    budget_variability: 'flexible',
+    group_level_budgeting_enabled: true,
+    rollover_enabled: true,
+    rollover_period: {
+      id: 'rollover-lifestyle',
+      start_month: '2025-01-01',
+      end_month: null,
+      starting_balance: 100,
+      type: 'monthly',
+      frequency: 'monthly',
+      target_amount: null,
+    },
+  },
+  {
+    id: 'group-entertainment',
+    name: '🎉 Entertainment',
+    type: 'expense',
+    order: 6,
+    budget_variability: 'flexible',
+    group_level_budgeting_enabled: true,
+    rollover_enabled: true,
+    rollover_period: {
+      id: 'rollover-entertainment',
+      start_month: '2025-06-01',
+      end_month: null,
+      starting_balance: 50,
+      type: 'monthly',
+      frequency: 'monthly',
+      target_amount: null,
+    },
+  },
 ];
 
 // ============================================================================
@@ -1584,7 +1692,7 @@ function createInitialDemoNotes(): DemoNotesState {
 }
 
 // ============================================================================
-// Wishlist Seed Data
+// Stash Seed Data
 // ============================================================================
 
 function getTargetDate(monthsFromNow: number): string {
@@ -1596,19 +1704,23 @@ function getTargetDate(monthsFromNow: number): string {
   return isoDate ?? date.toISOString().substring(0, 10);
 }
 
-const DEMO_WISHLIST_ITEMS: WishlistItem[] = [
-  // Funded item - ready to purchase
+const DEMO_STASH_ITEMS: StashItem[] = [
+  // Funded item - ready to purchase (one-time purchase goal)
+  // All $350 came from previous months (rollover), no credits this month
   {
-    type: 'wishlist',
-    id: 'wishlist-headphones',
+    type: 'stash',
+    id: 'stash-headphones',
     name: 'Sony WH-1000XM5',
     amount: 350,
     current_balance: 350,
     planned_budget: 0,
-    category_id: 'cat-wishlist-headphones',
+    last_month_planned_budget: 50, // Was still saving last month before completing
+    rollover_amount: 350,
+    credits_this_month: 0,
+    category_id: 'cat-stash-headphones',
     category_name: 'Sony WH-1000XM5',
-    category_group_id: 'group-wishlist',
-    category_group_name: 'Wishlist',
+    category_group_id: 'group-stash',
+    category_group_name: 'Stashes',
     is_enabled: true,
     status: 'funded',
     progress_percent: 100,
@@ -1625,19 +1737,26 @@ const DEMO_WISHLIST_ITEMS: WishlistItem[] = [
     grid_y: 0,
     col_span: 1,
     row_span: 1,
+    goal_type: 'one_time',
+    created_at: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString(), // 60 days ago
   },
-  // On track - saving steadily
+  // On track - saving steadily (one-time purchase goal)
+  // $425 = $233 rollover + $50 credits (refund) + $142 budgeted this month
+  // Tooltip shows: "$233 rolled over, $50 from credits, $142 budgeted this month"
   {
-    type: 'wishlist',
-    id: 'wishlist-guitar',
+    type: 'stash',
+    id: 'stash-guitar',
     name: 'Fender Player Stratocaster',
     amount: 850,
     current_balance: 425,
     planned_budget: 142,
-    category_id: 'cat-wishlist-guitar',
+    last_month_planned_budget: 142, // Consistent monthly saving
+    rollover_amount: 233,
+    credits_this_month: 50,
+    category_id: 'cat-stash-guitar',
     category_name: 'Fender Guitar',
-    category_group_id: 'group-wishlist',
-    category_group_name: 'Wishlist',
+    category_group_id: 'group-stash',
+    category_group_name: 'Stashes',
     is_enabled: true,
     status: 'on_track',
     progress_percent: 50,
@@ -1653,19 +1772,25 @@ const DEMO_WISHLIST_ITEMS: WishlistItem[] = [
     grid_y: 0,
     col_span: 1,
     row_span: 1,
+    goal_type: 'one_time',
+    created_at: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString(), // 90 days ago
   },
-  // Behind - needs to catch up
+  // Behind - needs to catch up (savings buffer goal - emergency fund style)
+  // $800 = $600 rollover + $200 budgeted this month (no credits)
   {
-    type: 'wishlist',
-    id: 'wishlist-camera',
+    type: 'stash',
+    id: 'stash-camera',
     name: 'Sony A7 IV',
     amount: 2500,
     current_balance: 800,
     planned_budget: 200,
-    category_id: 'cat-wishlist-camera',
+    last_month_planned_budget: 175, // Increased budget this month to catch up
+    rollover_amount: 600,
+    credits_this_month: 0,
+    category_id: 'cat-stash-camera',
     category_name: 'Sony A7 IV',
-    category_group_id: 'group-wishlist',
-    category_group_name: 'Wishlist',
+    category_group_id: 'group-stash',
+    category_group_name: 'Stashes',
     is_enabled: true,
     status: 'behind',
     progress_percent: 32,
@@ -1681,21 +1806,26 @@ const DEMO_WISHLIST_ITEMS: WishlistItem[] = [
     grid_y: 0,
     col_span: 1,
     row_span: 1,
+    goal_type: 'one_time',
+    created_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days ago
   },
 ];
 
-const DEMO_ARCHIVED_WISHLIST: WishlistItem[] = [
+const DEMO_ARCHIVED_STASH: StashItem[] = [
   {
-    type: 'wishlist',
-    id: 'wishlist-keyboard',
+    type: 'stash',
+    id: 'stash-keyboard',
     name: 'Keychron Q1 Pro',
     amount: 200,
     current_balance: 200,
     planned_budget: 0,
-    category_id: 'cat-wishlist-keyboard',
+    last_month_planned_budget: 50, // Was still saving before purchase
+    rollover_amount: 200,
+    credits_this_month: 0,
+    category_id: 'cat-stash-keyboard',
     category_name: 'Keychron Q1 Pro',
-    category_group_id: 'group-wishlist',
-    category_group_name: 'Wishlist',
+    category_group_id: 'group-stash',
+    category_group_name: 'Stashes',
     is_enabled: true,
     status: 'funded',
     progress_percent: 100,
@@ -1713,12 +1843,15 @@ const DEMO_ARCHIVED_WISHLIST: WishlistItem[] = [
     grid_y: 0,
     col_span: 1,
     row_span: 1,
+    goal_type: 'one_time',
+    created_at: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000).toISOString(), // 45 days ago
+    completed_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), // Completed 1 week ago
   },
 ];
 
-export function createInitialWishlistData(): WishlistData {
-  const items = DEMO_WISHLIST_ITEMS;
-  const archivedItems = DEMO_ARCHIVED_WISHLIST;
+export function createInitialStashData(): StashData {
+  const items = DEMO_STASH_ITEMS;
+  const archivedItems = DEMO_ARCHIVED_STASH;
 
   return {
     items,
@@ -1729,7 +1862,7 @@ export function createInitialWishlistData(): WishlistData {
   };
 }
 
-export function createInitialWishlistConfig(): WishlistConfig {
+export function createInitialStashConfig(): StashConfig {
   return {
     isConfigured: false,
     defaultCategoryGroupId: null,
@@ -1739,7 +1872,113 @@ export function createInitialWishlistConfig(): WishlistConfig {
     selectedFolderNames: [],
     autoArchiveOnBookmarkDelete: true,
     autoArchiveOnGoalMet: true,
+    includeExpectedIncome: true,
+    selectedCashAccountIds: null, // Default: all accounts included
+    showMonarchGoals: true,
+    bufferAmount: 0, // Reserved buffer for Available to Stash
   };
+}
+
+/**
+ * Create initial demo Monarch goals.
+ * These represent realistic savings goals with various statuses.
+ */
+export function createInitialMonarchGoals(): MonarchGoal[] {
+  const now = new Date();
+
+  // Goal 1: Emergency Fund - at risk (behind schedule)
+  const emergencyCreated = new Date(now);
+  emergencyCreated.setMonth(now.getMonth() - 3); // Created 3 months ago
+  const emergencyTarget = new Date(now);
+  emergencyTarget.setMonth(now.getMonth() + 11); // 11 months from now
+
+  // Goal 2: Vacation - ahead of schedule
+  const vacationCreated = new Date(now);
+  vacationCreated.setMonth(now.getMonth() - 3); // Created 3 months ago
+  const vacationTarget = new Date(now);
+  vacationTarget.setMonth(now.getMonth() + 5); // 5 months from now
+
+  // Goal 3: No target date goal
+  const noTargetCreated = new Date(now);
+  noTargetCreated.setMonth(now.getMonth() - 1); // Created 1 month ago
+
+  return [
+    {
+      type: 'monarch_goal',
+      id: 'goal-emergency',
+      name: 'Emergency Fund',
+      currentBalance: 14024.24,
+      netContribution: 14024.24, // Total saved (same as balance since no spending)
+      targetAmount: 38000,
+      targetDate: emergencyTarget.toISOString().split('T')[0] || null,
+      createdAt: emergencyCreated.toISOString(),
+      progress: 37, // 37% of target
+      estimatedMonthsUntilCompletion: 13,
+      forecastedCompletionDate: new Date(now.setMonth(now.getMonth() + 13)).toISOString().split('T')[0] || null,
+      plannedMonthlyContribution: 1800,
+      status: 'at_risk',
+      monthsAheadBehind: -2, // 2 months behind
+      grid_x: 0,
+      grid_y: 0,
+      col_span: 1,
+      row_span: 1,
+      sort_order: 0,
+      isArchived: false,
+      isCompleted: false,
+      imageStorageProvider: null,
+      imageStorageProviderId: null,
+    },
+    {
+      type: 'monarch_goal',
+      id: 'goal-vacation',
+      name: 'European Vacation',
+      currentBalance: 4200,
+      netContribution: 4200, // Total saved (same as balance since no spending)
+      targetAmount: 6000,
+      targetDate: vacationTarget.toISOString().split('T')[0] || null,
+      createdAt: vacationCreated.toISOString(),
+      progress: 70, // 70% of target
+      estimatedMonthsUntilCompletion: 2,
+      forecastedCompletionDate: new Date(now.setMonth(now.getMonth() + 2)).toISOString().split('T')[0] || null,
+      plannedMonthlyContribution: 900,
+      status: 'ahead',
+      monthsAheadBehind: 3, // 3 months ahead
+      grid_x: 0,
+      grid_y: 0,
+      col_span: 1,
+      row_span: 1,
+      sort_order: 1,
+      isArchived: false,
+      isCompleted: false,
+      imageStorageProvider: null,
+      imageStorageProviderId: null,
+    },
+    {
+      type: 'monarch_goal',
+      id: 'goal-us',
+      name: '💛 Us',
+      currentBalance: 546,
+      netContribution: 546, // Total saved (same as balance since no spending)
+      targetAmount: null, // No target amount
+      createdAt: noTargetCreated.toISOString(),
+      targetDate: null, // No target date
+      progress: 0,
+      estimatedMonthsUntilCompletion: null,
+      forecastedCompletionDate: null,
+      plannedMonthlyContribution: 0,
+      status: 'no_target',
+      monthsAheadBehind: null,
+      grid_x: 0,
+      grid_y: 0,
+      col_span: 1,
+      row_span: 1,
+      sort_order: 2,
+      isArchived: false,
+      isCompleted: false,
+      imageStorageProvider: null,
+      imageStorageProviderId: null,
+    },
+  ];
 }
 
 /**
@@ -1785,6 +2024,7 @@ export function createInitialDemoState(): DemoState {
   return {
     dashboard: createDashboardData(DEMO_RECURRING_ITEMS),
     categoryGroups: DEMO_CATEGORY_GROUPS,
+    categoryGroupsDetailed: DEMO_CATEGORY_GROUPS_DETAILED,
     unmappedCategories: DEMO_UNMAPPED_CATEGORIES,
     settings: {
       auto_sync_new: true,
@@ -1794,8 +2034,10 @@ export function createInitialDemoState(): DemoState {
       show_category_group: true,
     },
     notes: createInitialDemoNotes(),
-    wishlist: createInitialWishlistData(),
-    wishlistConfig: createInitialWishlistConfig(),
+    stash: createInitialStashData(),
+    stashConfig: createInitialStashConfig(),
+    stashHypotheses: [],
+    monarchGoals: createInitialMonarchGoals(),
     pendingBookmarks: createInitialPendingBookmarks(),
   };
 }

@@ -35,11 +35,14 @@ export {
 } from './security';
 
 // Dashboard
-export { getDashboard, triggerSync } from './dashboard';
+export { getDashboard, triggerSync, triggerScopedSync, type SyncScope } from './dashboard';
 
 // Categories
 export {
   getCategoryGroups,
+  getCategoryGroupsDetailed,
+  getFlexibleCategoryGroups,
+  updateCategoryGroupSettings,
   setConfig,
   getUnmappedCategories,
   linkToCategory,
@@ -118,6 +121,7 @@ export {
   getAutoSyncStatus,
   enableAutoSync,
   disableAutoSync,
+  setAutoSyncVisibility,
   dismissNotice,
   getDeploymentInfo,
   cancelSubscription,
@@ -138,25 +142,32 @@ export {
   type Backup,
   type ExecuteMigrationResult,
   type BackupsResponse,
+  type SetVisibilityResult,
 } from './misc';
 
-// Wishlist
+// Available to Stash
+export { getAvailableToStashData } from './availableToStash';
+
+// Stash
 export {
-  getWishlist,
-  createWishlistItem,
-  updateWishlistItem,
-  archiveWishlistItem,
-  unarchiveWishlistItem,
-  deleteWishlistItem,
-  allocateWishlistFunds,
-  changeWishlistGroup,
-  linkWishlistCategory,
-  syncWishlist,
-  reorderWishlistItems,
-  updateWishlistLayouts,
-  getWishlistCategoryGroups,
-  getWishlistConfig,
-  updateWishlistConfig,
+  getStash,
+  createStashItem,
+  updateStashItem,
+  archiveStashItem,
+  unarchiveStashItem,
+  completeStashItem,
+  uncompleteStashItem,
+  deleteStashItem,
+  allocateStashFunds,
+  allocateStashFundsBatch,
+  changeStashGroup,
+  linkStashCategory,
+  syncStash,
+  reorderStashItems,
+  updateStashLayouts,
+  getStashCategoryGroups,
+  getStashConfig,
+  updateStashConfig,
   // Pending bookmarks
   getPendingBookmarks,
   getPendingCount,
@@ -165,4 +176,21 @@ export {
   convertPendingBookmark,
   importBookmarks,
   clearUnconvertedBookmarks,
-} from './wishlist';
+  // Stash history (reports)
+  getStashHistory,
+  // Category rollover balance
+  updateCategoryRolloverBalance,
+  // Group rollover balance (for flexible groups)
+  updateGroupRolloverBalance,
+  // Hypotheses
+  getHypotheses,
+  saveHypothesis,
+  deleteHypothesis,
+} from './stash';
+
+// Openverse (external image search API)
+export {
+  searchImages as searchOpenverseImages,
+  getImage as getOpenverseImage,
+  generateAttribution as generateOpenverseAttribution,
+} from './openverse';

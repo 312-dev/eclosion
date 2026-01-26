@@ -9,22 +9,34 @@
  */
 
 import { RefreshCw, AlertTriangle, Clock } from 'lucide-react';
-import { useMonthTransition, formatMonthName } from '../../context/MonthTransitionContext';
+import { useMonthTransitionSafe, formatMonthName } from '../../context/MonthTransitionContext';
 import { useIsRateLimited } from '../../context/RateLimitContext';
 import { useDemo } from '../../context/DemoContext';
 
 export function MonthTransitionBanner() {
   const isDemo = useDemo();
+  const monthTransition = useMonthTransitionSafe();
 
-  // Skip in demo mode - no month transition handling
-  if (isDemo) {
+  // Skip in demo mode or if context not available
+  if (isDemo || !monthTransition) {
     return null;
   }
 
-  return <MonthTransitionBannerContent />;
+  return <MonthTransitionBannerContent monthTransition={monthTransition} />;
 }
 
-function MonthTransitionBannerContent() {
+interface MonthTransitionBannerContentProps {
+  monthTransition: {
+    currentCalendarMonth: string;
+    dataMonth: string | null;
+    transitionState: 'current' | 'syncing' | 'stale' | 'failed';
+    syncError: string | null;
+    triggerMonthSync: () => Promise<void>;
+    dismissError: () => void;
+  };
+}
+
+function MonthTransitionBannerContent({ monthTransition }: Readonly<MonthTransitionBannerContentProps>) {
   const {
     currentCalendarMonth,
     dataMonth,
@@ -32,7 +44,7 @@ function MonthTransitionBannerContent() {
     syncError,
     triggerMonthSync,
     dismissError,
-  } = useMonthTransition();
+  } = monthTransition;
   const isRateLimited = useIsRateLimited();
 
   // Don't show if data is current or no data yet
@@ -47,10 +59,10 @@ function MonthTransitionBannerContent() {
     return (
       <output
         aria-live="polite"
-        className="flex items-center gap-3 py-2 px-4 text-sm"
+        className="month-transition-banner flex items-center gap-3 py-2 px-4 text-sm"
         style={{
           backgroundColor: 'var(--monarch-info-bg)',
-          borderBottom: '1px solid var(--monarch-info)',
+          borderTop: '1px solid var(--monarch-border)',
           color: 'var(--monarch-info)',
           flexShrink: 0,
         }}
@@ -66,10 +78,10 @@ function MonthTransitionBannerContent() {
       <div
         role="alert"
         aria-live="assertive"
-        className="flex items-center justify-between gap-3 py-2 px-4 text-sm"
+        className="month-transition-banner flex items-center justify-between gap-3 py-2 px-4 text-sm"
         style={{
           backgroundColor: 'var(--monarch-error-bg)',
-          borderBottom: '1px solid var(--monarch-error)',
+          borderTop: '1px solid var(--monarch-border)',
           color: 'var(--monarch-error)',
           flexShrink: 0,
         }}
@@ -113,10 +125,10 @@ function MonthTransitionBannerContent() {
     <div
       role="alert"
       aria-live="polite"
-      className="flex items-center justify-between gap-3 py-2 px-4 text-sm"
+      className="month-transition-banner flex items-center justify-between gap-3 py-2 px-4 text-sm"
       style={{
         backgroundColor: 'var(--monarch-warning-bg)',
-        borderBottom: '1px solid var(--monarch-warning)',
+        borderTop: '1px solid var(--monarch-border)',
         color: 'var(--monarch-warning)',
         flexShrink: 0,
       }}

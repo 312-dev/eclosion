@@ -5,6 +5,7 @@ import {
   nextOccurrenceInOrAfter,
   getFrequencyMonths,
   roundMonthlyRate,
+  distributeAmountByRatios,
 } from './calculations';
 
 describe('roundMonthlyRate', () => {
@@ -153,5 +154,73 @@ describe('calculateMonthlyTarget', () => {
       const target = calculateMonthlyTarget('2025-01-15', 'yearly', 120, 0, '2025-01-01');
       expect(target).toBe(120); // Full amount due this month
     });
+  });
+});
+
+describe('distributeAmountByRatios', () => {
+  it('distributes evenly divisible amounts correctly', () => {
+    const result = distributeAmountByRatios(100, { a: 0.5, b: 0.5 });
+    expect(result).toEqual({ a: 50, b: 50 });
+  });
+
+  it('handles thirds without losing dollars', () => {
+    const result = distributeAmountByRatios(100, { a: 1, b: 1, c: 1 });
+    // Should be 33 + 33 + 34 = 100 (not 33 + 33 + 33 = 99)
+    expect(result.a + result.b + result.c).toBe(100);
+  });
+
+  it('handles $97 split three ways', () => {
+    const result = distributeAmountByRatios(97, { a: 1, b: 1, c: 1 });
+    // Should be 32 + 32 + 33 = 97 (not 32 + 32 + 32 = 96)
+    expect(result.a + result.b + result.c).toBe(97);
+  });
+
+  it('gives extra dollars to items with largest remainders', () => {
+    // $10 split as 70%, 20%, 10%
+    // Exact: 7.0, 2.0, 1.0 - all have 0 remainder, so floor works
+    const result = distributeAmountByRatios(10, { a: 0.7, b: 0.2, c: 0.1 });
+    expect(result).toEqual({ a: 7, b: 2, c: 1 });
+  });
+
+  it('handles uneven remainders correctly', () => {
+    // $100 split as 33.33%, 33.33%, 33.34%
+    const result = distributeAmountByRatios(100, { a: 0.3333, b: 0.3333, c: 0.3334 });
+    expect(result.a + result.b + result.c).toBe(100);
+    // c should get the extra dollar since it has highest ratio
+    expect(result.c).toBeGreaterThanOrEqual(result.a);
+    expect(result.c).toBeGreaterThanOrEqual(result.b);
+  });
+
+  it('handles empty ratios', () => {
+    const result = distributeAmountByRatios(100, {});
+    expect(result).toEqual({});
+  });
+
+  it('handles all-zero ratios', () => {
+    const result = distributeAmountByRatios(100, { a: 0, b: 0 });
+    expect(result).toEqual({ a: 0, b: 0 });
+  });
+
+  it('normalizes ratios that do not sum to 1', () => {
+    // Ratios sum to 2, should be normalized
+    const result = distributeAmountByRatios(100, { a: 1, b: 1 });
+    expect(result).toEqual({ a: 50, b: 50 });
+  });
+
+  it('handles single item', () => {
+    const result = distributeAmountByRatios(100, { a: 1 });
+    expect(result).toEqual({ a: 100 });
+  });
+
+  it('handles many items with complex remainders', () => {
+    // $100 split 5 ways: each gets $20 exactly
+    const result = distributeAmountByRatios(100, { a: 1, b: 1, c: 1, d: 1, e: 1 });
+    expect(result.a + result.b + result.c + result.d + result.e).toBe(100);
+  });
+
+  it('handles $1 total split multiple ways', () => {
+    // $1 split 3 ways: one gets $1, others get $0
+    const result = distributeAmountByRatios(1, { a: 1, b: 1, c: 1 });
+    expect(result.a + result.b + result.c).toBe(1);
   });
 });

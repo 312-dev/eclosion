@@ -22,11 +22,12 @@ interface RecurringToolSettingsProps {
   onRefreshDashboard: () => Promise<void>;
   onShowResetModal: () => void;
   defaultExpanded?: boolean;
+  variant?: 'page' | 'modal';
 }
 
 export const RecurringToolSettings = forwardRef<HTMLDivElement, RecurringToolSettingsProps>(
   function RecurringToolSettings(
-    { dashboardData, loading, onRefreshDashboard, onShowResetModal, defaultExpanded = false },
+    { dashboardData, loading, onRefreshDashboard, onShowResetModal, defaultExpanded = false, variant = 'page' },
     ref
   ) {
     const toast = useToast();
@@ -144,41 +145,51 @@ export const RecurringToolSettings = forwardRef<HTMLDivElement, RecurringToolSet
     const autoCategorizeEnabled = dashboardData?.config.auto_categorize_enabled ?? false;
     const showCategoryGroupEnabled = dashboardData?.config.show_category_group ?? true;
 
+    const containerClass = variant === 'modal' ? 'overflow-hidden' : 'rounded-xl overflow-hidden';
+    const containerStyle = variant === 'modal' ? {} : {
+      backgroundColor: 'var(--monarch-bg-card)',
+      border: '1px solid var(--monarch-border)',
+      boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
+    };
+
     return (
       <div
         ref={ref}
-        className="rounded-xl overflow-hidden"
-        style={{
-          backgroundColor: 'var(--monarch-bg-card)',
-          border: '1px solid var(--monarch-border)',
-          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
-        }}
+        className={containerClass}
+        style={containerStyle}
       >
         {loading ? (
-          <div className="p-5">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg skeleton" />
-              <div className="flex-1">
-                <div className="h-4 w-24 rounded skeleton mb-2" />
-                <div className="h-3 w-32 rounded skeleton" />
+          <div className="p-4">
+            <div className="flex items-center gap-4">
+              {/* Icon placeholder */}
+              <div className="w-10 h-10 rounded-lg skeleton shrink-0" />
+              {/* Title and description */}
+              <div className="flex-1 min-w-0">
+                <div className="h-4 w-28 rounded skeleton mb-1.5" />
+                <div className="h-3 w-36 rounded skeleton" />
               </div>
+              {/* Chevron placeholder */}
+              <div className="w-5 h-5 rounded skeleton shrink-0" />
             </div>
           </div>
         ) : (
           <>
-            <RecurringToolHeader
-              hasAnythingToReset={hasAnythingToReset}
-              totalCategories={totalCategories}
-              totalItems={totalItems}
-              isExpanded={isExpanded}
-              onToggle={toggleExpanded}
-            />
+            {/* Only show header in page mode */}
+            {variant === 'page' && (
+              <RecurringToolHeader
+                hasAnythingToReset={hasAnythingToReset}
+                totalCategories={totalCategories}
+                totalItems={totalItems}
+                isExpanded={isExpanded}
+                onToggle={toggleExpanded}
+              />
+            )}
 
-            {/* Nested Settings - Only show when configured and expanded */}
-            {isConfigured && isExpanded && (
-              <div style={{ borderTop: '1px solid var(--monarch-border-light, rgba(0,0,0,0.06))' }}>
+            {/* Nested Settings - Show when configured and (modal mode OR expanded in page mode) */}
+            {isConfigured && (variant === 'modal' || isExpanded) && (
+              <div style={variant === 'page' ? { borderTop: '1px solid var(--monarch-border-light, rgba(0,0,0,0.06))' } : {}}>
                 {/* Default Category Group */}
-                <SettingsRow label="Default Category Group">
+                <SettingsRow label="Default Category Group" variant={variant}>
                   <SearchableSelect
                     value={dashboardData?.config.target_group_id || ''}
                     onChange={handleGroupChange}
@@ -192,7 +203,7 @@ export const RecurringToolSettings = forwardRef<HTMLDivElement, RecurringToolSet
                 </SettingsRow>
 
                 {/* Auto-add new recurring */}
-                <SettingsRow label="Auto-add new recurring">
+                <SettingsRow label="Auto-add new recurring" variant={variant}>
                   <ToggleSwitch
                     checked={autoSyncEnabled}
                     onChange={handleAutoTrackChange}
@@ -206,6 +217,7 @@ export const RecurringToolSettings = forwardRef<HTMLDivElement, RecurringToolSet
                   <SettingsRow
                     label="Auto-add to rollup threshold"
                     description="Items at or below this amount go to rollup"
+                    variant={variant}
                   >
                     <ThresholdInput
                       defaultValue={dashboardData?.config.auto_track_threshold}
@@ -219,6 +231,7 @@ export const RecurringToolSettings = forwardRef<HTMLDivElement, RecurringToolSet
                 <SettingsRow
                   label="Auto-categorize transactions"
                   description="Categorize new recurring transactions to tracking categories"
+                  variant={variant}
                 >
                   <ToggleSwitch
                     checked={autoCategorizeEnabled}
@@ -235,6 +248,7 @@ export const RecurringToolSettings = forwardRef<HTMLDivElement, RecurringToolSet
                   label="Show category group"
                   description="Display category group name under each item"
                   isLast
+                  variant={variant}
                 >
                   <ToggleSwitch
                     checked={showCategoryGroupEnabled}
@@ -248,21 +262,16 @@ export const RecurringToolSettings = forwardRef<HTMLDivElement, RecurringToolSet
               </div>
             )}
 
-            {/* Reset link - only show when expanded */}
-            {hasAnythingToReset && isExpanded && (
+            {/* Reset link - show when has content and (modal mode OR expanded in page mode) */}
+            {hasAnythingToReset && (variant === 'modal' || isExpanded) && (
               <div
                 className="px-4 py-2 text-right"
                 style={{ borderTop: '1px solid var(--monarch-border-light, rgba(0,0,0,0.06))' }}
               >
                 <button
                   type="button"
-                  className="text-xs hover:opacity-80 transition-opacity"
-                  style={{
-                    color: 'var(--monarch-error)',
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                  }}
+                  className="text-xs hover:opacity-80 transition-opacity bg-transparent border-none cursor-pointer"
+                  style={{ color: 'var(--monarch-error)' }}
                   onClick={onShowResetModal}
                 >
                   Reset

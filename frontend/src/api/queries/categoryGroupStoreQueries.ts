@@ -5,13 +5,19 @@
  * Single source of truth for dropdown selections, wizards, and modals.
  */
 
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { useDemo } from '../../context/DemoContext';
 import * as api from '../client';
 import * as demoApi from '../demoClient';
 import { queryKeys, getQueryKey } from './keys';
-import type { CategoryGroup, UnmappedCategory } from '../../types/category';
+import { useSmartInvalidate } from '../../hooks/useSmartInvalidate';
+import type {
+  CategoryGroup,
+  CategoryGroupDetailed,
+  UpdateCategoryGroupSettingsRequest,
+  UnmappedCategory,
+} from '../../types/category';
 import type { CategoryGroupStore } from '../../types/categoryGroupStore';
 import { decodeHtmlEntities } from '../../utils';
 
@@ -269,5 +275,109 @@ export function useRemoveFromUnmappedCache() {
       );
     },
     [queryClient, isDemo]
+  );
+}
+
+// ============================================================================
+// Detailed Category Groups (with rollover/flexible settings)
+// ============================================================================
+
+/**
+ * Get all category groups with full metadata including rollover/flexible settings
+ */
+export function useCategoryGroupsDetailed(): {
+  groups: CategoryGroupDetailed[];
+  isLoading: boolean;
+  error: Error | null;
+} {
+  const isDemo = useDemo();
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: getQueryKey(queryKeys.categoryGroupsDetailed, isDemo),
+    queryFn: async () => {
+      return isDemo
+        ? await demoApi.getCategoryGroupsDetailed()
+        : await api.getCategoryGroupsDetailed();
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+
+  return { groups: data ?? [], isLoading, error };
+}
+
+/**
+ * Get category groups that have flexible budgeting with rollover enabled.
+ * Useful for stash category selection where users want to link to existing flexible budget groups.
+ */
+export function useFlexibleCategoryGroups(): {
+  groups: CategoryGroupDetailed[];
+  isLoading: boolean;
+  error: Error | null;
+} {
+  const isDemo = useDemo();
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: getQueryKey(queryKeys.flexibleCategoryGroups, isDemo),
+    queryFn: async () => {
+      return isDemo
+        ? await demoApi.getFlexibleCategoryGroups()
+        : await api.getFlexibleCategoryGroups();
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+
+  return { groups: data ?? [], isLoading, error };
+}
+
+/**
+ * Refresh flexible category groups (bypasses backend cache).
+ * Use when opening modals that depend on fresh Monarch data.
+ */
+export function useRefreshFlexibleCategoryGroups() {
+  const queryClient = useQueryClient();
+  const isDemo = useDemo();
+
+  return useCallback(async () => {
+    // Fetch fresh data from Monarch (bypasses backend cache)
+    const freshData = isDemo
+      ? await demoApi.getFlexibleCategoryGroups()
+      : await api.getFlexibleCategoryGroups(true); // refresh=true
+
+    // Update the cache with fresh data
+    queryClient.setQueryData(getQueryKey(queryKeys.flexibleCategoryGroups, isDemo), freshData);
+  }, [queryClient, isDemo]);
+}
+
+/**
+ * Update a category group's settings (name, rollover, flexible budget, etc.)
+ * Uses smart invalidation from the dependency registry.
+ */
+export function useUpdateCategoryGroupSettingsMutation() {
+  const isDemo = useDemo();
+  const smartInvalidate = useSmartInvalidate();
+
+  return useMutation({
+    mutationFn: (request: UpdateCategoryGroupSettingsRequest) =>
+      isDemo
+        ? demoApi.updateCategoryGroupSettings(request)
+        : api.updateCategoryGroupSettings(request),
+    onSuccess: () => {
+      smartInvalidate('updateCategoryGroupSettings');
+    },
+  });
+}
+
+/**
+ * @deprecated Use useUpdateCategoryGroupSettingsMutation instead.
+ * Legacy callback-based wrapper for backwards compatibility.
+ */
+export function useUpdateCategoryGroupSettings() {
+  const mutation = useUpdateCategoryGroupSettingsMutation();
+
+  return useCallback(
+    async (request: UpdateCategoryGroupSettingsRequest): Promise<CategoryGroupDetailed> => {
+      return mutation.mutateAsync(request);
+    },
+    [mutation]
   );
 }

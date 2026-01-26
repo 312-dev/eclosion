@@ -1,7 +1,7 @@
 /**
  * Shared Components
  *
- * Components used across multiple features (Recurring, Wishlist, etc.)
+ * Components used across multiple features (Recurring, Stash, etc.)
  */
 
 export { SavingsProgressBar } from './SavingsProgressBar';

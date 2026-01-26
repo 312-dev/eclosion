@@ -538,8 +538,11 @@ export interface ElectronAPI {
   // Bookmark Sync (desktop only)
   bookmarks: BookmarksAPI;
 
-  // Wishlist (desktop only)
-  wishlist: WishlistAPI;
+  // Stash (desktop only)
+  stash: StashAPI;
+
+  // Openverse (image search credentials)
+  openverse: OpenverseAPI;
 
   // Loading Screen Signal
   /** Signal to main process that the loading screen is visible and rendered */
@@ -602,23 +605,42 @@ export interface MenuAPI {
   setMinimal: () => Promise<void>;
 }
 
-// Wishlist Types (custom image storage)
+// Stash Types (custom image storage)
 
-/** Result of saving a wishlist image */
-export interface WishlistSaveImageResult {
+/** Result of saving a stash image */
+export interface StashSaveImageResult {
   success: boolean;
   path?: string;
   error?: string;
 }
 
-/** Wishlist API for custom image storage */
-export interface WishlistAPI {
-  /** Save a custom image for a wishlist item (base64 encoded) */
-  saveImage: (itemId: string, base64Data: string) => Promise<WishlistSaveImageResult>;
-  /** Delete a custom image for a wishlist item */
+/** Stash API for custom image storage */
+export interface StashAPI {
+  /** Save a custom image for a stash item (base64 encoded) */
+  saveImage: (itemId: string, base64Data: string) => Promise<StashSaveImageResult>;
+  /** Delete a custom image for a stash item */
   deleteImage: (imagePath: string) => Promise<boolean>;
   /** Get the file:// URL for displaying a local image */
   getImageUrl: (imagePath: string) => Promise<string>;
+}
+
+// Openverse Types (image search credentials)
+
+/** Openverse OAuth2 credentials stored in safeStorage */
+export interface OpenverseCredentials {
+  clientId: string;
+  clientSecret: string;
+  registeredAt: string;
+}
+
+/** Openverse API for credential storage */
+export interface OpenverseAPI {
+  /** Get stored Openverse credentials */
+  getCredentials: () => Promise<OpenverseCredentials | null>;
+  /** Store Openverse credentials in safeStorage */
+  storeCredentials: (credentials: OpenverseCredentials) => Promise<boolean>;
+  /** Clear stored Openverse credentials */
+  clearCredentials: () => Promise<void>;
 }
 
 // Bookmark Sync Types (import from bookmarks.ts for implementation, inline here for .d.ts)

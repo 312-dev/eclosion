@@ -9,7 +9,7 @@ export { RecurringToolSettings } from './RecurringToolSettings';
 export { RecurringResetModal } from './RecurringResetModal';
 export { NotesToolSettings } from './NotesToolSettings';
 export { NotesToolCard } from './NotesToolCard';
-export { WishlistToolSettings } from './WishlistToolSettings';
+export { StashToolSettings } from './StashToolSettings';
 export { ToolSettingsHeader } from './ToolSettingsHeader';
 export { SyncingSection, AutomationSection } from './AutomationSection';
 export { UpdatesSection } from './UpdatesSection';

@@ -375,7 +375,8 @@ def get_update_info():
         "docker": {
             "steps": [
                 "Edit your docker-compose.yml file",
-                "Change the image tag to the desired version (e.g., ghcr.io/graysoncadams/eclosion:1.2.3)",
+                "Change the image tag to the desired version "
+                "(e.g., ghcr.io/graysoncadams/eclosion:1.2.3)",
                 "Run: docker compose pull && docker compose up -d",
             ],
             "example_compose": f"image: ghcr.io/{config.GITHUB_REPO}:VERSION",

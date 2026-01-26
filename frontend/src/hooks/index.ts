@@ -72,15 +72,13 @@ export { useRecurringTour, TOUR_STATE_KEY, type UseRecurringTourReturn } from '.
 
 export { useNotesTour, NOTES_TOUR_STATE_KEY, type UseNotesTourReturn } from './useNotesTour';
 
-export {
-  useWishlistTour,
-  WISHLIST_TOUR_STATE_KEY,
-  type UseWishlistTourReturn,
-} from './useWishlistTour';
+export { useStashTour, STASH_TOUR_STATE_KEY, type UseStashTourReturn } from './useStashTour';
 
 export { useBiometric, type UseBiometricReturn } from './useBiometric';
 
 export { useBackgroundSync, type UseBackgroundSyncReturn } from './useBackgroundSync';
+
+export { useAutoSyncVisibility } from './useAutoSyncVisibility';
 
 export { useSavingStates, type UseSavingStatesReturn } from './useSavingStates';
 
@@ -107,11 +105,38 @@ export { useBrowserSelection, type UseBrowserSelectionResult } from './wizard/us
 
 export { useFolderSelection, type UseFolderSelectionResult } from './wizard/useFolderSelection';
 
-export {
-  useWishlistImageUpload,
-  type UseWishlistImageUploadResult,
-} from './useWishlistImageUpload';
+export { useStashImageUpload, type UseStashImageUploadResult } from './useStashImageUpload';
 
-export { useWishlistSync } from './useWishlistSync';
+export { useStashSync } from './useStashSync';
 
 export { useAppTour } from './useAppTour';
+
+export {
+  useFormattedNumberInput,
+  type UseFormattedNumberInputOptions,
+  type UseFormattedNumberInputReturn,
+} from './useFormattedNumberInput';
+
+// Smart invalidation and page sync
+export { useSmartInvalidate, useInvalidateQueries, usePrefetchQueries } from './useSmartInvalidate';
+
+export { usePageSync, useFullSync, useCurrentPage, type SyncScope } from './usePageSync';
+
+export {
+  useBackgroundPoller,
+  useVisibilityRefresh,
+  usePollingControl,
+} from './useBackgroundPoller';
+
+export { useAnimatedValue } from './useAnimatedValue';
+
+export {
+  useProjectedStashItem,
+  useProjectedStashItems,
+  type ProjectedStashItem,
+} from './useProjectedStashItem';
+
+// Timeline hooks (hypothesize mode)
+export { useTimelineProjection, useTimelineItemConfig } from './useTimelineProjection';
+export { useTimelineCursor, useProjectedCardStateAtCursor } from './useTimelineCursor';
+export { useTimelineZoom } from './useTimelineZoom';

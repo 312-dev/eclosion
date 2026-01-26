@@ -148,19 +148,19 @@ export const FEATURES: FeatureDefinition[] = [
     sourcePaths: ['frontend/src/components/tabs/NotesTab.tsx', 'frontend/src/components/notes/'],
   },
   {
-    id: 'wishlist',
-    name: 'Wishlist',
+    id: 'stashes',
+    name: 'Stashes',
     tagline: 'Save for one-time purchases with browser sync',
     description:
       'Create savings goals for one-time purchases and sync them from your browser bookmarks. Track progress with visual cards you can resize and rearrange.',
-    icon: 'Gift',
+    icon: 'Coins',
     status: 'available',
     benefits: [
       {
         icon: 'Bookmark',
         title: 'Browser Sync',
         description:
-          'Sync wishlist items from Firefox, Chrome, Edge, or Safari bookmarks automatically.',
+          'Sync stashes from Firefox, Chrome, Edge, or Safari bookmarks automatically.',
       },
       {
         icon: 'Target',
@@ -178,12 +178,12 @@ export const FEATURES: FeatureDefinition[] = [
         description: "See status badges showing if you're funded, on track, or behind.",
       },
     ],
-    demoPath: '/demo/wishlist/',
-    appPath: '/wishlist',
+    demoPath: '/demo/stash/',
+    appPath: '/stash',
     sourcePaths: [
-      'frontend/src/components/tabs/WishlistTab.tsx',
-      'frontend/src/components/wishlist/',
-      'services/wishlist_service.py',
+      'frontend/src/components/tabs/StashTab.tsx',
+      'frontend/src/components/stash/',
+      'services/stash_service.py',
     ],
   },
   {

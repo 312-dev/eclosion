@@ -3,7 +3,7 @@ Tracker state repository.
 """
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
 
@@ -11,10 +11,12 @@ from state.db.models import (
     AutoSyncState,
     Category,
     EnabledItem,
+    MonarchGoalLayout,
     PendingBookmark,
     RemovedItemNotice,
     Rollup,
     RollupItem,
+    StashHypothesis,
     TrackerConfig,
     WishlistConfig,
     WishlistItem,
@@ -63,7 +65,7 @@ class TrackerRepository:
     def mark_sync_complete(self) -> None:
         """Update last sync timestamp."""
         config = self.get_config()
-        config.last_sync = datetime.utcnow()
+        config.last_sync = datetime.now(UTC)
 
     # === Enabled Items ===
 
@@ -110,7 +112,7 @@ class TrackerRepository:
         **kwargs,
     ) -> Category:
         """Create or update a category."""
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         category = self.get_category(recurring_id)
 
         if category:
@@ -145,7 +147,7 @@ class TrackerRepository:
         category = self.get_category(recurring_id)
         if category:
             category.emoji = emoji
-            category.last_synced_at = datetime.utcnow()
+            category.last_synced_at = datetime.now(UTC)
         return category
 
     def update_category_name(self, recurring_id: str, name: str) -> Category | None:
@@ -153,7 +155,7 @@ class TrackerRepository:
         category = self.get_category(recurring_id)
         if category:
             category.name = name
-            category.last_synced_at = datetime.utcnow()
+            category.last_synced_at = datetime.now(UTC)
         return category
 
     def set_frozen_target(
@@ -179,8 +181,8 @@ class TrackerRepository:
                 name=recurring_id,
                 target_amount=amount,
                 is_active=True,
-                created_at=datetime.utcnow(),
-                last_synced_at=datetime.utcnow(),
+                created_at=datetime.now(UTC),
+                last_synced_at=datetime.now(UTC),
             )
             self.session.add(category)
 
@@ -236,7 +238,7 @@ class TrackerRepository:
             self.session.add(RollupItem(recurring_id=recurring_id, rollup_id=1))
             rollup = self.get_rollup()
             rollup.total_budgeted += monthly_rate
-            rollup.last_updated_at = datetime.utcnow()
+            rollup.last_updated_at = datetime.now(UTC)
         return self.get_rollup()
 
     def remove_from_rollup(self, recurring_id: str, monthly_rate: float) -> Rollup:
@@ -244,7 +246,7 @@ class TrackerRepository:
         self.session.query(RollupItem).filter(RollupItem.recurring_id == recurring_id).delete()
         rollup = self.get_rollup()
         rollup.total_budgeted = max(0, rollup.total_budgeted - monthly_rate)
-        rollup.last_updated_at = datetime.utcnow()
+        rollup.last_updated_at = datetime.now(UTC)
         return rollup
 
     def toggle_rollup_enabled(self, enabled: bool) -> Rollup:
@@ -252,36 +254,36 @@ class TrackerRepository:
         rollup = self.get_rollup()
         rollup.enabled = enabled
         if enabled and not rollup.created_at:
-            rollup.created_at = datetime.utcnow()
-        rollup.last_updated_at = datetime.utcnow()
+            rollup.created_at = datetime.now(UTC)
+        rollup.last_updated_at = datetime.now(UTC)
         return rollup
 
     def set_rollup_category_id(self, category_id: str) -> Rollup:
         """Set Monarch category ID for rollup."""
         rollup = self.get_rollup()
         rollup.monarch_category_id = category_id
-        rollup.last_updated_at = datetime.utcnow()
+        rollup.last_updated_at = datetime.now(UTC)
         return rollup
 
     def set_rollup_budget(self, amount: float) -> Rollup:
         """Set rollup budget amount."""
         rollup = self.get_rollup()
         rollup.total_budgeted = amount
-        rollup.last_updated_at = datetime.utcnow()
+        rollup.last_updated_at = datetime.now(UTC)
         return rollup
 
     def update_rollup_emoji(self, emoji: str) -> Rollup:
         """Update rollup emoji."""
         rollup = self.get_rollup()
         rollup.emoji = emoji
-        rollup.last_updated_at = datetime.utcnow()
+        rollup.last_updated_at = datetime.now(UTC)
         return rollup
 
     def update_rollup_category_name(self, name: str) -> Rollup:
         """Update rollup category name."""
         rollup = self.get_rollup()
         rollup.category_name = name
-        rollup.last_updated_at = datetime.utcnow()
+        rollup.last_updated_at = datetime.now(UTC)
         return rollup
 
     # === Removed Item Notices ===
@@ -300,7 +302,7 @@ class TrackerRepository:
             name=name,
             category_name=category_name,
             was_rollup=was_rollup,
-            removed_at=datetime.utcnow(),
+            removed_at=datetime.now(UTC),
             dismissed=False,
         )
         self.session.add(notice)
@@ -350,13 +352,13 @@ class TrackerRepository:
         if consent_acknowledged is not None:
             state.consent_acknowledged = consent_acknowledged
             if consent_acknowledged:
-                state.consent_timestamp = datetime.utcnow()
+                state.consent_timestamp = datetime.now(UTC)
         return state
 
     def record_auto_sync_result(self, success: bool, error: str | None = None) -> None:
         """Record result of automatic sync."""
         state = self.get_auto_sync_state()
-        state.last_auto_sync = datetime.utcnow()
+        state.last_auto_sync = datetime.now(UTC)
         state.last_auto_sync_success = success
         state.last_auto_sync_error = error
 
@@ -438,27 +440,31 @@ class TrackerRepository:
                 )
         return deletable
 
-    # === Wishlist ===
+    # === Stash ===
 
-    def get_wishlist_item(self, item_id: str) -> WishlistItem | None:
-        """Get wishlist item by ID."""
+    def get_stash_item(self, item_id: str) -> WishlistItem | None:
+        """Get stash item by ID."""
         return self.session.query(WishlistItem).filter(WishlistItem.id == item_id).first()
 
-    def get_all_wishlist_items(self) -> list[WishlistItem]:
-        """Get all wishlist items."""
-        return self.session.query(WishlistItem).order_by(WishlistItem.created_at.desc()).all()
-
-    def get_active_wishlist_items(self) -> list[WishlistItem]:
-        """Get non-archived wishlist items."""
+    def get_all_stash_items(self) -> list[WishlistItem]:
+        """Get all stash items, ordered by sort_order then created_at."""
         return (
             self.session.query(WishlistItem)
-            .filter(WishlistItem.is_archived.is_(False))
-            .order_by(WishlistItem.created_at.desc())
+            .order_by(WishlistItem.sort_order.asc(), WishlistItem.created_at.desc())
             .all()
         )
 
-    def get_archived_wishlist_items(self) -> list[WishlistItem]:
-        """Get archived wishlist items."""
+    def get_active_stash_items(self) -> list[WishlistItem]:
+        """Get non-archived stash items, ordered by sort_order then created_at."""
+        return (
+            self.session.query(WishlistItem)
+            .filter(WishlistItem.is_archived.is_(False))
+            .order_by(WishlistItem.sort_order.asc(), WishlistItem.created_at.desc())
+            .all()
+        )
+
+    def get_archived_stash_items(self) -> list[WishlistItem]:
+        """Get archived stash items, ordered by archived_at."""
         return (
             self.session.query(WishlistItem)
             .filter(WishlistItem.is_archived.is_(True))
@@ -466,7 +472,7 @@ class TrackerRepository:
             .all()
         )
 
-    def create_wishlist_item(
+    def create_stash_item(
         self,
         item_id: str,
         name: str,
@@ -476,7 +482,30 @@ class TrackerRepository:
         category_group_name: str | None = None,
         **kwargs,
     ) -> WishlistItem:
-        """Create a new wishlist item."""
+        """
+        Create a new stash item.
+
+        New items are automatically positioned at the end of the grid
+        (after all existing items) to ensure they appear before the
+        "New Stash" button in the UI.
+        """
+        # Calculate grid position: place at the end of existing items
+        # Find the maximum grid_y + row_span across all active items
+        existing_items = (
+            self.session.query(WishlistItem).filter(WishlistItem.is_archived.is_(False)).all()
+        )
+
+        max_grid_y = 0
+        for existing in existing_items:
+            item_bottom = (existing.grid_y or 0) + (existing.row_span or 1)
+            max_grid_y = max(max_grid_y, item_bottom)
+
+        # Set default grid position if not provided in kwargs
+        if "grid_x" not in kwargs:
+            kwargs["grid_x"] = 0
+        if "grid_y" not in kwargs:
+            kwargs["grid_y"] = max_grid_y
+
         item = WishlistItem(
             id=item_id,
             name=name,
@@ -484,19 +513,19 @@ class TrackerRepository:
             target_date=target_date,
             category_group_id=category_group_id,
             category_group_name=category_group_name,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(UTC),
             **kwargs,
         )
         self.session.add(item)
         return item
 
-    def update_wishlist_item(
+    def update_stash_item(
         self,
         item_id: str,
         **kwargs,
     ) -> WishlistItem | None:
-        """Update wishlist item fields."""
-        item = self.get_wishlist_item(item_id)
+        """Update stash item fields."""
+        item = self.get_stash_item(item_id)
         if not item:
             return None
 
@@ -504,100 +533,203 @@ class TrackerRepository:
             if hasattr(item, key):
                 setattr(item, key, value)
 
-        item.updated_at = datetime.utcnow()
+        item.updated_at = datetime.now(UTC)
         return item
 
-    def delete_wishlist_item(self, item_id: str) -> bool:
-        """Delete a wishlist item."""
+    def delete_stash_item(self, item_id: str) -> bool:
+        """Delete a stash item."""
         result = self.session.query(WishlistItem).filter(WishlistItem.id == item_id).delete()
         return result > 0
 
-    def archive_wishlist_item(self, item_id: str) -> WishlistItem | None:
-        """Archive a wishlist item."""
-        item = self.get_wishlist_item(item_id)
+    def archive_stash_item(self, item_id: str) -> WishlistItem | None:
+        """Archive a stash item."""
+        item = self.get_stash_item(item_id)
         if item:
             item.is_archived = True
-            item.archived_at = datetime.utcnow()
-            item.updated_at = datetime.utcnow()
+            item.archived_at = datetime.now(UTC)
+            item.updated_at = datetime.now(UTC)
         return item
 
-    def unarchive_wishlist_item(self, item_id: str) -> WishlistItem | None:
-        """Unarchive a wishlist item."""
-        item = self.get_wishlist_item(item_id)
+    def unarchive_stash_item(self, item_id: str) -> WishlistItem | None:
+        """Unarchive a stash item."""
+        item = self.get_stash_item(item_id)
         if item:
             item.is_archived = False
             item.archived_at = None
-            item.updated_at = datetime.utcnow()
+            item.updated_at = datetime.now(UTC)
         return item
 
-    def set_wishlist_category(
+    def set_stash_category(
         self,
         item_id: str,
         monarch_category_id: str,
     ) -> WishlistItem | None:
-        """Set the Monarch category ID for a wishlist item."""
-        item = self.get_wishlist_item(item_id)
+        """Set the Monarch category ID for a stash item."""
+        item = self.get_stash_item(item_id)
         if item:
             item.monarch_category_id = monarch_category_id
-            item.updated_at = datetime.utcnow()
+            item.updated_at = datetime.now(UTC)
         return item
 
-    def update_wishlist_group(
+    def update_stash_group(
         self,
         item_id: str,
         group_id: str,
         group_name: str,
     ) -> WishlistItem | None:
-        """Update the category group for a wishlist item."""
-        item = self.get_wishlist_item(item_id)
+        """Update the category group for a stash item."""
+        item = self.get_stash_item(item_id)
         if item:
             item.category_group_id = group_id
             item.category_group_name = group_name
-            item.updated_at = datetime.utcnow()
+            item.updated_at = datetime.now(UTC)
         return item
 
-    def get_wishlist_items_by_category_id(self, category_id: str) -> list[WishlistItem]:
-        """Get wishlist items by Monarch category ID."""
+    def get_stash_items_by_category_id(self, category_id: str) -> list[WishlistItem]:
+        """Get stash items by Monarch category ID."""
         return (
             self.session.query(WishlistItem)
             .filter(WishlistItem.monarch_category_id == category_id)
             .all()
         )
 
-    def get_wishlist_items_by_bookmark_id(self, bookmark_id: str) -> list[WishlistItem]:
-        """Get wishlist items by source bookmark ID."""
+    def get_stash_items_by_bookmark_id(self, bookmark_id: str) -> list[WishlistItem]:
+        """Get stash items by source bookmark ID."""
         return (
             self.session.query(WishlistItem)
             .filter(WishlistItem.source_bookmark_id == bookmark_id)
             .all()
         )
 
-    def update_wishlist_layouts(self, layouts: list[dict]) -> int:
+    def update_stash_layouts(self, layouts: list[dict]) -> int:
         """
-        Update grid layout positions for multiple wishlist items.
+        Update grid layout positions and sort order for multiple stash items.
 
         Args:
-            layouts: List of dicts with id, grid_x, grid_y, col_span, row_span
+            layouts: List of dicts with id, grid_x, grid_y, col_span, row_span, sort_order
 
         Returns:
             Number of items updated
         """
+        import logging
+
+        logger = logging.getLogger(__name__)
+
         updated = 0
         for layout in layouts:
-            item = self.get_wishlist_item(layout["id"])
+            item = self.get_stash_item(layout["id"])
             if item:
                 item.grid_x = layout.get("grid_x", 0)
                 item.grid_y = layout.get("grid_y", 0)
                 item.col_span = layout.get("col_span", 1)
                 item.row_span = layout.get("row_span", 1)
-                item.updated_at = datetime.utcnow()
+                item.sort_order = layout.get("sort_order", 0)
+                item.updated_at = datetime.now(UTC)
+                logger.debug(
+                    "[TrackerRepo] update_stash_layouts: item %s updated",
+                    item.id,
+                )
                 updated += 1
+            else:
+                logger.warning("[TrackerRepo] update_stash_layouts: item not found")
         return updated
 
-    # === Wishlist Config ===
+    # === Monarch Goal Layouts ===
 
-    def get_wishlist_config(self) -> WishlistConfig:
-        """Get or create wishlist configuration."""
+    def get_monarch_goal_layout(self, goal_id: str) -> MonarchGoalLayout | None:
+        """
+        Get layout for a specific Monarch goal.
+
+        Args:
+            goal_id: Monarch goal ID
+
+        Returns:
+            MonarchGoalLayout or None if not found
+        """
+        return self.session.query(MonarchGoalLayout).filter_by(goal_id=goal_id).first()
+
+    def get_all_monarch_goal_layouts(self) -> list[MonarchGoalLayout]:
+        """
+        Get all Monarch goal layouts, ordered by sort_order.
+
+        Returns:
+            List of all goal layouts
+        """
+        return (
+            self.session.query(MonarchGoalLayout).order_by(MonarchGoalLayout.sort_order.asc()).all()
+        )
+
+    def upsert_monarch_goal_layout(
+        self,
+        goal_id: str,
+        grid_x: int,
+        grid_y: int,
+        col_span: int,
+        row_span: int,
+        sort_order: int = 0,
+    ) -> MonarchGoalLayout:
+        """
+        Create or update layout for a Monarch goal.
+
+        Args:
+            goal_id: Monarch goal ID
+            grid_x: Grid X position
+            grid_y: Grid Y position
+            col_span: Column span
+            row_span: Row span
+            sort_order: Sequential order for display
+
+        Returns:
+            Created or updated MonarchGoalLayout
+        """
+        layout = self.get_monarch_goal_layout(goal_id)
+        if layout:
+            layout.grid_x = grid_x
+            layout.grid_y = grid_y
+            layout.col_span = col_span
+            layout.row_span = row_span
+            layout.sort_order = sort_order
+            layout.updated_at = datetime.now(UTC)
+        else:
+            layout = MonarchGoalLayout(
+                goal_id=goal_id,
+                grid_x=grid_x,
+                grid_y=grid_y,
+                col_span=col_span,
+                row_span=row_span,
+                sort_order=sort_order,
+            )
+            self.session.add(layout)
+        return layout
+
+    def update_monarch_goal_layouts(self, layouts: list[dict]) -> int:
+        """
+        Update grid layout positions and sort order for multiple Monarch goals.
+
+        Args:
+            layouts: List of dicts with goal_id, grid_x, grid_y, col_span, row_span, sort_order
+
+        Returns:
+            Number of layouts updated
+        """
+        updated = 0
+        for layout_data in layouts:
+            goal_id = layout_data["goal_id"]
+            self.upsert_monarch_goal_layout(
+                goal_id=goal_id,
+                grid_x=layout_data.get("grid_x", 0),
+                grid_y=layout_data.get("grid_y", 0),
+                col_span=layout_data.get("col_span", 1),
+                row_span=layout_data.get("row_span", 1),
+                sort_order=layout_data.get("sort_order", 0),
+            )
+            updated += 1
+        return updated
+
+    # === Stash Config ===
+
+    def get_stash_config(self) -> WishlistConfig:
+        """Get or create stash configuration."""
         config = self.session.query(WishlistConfig).first()
         if not config:
             config = WishlistConfig(id=1)
@@ -605,28 +737,28 @@ class TrackerRepository:
             self.session.flush()
         return config
 
-    def update_wishlist_config(self, **kwargs) -> WishlistConfig:
-        """Update wishlist configuration fields."""
-        config = self.get_wishlist_config()
+    def update_stash_config(self, **kwargs) -> WishlistConfig:
+        """Update stash configuration fields."""
+        config = self.get_stash_config()
         for key, value in kwargs.items():
             if hasattr(config, key):
                 setattr(config, key, value)
         return config
 
-    def is_wishlist_configured(self) -> bool:
-        """Check if wishlist has been configured."""
+    def is_stash_configured(self) -> bool:
+        """Check if stash has been configured."""
         config = self.session.query(WishlistConfig).first()
         return config is not None and config.is_configured
 
-    def mark_wishlist_configured(self) -> WishlistConfig:
-        """Mark wishlist as configured."""
-        config = self.get_wishlist_config()
+    def mark_stash_configured(self) -> WishlistConfig:
+        """Mark stash as configured."""
+        config = self.get_stash_config()
         config.is_configured = True
         return config
 
-    def reset_wishlist_config(self) -> dict:
-        """Reset wishlist configuration to defaults."""
-        config = self.get_wishlist_config()
+    def reset_stash_config(self) -> dict:
+        """Reset stash configuration to defaults."""
+        config = self.get_stash_config()
         config.default_category_group_id = None
         config.default_category_group_name = None
         config.selected_browser = None
@@ -678,7 +810,7 @@ class TrackerRepository:
             browser_type=browser_type,
             logo_url=logo_url,
             status="pending",
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(UTC),
         )
         self.session.add(pending)
         return pending
@@ -688,7 +820,7 @@ class TrackerRepository:
         pending = self.get_pending_bookmark_by_id(bookmark_id)
         if pending:
             pending.status = "skipped"
-            pending.skipped_at = datetime.utcnow()
+            pending.skipped_at = datetime.now(UTC)
         return pending
 
     def convert_pending_bookmark(
@@ -702,7 +834,7 @@ class TrackerRepository:
             pending.status = "converted"
             if wishlist_item_id:
                 pending.wishlist_item_id = wishlist_item_id
-            pending.converted_at = datetime.utcnow()
+            pending.converted_at = datetime.now(UTC)
         return pending
 
     def import_bookmarks_batch(self, bookmarks: list[dict]) -> dict:
@@ -770,4 +902,78 @@ class TrackerRepository:
             .filter(PendingBookmark.status.in_(["pending", "skipped"]))
             .delete(synchronize_session="fetch")
         )
+        return result
+
+    # === Stash Hypotheses ===
+
+    def get_all_hypotheses(self) -> list[StashHypothesis]:
+        """Get all saved hypotheses, ordered by updated_at (most recent first)."""
+        return self.session.query(StashHypothesis).order_by(StashHypothesis.updated_at.desc()).all()
+
+    def get_hypothesis(self, hypothesis_id: str) -> StashHypothesis | None:
+        """Get a hypothesis by ID."""
+        return (
+            self.session.query(StashHypothesis).filter(StashHypothesis.id == hypothesis_id).first()
+        )
+
+    def get_hypothesis_by_name(self, name: str) -> StashHypothesis | None:
+        """Get a hypothesis by name (case-insensitive)."""
+        return self.session.query(StashHypothesis).filter(StashHypothesis.name.ilike(name)).first()
+
+    def count_hypotheses(self) -> int:
+        """Get the total count of saved hypotheses."""
+        return self.session.query(StashHypothesis).count()
+
+    def create_hypothesis(
+        self,
+        hypothesis_id: str,
+        name: str,
+        savings_allocations: str,
+        savings_total: float,
+        monthly_allocations: str,
+        monthly_total: float,
+        events: str,
+    ) -> StashHypothesis:
+        """Create a new hypothesis."""
+        hypothesis = StashHypothesis(
+            id=hypothesis_id,
+            name=name,
+            savings_allocations=savings_allocations,
+            savings_total=savings_total,
+            monthly_allocations=monthly_allocations,
+            monthly_total=monthly_total,
+            events=events,
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
+        )
+        self.session.add(hypothesis)
+        return hypothesis
+
+    def update_hypothesis(
+        self,
+        hypothesis_id: str,
+        **kwargs,
+    ) -> StashHypothesis | None:
+        """Update a hypothesis by ID."""
+        hypothesis = self.get_hypothesis(hypothesis_id)
+        if not hypothesis:
+            return None
+
+        for key, value in kwargs.items():
+            if hasattr(hypothesis, key):
+                setattr(hypothesis, key, value)
+
+        hypothesis.updated_at = datetime.now(UTC)
+        return hypothesis
+
+    def delete_hypothesis(self, hypothesis_id: str) -> bool:
+        """Delete a hypothesis by ID."""
+        result = (
+            self.session.query(StashHypothesis).filter(StashHypothesis.id == hypothesis_id).delete()
+        )
+        return result > 0
+
+    def delete_all_hypotheses(self) -> int:
+        """Delete all hypotheses. Returns number deleted."""
+        result = self.session.query(StashHypothesis).delete()
         return result

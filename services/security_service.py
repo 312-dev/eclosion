@@ -19,7 +19,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Optional
 
 from core import config
@@ -136,7 +136,7 @@ class SecurityService:
     def _cleanup_old_events(self) -> None:
         """Delete events older than retention period."""
         try:
-            cutoff = datetime.utcnow() - timedelta(days=config.SECURITY_EVENT_RETENTION_DAYS)
+            cutoff = datetime.now(UTC) - timedelta(days=config.SECURITY_EVENT_RETENTION_DAYS)
             cutoff_str = cutoff.isoformat()
             conn = self._get_connection()
             cursor = conn.execute("DELETE FROM security_events WHERE timestamp < ?", (cutoff_str,))
@@ -166,7 +166,7 @@ class SecurityService:
             user_agent: Client user agent string
         """
         try:
-            timestamp = datetime.utcnow().isoformat()
+            timestamp = datetime.now(UTC).isoformat()
             country, city = self._get_geolocation(ip_address) if ip_address else (None, None)
 
             conn = self._get_connection()
@@ -261,17 +261,21 @@ class SecurityService:
 
             # Successful logins
             successful_logins = conn.execute(
-                "SELECT COUNT(*) FROM security_events WHERE event_type = 'LOGIN_ATTEMPT' AND success = 1"
+                "SELECT COUNT(*) FROM security_events "
+                "WHERE event_type = 'LOGIN_ATTEMPT' AND success = 1"
             ).fetchone()[0]
 
             # Failed logins
             failed_logins = conn.execute(
-                "SELECT COUNT(*) FROM security_events WHERE event_type = 'LOGIN_ATTEMPT' AND success = 0"
+                "SELECT COUNT(*) FROM security_events "
+                "WHERE event_type = 'LOGIN_ATTEMPT' AND success = 0"
             ).fetchone()[0]
 
             # Failed unlock attempts
             failed_unlocks = conn.execute(
-                "SELECT COUNT(*) FROM security_events WHERE event_type IN ('UNLOCK_ATTEMPT', 'UNLOCK_AND_VALIDATE') AND success = 0"
+                "SELECT COUNT(*) FROM security_events "
+                "WHERE event_type IN ('UNLOCK_ATTEMPT', 'UNLOCK_AND_VALIDATE') "
+                "AND success = 0"
             ).fetchone()[0]
 
             # Logouts
@@ -286,17 +290,22 @@ class SecurityService:
 
             # Unique IPs
             unique_ips = conn.execute(
-                "SELECT COUNT(DISTINCT ip_address) FROM security_events WHERE ip_address IS NOT NULL"
+                "SELECT COUNT(DISTINCT ip_address) FROM security_events "
+                "WHERE ip_address IS NOT NULL"
             ).fetchone()[0]
 
             # Last successful login
             last_success = conn.execute(
-                "SELECT timestamp FROM security_events WHERE event_type = 'LOGIN_ATTEMPT' AND success = 1 ORDER BY timestamp DESC LIMIT 1"
+                "SELECT timestamp FROM security_events "
+                "WHERE event_type = 'LOGIN_ATTEMPT' AND success = 1 "
+                "ORDER BY timestamp DESC LIMIT 1"
             ).fetchone()
 
             # Last failed login
             last_failed = conn.execute(
-                "SELECT timestamp FROM security_events WHERE event_type = 'LOGIN_ATTEMPT' AND success = 0 ORDER BY timestamp DESC LIMIT 1"
+                "SELECT timestamp FROM security_events "
+                "WHERE event_type = 'LOGIN_ATTEMPT' AND success = 0 "
+                "ORDER BY timestamp DESC LIMIT 1"
             ).fetchone()
 
             return SecurityEventSummary(
@@ -378,7 +387,7 @@ class SecurityService:
 
     def dismiss_security_alert(self) -> None:
         """Mark security alerts as dismissed."""
-        self._set_preference("alert_dismissed_at", datetime.utcnow().isoformat())
+        self._set_preference("alert_dismissed_at", datetime.now(UTC).isoformat())
 
     def clear_events(self) -> None:
         """Delete all security event logs."""
@@ -517,7 +526,7 @@ class SecurityService:
             if row:
                 # Check if cache is still valid (7 days)
                 cached_at = datetime.fromisoformat(row["cached_at"])
-                if datetime.utcnow() - cached_at < timedelta(days=7):
+                if datetime.now(UTC) - cached_at < timedelta(days=7):
                     return row["country"], row["city"]
         except Exception:
             pass
@@ -532,7 +541,7 @@ class SecurityService:
                 INSERT OR REPLACE INTO ip_geolocation_cache (ip_address, country, city, cached_at)
                 VALUES (?, ?, ?, ?)
                 """,
-                (ip_address, country, city, datetime.utcnow().isoformat()),
+                (ip_address, country, city, datetime.now(UTC).isoformat()),
             )
             conn.commit()
         except Exception as e:

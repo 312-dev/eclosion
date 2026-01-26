@@ -49,7 +49,7 @@ export class RateLimitError extends Error {
 // Track in-flight requests to deduplicate concurrent calls
 const inFlightRequests = new Map<string, Promise<unknown>>();
 
-// Track rate limit state per endpoint
+// Track rate limit state per endpoint (respects Monarch 429 responses)
 const rateLimitState = new Map<string, { until: number }>();
 
 // Cache the notes key for desktop mode (avoids async call on every request)
@@ -85,7 +85,7 @@ export async function fetchApi<T>(
   const method = options?.method || 'GET';
   const requestKey = `${method}:${endpoint}`;
 
-  // Check if we're currently rate limited for this endpoint
+  // Check if we're currently rate limited for this endpoint (respects Monarch 429s)
   const rateLimited = rateLimitState.get(endpoint);
   if (rateLimited && Date.now() < rateLimited.until) {
     const waitSeconds = Math.ceil((rateLimited.until - Date.now()) / 1000);
@@ -129,14 +129,14 @@ export async function fetchApi<T>(
       });
 
       if (!response.ok) {
+        // Handle 429 responses - track cooldown per endpoint
         if (response.status === 429) {
           const retryAfter = Number.parseInt(response.headers.get('Retry-After') || '60', 10);
           rateLimitState.set(endpoint, { until: Date.now() + (retryAfter * 1000) });
           const errorBody = await response.json().catch(() => ({}));
           const source = errorBody.source || null;
 
-          // Emit custom event for global rate limit handling (RateLimitContext listens)
-          // Source distinguishes between Monarch API rate limits and Eclosion's internal cooldown
+          // Emit event for global rate limit handling (RateLimitContext listens)
           globalThis.dispatchEvent(new CustomEvent('monarch-rate-limited', {
             detail: { retryAfter, endpoint, source },
           }));

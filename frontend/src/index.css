@@ -77,6 +77,9 @@
   --z-toast: 60;
   --z-tooltip: 70;
 
+  /* Modal dimensions */
+  --modal-max-height: min(85vh, 700px);
+
   /* Font family - Plus Jakarta Sans as default */
   --font-sans:
     'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
@@ -133,9 +136,12 @@
   --monarch-bg-input: #ffffff;
   --monarch-bg-elevated: #ffffff;
 
-  /* Tooltip colors - dark background with light text */
-  --monarch-tooltip-bg: #111110;
-  --monarch-tooltip-text: #ffffff;
+  /* Tooltip colors - warm dark background for light mode (stone-800/stone-50) */
+  --monarch-tooltip-bg: #292524;
+  --monarch-tooltip-text: #fafaf9;
+  --monarch-tooltip-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+  --monarch-tooltip-input-bg: #1f1e1d;
+  --monarch-tooltip-border: #3d3b39;
 
   /* Border colors */
   --monarch-border: #e8e6e3;
@@ -150,6 +156,14 @@
   --monarch-warning-bg: #fef3c7;
   --monarch-info: #3b82f6;
   --monarch-info-bg: #eff6ff;
+
+  /* Status color aliases (for semantic clarity in different contexts) */
+  --monarch-green: var(--monarch-success);
+  --monarch-red: var(--monarch-error);
+
+  /* Accent color (purple - used for beta badges, special features) */
+  --monarch-accent: #8b5cf6;
+  --monarch-accent-bg: rgba(139, 92, 246, 0.15);
 
   /* Font */
   --monarch-font:
@@ -201,9 +215,12 @@
   --monarch-bg-input: #1f1e1d;
   --monarch-bg-elevated: #333231;
 
-  /* Tooltip colors - near-black for maximum contrast */
-  --monarch-tooltip-bg: #0a0a09;
-  --monarch-tooltip-text: #f5f5f4;
+  /* Tooltip colors - darker than page bg (#1a1918) with good text contrast */
+  --monarch-tooltip-bg: #171615;
+  --monarch-tooltip-text: #e0dedb;
+  --monarch-tooltip-shadow: 0 4px 10px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.04);
+  --monarch-tooltip-input-bg: #0f0e0d;
+  --monarch-tooltip-border: #2a2928;
 
   /* Border colors - subtle for dark mode */
   --monarch-border: #3d3b39;
@@ -222,6 +239,14 @@
   --monarch-info: #60a5fa;
   --monarch-info-bg: rgba(96, 165, 250, 0.15);
   --monarch-info-bg-solid: #1a2a3d;
+
+  /* Status color aliases (for semantic clarity in different contexts) */
+  --monarch-green: var(--monarch-success);
+  --monarch-red: var(--monarch-error);
+
+  /* Accent color (purple - used for beta badges, special features) */
+  --monarch-accent: #a78bfa;
+  --monarch-accent-bg: rgba(167, 139, 250, 0.15);
 
   /* App icon - warm tone matching dark palette */
   --app-icon-bg: #2d2b29;
@@ -251,6 +276,11 @@ body {
   background-color: var(--monarch-bg-page);
 }
 
+/* Tooltip shadow utility - adapts to light/dark mode */
+.shadow-tooltip {
+  box-shadow: var(--monarch-tooltip-shadow);
+}
+
 /* Thin scrollbar styling - scoped to app only, not marketing pages */
 .app-layout,
 .app-layout * {
@@ -276,6 +306,93 @@ body {
   background: var(--monarch-text-muted);
 }
 
+/* Scrollbar styling for modals (portaled outside .app-layout) */
+dialog,
+dialog *,
+.modal-content,
+.modal-content * {
+  scrollbar-width: thin;
+  scrollbar-color: var(--monarch-border) transparent;
+}
+
+dialog ::-webkit-scrollbar,
+.modal-content ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+dialog ::-webkit-scrollbar-track,
+.modal-content ::-webkit-scrollbar-track {
+  background: var(--monarch-bg-page);
+  border-radius: 4px;
+}
+
+dialog ::-webkit-scrollbar-thumb,
+.modal-content ::-webkit-scrollbar-thumb {
+  background: var(--monarch-border);
+  border-radius: 4px;
+}
+
+dialog ::-webkit-scrollbar-thumb:hover,
+.modal-content ::-webkit-scrollbar-thumb:hover {
+  background: var(--monarch-text-muted);
+}
+
+/* Modal body scrollbar - always visible on macOS */
+.modal-body-scroll {
+  scrollbar-width: thin !important;
+  scrollbar-color: var(--monarch-border) var(--monarch-border-light, rgba(128, 128, 128, 0.2)) !important;
+  scrollbar-gutter: stable !important;
+}
+
+.modal-body-scroll::-webkit-scrollbar {
+  width: 10px !important;
+  height: 10px !important;
+  -webkit-appearance: none !important;
+  display: block !important;
+}
+
+.modal-body-scroll::-webkit-scrollbar-track {
+  background: rgba(128, 128, 128, 0.15) !important;
+  border-radius: 5px !important;
+}
+
+.modal-body-scroll::-webkit-scrollbar-thumb {
+  background: var(--monarch-border) !important;
+  border-radius: 5px !important;
+  border: 2px solid transparent !important;
+  background-clip: content-box !important;
+}
+
+.modal-body-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--monarch-text-muted) !important;
+  background-clip: content-box !important;
+}
+
+/* Utility class for custom scrollbars anywhere */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--monarch-border) transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--monarch-border);
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--monarch-text-muted);
+}
+
 /* Headings - Figtree */
 h1,
 h2,
@@ -286,16 +403,15 @@ h6 {
   font-family: 'Figtree', var(--monarch-font);
 }
 
-/* Focus ring using Monarch orange */
-*:focus-visible {
-  outline: 2px solid var(--monarch-orange);
-  outline-offset: 2px;
-}
-
-/* Improved focus indicator for buttons */
+/* Focus ring for interactive elements only (not containers/divs) */
 button:focus-visible,
 a:focus-visible,
-[role='button']:focus-visible {
+[role='button']:focus-visible,
+[role='link']:focus-visible,
+[role='menuitem']:focus-visible,
+[role='tab']:focus-visible,
+[role='option']:focus-visible,
+[tabindex]:focus-visible:not([tabindex='-1']) {
   outline: 2px solid var(--monarch-orange);
   outline-offset: 2px;
   box-shadow: 0 0 0 4px rgba(255, 105, 45, 0.2);
@@ -308,6 +424,18 @@ textarea:focus {
   outline: none;
   border-color: var(--monarch-orange) !important;
   box-shadow: 0 0 0 3px rgba(255, 105, 45, 0.15) !important;
+}
+
+/* Override for white focus ring */
+input.focus-white:focus {
+  border-color: white !important;
+  box-shadow: 0 0 0 3px white !important;
+}
+
+/* Suppress focus styles (for inputs where parent handles focus) */
+input.focus-none:focus {
+  border-color: transparent !important;
+  box-shadow: none !important;
 }
 
 /* Checkbox and radio focus styles */
@@ -527,7 +655,7 @@ input[type='radio'] {
   background-color: var(--monarch-error-bg);
 }
 
-/* App Layout - Fixed header/footer with scrolling content */
+/* App Layout - Fixed header with scrolling content and footer */
 .app-layout {
   /* Base header height: 52px min-height + 10px padding + 1px border + 2px buffer.
      The buffer prevents notification banners from being clipped by box-shadow.
@@ -538,7 +666,6 @@ input[type='radio'] {
   --footer-height: 45px; /* Match .app-footer height */
   height: 100vh;
   padding-top: var(--header-height);
-  padding-bottom: var(--footer-height);
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -549,32 +676,84 @@ input[type='radio'] {
   padding-top: calc(var(--header-height) + var(--rate-limit-banner-height));
 }
 
-.app-layout:has(.app-header .rate-limit-banner) .app-notification-banners {
-  top: calc(var(--header-height) + var(--rate-limit-banner-height));
-}
-
 .app-layout:has(.app-header .rate-limit-banner) .sidebar-nav {
-  top: calc(var(--header-height) + var(--rate-limit-banner-height));
   max-height: calc(
     100vh - var(--header-height) - var(--rate-limit-banner-height) - var(--footer-height)
   );
 }
 
-/* Notification banners container - fixed below header for reliable positioning
- * Changed from sticky to fixed to ensure visibility on all platforms,
- * especially Windows where the banner was appearing "tucked under" the header.
- */
-.app-notification-banners {
-  position: fixed;
-  top: var(--header-height);
-  left: 0;
-  right: 0;
-  z-index: 19; /* Just below header (20) but above everything else */
+/* When offline banner is visible inside header, increase effective header height */
+.app-layout:has(.app-header .offline-banner) {
+  padding-top: calc(var(--header-height) + var(--rate-limit-banner-height));
 }
 
-/* Add margin-top to app-body when banners might be present */
-.app-notification-banners:not(:empty) + .app-body {
-  margin-top: 40px; /* Approximate height of one banner */
+.app-layout:has(.app-header .offline-banner) .sidebar-nav {
+  max-height: calc(
+    100vh - var(--header-height) - var(--rate-limit-banner-height) - var(--footer-height)
+  );
+}
+
+/* When both rate-limit and offline banners are visible */
+.app-layout:has(.app-header .rate-limit-banner):has(.app-header .offline-banner) {
+  padding-top: calc(var(--header-height) + var(--rate-limit-banner-height) * 2);
+}
+
+.app-layout:has(.app-header .rate-limit-banner):has(.app-header .offline-banner) .sidebar-nav {
+  max-height: calc(
+    100vh - var(--header-height) - var(--rate-limit-banner-height) * 2 - var(--footer-height)
+  );
+}
+
+/* When update banner is visible inside header */
+.app-layout:has(.app-header .update-banner) {
+  padding-top: calc(var(--header-height) + var(--rate-limit-banner-height));
+}
+
+.app-layout:has(.app-header .update-banner) .sidebar-nav {
+  max-height: calc(
+    100vh - var(--header-height) - var(--rate-limit-banner-height) - var(--footer-height)
+  );
+}
+
+/* When desktop update banner is visible inside header */
+.app-layout:has(.app-header .desktop-update-banner) {
+  padding-top: calc(var(--header-height) + var(--rate-limit-banner-height));
+}
+
+.app-layout:has(.app-header .desktop-update-banner) .sidebar-nav {
+  max-height: calc(
+    100vh - var(--header-height) - var(--rate-limit-banner-height) - var(--footer-height)
+  );
+}
+
+/* When month transition banner is visible inside header */
+.app-layout:has(.app-header .month-transition-banner) {
+  padding-top: calc(var(--header-height) + var(--rate-limit-banner-height));
+}
+
+.app-layout:has(.app-header .month-transition-banner) .sidebar-nav {
+  max-height: calc(
+    100vh - var(--header-height) - var(--rate-limit-banner-height) - var(--footer-height)
+  );
+}
+
+/* When distribution mode banner is visible inside header */
+.app-layout:has(.app-header .distribution-mode-banner) {
+  padding-top: calc(var(--header-height) + var(--rate-limit-banner-height));
+}
+
+.app-layout:has(.app-header .distribution-mode-banner) .sidebar-nav {
+  max-height: calc(
+    100vh - var(--header-height) - var(--rate-limit-banner-height) - var(--footer-height)
+  );
+}
+
+.app-scroll-area {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0; /* Allow flex children to shrink below content size */
+  /* Prevent scrollbar from extending behind fixed footer */
+  scrollbar-gutter: stable;
 }
 
 .app-body {
@@ -582,8 +761,6 @@ input[type='radio'] {
   max-width: 1400px;
   margin: 0 auto;
   width: 100%;
-  flex: 1;
-  min-height: 0; /* Allow flex children to shrink below content size */
 }
 
 .app-content-wrapper {
@@ -591,7 +768,6 @@ input[type='radio'] {
   flex-direction: column;
   flex: 1;
   min-width: 0;
-  overflow-y: auto;
 }
 
 .app-main {
@@ -612,7 +788,7 @@ input[type='radio'] {
   max-height: calc(100vh - var(--header-height) - var(--footer-height));
   overflow-y: auto;
   position: sticky;
-  top: var(--header-height);
+  top: 0; /* Sticky within scroll area which already accounts for header */
   align-self: flex-start;
 }
 
@@ -963,11 +1139,9 @@ input[type='radio'] {
   padding: 0.75rem 1rem;
   border-top: 1px solid var(--monarch-border);
   background-color: var(--monarch-bg-card);
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: var(--z-index-sticky);
+  flex-shrink: 0; /* Don't shrink footer */
+  position: relative;
+  z-index: 20; /* Above vignette gradient (z-10) */
 }
 
 .app-footer-link {
@@ -1168,7 +1342,7 @@ input[type='radio'] {
 .stats-sidebar {
   width: 280px;
   flex-shrink: 0;
-  padding: 1rem 1rem 1.5rem 1.5rem;
+  padding: 0 1rem 1.5rem 1.5rem;
   position: sticky;
   top: var(--header-height);
   height: fit-content;
@@ -1278,6 +1452,17 @@ input[type='radio'] {
   }
 }
 
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
 @keyframes expandHeight {
   from {
     opacity: 0;
@@ -1349,6 +1534,10 @@ input[type='radio'] {
   animation: slideUp 0.15s ease-out forwards;
 }
 
+.animate-slide-in-right {
+  animation: slideInRight 0.25s ease-out forwards;
+}
+
 .animate-expand {
   animation: expandHeight 0.3s ease-out forwards;
   overflow: hidden;
@@ -1412,11 +1601,11 @@ input[type='radio'] {
 }
 
 /* ============================================================================
-   Wishlist Widget Grid - react-grid-layout Customizations
+   Stash Widget Grid - react-grid-layout Customizations
    ============================================================================ */
 
 /* Grid container - must take full width for proper measurement */
-.wishlist-widget-grid {
+.stash-widget-grid {
   display: block;
   box-sizing: border-box;
   width: 100%;
@@ -1425,30 +1614,40 @@ input[type='radio'] {
 }
 
 /* Ensure react-grid-layout takes full container width */
-.wishlist-widget-grid .react-grid-layout {
+.stash-widget-grid .react-grid-layout {
   width: 100% !important;
 }
 
 /* Individual grid item */
-.wishlist-grid-item {
+.stash-grid-item {
   height: 100%;
 }
 
 /* Resize handle - bottom right corner only */
 /* !important needed to override react-grid-layout library hover styles */
+/* L-shaped handle extending along right and bottom edges */
 span.react-resizable-handle.react-resizable-handle-se {
   position: absolute;
-  width: 24px;
-  height: 24px;
+  width: 80px;
+  height: 80px;
   bottom: 0;
   right: 0;
-  cursor: se-resize;
+  cursor: se-resize !important;
   opacity: 0 !important;
   transition: opacity 0.2s ease;
   /* Reset default react-resizable styles */
   background: transparent !important;
   border: none !important;
   background-image: none !important;
+  /* Create L-shape: 16px thick strips along right and bottom edges */
+  clip-path: polygon(
+    calc(100% - 16px) 0,
+    100% 0,
+    100% 100%,
+    0 100%,
+    0 calc(100% - 16px),
+    calc(100% - 16px) calc(100% - 16px)
+  );
 }
 
 /* Show resize handle only when hovering over the bottom-right corner */
@@ -1458,7 +1657,7 @@ span.react-resizable-handle.react-resizable-handle-se:hover {
 
 /* Apple-style resize indicator - SVG arc with rounded stroke caps */
 /* Override default react-resizable ::after styling and apply our custom arc */
-.wishlist-widget-grid .react-grid-item > .react-resizable-handle::after {
+.stash-widget-grid .react-grid-item > .react-resizable-handle::after {
   content: '' !important;
   position: absolute !important;
   right: 0 !important;
@@ -1472,7 +1671,7 @@ span.react-resizable-handle.react-resizable-handle-se:hover {
 }
 
 /* Grab cursor on image banner hover */
-.wishlist-card-image {
+.stash-card-image {
   cursor: grab;
 }
 
@@ -1485,12 +1684,12 @@ span.react-resizable-handle.react-resizable-handle-se:hover {
 }
 
 /* Grabbing cursor on entire grid while dragging (keeps cursor while moving to drop point) */
-.wishlist-widget-grid:has(.react-draggable-dragging) {
+.stash-widget-grid:has(.react-draggable-dragging) {
   cursor: grabbing;
 }
 
 /* Grabbing cursor propagates to all children while dragging */
-.wishlist-widget-grid:has(.react-draggable-dragging) * {
+.stash-widget-grid:has(.react-draggable-dragging) * {
   cursor: grabbing !important;
 }
 
@@ -1575,23 +1774,6 @@ span.react-resizable-handle.react-resizable-handle-se:hover {
     fadeIn 0.2s ease-out;
 }
 
-/* ============================================================================
-   Update Banner
-   ============================================================================ */
-
-.update-banner {
-  background-color: var(--monarch-orange);
-  color: white;
-  padding: 0.75rem 1rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  z-index: var(--z-index-toast);
-  flex-shrink: 0; /* Don't compress banners */
-  animation: slideDown 0.3s ease-out;
-}
-
 /* Progress bar styling for update downloads */
 progress {
   appearance: none;
@@ -1668,7 +1850,7 @@ progress::-moz-progress-bar {
   white-space: nowrap;
   z-index: var(--z-index-tooltip);
   animation: tooltipFadeIn 0.3s ease-out forwards;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--monarch-tooltip-shadow);
 }
 
 /* Tooltip arrow */
@@ -2147,6 +2329,7 @@ progress::-moz-progress-bar {
 
 /* Icon button hover - scale effect */
 .icon-btn-hover {
+  cursor: pointer;
   transition:
     transform var(--animation-fast) var(--ease-out-smooth),
     color var(--animation-fast) var(--ease-out-smooth),
@@ -2324,6 +2507,29 @@ progress::-moz-progress-bar {
 
 .animate-success {
   animation: successPulse 0.6s ease-out;
+}
+
+/* Icon pulse - subtle scale animation for attention */
+@keyframes iconPulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 0.85;
+  }
+}
+
+.animate-icon-pulse {
+  animation: iconPulse 2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-icon-pulse {
+    animation: none;
+  }
 }
 
 /* Loading pulse - subtle */
@@ -3510,6 +3716,14 @@ progress::-moz-progress-bar {
   background: var(--monarch-bg-hover, #2a2a2a) !important;
 }
 
+/* Override for Tooltips and HoverCards - use tooltip-specific styling */
+[data-radix-popper-content-wrapper] > [data-side][data-align] {
+  background: var(--monarch-tooltip-bg) !important;
+  color: var(--monarch-tooltip-text) !important;
+  border: none !important;
+  box-shadow: var(--monarch-tooltip-shadow) !important;
+}
+
 /* Editor content area - uses CSS custom property for dynamic min-height */
 .note-editor-mdx .mdxeditor [data-lexical-editor='true'] {
   min-height: var(--note-editor-min-height, 120px);
@@ -3823,4 +4037,111 @@ progress::-moz-progress-bar {
 .release-notes-content strong {
   font-weight: 600;
   color: var(--monarch-text-dark);
+}
+
+/* ================================================
+   Modern Range Slider Styles
+   ================================================ */
+
+/* Base slider - hide default track appearance */
+.slider-modern {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+}
+
+/* Webkit (Chrome, Safari, Edge) thumb styling */
+.slider-modern::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: white;
+  border: 2px solid var(--monarch-primary);
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+  margin-top: -4px; /* Center thumb on track */
+}
+
+.slider-modern::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+}
+
+.slider-modern::-webkit-slider-thumb:active {
+  transform: scale(1.15);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+/* Firefox thumb styling */
+.slider-modern::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: white;
+  border: 2px solid var(--monarch-primary);
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.slider-modern::-moz-range-thumb:hover {
+  transform: scale(1.1);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+}
+
+.slider-modern::-moz-range-thumb:active {
+  transform: scale(1.15);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+/* Hide default track - we use custom divs for the track */
+.slider-modern::-webkit-slider-runnable-track {
+  height: 8px;
+  background: transparent;
+}
+
+.slider-modern::-moz-range-track {
+  height: 8px;
+  background: transparent;
+}
+
+/* Focus styles for accessibility */
+.slider-modern:focus-visible {
+  outline: none;
+}
+
+.slider-modern:focus-visible::-webkit-slider-thumb {
+  outline: 2px solid var(--monarch-primary);
+  outline-offset: 2px;
+  box-shadow:
+    0 0 0 4px rgba(255, 105, 45, 0.2),
+    0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.slider-modern:focus-visible::-moz-range-thumb {
+  outline: 2px solid var(--monarch-primary);
+  outline-offset: 2px;
+  box-shadow:
+    0 0 0 4px rgba(255, 105, 45, 0.2),
+    0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+/* Dark mode adjustments for slider thumb */
+.dark .slider-modern::-webkit-slider-thumb {
+  background: var(--monarch-bg-card);
+  border-color: var(--monarch-primary);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.dark .slider-modern::-moz-range-thumb {
+  background: var(--monarch-bg-card);
+  border-color: var(--monarch-primary);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
 }

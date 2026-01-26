@@ -7,6 +7,26 @@
 // Keys
 export { queryKeys, getQueryKey } from './keys';
 
+// Dependencies (query configuration and invalidation registry)
+export {
+  queryConfig,
+  mutationEffects,
+  pageQueryMap,
+  pollingConfig,
+  getInvalidationTargets,
+  getStaleTargets,
+  getPagePrimaryQueries,
+  getPageAllQueries,
+  getPageSyncScope,
+  isQueryPollable,
+  type QueryKeyName,
+  type PageName,
+  type MutationType,
+  type QueryConfig,
+  type MutationEffect,
+  type PageQueryRequirements,
+} from './dependencies';
+
 // Dashboard queries
 export {
   useDashboardQuery,
@@ -53,13 +73,14 @@ export {
   useLinkToCategoryMutation,
 } from './categoryMutations';
 
-// Settings mutations
+// Settings mutations and queries
 export {
   useUpdateSettingsMutation,
   useSetConfigMutation,
   useExportSettingsMutation,
   useImportSettingsMutation,
   usePreviewImportMutation,
+  useAutoSyncStatusQuery,
 } from './settingsMutations';
 
 // Uninstall mutations
@@ -124,6 +145,11 @@ export {
   useRefreshCategoryGroups,
   useRefreshUnmappedCategories,
   useRemoveFromUnmappedCache,
+  // Detailed category groups (with rollover/flexible settings)
+  useCategoryGroupsDetailed,
+  useFlexibleCategoryGroups,
+  useRefreshFlexibleCategoryGroups,
+  useUpdateCategoryGroupSettings,
 } from './categoryGroupStoreQueries';
 
 // Config store (selectors for config data, derived from dashboard)
@@ -138,24 +164,31 @@ export {
   useUpdateConfigInCache,
 } from './configStoreQueries';
 
-// Wishlist queries
+// Stash queries
 export {
-  useWishlistQuery,
-  useWishlistConfigQuery,
-  useWishlistCategoryGroupsQuery,
-  useUpdateWishlistConfigMutation,
-  useIsWishlistConfigured,
-  useCreateWishlistMutation,
-  useUpdateWishlistMutation,
-  useArchiveWishlistMutation,
-  useUnarchiveWishlistMutation,
-  useDeleteWishlistMutation,
-  useAllocateWishlistMutation,
-  useChangeWishlistGroupMutation,
-  useLinkWishlistCategoryMutation,
-  useWishlistSyncMutation,
-  useUpdateWishlistLayoutMutation,
-  useInvalidateWishlist,
+  useStashQuery,
+  useStashConfigQuery,
+  useStashCategoryGroupsQuery,
+  useUpdateStashConfigMutation,
+  useIsStashConfigured,
+  useCreateStashMutation,
+  useUpdateStashMutation,
+  useArchiveStashMutation,
+  useUnarchiveStashMutation,
+  useCompleteStashMutation,
+  useUncompleteStashMutation,
+  useDeleteStashMutation,
+  useAllocateStashMutation,
+  useAllocateStashBatchMutation,
+  useChangeStashGroupMutation,
+  useLinkStashCategoryMutation,
+  useStashSyncMutation,
+  useUpdateStashLayoutMutation,
+  useInvalidateStash,
+  // Category rollover balance
+  useUpdateCategoryRolloverMutation,
+  // Group rollover balance (for flexible groups)
+  useUpdateGroupRolloverMutation,
   // Pending bookmarks
   usePendingBookmarksQuery,
   usePendingCountQuery,
@@ -165,4 +198,28 @@ export {
   useImportBookmarksMutation,
   useClearUnconvertedBookmarksMutation,
   useInvalidatePendingBookmarks,
-} from './wishlistQueries';
+  // Hypotheses
+  useHypothesesQuery,
+  useSaveHypothesisMutation,
+  useDeleteHypothesisMutation,
+} from './stashQueries';
+
+// Available to Stash queries
+export {
+  useAvailableToStashDataQuery,
+  useAvailableToStash,
+  useAvailableAmount,
+} from './availableToStashQueries';
+
+// Stash History (Reports) queries
+export { useStashHistoryQuery, useInvalidateStashHistory } from './stashHistoryQueries';
+
+// Monarch Goals queries
+export { useMonarchGoalsQuery, useUpdateMonarchGoalLayoutsMutation } from './monarchGoalQueries';
+
+// Openverse (image search) queries
+export {
+  useOpenverseSearch,
+  useOpenverseImage,
+  generateOpenverseAttribution,
+} from './openverseQueries';

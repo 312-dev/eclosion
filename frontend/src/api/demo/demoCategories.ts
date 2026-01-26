@@ -4,7 +4,13 @@
  * Category operations including groups, linking, and customization.
  */
 
-import type { CategoryGroup, UnmappedCategory, LinkCategoryResult } from '../../types';
+import type {
+  CategoryGroup,
+  CategoryGroupDetailed,
+  UpdateCategoryGroupSettingsRequest,
+  UnmappedCategory,
+  LinkCategoryResult,
+} from '../../types';
 import { getDemoState, updateDemoState, simulateDelay } from './demoState';
 
 /**
@@ -36,20 +42,20 @@ export async function setConfig(groupId: string, groupName: string): Promise<voi
 }
 
 /**
- * Get categories not yet linked to recurring or wishlist items.
+ * Get categories not yet linked to recurring or stash items.
  */
 export async function getUnmappedCategories(): Promise<UnmappedCategory[]> {
   await simulateDelay(50);
   const state = getDemoState();
 
-  // Get category IDs used by wishlist items
-  const wishlistCategoryIds = new Set(
-    state.wishlist.items.filter((item) => item.category_id).map((item) => item.category_id)
+  // Get category IDs used by stash items
+  const stashCategoryIds = new Set(
+    state.stash.items.filter((item) => item.category_id).map((item) => item.category_id)
   );
 
-  // Filter out categories used by wishlist items
+  // Filter out categories used by stash items
   // (recurring items are already excluded when linking happens)
-  return state.unmappedCategories.filter((cat) => !wishlistCategoryIds.has(cat.id));
+  return state.unmappedCategories.filter((cat) => !stashCategoryIds.has(cat.id));
 }
 
 /**
@@ -174,4 +180,87 @@ export async function linkRollupToCategory(
     planned_budget: state.dashboard.rollup.budgeted,
     is_linked: true,
   };
+}
+
+/**
+ * Get all category groups with full metadata including rollover/flexible settings.
+ */
+export async function getCategoryGroupsDetailed(): Promise<CategoryGroupDetailed[]> {
+  await simulateDelay(50);
+  const state = getDemoState();
+  return state.categoryGroupsDetailed;
+}
+
+/**
+ * Get category groups that have flexible budgeting with rollover enabled.
+ */
+export async function getFlexibleCategoryGroups(): Promise<CategoryGroupDetailed[]> {
+  await simulateDelay(50);
+  const state = getDemoState();
+  return state.categoryGroupsDetailed.filter(
+    (g) => g.group_level_budgeting_enabled && g.rollover_enabled
+  );
+}
+
+/**
+ * Update a category group's settings.
+ */
+export async function updateCategoryGroupSettings(
+  request: UpdateCategoryGroupSettingsRequest
+): Promise<CategoryGroupDetailed> {
+  await simulateDelay(150);
+
+  const { group_id, ...settings } = request;
+  let updatedGroup: CategoryGroupDetailed | undefined;
+
+  updateDemoState((state) => {
+    const groupIndex = state.categoryGroupsDetailed.findIndex((g) => g.id === group_id);
+    if (groupIndex === -1) {
+      throw new Error(`Category group not found: ${group_id}`);
+    }
+
+    const existingGroup = state.categoryGroupsDetailed[groupIndex];
+    if (!existingGroup) {
+      throw new Error(`Category group not found: ${group_id}`);
+    }
+
+    // Build updated rollover period
+    let rolloverPeriod = existingGroup.rollover_period;
+    if (settings.rollover_enabled === false) {
+      rolloverPeriod = null;
+    } else if (settings.rollover_enabled === true || settings.rollover_start_month) {
+      rolloverPeriod = {
+        id: rolloverPeriod?.id ?? `rollover-${group_id}`,
+        start_month: settings.rollover_start_month ?? rolloverPeriod?.start_month ?? new Date().toISOString().slice(0, 10),
+        end_month: rolloverPeriod?.end_month ?? null,
+        starting_balance: settings.rollover_starting_balance ?? rolloverPeriod?.starting_balance ?? 0,
+        type: settings.rollover_type ?? rolloverPeriod?.type ?? 'monthly',
+        frequency: rolloverPeriod?.frequency ?? 'monthly',
+        target_amount: rolloverPeriod?.target_amount ?? null,
+      };
+    }
+
+    updatedGroup = {
+      ...existingGroup,
+      ...(settings.name !== undefined && { name: settings.name }),
+      ...(settings.budget_variability !== undefined && { budget_variability: settings.budget_variability }),
+      ...(settings.group_level_budgeting_enabled !== undefined && { group_level_budgeting_enabled: settings.group_level_budgeting_enabled }),
+      rollover_enabled: rolloverPeriod !== null,
+      rollover_period: rolloverPeriod,
+    };
+
+    const newGroups = [...state.categoryGroupsDetailed];
+    newGroups[groupIndex] = updatedGroup;
+
+    return {
+      ...state,
+      categoryGroupsDetailed: newGroups,
+    };
+  });
+
+  if (!updatedGroup) {
+    throw new Error(`Failed to update category group: ${group_id}`);
+  }
+
+  return updatedGroup;
 }

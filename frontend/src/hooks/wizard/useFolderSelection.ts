@@ -1,5 +1,5 @@
 /**
- * useFolderSelection - Hook for bookmark folder selection in wishlist wizard
+ * useFolderSelection - Hook for bookmark folder selection in stash wizard
  *
  * Manages folder tree loading, expansion state, and single-folder selection.
  * Selecting a folder automatically includes all its subfolders.

@@ -266,3 +266,11 @@ export function useDataMonth(): string {
   const context = useContext(MonthTransitionContext);
   return context?.dataMonth ?? getCurrentMonth();
 }
+
+/**
+ * Safe version that returns null if context not available.
+ * Use this in components that may render outside the provider.
+ */
+export function useMonthTransitionSafe(): MonthTransitionContextValue | null {
+  return useContext(MonthTransitionContext);
+}

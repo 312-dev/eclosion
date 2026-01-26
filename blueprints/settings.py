@@ -60,7 +60,7 @@ def export_settings():
     # Explicitly exclude notes from plaintext exports (security requirement)
     result = export_service.export_settings(
         include_notes=False,  # Notes require encrypted export
-        include_wishlist=True,
+        include_stash=True,
     )
 
     if result.success:
@@ -78,7 +78,7 @@ def import_settings():
     Body: {
         "data": { ... },  # The export data
         "options": {
-            "tools": ["recurring", "notes", "wishlist"],  # Optional: specific tools
+            "tools": ["recurring", "notes", "stash"],  # Optional: specific tools
             "passphrase": "email+password"  # Required for notes import
         }
     }

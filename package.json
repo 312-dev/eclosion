@@ -1,4 +1,7 @@
 {
+  "scripts": {
+    "desktop-hotreload": "./scripts/dev.sh"
+  },
   "dependencies": {
     "electron": "^39.2.7"
   }

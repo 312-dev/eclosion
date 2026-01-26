@@ -7,6 +7,7 @@
 import { useState, useMemo } from 'react';
 import { ChevronDown, ChevronRight, EyeOff, Eye } from 'lucide-react';
 import { Portal } from '../Portal';
+import { SingleButtonFooter } from '../ui/ModalButtons';
 import { useCategoriesByGroup } from '../../api/queries/categoryStoreQueries';
 import { decodeHtmlEntities } from '../../utils';
 import type { NotesCategoryGroup } from '../../types/notes';
@@ -74,9 +75,15 @@ export function HiddenCategoriesModal({
         <div className="absolute inset-0 bg-black/50 modal-backdrop" onClick={onClose} />
 
         {/* Modal */}
-        <div className="relative w-full max-w-lg mx-4 rounded-xl shadow-xl max-h-[80vh] flex flex-col modal-content bg-monarch-bg-card border border-monarch-border">
+        <div
+          className="relative w-full max-w-lg mx-4 rounded-xl shadow-xl flex flex-col modal-content bg-monarch-bg-card border border-monarch-border"
+          style={{ maxHeight: 'var(--modal-max-height)' }}
+        >
           {/* Header */}
-          <div className="p-4 border-b border-monarch-border">
+          <div
+            className="p-4 border-b border-monarch-border rounded-t-xl"
+            style={{ backgroundColor: 'var(--monarch-bg-page)' }}
+          >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <EyeOff size={20} style={{ color: 'var(--monarch-orange)' }} />
@@ -288,13 +295,13 @@ export function HiddenCategoriesModal({
           </div>
 
           {/* Footer */}
-          <div className="p-4 border-t border-monarch-border">
-            <button
-              onClick={onClose}
-              className="w-full px-4 py-2 text-sm text-white rounded-lg transition-colors btn-hover-lift bg-monarch-orange"
-            >
+          <div
+            className="p-4 border-t border-monarch-border rounded-b-xl"
+            style={{ backgroundColor: 'var(--monarch-bg-page)' }}
+          >
+            <SingleButtonFooter onClick={onClose} variant="warning">
               Done
-            </button>
+            </SingleButtonFooter>
           </div>
         </div>
       </div>

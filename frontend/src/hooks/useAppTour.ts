@@ -8,12 +8,12 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useDemo } from '../context/DemoContext';
-import { useRecurringTour, useNotesTour, useWishlistTour } from './';
+import { useRecurringTour, useNotesTour, useStashTour } from './';
 import type { DashboardData } from '../types';
 
 interface UseAppTourParams {
   dashboardData: DashboardData | undefined;
-  wishlistItemCount: number;
+  stashItemCount: number;
   pendingCount: number;
   isBrowserConfigured: boolean;
   isDesktop: boolean;
@@ -21,7 +21,7 @@ interface UseAppTourParams {
 
 export function useAppTour({
   dashboardData,
-  wishlistItemCount,
+  stashItemCount,
   pendingCount,
   isBrowserConfigured,
   isDesktop,
@@ -37,9 +37,9 @@ export function useAppTour({
   const isRecurringPage =
     location.pathname === '/recurring' || location.pathname === '/demo/recurring';
   const isNotesPage = location.pathname === '/notes' || location.pathname === '/demo/notes';
-  const isWishlistPage =
-    location.pathname === '/wishlist' || location.pathname === '/demo/wishlist';
-  const hasTour = isRecurringPage || isNotesPage || isWishlistPage;
+  const isStashPage =
+    location.pathname === '/stash' || location.pathname === '/demo/stash';
+  const hasTour = isRecurringPage || isNotesPage || isStashPage;
 
   // Check if recurring is configured (setup wizard completed)
   const isRecurringConfigured = dashboardData?.config.target_group_id != null;
@@ -60,14 +60,14 @@ export function useAppTour({
     hasTourSteps: hasNotesTourSteps,
   } = useNotesTour();
 
-  // Get wishlist tour steps and state
+  // Get stash tour steps and state
   const {
-    steps: wishlistTourSteps,
-    hasSeenTour: hasSeenWishlistTour,
-    markAsSeen: markWishlistTourSeen,
-    hasTourSteps: hasWishlistTourSteps,
-  } = useWishlistTour({
-    itemCount: wishlistItemCount,
+    steps: stashTourSteps,
+    hasSeenTour: hasSeenStashTour,
+    markAsSeen: markStashTourSeen,
+    hasTourSteps: hasStashTourSteps,
+  } = useStashTour({
+    itemCount: stashItemCount,
     pendingCount,
     isBrowserConfigured,
     isDesktop,
@@ -75,11 +75,11 @@ export function useAppTour({
 
   // Get the correct tour state based on current page
   const getTourConfig = () => {
-    if (isWishlistPage)
+    if (isStashPage)
       return {
-        steps: wishlistTourSteps,
-        seen: hasSeenWishlistTour,
-        hasSteps: hasWishlistTourSteps,
+        steps: stashTourSteps,
+        seen: hasSeenStashTour,
+        hasSteps: hasStashTourSteps,
       };
     if (isNotesPage)
       return { steps: notesTourSteps, seen: hasSeenNotesTour, hasSteps: hasNotesTourSteps };
@@ -130,7 +130,7 @@ export function useAppTour({
     hasSeenCurrentTour,
     isRecurringPage,
     isNotesPage,
-    isWishlistPage,
+    isStashPage,
     isRecurringConfigured,
     currentTourSteps,
   ]);
@@ -138,8 +138,8 @@ export function useAppTour({
   // Handle tour close - mark as seen
   const handleTourClose = () => {
     setShowTour(false);
-    if (isWishlistPage) {
-      markWishlistTourSeen();
+    if (isStashPage) {
+      markStashTourSeen();
     } else if (isNotesPage) {
       markNotesTourSeen();
     } else if (isRecurringPage) {
@@ -149,7 +149,7 @@ export function useAppTour({
 
   // Key to force TourProvider remount when switching between tour types
   const getTourKey = () => {
-    if (isWishlistPage) return 'wishlist-tour';
+    if (isStashPage) return 'stash-tour';
     if (isNotesPage) return 'notes-tour';
     return 'recurring-tour';
   };

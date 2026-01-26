@@ -211,4 +211,6 @@ def not_found(e):
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=config.SERVER_PORT)
+    # In debug mode, enable hot reloading (watches for file changes)
+    use_reloader = app.debug
+    app.run(host="0.0.0.0", port=config.SERVER_PORT, use_reloader=use_reloader)

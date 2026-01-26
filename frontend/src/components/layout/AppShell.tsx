@@ -17,20 +17,16 @@ import { AppHeader } from './AppHeader';
 import { AppFooter } from './AppFooter';
 import { appTourStyles } from './appShellTour';
 import { SecurityInfo } from '../SecurityInfo';
-import { UpdateBanner } from '../UpdateBanner';
-import { DesktopUpdateBanner } from '../update';
-import { OfflineIndicator } from '../OfflineIndicator';
-import { MonthTransitionBanner } from '../ui/MonthTransitionBanner';
 import { WhatsNewModal } from '../WhatsNewModal';
 import { NoticeBanner } from '../ui/NoticeBanner';
 import { SecurityAlertBanner } from '../SecurityAlertBanner';
 import { PageLoadingSpinner } from '../ui/LoadingSpinner';
 import {
   useDashboardQuery,
-  useSyncMutation,
-  useWishlistQuery,
-  useWishlistConfigQuery,
+  useStashQuery,
+  useStashConfigQuery,
   usePendingCountQuery,
+  useAutoSyncStatusQuery,
 } from '../../api/queries';
 import { useAuth } from '../../context/AuthContext';
 import { useDemo } from '../../context/DemoContext';
@@ -38,7 +34,15 @@ import { useToast } from '../../context/ToastContext';
 import { getErrorMessage, isRateLimitError } from '../../utils';
 import { isDesktopMode } from '../../utils/apiBase';
 import { TourController } from '../wizards/WizardComponents';
-import { useMacOSElectron, useWindowsElectron, useAppTour } from '../../hooks';
+import {
+  useMacOSElectron,
+  useWindowsElectron,
+  useAppTour,
+  useAutoSyncVisibility,
+  usePageSync,
+  useCurrentPage,
+  useBackgroundPoller,
+} from '../../hooks';
 
 export function AppShell() {
   const [showSecurityInfo, setShowSecurityInfo] = useState(false);
@@ -48,22 +52,32 @@ export function AppShell() {
   const isDesktop = isDesktopMode();
   const toast = useToast();
   const { data, isLoading, isFetching, error, refetch } = useDashboardQuery();
-  const syncMutation = useSyncMutation();
   const isMacOSElectron = useMacOSElectron();
+
+  // Page-aware sync - only syncs data relevant to current page
+  const currentPage = useCurrentPage();
+  const { sync: pageSync, isSyncing: isPageSyncing } = usePageSync(currentPage);
+
+  // Background polling - keeps data fresh while app is visible
+  useBackgroundPoller();
   const isWindowsElectron = useWindowsElectron();
 
-  // Wishlist data for tour (lightweight queries)
-  const { data: wishlistData } = useWishlistQuery();
-  const { data: wishlistConfig } = useWishlistConfigQuery();
+  // Stash data for tour (lightweight queries)
+  const { data: stashData } = useStashQuery();
+  const { data: stashConfig } = useStashConfigQuery();
   const { data: pendingCount = 0 } = usePendingCountQuery();
+
+  // Auto-sync visibility management (5 min foreground, 60 min background)
+  const { data: autoSyncStatus } = useAutoSyncStatusQuery();
+  useAutoSyncVisibility(autoSyncStatus?.enabled ?? false);
 
   // Use the app tour hook for all tour-related logic
   const { showTour, setShowTour, currentTourSteps, tourKey, hasTour, handleTourClose, pathPrefix } =
     useAppTour({
       dashboardData: data,
-      wishlistItemCount: wishlistData?.items?.length ?? 0,
+      stashItemCount: stashData?.items?.length ?? 0,
       pendingCount,
-      isBrowserConfigured: !!wishlistConfig?.selectedBrowser,
+      isBrowserConfigured: !!stashConfig?.selectedBrowser,
       isDesktop,
     });
 
@@ -95,7 +109,7 @@ export function AppShell() {
 
   const handleSync = async () => {
     try {
-      await syncMutation.mutateAsync();
+      await pageSync();
     } catch (err) {
       toast.error(isRateLimitError(err) ? err.message : getErrorMessage(err));
     }
@@ -164,8 +178,7 @@ export function AppShell() {
         className="app-layout"
         style={{
           backgroundColor: 'var(--monarch-bg-page)',
-          ...(isMacOSElectron && ({ '--header-height': '73px' } as React.CSSProperties)),
-          ...(isWindowsElectron && ({ '--header-height': '73px' } as React.CSSProperties)),
+          ...(isDesktop && ({ '--header-height': '48px' } as React.CSSProperties)),
         }}
       >
         <a href="#main-content" className="skip-link">
@@ -178,39 +191,33 @@ export function AppShell() {
           isMacOSElectron={isMacOSElectron}
           isWindowsElectron={isWindowsElectron}
           pathPrefix={pathPrefix}
-          readyToAssign={data.ready_to_assign}
           lastSync={data.last_sync}
-          isSyncing={syncMutation.isPending}
+          isSyncing={isPageSyncing}
           isFetching={isFetching}
           hasTour={hasTour}
           onSync={handleSync}
           onStartTour={() => setShowTour(true)}
         />
 
-        <div className="app-notification-banners">
-          <UpdateBanner />
-          <DesktopUpdateBanner />
-          <MonthTransitionBanner />
-          <OfflineIndicator />
-        </div>
-
         <SecurityInfo isOpen={showSecurityInfo} onClose={() => setShowSecurityInfo(false)} />
         <WhatsNewModal />
 
-        <div className="app-body">
-          <SidebarNavigation onLock={handleLock} />
-          <div className="app-content-wrapper">
-            {!isDesktop && <SecurityAlertBanner />}
-            {data.notices && data.notices.length > 0 && (
-              <section className="px-4 pt-6" aria-label="Notifications">
-                {data.notices.map((notice) => (
-                  <NoticeBanner key={notice.id} notice={notice} onDismiss={() => refetch()} />
-                ))}
-              </section>
-            )}
-            <main id="main-content" className="app-main" role="main" aria-label="Main content">
-              <Outlet />
-            </main>
+        <div className="app-scroll-area">
+          <div className="app-body">
+            <SidebarNavigation onLock={handleLock} />
+            <div className="app-content-wrapper">
+              {!isDesktop && <SecurityAlertBanner />}
+              {data.notices && data.notices.length > 0 && (
+                <section className="px-4 pt-6" aria-label="Notifications">
+                  {data.notices.map((notice) => (
+                    <NoticeBanner key={notice.id} notice={notice} onDismiss={() => refetch()} />
+                  ))}
+                </section>
+              )}
+              <main id="main-content" className="app-main" role="main" aria-label="Main content">
+                <Outlet />
+              </main>
+            </div>
           </div>
         </div>
 

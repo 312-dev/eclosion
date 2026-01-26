@@ -1,28 +1,79 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useLayoutEffect, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { EmojiPicker as FrimoussePicker } from 'frimousse';
-import { useClickOutside } from '../hooks';
 import { RefreshIcon, Icons } from './icons';
 import { useIsRateLimited } from '../context/RateLimitContext';
+import { Z_INDEX } from '../constants';
 
 interface EmojiPickerProps {
   readonly currentEmoji: string;
   readonly onSelect: (emoji: string) => Promise<void>;
   readonly disabled?: boolean;
+  /** Show a dropdown chevron next to the emoji */
+  readonly showChevron?: boolean;
 }
 
-export function EmojiPicker({ currentEmoji, onSelect, disabled }: EmojiPickerProps) {
+export function EmojiPicker({ currentEmoji, onSelect, disabled, showChevron }: EmojiPickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const pickerRef = useRef<HTMLDivElement>(null);
   const isRateLimited = useIsRateLimited();
 
   const isDisabled = disabled || isRateLimited;
 
-  useClickOutside(
-    [pickerRef],
-    () => setIsOpen(false),
-    isOpen
-  );
+  // Calculate dropdown position when opening
+  useLayoutEffect(() => {
+    if (isOpen && triggerRef.current) {
+      const triggerRect = triggerRef.current.getBoundingClientRect();
+      const dropdownHeight = 360;
+      const dropdownWidth = 340;
+      const spaceBelow = window.innerHeight - triggerRect.bottom;
+      const spaceAbove = triggerRect.top;
+      const openUpward = spaceBelow < dropdownHeight && spaceAbove > spaceBelow;
+
+      setDropdownStyle({
+        position: 'fixed',
+        left: triggerRect.left,
+        width: dropdownWidth,
+        zIndex: Z_INDEX.TOOLTIP,
+        ...(openUpward
+          ? { bottom: window.innerHeight - triggerRect.top + 4 }
+          : { top: triggerRect.bottom + 4 }),
+      });
+    }
+  }, [isOpen]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      const target = event.target as Node;
+      if (
+        triggerRef.current &&
+        !triggerRef.current.contains(target) &&
+        pickerRef.current &&
+        !pickerRef.current.contains(target)
+      ) {
+        setIsOpen(false);
+      }
+    }
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [isOpen]);
+
+  // Close on escape
+  useEffect(() => {
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') setIsOpen(false);
+    }
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscape);
+      return () => document.removeEventListener('keydown', handleEscape);
+    }
+  }, [isOpen]);
 
   const handleSelect = async (emoji: string) => {
     if (emoji === currentEmoji) {
@@ -39,31 +90,13 @@ export function EmojiPicker({ currentEmoji, onSelect, disabled }: EmojiPickerPro
     }
   };
 
-  return (
-    <span className="relative inline-flex items-center" ref={pickerRef}>
-      <button
-        type="button"
-        onClick={() => !isDisabled && !isUpdating && setIsOpen(!isOpen)}
-        disabled={isDisabled || isUpdating}
-        className="inline-flex items-center justify-center rounded hover:bg-black/5 transition-colors disabled:opacity-50 px-0.5 -ml-0.5"
-        style={{ fontSize: 'inherit', lineHeight: 'inherit' }}
-        aria-label={`Current icon: ${currentEmoji}. Click to change`}
-        aria-expanded={isOpen}
-        aria-haspopup="dialog"
-        aria-busy={isUpdating}
-      >
-        {isUpdating ? (
-          <RefreshIcon size={14} className="animate-spin" aria-hidden="true" />
-        ) : (
-          <span aria-hidden="true">{currentEmoji}</span>
-        )}
-      </button>
-
-      {isOpen && (
+  const pickerDropdown = isOpen
+    ? createPortal(
         <div
-          className="absolute z-(--z-index-dropdown) top-full left-0 mt-1 rounded-lg shadow-lg border dropdown-menu"
+          ref={pickerRef}
+          className="rounded-lg shadow-lg border dropdown-menu"
           style={{
-            width: '340px',
+            ...dropdownStyle,
             height: '360px',
             backgroundColor: 'var(--monarch-bg-card)',
             borderColor: 'var(--monarch-border)',
@@ -127,34 +160,60 @@ export function EmojiPicker({ currentEmoji, onSelect, disabled }: EmojiPickerPro
                       {children}
                     </div>
                   ),
-                  Emoji: ({ emoji, ...props }) => (
-                    <button
-                      className="flex size-8 items-center justify-center rounded-md text-lg transition-colors"
-                      style={{
-                        backgroundColor: emoji.emoji === currentEmoji ? 'var(--monarch-orange-10)' : undefined,
-                        boxShadow: emoji.emoji === currentEmoji ? 'inset 0 0 0 2px var(--monarch-orange)' : undefined,
-                      }}
-                      onMouseEnter={(e) => {
-                        if (emoji.emoji !== currentEmoji) {
-                          e.currentTarget.style.backgroundColor = 'var(--monarch-bg-hover)';
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        if (emoji.emoji !== currentEmoji) {
-                          e.currentTarget.style.backgroundColor = '';
-                        }
-                      }}
-                      {...props}
-                    >
-                      {emoji.emoji}
-                    </button>
-                  ),
+                  Emoji: ({ emoji, ...props }) => {
+                    const isSelected = emoji.emoji === currentEmoji;
+                    return (
+                      <button
+                        className={`flex size-8 items-center justify-center rounded-md text-lg transition-colors ${
+                          isSelected
+                            ? 'ring-2 ring-inset bg-(--monarch-orange-10)'
+                            : 'hover:bg-(--monarch-bg-hover)'
+                        }`}
+                        style={isSelected ? { '--tw-ring-color': 'var(--monarch-orange)' } as React.CSSProperties : undefined}
+                        {...props}
+                      >
+                        {emoji.emoji}
+                      </button>
+                    );
+                  },
                 }}
               />
             </FrimoussePicker.Viewport>
           </FrimoussePicker.Root>
-        </div>
-      )}
-    </span>
+        </div>,
+        document.body
+      )
+    : null;
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => !isDisabled && !isUpdating && setIsOpen(!isOpen)}
+        disabled={isDisabled || isUpdating}
+        className="inline-flex items-center justify-center rounded hover:bg-black/5 transition-colors disabled:opacity-50 px-0.5 -ml-0.5 gap-1.5"
+        style={{ fontSize: 'inherit', lineHeight: 'inherit' }}
+        aria-label={`Current icon: ${currentEmoji}. Click to change`}
+        aria-expanded={isOpen}
+        aria-haspopup="dialog"
+        aria-busy={isUpdating}
+      >
+        {isUpdating ? (
+          <RefreshIcon size={14} className="animate-spin" aria-hidden="true" />
+        ) : (
+          <span aria-hidden="true">{currentEmoji}</span>
+        )}
+        {showChevron && (
+          <Icons.ChevronDown
+            size={14}
+            className={`transition-transform ${isOpen ? 'rotate-180' : ''}`}
+            style={{ color: 'var(--monarch-text-muted)' }}
+            aria-hidden="true"
+          />
+        )}
+      </button>
+      {pickerDropdown}
+    </>
   );
 }

@@ -13,6 +13,9 @@ export { getDashboard, triggerSync } from './demoDashboard';
 // Categories
 export {
   getCategoryGroups,
+  getCategoryGroupsDetailed,
+  getFlexibleCategoryGroups,
+  updateCategoryGroupSettings,
   setConfig,
   getUnmappedCategories,
   updateCategoryEmoji,
@@ -103,24 +106,33 @@ export {
   type AllNotesResponse,
 } from './demoNotes';
 
-// Wishlist
+// Stash
 export {
-  getWishlist,
-  createWishlistItem,
-  updateWishlistItem,
-  archiveWishlistItem,
-  unarchiveWishlistItem,
-  deleteWishlistItem,
-  allocateWishlistFunds,
-  changeWishlistGroup,
-  linkWishlistCategory,
-  syncWishlist,
+  getStash,
+  createStashItem,
+  updateStashItem,
+  archiveStashItem,
+  unarchiveStashItem,
+  deleteStashItem,
+  completeStashItem,
+  uncompleteStashItem,
+  allocateStashFunds,
+  allocateStashFundsBatch,
+  changeStashGroup,
+  linkStashCategory,
+  syncStash,
   fetchOgImage,
-  reorderWishlistItems,
-  updateWishlistLayouts,
-  getWishlistCategoryGroups,
-  getWishlistConfig,
-  updateWishlistConfig,
+  reorderStashItems,
+  updateStashLayouts,
+  getStashCategoryGroups,
+  getStashConfig,
+  updateStashConfig,
+  // Available Funds
+  getAvailableToStashData,
+  // Category rollover balance
+  updateCategoryRolloverBalance,
+  // Group rollover balance (for flexible groups)
+  updateGroupRolloverBalance,
   // Pending bookmarks
   getPendingBookmarks,
   getPendingCount,
@@ -129,4 +141,21 @@ export {
   convertPendingBookmark,
   importBookmarks,
   clearUnconvertedBookmarks,
-} from './demoWishlist';
+  // Hypotheses
+  getHypotheses,
+  saveHypothesis,
+  deleteHypothesis,
+} from './demoStash';
+
+// Stash History (Reports)
+export { getStashHistory } from './demoStashHistory';
+
+// Monarch Goals
+export { getMonarchGoals, updateMonarchGoalLayouts } from './demoMonarchGoals';
+
+// Openverse (image search)
+export {
+  searchImages as searchOpenverseImages,
+  getImage as getOpenverseImage,
+  generateAttribution as generateOpenverseAttribution,
+} from './demoOpenverse';

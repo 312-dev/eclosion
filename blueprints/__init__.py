@@ -103,7 +103,7 @@ def register_blueprints(app: Flask) -> None:
 
     app.register_blueprint(recurring_bp)
 
-    # Phase 8: Wishlist blueprint
-    from .wishlist import wishlist_bp
+    # Phase 8: Stash blueprint
+    from .stash import stash_bp
 
-    app.register_blueprint(wishlist_bp)
+    app.register_blueprint(stash_bp)

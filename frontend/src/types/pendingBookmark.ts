@@ -1,7 +1,7 @@
 /**
  * Pending Bookmark Types
  *
- * Types for bookmarks awaiting review before conversion to wishlist items.
+ * Types for bookmarks awaiting review before conversion to stash items.
  */
 
 import type { BrowserType } from './bookmarks';
@@ -21,12 +21,12 @@ export interface PendingBookmark {
   created_at: string;
 }
 
-/** Response from GET /wishlist/pending */
+/** Response from GET /stash/pending */
 export interface PendingBookmarksResponse {
   bookmarks: PendingBookmark[];
 }
 
-/** Response from GET /wishlist/pending/count */
+/** Response from GET /stash/pending/count */
 export interface PendingCountResponse {
   count: number;
 }
@@ -40,7 +40,7 @@ export interface ImportBookmark {
   logo_url?: string;
 }
 
-/** Response from POST /wishlist/pending/import */
+/** Response from POST /stash/pending/import */
 export interface ImportBookmarksResponse {
   imported: number;
   skipped_existing: number;
