@@ -246,13 +246,13 @@ async def _extract_og_image_url(session: aiohttp.ClientSession, url: str) -> str
             # Try og:image first
             # bs4 type stubs are incomplete - find() returns Tag which has .get()
             og_tag = soup.find("meta", property="og:image")
-            if og_tag and og_tag.get("content"):  # type: ignore[attr-defined]
-                return str(og_tag["content"])  # type: ignore[index]
+            if og_tag and og_tag.get("content"):
+                return str(og_tag["content"])
 
             # Fallback to twitter:image
             twitter_tag = soup.find("meta", attrs={"name": "twitter:image"})
-            if twitter_tag and twitter_tag.get("content"):  # type: ignore[attr-defined]
-                return str(twitter_tag["content"])  # type: ignore[index]
+            if twitter_tag and twitter_tag.get("content"):
+                return str(twitter_tag["content"])
 
             return None
 
