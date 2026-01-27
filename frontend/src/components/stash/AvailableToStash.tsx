@@ -73,8 +73,14 @@ export function AvailableToStash({
           className="flex items-center gap-1.5 px-2 py-1 rounded text-sm animate-pulse"
           style={{ backgroundColor: 'var(--monarch-bg-card)' }}
         >
-          <div className="h-3.5 w-16 rounded" style={{ backgroundColor: 'var(--monarch-bg-hover)' }} />
-          <div className="h-3.5 w-14 rounded" style={{ backgroundColor: 'var(--monarch-bg-hover)' }} />
+          <div
+            className="h-3.5 w-16 rounded"
+            style={{ backgroundColor: 'var(--monarch-bg-hover)' }}
+          />
+          <div
+            className="h-3.5 w-14 rounded"
+            style={{ backgroundColor: 'var(--monarch-bg-hover)' }}
+          />
         </div>
       );
     }
@@ -109,7 +115,7 @@ export function AvailableToStash({
           className="font-medium border-b pb-1 mb-2"
           style={{ borderColor: 'var(--monarch-border)' }}
         >
-          Calculation Breakdown
+          Cash to Stash
         </div>
         <div className="space-y-1">
           <BreakdownRow

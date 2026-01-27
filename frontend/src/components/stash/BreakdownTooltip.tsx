@@ -30,7 +30,7 @@ export function BreakdownTooltip({
         className="font-medium border-b pb-1 mb-2"
         style={{ borderColor: 'var(--monarch-border)' }}
       >
-        Calculation Breakdown
+        Cash to Stash
       </div>
       <div className="space-y-1">
         <BreakdownRow

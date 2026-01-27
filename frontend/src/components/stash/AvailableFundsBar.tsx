@@ -24,7 +24,12 @@ import {
 } from '../../api/queries';
 import { HoverCard } from '../ui/HoverCard';
 import { BreakdownDetailModal } from './BreakdownDetailModal';
-import { BreakdownRow, ExpectedIncomeRow, BREAKDOWN_LABELS } from './BreakdownComponents';
+import {
+  BreakdownRow,
+  ExpectedIncomeRow,
+  LeftToBudgetRow,
+  BREAKDOWN_LABELS,
+} from './BreakdownComponents';
 import { BufferInputRow } from './BufferInputRow';
 import { DistributeButton, HypothesizeButton } from './DistributeButton';
 import { useToast } from '../../context/ToastContext';
@@ -80,6 +85,7 @@ export function AvailableFundsBar({ leftToBudget, items }: Readonly<AvailableFun
     setCustomLeftToBudget,
     totalStashedAllocated,
     totalMonthlyAllocated,
+    startingStashTotal,
   } = useDistributionMode();
   const isHypothesizeMode = mode === 'hypothesize';
   const isInDistributionMode = mode !== null;
@@ -139,10 +145,14 @@ export function AvailableFundsBar({ leftToBudget, items }: Readonly<AvailableFun
 
   // Get display value for Cash to Stash
   // When focused: show total available (editable)
-  // When not focused: show remaining (total - stashed allocations)
+  // When not focused: show remaining (total - delta from starting allocations)
+  // We use the delta (totalStashedAllocated - startingStashTotal) because
+  // stash balances are already subtracted in the main calculation.
+  // This avoids double-counting when entering distribution mode.
   const baseAvailableFunds = customAvailableFunds ?? displayedAvailable;
+  const stashAllocationDelta = totalStashedAllocated - startingStashTotal;
   const remainingFunds = isInDistributionMode
-    ? baseAvailableFunds - totalStashedAllocated
+    ? baseAvailableFunds - stashAllocationDelta
     : baseAvailableFunds;
   const displayFunds = isInputFocused ? baseAvailableFunds : remainingFunds;
 
@@ -301,6 +311,14 @@ export function AvailableFundsBar({ leftToBudget, items }: Readonly<AvailableFun
     // eslint-disable-next-line react-hooks/exhaustive-deps -- dragOffset is intentionally read from closure during drag
   }, [isDragging, calculateSnapPosition]);
 
+  // Calculate LTB breakdown values using the leftToBudget PROP (from dashboard) as the source of truth
+  // The breakdown.leftToBudget comes from a separate query and may be out of sync
+  const budgetedIncome = detailedBreakdown?.leftToBudgetDetail[0]?.amount ?? 0;
+  const budgetedCategories = detailedBreakdown?.leftToBudgetDetail[1]?.amount ?? 0;
+  // Calculate savings & other based on: income - categories - LTB = savings
+  const calculatedSavingsAndOther = budgetedIncome - budgetedCategories - leftToBudget;
+  const showSavingsLine = Math.abs(Math.round(calculatedSavingsAndOther)) >= 1;
+
   const tooltipContent =
     breakdown && detailedBreakdown ? (
       <div className="text-sm space-y-2 min-w-56">
@@ -308,7 +326,7 @@ export function AvailableFundsBar({ leftToBudget, items }: Readonly<AvailableFun
           className="font-medium border-b pb-1 mb-2"
           style={{ borderColor: 'var(--monarch-border)' }}
         >
-          Calculation Breakdown
+          Cash to Stash
         </div>
         <div className="space-y-1">
           <ExpectedIncomeRow
@@ -347,6 +365,13 @@ export function AvailableFundsBar({ leftToBudget, items }: Readonly<AvailableFun
             items={detailedBreakdown.stashItems}
             onExpand={openModal}
           />
+          <LeftToBudgetRow
+            label={BREAKDOWN_LABELS.leftToBudget}
+            amount={leftToBudget}
+            income={budgetedIncome}
+            totalBudgeted={budgetedCategories}
+            {...(showSavingsLine && { savingsAndOther: calculatedSavingsAndOther })}
+          />
           <BufferInputRow
             availableBeforeBuffer={availableBeforeBuffer}
             savedBuffer={bufferAmount}
@@ -359,6 +384,54 @@ export function AvailableFundsBar({ leftToBudget, items }: Readonly<AvailableFun
         >
           <span>Available</span>
           <span style={{ color: displayedStatusColor }}>{displayedFormattedAmount}</span>
+        </div>
+      </div>
+    ) : null;
+
+  // LTB tooltip for the right side of the floating bar (uses same calculated values as above)
+  const ltbTooltipContent =
+    breakdown && detailedBreakdown ? (
+      <div className="text-sm space-y-2 min-w-48">
+        <div
+          className="font-medium border-b pb-1 mb-2"
+          style={{ borderColor: 'var(--monarch-border)' }}
+        >
+          Left to Budget
+        </div>
+        <div className="space-y-1">
+          <div className="flex justify-between">
+            <span style={{ color: 'var(--monarch-text-muted)' }}>Budgeted income</span>
+            <span style={{ color: 'var(--monarch-green)' }}>
+              +{formatCurrency(budgetedIncome, currencyOpts)}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span style={{ color: 'var(--monarch-text-muted)' }}>Budgeted categories</span>
+            <span style={{ color: 'var(--monarch-red)' }}>
+              -{formatCurrency(budgetedCategories, currencyOpts)}
+            </span>
+          </div>
+          {showSavingsLine && (
+            <div className="flex justify-between">
+              <span style={{ color: 'var(--monarch-text-muted)' }}>Savings & other</span>
+              <span style={{ color: 'var(--monarch-red)' }}>
+                -{formatCurrency(calculatedSavingsAndOther, currencyOpts)}
+              </span>
+            </div>
+          )}
+        </div>
+        <div
+          className="flex justify-between font-medium pt-2 border-t"
+          style={{ borderColor: 'var(--monarch-border)' }}
+        >
+          <span>Left to Budget</span>
+          <span
+            style={{
+              color: leftToBudget >= 0 ? 'var(--monarch-success)' : 'var(--monarch-error)',
+            }}
+          >
+            {formatCurrency(leftToBudget, currencyOpts)}
+          </span>
         </div>
       </div>
     ) : null;
@@ -636,22 +709,26 @@ export function AvailableFundsBar({ leftToBudget, items }: Readonly<AvailableFun
                   >
                     Left to Budget
                   </span>
-                  <div className="flex items-center gap-1.5">
-                    <Icons.Banknote
-                      size={16}
-                      style={{
-                        color: isLoading ? 'var(--monarch-text-muted)' : ltbStatusColor,
-                        opacity: 0.8,
-                      }}
-                      aria-hidden="true"
-                    />
-                    {isLoading && (
+                  {isLoading && (
+                    <div className="flex items-center gap-1.5">
+                      <Icons.CircleFadingPlus
+                        size={16}
+                        style={{ color: 'var(--monarch-text-muted)', opacity: 0.8 }}
+                        aria-hidden="true"
+                      />
                       <div
                         className="h-6 w-12 rounded animate-pulse"
                         style={{ backgroundColor: 'var(--monarch-bg-hover)' }}
                       />
-                    )}
-                    {!isLoading && isHypothesizeMode && (
+                    </div>
+                  )}
+                  {!isLoading && isHypothesizeMode && (
+                    <div className="flex items-center gap-1.5">
+                      <Icons.CircleFadingPlus
+                        size={16}
+                        style={{ color: ltbStatusColor, opacity: 0.8 }}
+                        aria-hidden="true"
+                      />
                       <div
                         className={`relative flex items-center px-2 py-0.5 rounded-lg transition-all duration-200 ${isLtbInputFocused ? 'ring-2 ring-purple-400' : ''}`}
                         style={{
@@ -695,16 +772,30 @@ export function AvailableFundsBar({ leftToBudget, items }: Readonly<AvailableFun
                           aria-label="Custom left to budget amount"
                         />
                       </div>
-                    )}
-                    {!isLoading && !isHypothesizeMode && (
-                      <span
-                        className="text-lg font-bold tabular-nums"
-                        style={{ color: ltbStatusColor }}
-                      >
-                        {formatCurrency(remainingLtb, currencyOpts)}
-                      </span>
-                    )}
-                  </div>
+                    </div>
+                  )}
+                  {!isLoading && !isHypothesizeMode && (
+                    <HoverCard
+                      content={ltbTooltipContent}
+                      side="top"
+                      align="center"
+                      closeDelay={400}
+                    >
+                      <div className="flex items-center gap-1.5 cursor-help">
+                        <Icons.CircleFadingPlus
+                          size={16}
+                          style={{ color: ltbStatusColor, opacity: 0.8 }}
+                          aria-hidden="true"
+                        />
+                        <span
+                          className="text-lg font-bold tabular-nums"
+                          style={{ color: ltbStatusColor }}
+                        >
+                          {formatCurrency(remainingLtb, currencyOpts)}
+                        </span>
+                      </div>
+                    </HoverCard>
+                  )}
                 </div>
               );
             })()}
