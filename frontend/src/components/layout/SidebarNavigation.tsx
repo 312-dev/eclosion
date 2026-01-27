@@ -95,7 +95,7 @@ function getNavItems(isDemo: boolean): {
         settingsHash: '#recurring',
       },
       {
-        path: `${prefix}/stash`,
+        path: `${prefix}/stashes`,
         label: 'Stashes',
         icon: <StashIcon size={20} />,
         settingsHash: '#stash',

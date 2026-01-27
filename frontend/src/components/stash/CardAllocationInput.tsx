@@ -5,7 +5,7 @@
  * Features auto-focus and mode-aware focus ring colors.
  */
 
-import { useRef, useState, useCallback, type ChangeEvent } from 'react';
+import { useRef, useState, useCallback, type ChangeEvent, type KeyboardEvent } from 'react';
 import { TbMoneybag } from 'react-icons/tb';
 import { useDistributionMode } from '../../context/DistributionModeContext';
 
@@ -17,7 +17,7 @@ interface CardAllocationInputProps {
 }
 
 export function CardAllocationInput({ itemId, itemName }: CardAllocationInputProps) {
-  const { stashedAllocations, setStashedAllocation, mode } = useDistributionMode();
+  const { stashedAllocations, setStashedAllocation, mode, requestSubmit } = useDistributionMode();
   const inputRef = useRef<HTMLInputElement>(null);
 
   const currentValue = stashedAllocations[itemId] ?? 0;
@@ -52,6 +52,18 @@ export function CardAllocationInput({ itemId, itemName }: CardAllocationInputPro
     setIsFocused(false);
   };
 
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === 'Enter') {
+        (e.target as HTMLInputElement).blur();
+        requestSubmit();
+      } else if (e.key === 'Escape') {
+        (e.target as HTMLInputElement).blur();
+      }
+    },
+    [requestSubmit]
+  );
+
   const isDistribute = mode === 'distribute';
   const focusRingColor = isDistribute ? 'ring-green-400' : 'ring-purple-400';
 
@@ -84,6 +96,7 @@ export function CardAllocationInput({ itemId, itemName }: CardAllocationInputPro
           onChange={handleChange}
           onFocus={handleFocus}
           onBlur={handleBlur}
+          onKeyDown={handleKeyDown}
           placeholder="0"
           aria-label={`Allocation amount for ${itemName}`}
           className="min-w-8 text-3xl font-bold bg-transparent outline-none text-white placeholder:text-white/40 tabular-nums text-right"

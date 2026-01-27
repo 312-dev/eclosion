@@ -119,6 +119,8 @@ export interface DetailedBreakdown {
   goals: BreakdownLineItem[];
   /** Individual stash items */
   stashItems: BreakdownLineItem[];
+  /** Left to Budget breakdown: Income - Budgeted = LTB */
+  leftToBudgetDetail: BreakdownLineItem[];
 }
 
 /**

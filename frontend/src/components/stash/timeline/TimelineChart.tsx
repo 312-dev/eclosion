@@ -252,6 +252,17 @@ export function TimelineChart({
   const minBalance = Math.min(...allBalances, 0);
   const maxBalance = Math.max(...allBalances);
 
+  // Calculate Y-axis width based on the largest formatted value
+  // This prevents clipping when values are in millions
+  const calculateYAxisWidth = (): number => {
+    const maxAbsValue = Math.max(Math.abs(minBalance), Math.abs(maxBalance));
+    const sampleFormatted = formatCurrency(maxAbsValue);
+    // Estimate ~7px per character for the 10px font, plus padding
+    const estimatedWidth = sampleFormatted.length * 7 + 10;
+    return Math.max(45, estimatedWidth);
+  };
+  const yAxisWidth = calculateYAxisWidth();
+
   // Calculate tick interval for X-axis based on data points and resolution
   // Daily needs more aggressive tick skipping since there are many points
   const calculateTickInterval = (): number => {
@@ -276,7 +287,7 @@ export function TimelineChart({
   return (
     <div
       ref={chartContainerRef}
-      className="h-full"
+      className="h-full **:outline-none"
       style={{
         overflowX: needsScroll ? 'auto' : 'visible',
         overflowY: 'visible',
@@ -286,6 +297,7 @@ export function TimelineChart({
       <div
         role="figure"
         aria-label="Timeline chart showing projected stash balances"
+        className="outline-none"
         style={{
           width: typeof minChartWidth === 'number' ? `${minChartWidth}px` : minChartWidth,
           height: '100%',
@@ -295,7 +307,7 @@ export function TimelineChart({
         <ResponsiveContainer width="100%" height="100%">
           <LineChart
             data={dataPoints}
-            margin={{ top: 5, right: 10, left: 0, bottom: 5 }}
+            margin={{ top: 5, right: 30, left: 0, bottom: 5 }}
             onClick={handleChartClick}
             onMouseMove={handleMouseMove}
             onMouseLeave={handleMouseLeave}
@@ -305,7 +317,7 @@ export function TimelineChart({
               stroke={colors.border}
               horizontal={true}
               vertical={true}
-              opacity={0.2}
+              opacity={0.5}
             />
             <XAxis
               dataKey="date"
@@ -322,7 +334,7 @@ export function TimelineChart({
               tickLine={{ stroke: colors.border }}
               tick={{ fontSize: 10, fill: colors.textMuted }}
               tickFormatter={(value) => formatCurrency(value)}
-              width={45}
+              width={yAxisWidth}
               orientation="left"
             />
             <RechartsTooltip

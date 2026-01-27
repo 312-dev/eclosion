@@ -5,8 +5,8 @@
  * Always visible in hypothesize mode, positioned above the card grid.
  */
 
-import { useState, useCallback, useMemo, useRef } from 'react';
-import { Plus } from 'lucide-react';
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import { Plus, Calendar } from 'lucide-react';
 import type { StashItem } from '../../../types';
 import type { NamedEvent, ProjectedCardState } from '../../../types/timeline';
 import { useDistributionMode } from '../../../context/DistributionModeContext';
@@ -16,10 +16,11 @@ import { TimelineChart } from './TimelineChart';
 import { TimelineZoomControls } from './TimelineZoomControls';
 import { TimelineSidebar } from './TimelineSidebar';
 import { TimelineEditPopover } from './TimelineEditPopover';
+import { TimelineEventsTooltip } from './TimelineEventsTooltip';
 
 interface TimelinePanelProps {
-  items: StashItem[];
-  formatCurrency: (amount: number) => string;
+  readonly items: StashItem[];
+  readonly formatCurrency: (amount: number) => string;
 }
 
 export function TimelinePanel({ items, formatCurrency }: TimelinePanelProps) {
@@ -43,7 +44,18 @@ export function TimelinePanel({ items, formatCurrency }: TimelinePanelProps) {
   const [hoverDate, setHoverDate] = useState<string | null>(null);
   const [doubleClickDate, setDoubleClickDate] = useState<string | null>(null);
   const [clickPosition, setClickPosition] = useState<{ x: number; y: number } | null>(null);
+  const [showEventsTooltip, setShowEventsTooltip] = useState(false);
+  const eventsTooltipTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const addEventButtonRef = useRef<HTMLDivElement>(null);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (eventsTooltipTimeoutRef.current) {
+        clearTimeout(eventsTooltipTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Display priority: locked cursor > hover
   const displayDate = cursorDate || hoverDate;
@@ -200,15 +212,44 @@ export function TimelinePanel({ items, formatCurrency }: TimelinePanelProps) {
             Timeline Projection
           </span>
           {timelineEvents.length > 0 && (
-            <span
-              className="text-xs px-2 py-0.5 rounded-full"
-              style={{
-                backgroundColor: 'var(--monarch-bg-page)',
-                color: 'var(--monarch-text-muted)',
+            // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- Hover container for tooltip; button inside handles keyboard/click
+            <div
+              className="relative"
+              onMouseEnter={() => {
+                if (eventsTooltipTimeoutRef.current) {
+                  clearTimeout(eventsTooltipTimeoutRef.current);
+                  eventsTooltipTimeoutRef.current = null;
+                }
+                setShowEventsTooltip(true);
+              }}
+              onMouseLeave={() => {
+                eventsTooltipTimeoutRef.current = setTimeout(() => {
+                  setShowEventsTooltip(false);
+                }, 150);
               }}
             >
-              {timelineEvents.length} event{timelineEvents.length === 1 ? '' : 's'}
-            </span>
+              <button
+                type="button"
+                onClick={() => setShowEventsTooltip((prev) => !prev)}
+                className="text-xs px-2 py-0.5 rounded-full flex items-center gap-1.5 transition-colors hover:bg-(--monarch-bg-hover)"
+                style={{
+                  backgroundColor: 'var(--monarch-bg-page)',
+                  color: 'var(--monarch-text-muted)',
+                }}
+                aria-label="View timeline events"
+                aria-expanded={showEventsTooltip}
+              >
+                <Calendar size={12} />
+                {timelineEvents.length} event{timelineEvents.length === 1 ? '' : 's'}
+              </button>
+              {showEventsTooltip && (
+                <TimelineEventsTooltip
+                  events={timelineEvents}
+                  itemConfigs={itemConfigs}
+                  onEventClick={handleCursorChange}
+                />
+              )}
+            </div>
           )}
         </div>
 
@@ -240,6 +281,7 @@ export function TimelinePanel({ items, formatCurrency }: TimelinePanelProps) {
               itemConfigs={itemConfigs}
               onSave={handleSaveEvent}
               onClose={handleClosePopover}
+              onDelete={handleDeleteEvent}
               {...(clickPosition ? { clickPosition } : { anchorRef: addEventButtonRef })}
             />
           )}
@@ -275,6 +317,8 @@ export function TimelinePanel({ items, formatCurrency }: TimelinePanelProps) {
           onApyChange={handleApyChange}
           onClearCursor={handleClearCursor}
           formatCurrency={formatCurrency}
+          events={timelineEvents}
+          onEditEvent={handleEditEvent}
         />
       </div>
     </div>

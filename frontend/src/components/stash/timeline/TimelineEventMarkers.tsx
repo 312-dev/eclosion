@@ -11,12 +11,16 @@ import { formatDateDisplay } from '../../../utils/timelineProjection';
 /** The marker radius in pixels */
 const MARKER_RADIUS = 8;
 
-/** Data for a single event marker position */
+/** Data for a single event marker position (grouped by date AND item) */
 interface EventMarkerData {
   /** Date string (X-axis value) */
   date: string;
-  /** Event IDs at this date */
+  /** Item ID this marker belongs to */
+  itemId: string;
+  /** Event IDs affecting this item at this date */
   eventIds: string[];
+  /** Unique key for this marker (date-itemId) */
+  key: string;
 }
 
 /** Props for the main TimelineEventMarkers component */
@@ -39,9 +43,12 @@ interface TimelineEventMarkersProps {
   readonly chartRef: React.RefObject<HTMLDivElement | null>;
 }
 
-/** State for hovered marker tooltip */
-interface HoveredMarkerState {
+/** State for hovered/clicked marker tooltip */
+interface MarkerInteractionState {
   date: string;
+  itemId: string;
+  /** Unique key (date-itemId) for comparison */
+  key: string;
   events: NamedEvent[];
   screenX: number;
   screenY: number;
@@ -57,9 +64,11 @@ interface MarkerShapeProps {
 interface EventMarkerShapeProps extends MarkerShapeProps {
   readonly eventCount: number;
   readonly isHovered: boolean;
+  readonly isActive: boolean;
   readonly markerColor: string;
   readonly onMouseEnter: (cx: number, cy: number) => void;
   readonly onMouseLeave: () => void;
+  readonly onClick: (cx: number, cy: number) => void;
 }
 
 /**
@@ -71,20 +80,24 @@ function EventMarkerShape({
   cy,
   eventCount,
   isHovered,
+  isActive,
   markerColor,
   onMouseEnter,
   onMouseLeave,
+  onClick,
 }: EventMarkerShapeProps) {
   if (cx === undefined || cy === undefined) return null;
 
-  // Use larger radius when showing count
-  const radius = eventCount > 1 ? MARKER_RADIUS + 2 : MARKER_RADIUS;
-  const hoverRadius = radius + 2;
+  // Use larger radius when showing count or when active/hovered
+  const baseRadius = eventCount > 1 ? MARKER_RADIUS + 2 : MARKER_RADIUS;
+  const expandedRadius = baseRadius + 2;
+  const radius = isActive || isHovered ? expandedRadius : baseRadius;
 
   return (
     <g
       onMouseEnter={() => onMouseEnter(cx, cy)}
       onMouseLeave={onMouseLeave}
+      onClick={() => onClick(cx, cy)}
       style={{ cursor: 'pointer' }}
       className="timeline-event-marker"
     >
@@ -92,13 +105,13 @@ function EventMarkerShape({
       <circle
         cx={cx}
         cy={cy}
-        r={isHovered ? hoverRadius : radius}
+        r={radius}
         fill={markerColor}
-        stroke="var(--monarch-bg-card)"
-        strokeWidth={2}
+        stroke={isActive ? 'var(--monarch-text-dark)' : 'var(--monarch-bg-card)'}
+        strokeWidth={isActive ? 3 : 2}
         style={{
-          transition: 'r 0.15s ease-out',
-          filter: isHovered ? 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))' : undefined,
+          transition: 'r 0.15s ease-out, stroke-width 0.15s ease-out',
+          filter: isHovered || isActive ? 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))' : undefined,
         }}
       />
 
@@ -137,7 +150,8 @@ export function TimelineEventMarkers({
   markerYValue,
   chartRef,
 }: TimelineEventMarkersProps) {
-  const [hoveredMarker, setHoveredMarker] = useState<HoveredMarkerState | null>(null);
+  const [hoveredMarker, setHoveredMarker] = useState<MarkerInteractionState | null>(null);
+  const [clickedMarker, setClickedMarker] = useState<MarkerInteractionState | null>(null);
   const [isTooltipHovered, setIsTooltipHovered] = useState(false);
   const tooltipTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -165,15 +179,36 @@ export function TimelineEventMarkers({
     [itemConfigs]
   );
 
-  // Collect markers: dates that have events
+  // Build dataPoint lookup by date for balance retrieval
+  const dataPointMap = useMemo(() => new Map(dataPoints.map((dp) => [dp.date, dp])), [dataPoints]);
+
+  // Collect markers: group events by (date, itemId) so each line shows its own markers
   const markers: EventMarkerData[] = useMemo(() => {
-    return dataPoints
-      .filter((dp) => dp.eventIds.length > 0)
-      .map((dp) => ({
-        date: dp.date,
-        eventIds: dp.eventIds,
-      }));
-  }, [dataPoints]);
+    const markerMap = new Map<string, EventMarkerData>();
+
+    for (const dp of dataPoints) {
+      for (const eventId of dp.eventIds) {
+        const event = eventMap.get(eventId);
+        if (!event) continue;
+
+        const key = `${dp.date}-${event.itemId}`;
+        const existing = markerMap.get(key);
+
+        if (existing) {
+          existing.eventIds.push(eventId);
+        } else {
+          markerMap.set(key, {
+            date: dp.date,
+            itemId: event.itemId,
+            eventIds: [eventId],
+            key,
+          });
+        }
+      }
+    }
+
+    return Array.from(markerMap.values());
+  }, [dataPoints, eventMap]);
 
   const getItemName = useCallback(
     (itemId: string) => itemNameMap.get(itemId) ?? 'Unknown',
@@ -187,6 +222,9 @@ export function TimelineEventMarkers({
 
   const handleMarkerMouseEnter = useCallback(
     (marker: EventMarkerData, cx: number, cy: number) => {
+      // Don't show hover tooltip if we have a clicked marker open
+      if (clickedMarker) return;
+
       if (tooltipTimeoutRef.current) {
         clearTimeout(tooltipTimeoutRef.current);
         tooltipTimeoutRef.current = null;
@@ -196,27 +234,56 @@ export function TimelineEventMarkers({
         .map((id) => eventMap.get(id))
         .filter((ev): ev is NamedEvent => ev !== undefined);
 
-      // Get screen coordinates for tooltip positioning
       const chartRect = chartRef.current?.getBoundingClientRect();
 
       setHoveredMarker({
         date: marker.date,
+        itemId: marker.itemId,
+        key: marker.key,
         events: markerEvents,
         screenX: (chartRect?.left ?? 0) + cx,
         screenY: (chartRect?.top ?? 0) + cy,
       });
     },
-    [eventMap, chartRef]
+    [eventMap, chartRef, clickedMarker]
   );
 
   const handleMarkerMouseLeave = useCallback(() => {
-    // Delay hiding to allow mouse to move to tooltip
+    // Don't hide if we have a clicked marker
+    if (clickedMarker) return;
+
     tooltipTimeoutRef.current = setTimeout(() => {
       if (!isTooltipHovered) {
         setHoveredMarker(null);
       }
     }, 100);
-  }, [isTooltipHovered]);
+  }, [isTooltipHovered, clickedMarker]);
+
+  const handleMarkerClick = useCallback(
+    (marker: EventMarkerData, cx: number, cy: number) => {
+      const markerEvents = marker.eventIds
+        .map((id) => eventMap.get(id))
+        .filter((ev): ev is NamedEvent => ev !== undefined);
+
+      const chartRect = chartRef.current?.getBoundingClientRect();
+
+      // Toggle: if clicking same marker, close it
+      if (clickedMarker?.key === marker.key) {
+        setClickedMarker(null);
+      } else {
+        setClickedMarker({
+          date: marker.date,
+          itemId: marker.itemId,
+          key: marker.key,
+          events: markerEvents,
+          screenX: (chartRect?.left ?? 0) + cx,
+          screenY: (chartRect?.top ?? 0) + cy,
+        });
+        setHoveredMarker(null);
+      }
+    },
+    [eventMap, chartRef, clickedMarker]
+  );
 
   const handleTooltipMouseEnter = useCallback(() => {
     setIsTooltipHovered(true);
@@ -231,6 +298,10 @@ export function TimelineEventMarkers({
     setHoveredMarker(null);
   }, []);
 
+  const handleCloseClickedTooltip = useCallback(() => {
+    setClickedMarker(null);
+  }, []);
+
   if (markers.length === 0) {
     return null;
   }
@@ -239,35 +310,62 @@ export function TimelineEventMarkers({
     <>
       {markers.map((marker) => {
         const eventCount = marker.eventIds.length;
-        const isHovered = hoveredMarker?.date === marker.date;
+        const isHovered =
+          hoveredMarker?.date === marker.date && hoveredMarker?.itemId === marker.itemId;
+        const isActive =
+          clickedMarker?.date === marker.date && clickedMarker?.itemId === marker.itemId;
 
-        // Get the first event's item color for the marker
-        const firstEventId = marker.eventIds[0];
-        const firstEvent = firstEventId ? eventMap.get(firstEventId) : undefined;
-        const markerColor = firstEvent ? getItemColor(firstEvent.itemId) : '#8b5cf6';
+        // Get item color directly from the marker's itemId
+        const markerColor = getItemColor(marker.itemId);
+
+        // Position marker ON the line at the item's balance for this date
+        const dataPoint = dataPointMap.get(marker.date);
+        const itemBalance = dataPoint
+          ? (dataPoint.balances[marker.itemId] ?? markerYValue)
+          : markerYValue;
 
         return (
           <ReferenceDot
-            key={marker.date}
+            key={marker.key}
             x={marker.date}
-            y={markerYValue}
+            y={itemBalance}
             r={0} // We render our own shape
             ifOverflow="visible"
             shape={
               <EventMarkerShape
                 eventCount={eventCount}
                 isHovered={isHovered}
+                isActive={isActive}
                 markerColor={markerColor}
                 onMouseEnter={(cx, cy) => handleMarkerMouseEnter(marker, cx, cy)}
                 onMouseLeave={handleMarkerMouseLeave}
+                onClick={(cx, cy) => handleMarkerClick(marker, cx, cy)}
               />
             }
           />
         );
       })}
 
-      {/* Tooltip portal */}
-      {hoveredMarker && (
+      {/* Clicked marker tooltip (edit mode) - takes precedence */}
+      {clickedMarker && (
+        <EventMarkerTooltip
+          events={clickedMarker.events}
+          screenX={clickedMarker.screenX}
+          screenY={clickedMarker.screenY}
+          getItemName={getItemName}
+          getItemColor={getItemColor}
+          formatCurrency={formatCurrency}
+          onEdit={onEditEvent}
+          onDelete={onDeleteEvent}
+          onMouseEnter={() => {}}
+          onMouseLeave={() => {}}
+          isEditMode={true}
+          onClose={handleCloseClickedTooltip}
+        />
+      )}
+
+      {/* Hover tooltip (info mode) - only show if no clicked marker */}
+      {!clickedMarker && hoveredMarker && (
         <EventMarkerTooltip
           events={hoveredMarker.events}
           screenX={hoveredMarker.screenX}
@@ -279,6 +377,7 @@ export function TimelineEventMarkers({
           onDelete={onDeleteEvent}
           onMouseEnter={handleTooltipMouseEnter}
           onMouseLeave={handleTooltipMouseLeave}
+          isEditMode={false}
         />
       )}
     </>
@@ -300,6 +399,10 @@ interface EventMarkerTooltipProps {
   readonly onDelete: (eventId: string) => void;
   readonly onMouseEnter: () => void;
   readonly onMouseLeave: () => void;
+  /** Whether this is edit mode (clicked) vs info mode (hovered) */
+  readonly isEditMode: boolean;
+  /** Called to close the tooltip (only used in edit mode) */
+  readonly onClose?: () => void;
 }
 
 function EventMarkerTooltip({
@@ -313,6 +416,8 @@ function EventMarkerTooltip({
   onDelete,
   onMouseEnter,
   onMouseLeave,
+  isEditMode,
+  onClose,
 }: EventMarkerTooltipProps) {
   const tooltipRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ x: screenX, y: screenY });
@@ -350,19 +455,40 @@ function EventMarkerTooltip({
     >
       {/* Header */}
       <div
-        className="px-3 py-2 text-xs font-medium border-b"
+        className="px-3 py-2 text-xs font-medium border-b flex items-center justify-between"
         style={{
           backgroundColor: 'var(--monarch-bg-page)',
           borderColor: 'var(--monarch-border)',
           color: 'var(--monarch-text-muted)',
         }}
       >
-        {events.length === 1 ? (
-          formatDateDisplay(events[0]?.date ?? '', 'monthly')
-        ) : (
-          <>
-            {formatDateDisplay(events[0]?.date ?? '', 'monthly')} &middot; {events.length} events
-          </>
+        <span>
+          {events.length === 1 ? (
+            formatDateDisplay(events[0]?.date ?? '', 'monthly')
+          ) : (
+            <>
+              {formatDateDisplay(events[0]?.date ?? '', 'monthly')} &middot; {events.length} events
+            </>
+          )}
+        </span>
+        {isEditMode && onClose && (
+          <button
+            onClick={onClose}
+            className="p-0.5 -mr-1 rounded hover:bg-black/10 transition-colors"
+            style={{ color: 'var(--monarch-text-muted)' }}
+            aria-label="Close"
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
+          </button>
         )}
       </div>
 
@@ -405,25 +531,27 @@ function EventMarkerTooltip({
                 </div>
               </div>
 
-              {/* Action buttons */}
-              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button
-                  onClick={() => onEdit(event)}
-                  className="p-1.5 rounded hover:bg-black/5 transition-colors"
-                  style={{ color: 'var(--monarch-text-muted)' }}
-                  aria-label={`Edit ${event.name}`}
-                >
-                  <Pencil size={14} />
-                </button>
-                <button
-                  onClick={() => onDelete(event.id)}
-                  className="p-1.5 rounded hover:bg-red-50 transition-colors"
-                  style={{ color: 'var(--monarch-error, #dc2626)' }}
-                  aria-label={`Delete ${event.name}`}
-                >
-                  <Trash2 size={14} />
-                </button>
-              </div>
+              {/* Action buttons - only show in edit mode */}
+              {isEditMode && (
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => onEdit(event)}
+                    className="p-1.5 rounded hover:bg-black/5 transition-colors"
+                    style={{ color: 'var(--monarch-text-muted)' }}
+                    aria-label={`Edit ${event.name}`}
+                  >
+                    <Pencil size={14} />
+                  </button>
+                  <button
+                    onClick={() => onDelete(event.id)}
+                    className="p-1.5 rounded hover:bg-red-50 transition-colors"
+                    style={{ color: 'var(--monarch-error, #dc2626)' }}
+                    aria-label={`Delete ${event.name}`}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         ))}

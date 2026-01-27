@@ -16,7 +16,7 @@ from core import (
 )
 from core.exceptions import ValidationError
 from core.middleware import sanitize_api_result
-from services.metadata_service import fetch_og_image
+from services.metadata_service import fetch_favicon, fetch_og_image
 from services.stash_service import StashService
 
 logger = logging.getLogger(__name__)
@@ -112,6 +112,30 @@ async def fetch_og_image_endpoint():
 
     image_data = await fetch_og_image(url)
     return {"image": image_data}
+
+
+@stash_bp.route("/fetch-favicon", methods=["GET"])
+@api_handler(handle_mfa=False)
+async def fetch_favicon_endpoint():
+    """
+    Fetch favicon from a domain and return as base64 data URL.
+
+    Query params:
+    - domain: The domain to fetch favicon from (e.g., "amazon.com")
+
+    Returns:
+    - favicon: Base64 data URL or null if not found/failed
+
+    Tries common favicon locations (/apple-touch-icon.png, /favicon.ico, etc.)
+    and parses HTML for link tags. Only returns favicons >= 32x32.
+    Times out after 5 seconds. Fails silently (returns null).
+    """
+    domain = request.args.get("domain")
+    if not domain:
+        raise ValidationError("Missing 'domain' parameter")
+
+    favicon_data = await fetch_favicon(domain)
+    return {"favicon": favicon_data}
 
 
 # ---- LAYOUT ENDPOINTS ----
@@ -944,6 +968,9 @@ async def save_hypothesis():
     - monthly_allocations: Record<stashId, amount>
     - monthly_total: Total monthly allocated
     - events: StashEventsMap
+    - custom_available_funds: Override for Available to Stash (optional)
+    - custom_left_to_budget: Override for Left to Budget (optional)
+    - item_apys: Record<stashId, apy> for HYSA projections (optional)
     """
     service = get_stash_service()
     data = request.get_json()
@@ -962,6 +989,9 @@ async def save_hypothesis():
         monthly_allocations=data.get("monthly_allocations", {}),
         monthly_total=data.get("monthly_total", 0),
         events=data.get("events", {}),
+        custom_available_funds=data.get("custom_available_funds"),
+        custom_left_to_budget=data.get("custom_left_to_budget"),
+        item_apys=data.get("item_apys", {}),
     )
     return jsonify(sanitize_response(result))
 

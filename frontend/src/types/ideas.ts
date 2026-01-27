@@ -27,14 +27,5 @@ export interface PublicIdea {
   author: IdeaAuthor | null;
 }
 
-/** Full ideas data response from the API */
-export interface IdeasData {
-  generatedAt: string;
-  totalIdeas: number;
-  openCount: number;
-  closedCount: number;
-  ideas: PublicIdea[];
-}
-
 /** Development cycle stages for visualization */
 export type DevCycleStage = 'idea' | 'in-progress' | 'shipped';

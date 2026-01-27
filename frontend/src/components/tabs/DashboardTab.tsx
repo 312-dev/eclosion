@@ -36,7 +36,7 @@ function getTools(isDemo: boolean) {
       name: 'Stashes',
       description: "Save for today's wants and tomorrow's needs",
       icon: <StashIcon size={28} />,
-      path: `${prefix}/stash`,
+      path: `${prefix}/stashes`,
     },
   ];
 }

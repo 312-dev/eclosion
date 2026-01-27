@@ -114,6 +114,7 @@ import {
   Wallet,
   Banknote,
   BanknoteArrowUp,
+  BanknoteArrowDown,
   TrendingUpDown,
   Square,
   CheckSquare,
@@ -127,6 +128,7 @@ import {
   Sparkles,
   BadgeDollarSign,
   HandCoins,
+  CircleFadingPlus,
 } from 'lucide-react';
 import type { SVGProps } from 'react';
 
@@ -248,6 +250,7 @@ export const CoinsIcon = Coins;
 export const WalletIcon = Wallet;
 export const BanknoteIcon = Banknote;
 export const BanknoteArrowUpIcon = BanknoteArrowUp;
+export const BanknoteArrowDownIcon = BanknoteArrowDown;
 export const TrendingUpDownIcon = TrendingUpDown;
 export const SquareIcon = Square;
 export const CheckSquareIcon = CheckSquare;
@@ -259,6 +262,7 @@ export const WrenchIcon = Wrench;
 export const SparklesIcon = Sparkles;
 export const BadgeDollarSignIcon = BadgeDollarSign;
 export const HandCoinsIcon = HandCoins;
+export const CircleFadingPlusIcon = CircleFadingPlus;
 
 // =============================================================================
 // Custom Icons (not available in Lucide)
@@ -676,6 +680,7 @@ export const Icons = {
   Wallet: WalletIcon,
   Banknote: BanknoteIcon,
   BanknoteArrowUp: BanknoteArrowUpIcon,
+  BanknoteArrowDown: BanknoteArrowDownIcon,
   TrendingUpDown: TrendingUpDownIcon,
 
   // Selection
@@ -699,6 +704,7 @@ export const Icons = {
   // Money/Debt
   BadgeDollarSign: BadgeDollarSignIcon,
   HandCoins: HandCoinsIcon,
+  CircleFadingPlus: CircleFadingPlusIcon,
 };
 
 export { Mail as MailIcon, HelpCircle as HelpIcon } from 'lucide-react';

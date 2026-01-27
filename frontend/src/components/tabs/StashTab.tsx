@@ -187,7 +187,6 @@ export function StashTab() {
   const [modalPrefill, setModalPrefill] = useState<ModalPrefill | undefined>(undefined);
   const [isPendingExpanded, setIsPendingExpanded] = useState(false);
   const [isIgnoredExpanded, setIsIgnoredExpanded] = useState(false);
-  const [showArchived, setShowArchived] = useState(false);
   const [selectedPendingBookmark, setSelectedPendingBookmark] = useState<PendingBookmark | null>(
     null
   );
@@ -448,32 +447,6 @@ export function StashTab() {
           Monarch Goals
           <ExternalLink size={14} />
         </a>
-
-        {/* Show Archived toggle - floated right */}
-        {activeView === 'stashes' && archivedItems.length > 0 && (
-          <div className="ml-auto flex items-center gap-2 select-none">
-            <span className="text-sm" style={{ color: 'var(--monarch-text-muted)' }}>
-              Show Archived
-            </span>
-            <button
-              role="switch"
-              aria-checked={showArchived}
-              aria-label="Show archived stashes"
-              onClick={() => setShowArchived(!showArchived)}
-              className="toggle-switch relative w-10 h-5 rounded-full transition-colors cursor-pointer"
-              style={{
-                backgroundColor: showArchived ? 'var(--monarch-orange)' : 'var(--monarch-border)',
-              }}
-            >
-              <span
-                className="toggle-knob absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform"
-                style={{
-                  transform: showArchived ? 'translateX(20px)' : 'translateX(0)',
-                }}
-              />
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Available Funds Bar with Distribute Button - floats at bottom */}
@@ -495,11 +468,6 @@ export function StashTab() {
               onAdd={() => setIsAddModalOpen(true)}
               onViewReport={handleViewStashReport}
               showTypeBadges={configData?.showMonarchGoals ?? false}
-              archivedItems={
-                showArchived
-                  ? archivedItems.filter((item): item is StashItem => item.type === 'stash')
-                  : undefined
-              }
             />
 
             {/* Timeline Panel - positioned below cards */}
@@ -539,8 +507,8 @@ export function StashTab() {
               />
             </div>
           )}
-          {/* Show collapsed section only when toggle is off and not in hypothesis/distribution mode */}
-          {!showArchived && mode === null && (
+          {/* Past / Archived section - always visible when there are archived items */}
+          {mode === null && (
             <ArchivedItemsSection
               items={archivedItems.filter((item): item is StashItem => item.type === 'stash')}
               onEdit={handleEdit}

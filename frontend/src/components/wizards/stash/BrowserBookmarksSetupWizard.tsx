@@ -32,7 +32,13 @@ export function BrowserBookmarksSetupWizard({
   // In demo mode, bookmarks aren't available
   if (!wizard.isDesktopMode) {
     return (
-      <div className="text-center py-8">
+      <div
+        className="scale-in rounded-xl shadow-lg w-full max-w-lg p-6 text-center"
+        style={{
+          backgroundColor: 'var(--monarch-bg-card)',
+          border: '1px solid var(--monarch-border)',
+        }}
+      >
         <Icons.AlertCircle
           size={48}
           className="mx-auto mb-4"
@@ -117,10 +123,7 @@ export function BrowserBookmarksSetupWizard({
     >
       {/* Header with cancel button */}
       <div className="flex items-center justify-between mb-4">
-        <h2
-          className="text-lg font-semibold"
-          style={{ color: 'var(--monarch-text-dark)' }}
-        >
+        <h2 className="text-lg font-semibold" style={{ color: 'var(--monarch-text-dark)' }}>
           Set Up Bookmark Sync
         </h2>
         {onCancel && (
