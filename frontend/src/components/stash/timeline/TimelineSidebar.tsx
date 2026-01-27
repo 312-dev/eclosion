@@ -5,11 +5,16 @@
  * along with APY controls. Replaces the horizontal TimelineLegend.
  */
 
-import { useState, useCallback } from 'react';
-import type { TimelineItemConfig, ProjectedCardState } from '../../../types/timeline';
+import { useState, useCallback, useMemo } from 'react';
+import { Calendar } from 'lucide-react';
+import type {
+  TimelineItemConfig,
+  ProjectedCardState,
+  NamedEvent,
+  TimelineResolution,
+} from '../../../types/timeline';
 import { formatAPY } from '../../../utils/hysaCalculations';
 import { parseDateString } from '../../../utils/timelineProjection';
-import type { TimelineResolution } from '../../../types/timeline';
 
 /** Format date with full month name and year for sidebar display */
 function formatSidebarDate(dateStr: string, resolution: TimelineResolution): string {
@@ -42,6 +47,10 @@ interface TimelineSidebarProps {
   readonly onClearCursor: () => void;
   /** Currency formatter */
   readonly formatCurrency: (amount: number) => string;
+  /** All timeline events */
+  readonly events?: NamedEvent[];
+  /** Called when user clicks an event to edit it */
+  readonly onEditEvent?: (event: NamedEvent) => void;
 }
 
 interface ApyEditorProps {
@@ -104,9 +113,23 @@ interface SidebarItemProps {
   readonly projection: ProjectedCardState | undefined;
   readonly onApyChange: (itemId: string, apy: number) => void;
   readonly formatCurrency: (amount: number) => string;
+  /** Width for the balance column to ensure alignment */
+  readonly balanceWidth: number;
+  /** Events for this item at the current display date */
+  readonly events: NamedEvent[];
+  /** Called when user clicks an event to edit it */
+  readonly onEditEvent?: (event: NamedEvent) => void;
 }
 
-function SidebarItem({ config, projection, onApyChange, formatCurrency }: SidebarItemProps) {
+function SidebarItem({
+  config,
+  projection,
+  onApyChange,
+  formatCurrency,
+  balanceWidth,
+  events,
+  onEditEvent,
+}: SidebarItemProps) {
   const [isEditingApy, setIsEditingApy] = useState(false);
 
   const handleApySave = useCallback(
@@ -119,61 +142,94 @@ function SidebarItem({ config, projection, onApyChange, formatCurrency }: Sideba
 
   return (
     <div
-      className="flex items-center gap-3 px-3 py-2 border-b"
+      className="px-3 py-2 border-b"
       style={{ borderColor: 'var(--monarch-border-subtle, var(--monarch-border))' }}
     >
-      {/* Color dot */}
-      <div
-        className="w-2.5 h-2.5 rounded-full shrink-0"
-        style={{ backgroundColor: config.color }}
-      />
+      {/* Main row: color dot, name, balance, APY */}
+      <div className="flex items-center gap-3">
+        {/* Color dot */}
+        <div
+          className="w-2.5 h-2.5 rounded-full shrink-0"
+          style={{ backgroundColor: config.color }}
+        />
 
-      {/* Name - takes available space */}
-      <span
-        className="text-sm font-medium truncate flex-1 min-w-0"
-        style={{ color: 'var(--monarch-text-dark)' }}
-        title={config.name}
-      >
-        {config.name}
-      </span>
-
-      {/* Projected balance - fixed width for alignment */}
-      <span
-        className="text-sm font-semibold tabular-nums shrink-0 text-right w-16"
-        style={{ color: 'var(--monarch-text-dark)' }}
-      >
-        {projection ? formatCurrency(projection.projectedBalance) : '—'}
-      </span>
-
-      {/* APY control */}
-      <div className="flex items-center gap-1 shrink-0">
-        <span className="text-xs" style={{ color: 'var(--monarch-text-muted)' }}>
-          APY:
+        {/* Name - takes available space */}
+        <span
+          className="text-sm font-medium truncate flex-1 min-w-0"
+          style={{ color: 'var(--monarch-text-dark)' }}
+          title={config.name}
+        >
+          {config.name}
         </span>
-        {isEditingApy ? (
-          <ApyEditor
-            currentApy={config.apy}
-            onSave={handleApySave}
-            onCancel={() => setIsEditingApy(false)}
-          />
-        ) : (
-          <button
-            onClick={() => setIsEditingApy(true)}
-            className="text-xs px-1.5 py-0.5 rounded transition-colors hover:bg-(--monarch-bg-hover)"
-            style={{
-              color: config.apy > 0 ? 'var(--monarch-success)' : 'var(--monarch-text-muted)',
-              border: `1px solid ${config.apy > 0 ? 'var(--monarch-success)' : 'var(--monarch-border)'}`,
-            }}
-            title={`Click to edit APY for ${config.name}`}
-            aria-label={`Edit APY for ${config.name}, currently ${formatAPY(config.apy)}`}
-          >
-            {config.apy > 0 ? formatAPY(config.apy) : 'Set'}
-          </button>
-        )}
+
+        {/* Projected balance - dynamic width for alignment */}
+        <span
+          className="text-sm font-semibold tabular-nums shrink-0 text-right"
+          style={{ color: 'var(--monarch-text-dark)', width: `${balanceWidth}px` }}
+        >
+          {projection ? formatCurrency(projection.projectedBalance) : '—'}
+        </span>
+
+        {/* APY control */}
+        <div className="flex items-center gap-1 shrink-0">
+          <span className="text-xs" style={{ color: 'var(--monarch-text-muted)' }}>
+            APY:
+          </span>
+          {isEditingApy ? (
+            <ApyEditor
+              currentApy={config.apy}
+              onSave={handleApySave}
+              onCancel={() => setIsEditingApy(false)}
+            />
+          ) : (
+            <button
+              onClick={() => setIsEditingApy(true)}
+              className="text-xs px-1.5 py-0.5 rounded transition-colors hover:bg-(--monarch-bg-hover)"
+              style={{
+                color: config.apy > 0 ? 'var(--monarch-success)' : 'var(--monarch-text-muted)',
+                border: `1px solid ${config.apy > 0 ? 'var(--monarch-success)' : 'var(--monarch-border)'}`,
+              }}
+              title={`Click to edit APY for ${config.name}`}
+              aria-label={`Edit APY for ${config.name}, currently ${formatAPY(config.apy)}`}
+            >
+              {config.apy > 0 ? formatAPY(config.apy) : 'Set'}
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* Events for this item at the selected date */}
+      {events.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mt-2 ml-5">
+          {events.map((event) => (
+            <button
+              key={event.id}
+              onClick={() => onEditEvent?.(event)}
+              className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] rounded-full transition-colors hover:bg-(--monarch-bg-hover)"
+              style={{
+                backgroundColor: 'var(--monarch-bg-page)',
+                color: 'var(--monarch-text-muted)',
+                border: '1px solid var(--monarch-border)',
+              }}
+              title={`Edit event: ${event.name}`}
+              aria-label={`Edit event ${event.name}`}
+            >
+              <Calendar size={10} />
+              <span className="truncate max-w-24">{event.name}</span>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
+
+/** Base sidebar width for values under $100k */
+const BASE_SIDEBAR_WIDTH = 320;
+/** Base balance column width */
+const BASE_BALANCE_WIDTH = 64;
+/** Additional width per character beyond base */
+const WIDTH_PER_CHAR = 8;
 
 export function TimelineSidebar({
   itemConfigs,
@@ -184,13 +240,41 @@ export function TimelineSidebar({
   onApyChange,
   onClearCursor,
   formatCurrency,
+  events = [],
+  onEditEvent,
 }: TimelineSidebarProps) {
   const visibleItems = itemConfigs.filter((c) => c.isVisible);
 
+  // Filter events for the current display date, grouped by itemId
+  const eventsByItem = useMemo(() => {
+    if (!displayDate || events.length === 0) return new Map<string, NamedEvent[]>();
+
+    const map = new Map<string, NamedEvent[]>();
+    for (const event of events) {
+      if (event.date === displayDate) {
+        const existing = map.get(event.itemId) ?? [];
+        existing.push(event);
+        map.set(event.itemId, existing);
+      }
+    }
+    return map;
+  }, [displayDate, events]);
+
+  // Calculate balance column width based on largest projected value
+  const maxBalance = projections
+    ? Math.max(...Object.values(projections).map((p) => Math.abs(p.projectedBalance)), 0)
+    : 0;
+  const formattedMaxBalance = formatCurrency(maxBalance);
+  // Base width handles up to ~$99,999 (7 chars). Add space for longer values.
+  const extraChars = Math.max(0, formattedMaxBalance.length - 7);
+  const balanceWidth = BASE_BALANCE_WIDTH + extraChars * WIDTH_PER_CHAR;
+  const sidebarWidth = BASE_SIDEBAR_WIDTH + extraChars * WIDTH_PER_CHAR;
+
   return (
     <div
-      className="w-80 border-l flex flex-col shrink-0 h-full"
+      className="border-l flex flex-col shrink-0 h-full"
       style={{
+        width: `${sidebarWidth}px`,
         borderColor: 'var(--monarch-border)',
         backgroundColor: 'var(--monarch-bg-card)',
       }}
@@ -231,6 +315,9 @@ export function TimelineSidebar({
             projection={projections?.[config.itemId]}
             onApyChange={onApyChange}
             formatCurrency={formatCurrency}
+            balanceWidth={balanceWidth}
+            events={eventsByItem.get(config.itemId) ?? []}
+            {...(onEditEvent && { onEditEvent })}
           />
         ))}
       </div>

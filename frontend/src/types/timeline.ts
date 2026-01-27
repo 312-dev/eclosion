@@ -164,13 +164,13 @@ function getResolutionForRange(months: number): TimelineResolution {
  */
 export function createDefaultTimelineState(): TimelineScenarioState {
   const now = new Date();
-  const fiveYearsLater = new Date();
-  fiveYearsLater.setFullYear(fiveYearsLater.getFullYear() + 5);
+  const oneYearLater = new Date();
+  oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
 
   // Calculate months in range to determine correct resolution
   const rangeMonths =
-    (fiveYearsLater.getFullYear() - now.getFullYear()) * 12 +
-    (fiveYearsLater.getMonth() - now.getMonth());
+    (oneYearLater.getFullYear() - now.getFullYear()) * 12 +
+    (oneYearLater.getMonth() - now.getMonth());
   const resolution = getResolutionForRange(rangeMonths);
 
   return {
@@ -180,7 +180,7 @@ export function createDefaultTimelineState(): TimelineScenarioState {
     zoom: {
       resolution,
       startDate: now.toISOString().slice(0, 10),
-      endDate: fiveYearsLater.toISOString().slice(0, 10),
+      endDate: oneYearLater.toISOString().slice(0, 10),
     },
   };
 }

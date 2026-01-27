@@ -3,7 +3,7 @@
 
 import { useState, useCallback, useRef, useEffect, useId } from 'react';
 import { createPortal } from 'react-dom';
-import { X } from 'lucide-react';
+import { X, ChevronDown, Check } from 'lucide-react';
 import type { NamedEvent, NamedEventType, TimelineItemConfig } from '../../../types/timeline';
 import { Z_INDEX } from '../../../constants';
 
@@ -19,12 +19,121 @@ const labelClass = 'block text-xs font-medium mb-1';
 const inputClass =
   'w-full px-3 py-1.5 rounded text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-monarch-orange';
 
+/** Custom dropdown for stash item selection with color dots */
+interface StashItemDropdownProps {
+  readonly id: string;
+  readonly value: string;
+  readonly onChange: (value: string) => void;
+  readonly itemConfigs: TimelineItemConfig[];
+}
+
+function StashItemDropdown({ id, value, onChange, itemConfigs }: StashItemDropdownProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const selectedItem = itemConfigs.find((c) => c.itemId === value);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [isOpen]);
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      setIsOpen(!isOpen);
+    } else if (e.key === 'Escape') {
+      setIsOpen(false);
+    } else if (e.key === 'ArrowDown' && isOpen) {
+      e.preventDefault();
+      const currentIndex = itemConfigs.findIndex((c) => c.itemId === value);
+      const nextIndex = (currentIndex + 1) % itemConfigs.length;
+      onChange(itemConfigs[nextIndex]?.itemId ?? value);
+    } else if (e.key === 'ArrowUp' && isOpen) {
+      e.preventDefault();
+      const currentIndex = itemConfigs.findIndex((c) => c.itemId === value);
+      const prevIndex = currentIndex <= 0 ? itemConfigs.length - 1 : currentIndex - 1;
+      onChange(itemConfigs[prevIndex]?.itemId ?? value);
+    }
+  };
+
+  return (
+    <div ref={dropdownRef} className="relative">
+      <button
+        id={id}
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        onKeyDown={handleKeyDown}
+        className={`${inputClass} flex items-center justify-between gap-2 text-left`}
+        style={inputStyle}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          {selectedItem && (
+            <div
+              className="w-2.5 h-2.5 rounded-full shrink-0"
+              style={{ backgroundColor: selectedItem.color }}
+            />
+          )}
+          <span className="truncate">{selectedItem?.name ?? 'Select item'}</span>
+        </div>
+        <ChevronDown
+          size={14}
+          className={`shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+          style={{ color: 'var(--monarch-text-muted)' }}
+        />
+      </button>
+
+      {isOpen && (
+        <div
+          className="absolute z-10 w-full mt-1 py-1 rounded-md shadow-lg max-h-48 overflow-y-auto"
+          style={{
+            backgroundColor: 'var(--monarch-bg-card)',
+            border: '1px solid var(--monarch-border)',
+          }}
+        >
+          {itemConfigs.map((config) => (
+            <button
+              key={config.itemId}
+              type="button"
+              aria-pressed={config.itemId === value}
+              onClick={() => {
+                onChange(config.itemId);
+                setIsOpen(false);
+              }}
+              className="w-full px-3 py-1.5 flex items-center gap-2 text-left text-sm transition-colors hover:bg-(--monarch-bg-hover)"
+              style={{ color: 'var(--monarch-text-dark)' }}
+            >
+              <div
+                className="w-2.5 h-2.5 rounded-full shrink-0"
+                style={{ backgroundColor: config.color }}
+              />
+              <span className="truncate flex-1">{config.name}</span>
+              {config.itemId === value && (
+                <Check size={14} style={{ color: 'var(--monarch-success)' }} />
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface TimelineEditPopoverProps {
   readonly event: NamedEvent | null;
   readonly initialDate: string;
   readonly itemConfigs: TimelineItemConfig[];
   readonly onSave: (eventData: Omit<NamedEvent, 'id' | 'createdAt'>) => void;
   readonly onClose: () => void;
+  readonly onDelete?: (eventId: string) => void;
   readonly anchorRef?: React.RefObject<HTMLElement | null>;
   readonly clickPosition?: { x: number; y: number } | null;
 }
@@ -35,6 +144,7 @@ export function TimelineEditPopover({
   itemConfigs,
   onSave,
   onClose,
+  onDelete,
   anchorRef,
   clickPosition,
 }: TimelineEditPopoverProps) {
@@ -217,19 +327,12 @@ export function TimelineEditPopover({
           >
             Stash Item
           </label>
-          <select
+          <StashItemDropdown
             id={`${popoverId}-item`}
             value={itemId}
-            onChange={(e) => setItemId(e.target.value)}
-            className={inputClass}
-            style={inputStyle}
-          >
-            {itemConfigs.map((c) => (
-              <option key={c.itemId} value={c.itemId}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+            onChange={setItemId}
+            itemConfigs={itemConfigs}
+          />
         </div>
 
         <div>
@@ -300,6 +403,24 @@ export function TimelineEditPopover({
         )}
 
         <div className="flex gap-2 pt-1">
+          {/* Delete button - only show when editing */}
+          {isEditing && onDelete && event && (
+            <button
+              type="button"
+              onClick={() => {
+                onDelete(event.id);
+                onClose();
+              }}
+              className="px-3 py-1.5 rounded text-sm font-medium transition-colors hover:bg-red-100"
+              style={{
+                backgroundColor: 'transparent',
+                color: 'var(--monarch-error, #dc2626)',
+                border: '1px solid var(--monarch-error, #dc2626)',
+              }}
+            >
+              Delete
+            </button>
+          )}
           <button
             type="button"
             onClick={onClose}
@@ -317,7 +438,7 @@ export function TimelineEditPopover({
             className="flex-1 px-3 py-1.5 rounded text-sm font-medium transition-colors"
             style={{ backgroundColor: 'var(--hypothesize-accent, #8b5cf6)', color: 'white' }}
           >
-            {isEditing ? 'Save' : 'Create'}
+            {isEditing ? 'Update' : 'Create'}
           </button>
         </div>
       </form>
