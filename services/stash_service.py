@@ -2096,6 +2096,9 @@ class StashService:
                         "monthly_allocations": json.loads(h.monthly_allocations),
                         "monthly_total": h.monthly_total,
                         "events": json.loads(h.events),
+                        "custom_available_funds": h.custom_available_funds,
+                        "custom_left_to_budget": h.custom_left_to_budget,
+                        "item_apys": json.loads(h.item_apys) if h.item_apys else {},
                         "created_at": h.created_at.isoformat() if h.created_at else None,
                         "updated_at": h.updated_at.isoformat() if h.updated_at else None,
                     }
@@ -2111,6 +2114,9 @@ class StashService:
         monthly_allocations: dict[str, float],
         monthly_total: float,
         events: dict[str, Any],
+        custom_available_funds: float | None = None,
+        custom_left_to_budget: float | None = None,
+        item_apys: dict[str, float] | None = None,
     ) -> dict[str, Any]:
         """
         Save a hypothesis.
@@ -2136,6 +2142,9 @@ class StashService:
                     monthly_allocations=json.dumps(monthly_allocations),
                     monthly_total=monthly_total,
                     events=json.dumps(events),
+                    custom_available_funds=custom_available_funds,
+                    custom_left_to_budget=custom_left_to_budget,
+                    item_apys=json.dumps(item_apys or {}),
                 )
                 return {
                     "success": True,
@@ -2165,6 +2174,9 @@ class StashService:
                 monthly_allocations=json.dumps(monthly_allocations),
                 monthly_total=monthly_total,
                 events=json.dumps(events),
+                custom_available_funds=custom_available_funds,
+                custom_left_to_budget=custom_left_to_budget,
+                item_apys=json.dumps(item_apys or {}),
             )
 
             return {

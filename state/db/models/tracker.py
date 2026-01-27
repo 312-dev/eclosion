@@ -359,6 +359,13 @@ class StashHypothesis(Base):
     # Hypothetical events (JSON: StashEventsMap)
     events: Mapped[str] = mapped_column(Text, default="{}")
 
+    # Custom fund overrides (nullable - only set when user overrides)
+    custom_available_funds: Mapped[float | None] = mapped_column(Float, nullable=True)
+    custom_left_to_budget: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+    # Per-item APY settings (JSON: Record<stashId, apy>)
+    item_apys: Mapped[str] = mapped_column(Text, default="{}")
+
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(
         DateTime,

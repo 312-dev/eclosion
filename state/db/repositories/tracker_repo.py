@@ -933,6 +933,9 @@ class TrackerRepository:
         monthly_allocations: str,
         monthly_total: float,
         events: str,
+        custom_available_funds: float | None = None,
+        custom_left_to_budget: float | None = None,
+        item_apys: str = "{}",
     ) -> StashHypothesis:
         """Create a new hypothesis."""
         hypothesis = StashHypothesis(
@@ -943,6 +946,9 @@ class TrackerRepository:
             monthly_allocations=monthly_allocations,
             monthly_total=monthly_total,
             events=events,
+            custom_available_funds=custom_available_funds,
+            custom_left_to_budget=custom_left_to_budget,
+            item_apys=item_apys,
             created_at=datetime.now(UTC),
             updated_at=datetime.now(UTC),
         )
