@@ -5,46 +5,6 @@
  */
 
 // ============================================================================
-// Toast Durations (milliseconds)
-// ============================================================================
-
-export const TOAST_DURATION = {
-  DEFAULT: 3000,
-  SUCCESS: 3000,
-  ERROR: 5000,
-  WARNING: 4000,
-  INFO: 3000,
-} as const;
-
-// ============================================================================
-// Query Cache Times (milliseconds)
-// ============================================================================
-
-export const CACHE_TIME = {
-  /** Short-lived data like unmapped categories */
-  SHORT: 1 * 60 * 1000, // 1 minute
-  /** Standard data like dashboard */
-  STANDARD: 2 * 60 * 1000, // 2 minutes
-  /** Stable data like category groups */
-  MEDIUM: 5 * 60 * 1000, // 5 minutes
-  /** Rarely changing data like deployment info */
-  LONG: 10 * 60 * 1000, // 10 minutes
-  /** Changelog polling interval */
-  VERSION_CHECK: 30 * 60 * 1000, // 30 minutes
-} as const;
-
-// ============================================================================
-// API Configuration
-// ============================================================================
-
-export const API_CONFIG = {
-  /** Default retry count for failed requests */
-  RETRY_COUNT: 1,
-  /** Default rate limit retry delay (seconds) */
-  RATE_LIMIT_DEFAULT_DELAY: 60,
-} as const;
-
-// ============================================================================
 // Local Storage Keys
 // ============================================================================
 
@@ -98,35 +58,6 @@ export const UI = {
 } as const;
 
 // ============================================================================
-// Layout Dimensions
-// ============================================================================
-
-export const LAYOUT = {
-  /** Dropdown menu widths */
-  DROPDOWN: {
-    CATEGORY_GROUP: 180,
-    ACTIONS: 180,
-    EMOJI_PICKER: 200,
-    FILTER: 120,
-  },
-  /** Modal/popover widths */
-  MODAL: {
-    TOUR_POPOVER: 300,
-    WIZARD_CARD: 340,
-  },
-  /** Sidebar dimensions */
-  SIDEBAR: {
-    WIDTH: 220,
-    STATS_WIDTH: 280,
-  },
-  /** Spacing */
-  SPACING: {
-    DROPDOWN_OFFSET: 4,
-    POPOVER_OFFSET: 8,
-  },
-} as const;
-
-// ============================================================================
 // Z-Index Hierarchy
 // ============================================================================
 // This creates a clear stacking order for all UI elements.
@@ -157,29 +88,6 @@ export const Z_INDEX = {
   TOAST: 60,
   /** Tooltips - highest layer, always visible */
   TOOLTIP: 70,
-} as const;
-
-// ============================================================================
-// Currency Rounding Rules
-// ============================================================================
-// Monarch Money doesn't support cents, so we round to whole dollars.
-//
-// Rules:
-// 1. Monthly targets: Math.ceil() - Always round UP to ensure enough is saved
-// 2. Balance comparisons: Math.round() - Standard rounding for display
-// 3. Currency display: maximumFractionDigits: 0 - No cents shown
-//
-// Example: If ideal_monthly_rate calculates to $33.33, we round UP to $34
-// to ensure the user saves enough to cover the expense.
-// ============================================================================
-
-export const ROUNDING = {
-  /** Round monthly targets UP to ensure sufficient savings */
-  TARGET: 'ceil',
-  /** Round balances for display comparison */
-  BALANCE: 'round',
-  /** Fraction digits for currency display */
-  CURRENCY_DECIMALS: 0,
 } as const;
 
 // ============================================================================

@@ -246,6 +246,29 @@ export function calculateAvailableToStash(
       leftToBudget
   );
 
+  // Calculate total budgeted for LTB breakdown
+  // Monarch's actual formula: LTB = Budgeted Income - Budgeted Categories - Planned Savings
+  const totalBudgeted = data.categoryBudgets.reduce((sum, cat) => sum + cat.budgeted, 0);
+
+  // Calculate the "savings & other" amount that Monarch includes but we don't have directly
+  // This is derived from: plannedIncome - budgetedCategories - leftToBudget = savingsAndOther
+  const savingsAndOther = data.plannedIncome - totalBudgeted - leftToBudget;
+
+  // Build LTB breakdown showing all components
+  const leftToBudgetDetail: BreakdownLineItem[] = [
+    { id: 'ltb-income', name: 'Budgeted income', amount: data.plannedIncome },
+    { id: 'ltb-budgeted', name: 'Budgeted categories', amount: totalBudgeted },
+  ];
+
+  // Only add savings line if there's a meaningful amount (rounds to at least $1)
+  if (Math.abs(Math.round(savingsAndOther)) >= 1) {
+    leftToBudgetDetail.push({
+      id: 'ltb-savings',
+      name: 'Savings & other',
+      amount: savingsAndOther,
+    });
+  }
+
   // Build detailed breakdown
   const detailedBreakdown: DetailedBreakdown = {
     cashAccounts: cashAccountsDetail,
@@ -253,6 +276,7 @@ export function calculateAvailableToStash(
     unspentCategories: unspentCategoriesDetail,
     goals: goalsDetail,
     stashItems: stashItemsDetail,
+    leftToBudgetDetail,
   };
 
   return {

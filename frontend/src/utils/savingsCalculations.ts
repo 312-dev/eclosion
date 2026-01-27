@@ -40,8 +40,9 @@ export function formatLocalDate(date: Date): string {
 
 /**
  * Get the first day of a month as YYYY-MM-DD.
+ * Internal helper used by calculation functions.
  */
-export function getMonthStart(isoDateStr: string): string {
+function getMonthStart(isoDateStr: string): string {
   const date = parseLocalDate(isoDateStr);
   return formatLocalDate(new Date(date.getFullYear(), date.getMonth(), 1));
 }
@@ -177,18 +178,6 @@ export function formatMonthsRemaining(monthsRemaining: number): string {
 
   const monthStr = months === 1 ? '1 month' : `${months} months`;
   return `${yearStr} ${monthStr}`;
-}
-
-/**
- * Get end of month date.
- *
- * @param isoDateStr - Any date in the month (ISO string)
- * @returns Last day of that month (ISO string)
- */
-export function getEndOfMonth(isoDateStr: string): string {
-  const date = parseLocalDate(isoDateStr);
-  const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0);
-  return formatLocalDate(lastDay);
 }
 
 /**

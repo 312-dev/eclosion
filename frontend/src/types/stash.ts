@@ -225,6 +225,12 @@ export interface StashHypothesis {
   monthlyTotal: number;
   /** Hypothetical events for projection */
   events: StashEventsMap;
+  /** Custom override for Available to Stash (null = use calculated) */
+  customAvailableFunds: number | null;
+  /** Custom override for Left to Budget (null = use calculated) */
+  customLeftToBudget: number | null;
+  /** Per-item APY settings for HYSA projections (stashId -> apy decimal) */
+  itemApys: Record<string, number>;
   createdAt: string;
   updatedAt: string;
 }
@@ -239,6 +245,9 @@ export interface SaveHypothesisRequest {
   monthlyAllocations: Record<string, number>;
   monthlyTotal: number;
   events: StashEventsMap;
+  customAvailableFunds?: number | null;
+  customLeftToBudget?: number | null;
+  itemApys?: Record<string, number>;
 }
 
 /**
@@ -264,6 +273,9 @@ export interface StashHypothesisRaw {
   monthly_allocations: Record<string, number>;
   monthly_total: number;
   events: StashEventsMap;
+  custom_available_funds: number | null;
+  custom_left_to_budget: number | null;
+  item_apys: Record<string, number>;
   created_at: string | null;
   updated_at: string | null;
 }

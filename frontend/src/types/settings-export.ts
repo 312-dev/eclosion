@@ -197,6 +197,9 @@ export interface StashExportHypothesis {
   monthly_allocations: Record<string, number>;
   monthly_total: number;
   events: Record<string, unknown[]>;
+  custom_available_funds?: number | null;
+  custom_left_to_budget?: number | null;
+  item_apys?: Record<string, number>;
   created_at: string | null;
   updated_at: string | null;
 }

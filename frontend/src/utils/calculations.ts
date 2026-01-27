@@ -76,7 +76,7 @@ export function roundMonthlyRate(rate: number): number {
 }
 
 // ============================================================================
-// BaseDate-based Occurrence Calculator (mirrors services/occurrence_calculator.py)
+// BaseDate-based Occurrence Calculator
 // ============================================================================
 
 /**
@@ -371,7 +371,7 @@ function monthsBetween(fromDate: Date, toDate: Date): number {
  * Calculate the monthly savings target using baseDate-based occurrence calculation.
  * This is the new stateless calculation that replaces the frozen target approach.
  *
- * Mirrors services/occurrence_calculator.py calculate_monthly_target()
+ * Mirrors backend calculation logic in services/stash_service.py
  *
  * @param baseDate - When the recurring pattern started (ISO string, null falls back to targetMonth)
  * @param frequency - How often the item recurs
