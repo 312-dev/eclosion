@@ -339,7 +339,9 @@ async def fetch_favicon(domain: str, timeout: float = FAVICON_TIMEOUT) -> str | 
 
         # SSRF protection
         if not _is_url_safe(base_url):
-            logger.debug("Blocked favicon request to private IP: %s", _sanitize_url_for_logging(domain))
+            logger.debug(
+                "Blocked favicon request to private IP: %s", _sanitize_url_for_logging(domain)
+            )
             return None
 
         connector = aiohttp.TCPConnector(ssl=False)
@@ -369,7 +371,9 @@ async def fetch_favicon(domain: str, timeout: float = FAVICON_TIMEOUT) -> str | 
         logger.debug("Timeout fetching favicon from %s", _sanitize_url_for_logging(domain))
         return None
     except aiohttp.ClientError as e:
-        logger.debug("HTTP error fetching favicon from %s: %s", _sanitize_url_for_logging(domain), e)
+        logger.debug(
+            "HTTP error fetching favicon from %s: %s", _sanitize_url_for_logging(domain), e
+        )
         return None
     except Exception as e:
         logger.debug(
@@ -442,9 +446,7 @@ async def _download_and_validate_favicon(
 
             # Validate image dimensions
             if not _is_favicon_large_enough(data, content_type):
-                logger.debug(
-                    "Favicon too small from %s", _sanitize_url_for_logging(favicon_url)
-                )
+                logger.debug("Favicon too small from %s", _sanitize_url_for_logging(favicon_url))
                 return None
 
             # Encode as base64 data URL
@@ -503,7 +505,9 @@ def _find_icon_links(soup: BeautifulSoup) -> list[tuple[str, int, str]]:
 
     for rel_type in icon_rel_types:
         # Use a helper to avoid closure issues with lambda
-        tags = soup.find_all("link", rel=lambda r, rt=rel_type: r and rt in r.lower() if r else False)
+        tags = soup.find_all(
+            "link", rel=lambda r, rt=rel_type: r and rt in r.lower() if r else False
+        )
         for tag in tags:
             href = tag.get("href")
             if href:
