@@ -51,9 +51,11 @@ export function StashBudgetInput({
   // Optional drawer context - may not be available in all contexts
   const drawerContext = useAvailableToStashDrawerOptional();
 
+  const { requestSubmit } = useDistributionMode();
   const isDisabled = isAllocating || isRateLimited;
   const isHypothesizeMode = distributionMode === 'hypothesize';
   const isDistributeMode = distributionMode === 'distribute';
+  const isInDistributionMode = isHypothesizeMode || isDistributeMode;
 
   // Adjust state during render when prop changes (React recommended pattern)
   if (plannedBudget !== prevPlannedBudget) {
@@ -104,6 +106,10 @@ export function StashBudgetInput({
   const handleBudgetKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       (e.target as HTMLInputElement).blur();
+      // In distribution modes, trigger apply/save
+      if (isInDistributionMode) {
+        requestSubmit();
+      }
     } else if (e.key === 'Escape') {
       setBudgetInput(formatWithCommas(plannedBudget));
       drawerContext?.closeTemporary();
@@ -120,10 +126,10 @@ export function StashBudgetInput({
   const targetFormatted = target.toLocaleString('en-US');
 
   // Calculate width: digits need ~1ch, commas need ~0.3ch
-  const digitCount = budgetInput.replaceAll(/\D/g, '').length;
+  const digitCount = budgetInput.replaceAll(/\D/g, '').length || 1; // At least 1 for placeholder
   const commaCount = (budgetInput.match(/,/g) || []).length;
-  // Min 2ch, max 8ch (covers up to 999,999 which is $1M)
-  const inputWidth = Math.min(8, Math.max(2, digitCount + commaCount * 0.3));
+  // Min 1ch, max 8ch (covers up to 999,999 which is $1M)
+  const inputWidth = Math.min(8, Math.max(1, digitCount + commaCount * 0.3));
 
   // Determine border and background styles based on mode
   const getModeStyles = () => {
@@ -149,11 +155,11 @@ export function StashBudgetInput({
 
   return (
     <div
-      className={`flex items-center rounded border px-2 py-1 focus-within:border-monarch-orange ${modeStyles.className}`}
+      className={`inline-flex items-center rounded border px-2 py-1 focus-within:border-monarch-orange ${modeStyles.className}`}
       style={modeStyles.style}
       data-no-dnd="true"
     >
-      <span className="font-medium text-monarch-text-dark">$</span>
+      <span className="font-medium text-monarch-text-dark mr-1">$</span>
       <input
         type="text"
         inputMode="numeric"
@@ -165,11 +171,13 @@ export function StashBudgetInput({
         disabled={isDisabled}
         placeholder="0"
         aria-label="Budget amount"
-        className="min-w-8 ml-auto text-right font-medium text-monarch-text-dark bg-transparent font-inherit disabled:opacity-50 outline-none tabular-nums placeholder:text-right"
+        className="text-right font-medium text-monarch-text-dark bg-transparent font-inherit disabled:opacity-50 outline-none tabular-nums"
         style={{ width: `${inputWidth}ch` }}
       />
       <Tooltip content="Monthly savings target to reach your goal by the target date" side="bottom">
-        <span className="text-monarch-text-muted ml-1 cursor-help">/ {targetFormatted}</span>
+        <span className="text-monarch-text-muted ml-1 cursor-help tabular-nums">
+          / {targetFormatted}
+        </span>
       </Tooltip>
     </div>
   );

@@ -1,19 +1,26 @@
 /* eslint-disable max-lines */
 /** Scenario Sidebar Panel - manages saved hypothesize scenarios */
 
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Icons } from '../icons';
-import { useDistributionMode, type SavedScenario } from '../../context/DistributionModeContext';
+import { useDistributionMode } from '../../context/DistributionModeContext';
 import { Z_INDEX } from '../../constants';
+import {
+  useHypothesesQuery,
+  useSaveHypothesisMutation,
+  useDeleteHypothesisMutation,
+} from '../../api/queries/stashQueries';
+import type { StashHypothesis, SaveHypothesisRequest } from '../../types';
 
 interface ScenarioItemProps {
-  readonly scenario: SavedScenario;
+  readonly scenario: StashHypothesis;
   readonly onLoad: () => void;
   readonly onRequestDelete: () => void;
+  readonly isDeleting?: boolean;
 }
 
-function ScenarioItem({ scenario, onLoad, onRequestDelete }: ScenarioItemProps) {
+function ScenarioItem({ scenario, onLoad, onRequestDelete, isDeleting }: ScenarioItemProps) {
   const date = new Date(scenario.updatedAt);
   const formattedDate = date.toLocaleDateString('en-US', {
     month: 'short',
@@ -34,11 +41,12 @@ function ScenarioItem({ scenario, onLoad, onRequestDelete }: ScenarioItemProps) 
       style={{
         backgroundColor: 'var(--monarch-bg-elevated)',
         border: '1px solid var(--monarch-border)',
+        opacity: isDeleting ? 0.5 : 1,
       }}
-      onClick={onLoad}
-      onKeyDown={(e) => e.key === 'Enter' && onLoad()}
+      onClick={isDeleting ? undefined : onLoad}
+      onKeyDown={(e) => !isDeleting && e.key === 'Enter' && onLoad()}
       role="button"
-      tabIndex={0}
+      tabIndex={isDeleting ? -1 : 0}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
@@ -54,7 +62,8 @@ function ScenarioItem({ scenario, onLoad, onRequestDelete }: ScenarioItemProps) 
             e.stopPropagation();
             onRequestDelete();
           }}
-          className="p-1.5 rounded-md transition-colors hover:bg-white/10"
+          disabled={isDeleting}
+          className="p-1.5 rounded-md transition-colors hover:bg-white/10 disabled:opacity-50"
           style={{ color: 'var(--monarch-text-muted)' }}
           aria-label="Delete scenario"
         >
@@ -68,9 +77,10 @@ function ScenarioItem({ scenario, onLoad, onRequestDelete }: ScenarioItemProps) 
 interface SaveInputProps {
   readonly onSave: (name: string) => void;
   readonly onCancel: () => void;
+  readonly isSaving?: boolean;
 }
 
-function SaveInput({ onSave, onCancel }: SaveInputProps) {
+function SaveInput({ onSave, onCancel, isSaving }: SaveInputProps) {
   const [name, setName] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -80,7 +90,7 @@ function SaveInput({ onSave, onCancel }: SaveInputProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (name.trim()) {
+    if (name.trim() && !isSaving) {
       onSave(name.trim());
     }
   };
@@ -100,12 +110,14 @@ function SaveInput({ onSave, onCancel }: SaveInputProps) {
           color: 'var(--monarch-text-dark)',
         }}
         maxLength={50}
+        disabled={isSaving}
       />
       <div className="flex gap-2">
         <button
           type="button"
           onClick={onCancel}
-          className="flex-1 px-3 py-2 text-sm font-medium rounded-lg transition-colors"
+          disabled={isSaving}
+          className="flex-1 px-3 py-2 text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
           style={{
             backgroundColor: 'var(--monarch-bg-hover)',
             color: 'var(--monarch-text-dark)',
@@ -115,14 +127,14 @@ function SaveInput({ onSave, onCancel }: SaveInputProps) {
         </button>
         <button
           type="submit"
-          disabled={!name.trim()}
+          disabled={!name.trim() || isSaving}
           className="flex-1 px-3 py-2 text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
           style={{
             backgroundColor: '#9333ea',
             color: '#fff',
           }}
         >
-          Save
+          {isSaving ? 'Saving...' : 'Save'}
         </button>
       </div>
     </form>
@@ -133,27 +145,29 @@ export function ScenarioSidebarPanel() {
   const {
     isScenarioSidebarOpen,
     setScenarioSidebarOpen,
-    getSavedScenarios,
-    scenarioNameExists,
-    saveScenario,
-    loadScenario,
-    deleteScenario,
     hasChanges,
+    // State getters for building save request
+    stashedAllocations,
+    monthlyAllocations,
+    customAvailableFunds,
+    customLeftToBudget,
+    timelineEvents,
+    itemApys,
+    totalStashedAllocated,
+    totalMonthlyAllocated,
+    // Scenario loading
+    loadScenarioState,
   } = useDistributionMode();
 
-  const [scenariosKey, setScenariosKey] = useState(0);
+  // React Query hooks for persistence
+  const { data: scenarios = [], isLoading } = useHypothesesQuery();
+  const saveMutation = useSaveHypothesisMutation();
+  const deleteMutation = useDeleteHypothesisMutation();
+
   const [showSaveInput, setShowSaveInput] = useState(false);
   const [confirmLoad, setConfirmLoad] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [confirmOverwrite, setConfirmOverwrite] = useState<string | null>(null);
-
-  // Load scenarios - refresh when key changes or panel opens
-  // scenariosKey changes after save/delete operations to trigger refresh
-  const scenarios = useMemo(
-    () => (isScenarioSidebarOpen ? getSavedScenarios() : []),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- scenariosKey triggers refresh
-    [isScenarioSidebarOpen, getSavedScenarios, scenariosKey]
-  );
 
   if (!isScenarioSidebarOpen) return null;
 
@@ -165,14 +179,47 @@ export function ScenarioSidebarPanel() {
     setConfirmOverwrite(null);
   };
 
-  const handleSave = (name: string) => {
+  // Build save request from current context state
+  const buildSaveRequest = (name: string): SaveHypothesisRequest => {
+    // Transform NamedEvent[] to StashEventsMap
+    const eventsMap: Record<
+      string,
+      Array<{ id: string; type: '1x' | 'mo'; amount: number; month: string }>
+    > = {};
+    for (const event of timelineEvents) {
+      const itemId = event.itemId;
+      eventsMap[itemId] ??= [];
+      eventsMap[itemId].push({
+        id: event.id,
+        type: event.type === 'deposit' ? '1x' : 'mo',
+        amount: event.amount,
+        month: event.date,
+      });
+    }
+
+    return {
+      name,
+      savingsAllocations: stashedAllocations,
+      savingsTotal: totalStashedAllocated,
+      monthlyAllocations,
+      monthlyTotal: totalMonthlyAllocated,
+      events: eventsMap,
+      customAvailableFunds,
+      customLeftToBudget,
+      itemApys,
+    };
+  };
+
+  const handleSave = async (name: string) => {
     // Check if name already exists and we haven't confirmed overwrite
-    if (scenarioNameExists(name) && confirmOverwrite !== name) {
+    const existingScenario = scenarios.find((s) => s.name.toLowerCase() === name.toLowerCase());
+    if (existingScenario && confirmOverwrite !== name) {
       setConfirmOverwrite(name);
       return;
     }
-    saveScenario(name);
-    setScenariosKey((k) => k + 1); // Trigger refresh
+
+    const request = buildSaveRequest(name);
+    await saveMutation.mutateAsync(request);
     setShowSaveInput(false);
     setConfirmOverwrite(null);
   };
@@ -182,13 +229,51 @@ export function ScenarioSidebarPanel() {
       setConfirmLoad(id);
       return;
     }
-    loadScenario(id);
+
+    const scenario = scenarios.find((s) => s.id === id);
+    if (!scenario) return;
+
+    // Transform API events format back to NamedEvent[]
+    const timelineEventsToLoad: Array<{
+      id: string;
+      name: string;
+      type: 'deposit' | 'rate_change';
+      date: string;
+      itemId: string;
+      amount: number;
+      createdAt: string;
+    }> = [];
+    for (const [itemId, events] of Object.entries(scenario.events)) {
+      for (const event of events) {
+        timelineEventsToLoad.push({
+          id: event.id ?? crypto.randomUUID(),
+          name: '', // Events don't have names stored in API
+          type: event.type === '1x' ? 'deposit' : 'rate_change',
+          date: event.month,
+          itemId,
+          amount: event.amount,
+          createdAt: new Date().toISOString(),
+        });
+      }
+    }
+
+    // Load scenario into context state (including timeline events and APYs)
+    loadScenarioState({
+      id: scenario.id,
+      name: scenario.name,
+      stashedAllocations: scenario.savingsAllocations,
+      monthlyAllocations: scenario.monthlyAllocations,
+      customAvailableFunds: scenario.customAvailableFunds,
+      customLeftToBudget: scenario.customLeftToBudget,
+      timelineEvents: timelineEventsToLoad,
+      itemApys: scenario.itemApys,
+    });
+
     handleClose();
   };
 
-  const handleDelete = (id: string) => {
-    deleteScenario(id);
-    setScenariosKey((k) => k + 1); // Trigger refresh
+  const handleDelete = async (id: string) => {
+    await deleteMutation.mutateAsync(id);
     setConfirmDelete(null);
   };
 
@@ -280,28 +365,43 @@ export function ScenarioSidebarPanel() {
                 </div>
               )}
 
-              {scenarios.length === 0 ? (
+              {isLoading && (
+                <div className="text-center py-8" style={{ color: 'var(--monarch-text-muted)' }}>
+                  <Icons.Spinner size={32} className="mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">Loading scenarios...</p>
+                </div>
+              )}
+
+              {!isLoading && scenarios.length === 0 && (
                 <div className="text-center py-8" style={{ color: 'var(--monarch-text-muted)' }}>
                   <Icons.FolderOpen size={32} className="mx-auto mb-2 opacity-50" />
                   <p className="text-sm">No saved scenarios yet</p>
                   <p className="text-xs mt-1">Save your current allocation to create one</p>
                 </div>
-              ) : (
+              )}
+
+              {!isLoading &&
                 scenarios.map((scenario) => (
                   <ScenarioItem
                     key={scenario.id}
                     scenario={scenario}
                     onLoad={() => handleLoad(scenario.id)}
                     onRequestDelete={() => setConfirmDelete(scenario.id)}
+                    isDeleting={
+                      deleteMutation.isPending && deleteMutation.variables === scenario.id
+                    }
                   />
-                ))
-              )}
+                ))}
             </div>
 
             {/* Footer */}
             <div className="p-4 shrink-0" style={{ borderTop: '1px solid var(--monarch-border)' }}>
               {showSaveInput ? (
-                <SaveInput onSave={handleSave} onCancel={() => setShowSaveInput(false)} />
+                <SaveInput
+                  onSave={handleSave}
+                  onCancel={() => setShowSaveInput(false)}
+                  isSaving={saveMutation.isPending}
+                />
               ) : (
                 <button
                   onClick={() => setShowSaveInput(true)}
@@ -372,7 +472,8 @@ export function ScenarioSidebarPanel() {
                     setConfirmOverwrite(null);
                     setShowSaveInput(false);
                   }}
-                  className="flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-colors"
+                  disabled={saveMutation.isPending}
+                  className="flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
                   style={{
                     backgroundColor: 'var(--monarch-bg-hover)',
                     color: 'var(--monarch-text-dark)',
@@ -382,13 +483,14 @@ export function ScenarioSidebarPanel() {
                 </button>
                 <button
                   onClick={() => handleSave(confirmOverwrite!)}
-                  className="flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-colors"
+                  disabled={saveMutation.isPending}
+                  className="flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
                   style={{
                     backgroundColor: '#9333ea',
                     color: '#fff',
                   }}
                 >
-                  Overwrite
+                  {saveMutation.isPending ? 'Saving...' : 'Overwrite'}
                 </button>
               </div>
             </div>
@@ -439,7 +541,8 @@ export function ScenarioSidebarPanel() {
               <div className="flex gap-3">
                 <button
                   onClick={() => setConfirmDelete(null)}
-                  className="flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-colors"
+                  disabled={deleteMutation.isPending}
+                  className="flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
                   style={{
                     backgroundColor: 'var(--monarch-bg-hover)',
                     color: 'var(--monarch-text-dark)',
@@ -449,13 +552,14 @@ export function ScenarioSidebarPanel() {
                 </button>
                 <button
                   onClick={() => handleDelete(confirmDelete!)}
-                  className="flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-colors"
+                  disabled={deleteMutation.isPending}
+                  className="flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
                   style={{
                     backgroundColor: 'var(--monarch-error)',
                     color: '#fff',
                   }}
                 >
-                  Delete
+                  {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
                 </button>
               </div>
             </div>

@@ -8,9 +8,10 @@
  * - Goal amount and target date
  * - Progress bar with status
  * - Edit action
+ * - Withdraw/Deposit overlay on hover
  */
 
-import { memo } from 'react';
+import { memo, useState, useCallback } from 'react';
 import type { StashItem, ItemStatus } from '../../types';
 import { SavingsProgressBar } from '../shared';
 import { Icons } from '../icons';
@@ -19,9 +20,21 @@ import { parseLocalDate } from '../../utils/savingsCalculations';
 import { StashBudgetInput } from './StashBudgetInput';
 import { StashItemImage } from './StashItemImage';
 import { StashTitleDropdown } from './StashTitleDropdown';
-import { CardAllocationInput } from './CardAllocationInput';
-import { useDistributionModeType } from '../../context/DistributionModeContext';
+import { TakeStashOverlay } from './WithdrawDepositOverlay';
+// Note: CardAllocationInput is no longer used - replaced by TakeStashOverlay
+import {
+  useDistributionModeType,
+  useDistributionMode,
+} from '../../context/DistributionModeContext';
 import { useProjectedStashItem } from '../../hooks';
+import {
+  useAvailableToStash,
+  useStashConfigQuery,
+  useUpdateCategoryRolloverMutation,
+  useUpdateGroupRolloverMutation,
+} from '../../api/queries';
+import { useToast } from '../../context/ToastContext';
+import { useIsRateLimited } from '../../context/RateLimitContext';
 
 interface StashCardProps {
   readonly item: StashItem;
@@ -124,6 +137,7 @@ function StatusBadge({
   );
 }
 
+// eslint-disable-next-line sonarjs/cognitive-complexity -- Card component with multiple interactive states requires this complexity
 export const StashCard = memo(function StashCard({
   item,
   onEdit,
@@ -134,9 +148,182 @@ export const StashCard = memo(function StashCard({
   onViewReport,
   showTypeBadge = true,
 }: StashCardProps) {
+  const toast = useToast();
+  const isRateLimited = useIsRateLimited();
   const distributionMode = useDistributionModeType();
   const isInDistributionMode = distributionMode !== null;
   const isHypothesizeMode = distributionMode === 'hypothesize';
+
+  // Hover state for withdraw/deposit overlay
+  const [showOverlay, setShowOverlay] = useState(false);
+
+  // Get distribution mode context for tracking allocations
+  const { totalStashedAllocated, startingStashTotal, stashedAllocations, setStashedAllocation } =
+    useDistributionMode();
+
+  // Get available to stash data for deposit calculation
+  const { data: config } = useStashConfigQuery();
+  const { data: availableData } = useAvailableToStash({
+    includeExpectedIncome: config?.includeExpectedIncome ?? false,
+    bufferAmount: config?.bufferAmount ?? 0,
+  });
+
+  // Mutations for updating rollover
+  const updateCategoryRollover = useUpdateCategoryRolloverMutation();
+  const updateGroupRollover = useUpdateGroupRolloverMutation();
+
+  // Calculate withdraw available (rollover only, excludes this month's budget)
+  const withdrawAvailable = item.rollover_amount ?? 0;
+
+  // Calculate deposit available (Available to Stash pool minus already allocated in this session)
+  // Only subtract delta when in distribution mode (matches AvailableFundsBar logic)
+  const baseAvailable = availableData?.available ?? 0;
+  const stashAllocationDelta = totalStashedAllocated - startingStashTotal;
+  const depositAvailable = isInDistributionMode
+    ? Math.max(0, baseAvailable - stashAllocationDelta)
+    : baseAvailable;
+
+  // Handle withdraw action
+  const handleWithdraw = useCallback(
+    async (amount: number) => {
+      if (isRateLimited || amount <= 0 || amount > withdrawAvailable) return;
+
+      const currentAllocation = stashedAllocations[item.id] ?? item.current_balance;
+      const newAllocation = currentAllocation - amount;
+
+      // Optimistic update - update context immediately for UI feedback
+      setStashedAllocation(item.id, newAllocation);
+      setShowOverlay(false);
+
+      // In hypothesize mode, no API call needed - just update local projection
+      if (isHypothesizeMode) {
+        toast.success(
+          `Projected ${formatCurrency(amount, { maximumFractionDigits: 0 })} withdrawal from ${item.name}`
+        );
+        return;
+      }
+
+      // Make API call (queries will refresh on success)
+      try {
+        if (item.is_flexible_group && item.category_group_id) {
+          await updateGroupRollover.mutateAsync({
+            groupId: item.category_group_id,
+            amount: -amount,
+          });
+        } else if (item.category_id) {
+          await updateCategoryRollover.mutateAsync({
+            categoryId: item.category_id,
+            amount: -amount,
+          });
+        } else {
+          // Neither condition matched - this shouldn't happen if item has rollover_amount
+          throw new Error('Item is not linked to a category');
+        }
+        // Show success toast only after mutation succeeds
+        toast.success(
+          `Withdrew ${formatCurrency(amount, { maximumFractionDigits: 0 })} from ${item.name}`
+        );
+      } catch {
+        // Revert optimistic update on error
+        setStashedAllocation(item.id, currentAllocation);
+        toast.error('Failed to withdraw funds');
+      }
+    },
+    [
+      isRateLimited,
+      withdrawAvailable,
+      isHypothesizeMode,
+      stashedAllocations,
+      item,
+      setStashedAllocation,
+      toast,
+      updateGroupRollover,
+      updateCategoryRollover,
+    ]
+  );
+
+  // Handle deposit action
+  const handleDeposit = useCallback(
+    async (amount: number) => {
+      if (isRateLimited || amount <= 0 || amount > depositAvailable) return;
+
+      // Check if item can receive deposits (needs category_id or flexible group)
+      const canDeposit =
+        isHypothesizeMode || item.category_id || (item.is_flexible_group && item.category_group_id);
+      if (!canDeposit) {
+        toast.error('Cannot deposit: item is not linked to a category');
+        return;
+      }
+
+      const currentAllocation = stashedAllocations[item.id] ?? item.current_balance;
+      const newAllocation = currentAllocation + amount;
+
+      // Optimistic update - update context immediately for UI feedback
+      setStashedAllocation(item.id, newAllocation);
+      setShowOverlay(false);
+
+      // In hypothesize mode, no API call needed - just update local projection
+      if (isHypothesizeMode) {
+        toast.success(
+          `Projected ${formatCurrency(amount, { maximumFractionDigits: 0 })} deposit to ${item.name}`
+        );
+        return;
+      }
+
+      // Make API call (queries will refresh on success)
+      try {
+        if (item.is_flexible_group && item.category_group_id) {
+          await updateGroupRollover.mutateAsync({
+            groupId: item.category_group_id,
+            amount: amount,
+          });
+        } else if (item.category_id) {
+          await updateCategoryRollover.mutateAsync({
+            categoryId: item.category_id,
+            amount: amount,
+          });
+        } else {
+          // Neither condition matched - this shouldn't happen if canDeposit passed
+          throw new Error('Item is not linked to a category');
+        }
+        // Show success toast only after mutation succeeds
+        toast.success(
+          `Deposited ${formatCurrency(amount, { maximumFractionDigits: 0 })} to ${item.name}`
+        );
+      } catch {
+        // Revert optimistic update on error
+        setStashedAllocation(item.id, currentAllocation);
+        toast.error('Failed to deposit funds');
+      }
+    },
+    [
+      isRateLimited,
+      depositAvailable,
+      isHypothesizeMode,
+      stashedAllocations,
+      item,
+      setStashedAllocation,
+      toast,
+      updateGroupRollover,
+      updateCategoryRollover,
+    ]
+  );
+
+  // Handle cancel/close overlay
+  const handleCancelOverlay = useCallback(() => {
+    setShowOverlay(false);
+  }, []);
+
+  // Hover handlers
+  const handleMouseEnter = useCallback(() => {
+    if (!isInDistributionMode && !item.is_archived) {
+      setShowOverlay(true);
+    }
+  }, [isInDistributionMode, item.is_archived]);
+
+  const handleMouseLeave = useCallback(() => {
+    setShowOverlay(false);
+  }, []);
 
   // Get projected values in hypothesize mode (reverts to actual when mode exits)
   const projectedItem = useProjectedStashItem(item);
@@ -200,15 +387,28 @@ export const StashCard = memo(function StashCard({
       }}
     >
       {/* Image Area - drag handle (fills remaining space after content) */}
-      {}
+      {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions -- role="button" is applied conditionally via spread when not archived */}
       <div
-        className="stash-card-image flex-1 min-h-28 flex items-center justify-center relative group cursor-grab active:cursor-grabbing"
+        className={`stash-card-image flex-1 min-h-28 flex items-center justify-center relative group${
+          item.is_archived ? '' : ' cursor-grab active:cursor-grabbing'
+        }`}
         style={{
           backgroundColor: 'var(--monarch-bg-hover)',
           userSelect: 'none',
           containerType: 'size',
         }}
-        {...(isInDistributionMode ? {} : dragHandleProps)}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        onFocus={handleMouseEnter}
+        onBlur={handleMouseLeave}
+        {...(item.is_archived
+          ? {}
+          : {
+              role: 'button',
+              tabIndex: isInDistributionMode ? undefined : 0,
+              'aria-label': `Withdraw or deposit funds for ${item.name}`,
+            })}
+        {...(isInDistributionMode || item.is_archived || showOverlay ? {} : dragHandleProps)}
       >
         <StashItemImage
           customImagePath={item.custom_image_path}
@@ -218,20 +418,37 @@ export const StashCard = memo(function StashCard({
           className={hasImage ? 'w-full h-full object-cover' : 'opacity-50'}
         />
 
-        {/* Distribution mode overlay */}
-        {isInDistributionMode && !item.is_archived && (
-          <div
-            className="absolute inset-0 flex items-center justify-center transition-opacity"
-            style={{
-              backgroundColor:
+        {/* Withdraw/Deposit overlay (hover mode or distribution mode) */}
+        {(showOverlay || isInDistributionMode) &&
+          !item.is_archived &&
+          (() => {
+            // Extract overlay background color to avoid nested ternary
+            let overlayBgColor = 'rgba(0, 0, 0, 0.85)'; // Default for hover mode
+            if (isInDistributionMode) {
+              overlayBgColor =
                 distributionMode === 'distribute'
-                  ? 'rgba(20, 120, 60, 0.92)' // Green overlay (darker)
-                  : 'rgba(40, 10, 70, 0.95)', // Purple overlay (much darker)
-            }}
-          >
-            <CardAllocationInput itemId={item.id} itemName={item.name} />
-          </div>
-        )}
+                  ? 'rgba(20, 120, 60, 0.92)' // Green for distribute
+                  : 'rgba(40, 10, 70, 0.95)'; // Purple for hypothesize
+            }
+            return (
+              <div
+                className="absolute inset-0 flex items-center justify-center transition-opacity"
+                style={{ backgroundColor: overlayBgColor }}
+              >
+                <TakeStashOverlay
+                  itemId={item.id}
+                  itemName={item.name}
+                  withdrawAvailable={withdrawAvailable}
+                  depositAvailable={depositAvailable}
+                  onTake={handleWithdraw}
+                  onStash={handleDeposit}
+                  onCancel={handleCancelOverlay}
+                  isDistributionMode={isInDistributionMode}
+                  budgetedAmount={item.planned_budget}
+                />
+              </div>
+            );
+          })()}
 
         {/* Goal type badge - top left (only shown when showTypeBadge is true and not in distribution mode) */}
         {!isInDistributionMode &&
@@ -270,10 +487,14 @@ export const StashCard = memo(function StashCard({
           })()}
 
         {/* Edit button - top right, shown on hover (hidden in distribution mode) */}
+        {/* Stop all drag-related events from bubbling to prevent dnd-kit activation */}
         {!isInDistributionMode && !item.is_archived && (
           <button
             data-tour={isFirstCard ? 'stash-edit-item' : undefined}
             onClick={() => onEdit(item)}
+            onPointerDown={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
             className="absolute top-2 right-2 p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity icon-btn-hover"
             style={{
               backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -363,14 +584,29 @@ export const StashCard = memo(function StashCard({
                 </>
               )}
             </div>
-            {/* Goal amount and target date - "Save"/"Store"/"Pay off" hidden on narrow cards */}
+            {/* Goal strategy - varies by goal type */}
             {(() => {
-              const goalTypeConfig = {
-                one_time: { verb: 'Save' },
-                debt: { verb: 'Pay off' },
-                savings_buffer: { verb: 'Store' },
-              } as const;
-              const config = goalTypeConfig[item.goal_type ?? 'one_time'];
+              const formattedAmount = formatCurrency(item.amount, { maximumFractionDigits: 0 });
+              const goalType = item.goal_type ?? 'one_time';
+
+              // savings_buffer: "Maintain $X" (ongoing fund, no date)
+              // debt: "Pay off $X by [date]"
+              // one_time: "Save $X by [date]"
+              const getDescription = () => {
+                if (goalType === 'savings_buffer') {
+                  return {
+                    text: `Maintain ${formattedAmount}`,
+                    title: `Maintain ${formattedAmount}`,
+                  };
+                }
+                const verb = goalType === 'debt' ? 'Pay off' : 'Save';
+                return {
+                  text: `${verb} ${formattedAmount} by ${dateDisplay}`,
+                  title: `${verb} ${formattedAmount} by ${dateDisplay}`,
+                };
+              };
+              const { text, title } = getDescription();
+
               return (
                 <div
                   className="flex items-center gap-1 text-sm min-w-0"
@@ -379,12 +615,8 @@ export const StashCard = memo(function StashCard({
                   <span className="shrink-0 inline-flex">
                     <Icons.Calendar size={14} style={{ color: 'var(--monarch-text-muted)' }} />
                   </span>
-                  <span
-                    className="truncate"
-                    title={`${config.verb} ${formatCurrency(item.amount, { maximumFractionDigits: 0 })} by ${dateDisplay}`}
-                  >
-                    <span className="hidden @[140px]:inline">{config.verb} </span>
-                    {formatCurrency(item.amount, { maximumFractionDigits: 0 })} by {dateDisplay}
+                  <span className="truncate" title={title}>
+                    {text}
                   </span>
                 </div>
               );

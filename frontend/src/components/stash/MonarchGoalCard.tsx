@@ -23,6 +23,7 @@ import { Icons } from '../icons';
 import { formatCurrency } from '../../utils';
 import { MonarchGoalProgressBar } from './MonarchGoalProgressBar';
 import { useDistributionModeType } from '../../context/DistributionModeContext';
+import { Tooltip } from '../ui/Tooltip';
 
 interface MonarchGoalCardProps {
   readonly goal: MonarchGoal;
@@ -281,6 +282,7 @@ export const MonarchGoalCard = memo(function MonarchGoalCard({
         )}
 
         {/* External link button - top right, shown on hover (links to Monarch) */}
+        {/* Stop all drag-related events from bubbling to prevent dnd-kit activation */}
         <a
           href={`https://app.monarch.com/goals/savings/${goal.id}`}
           target="_blank"
@@ -292,6 +294,9 @@ export const MonarchGoalCard = memo(function MonarchGoalCard({
           }}
           aria-label={`Open ${goal.name} in Monarch Money`}
           onClick={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
         >
           <Icons.ExternalLink size={18} style={{ color: '#fff' }} />
         </a>
@@ -356,26 +361,45 @@ export const MonarchGoalCard = memo(function MonarchGoalCard({
               goal.targetDate
             );
             const showTarget = goal.targetAmount !== null && goal.targetDate !== null;
+            const budgetFormatted = Math.round(goal.plannedMonthlyContribution).toLocaleString(
+              'en-US'
+            );
+            // Calculate width: digits need ~1ch, commas need ~0.3ch
+            const digitCount = budgetFormatted.replaceAll(/\D/g, '').length || 1;
+            const commaCount = (budgetFormatted.match(/,/g) || []).length;
+            const budgetWidth = Math.min(8, Math.max(1, digitCount + commaCount * 0.3));
             return (
-              <div className="shrink-0 flex flex-col items-end">
+              <Tooltip
+                content="You must edit budget for this goal in Monarch directly."
+                side="bottom"
+              >
+                {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- Non-interactive display, click only prevents propagation */}
                 <div
-                  className="flex items-center w-35 rounded bg-monarch-bg-card border border-monarch-border px-2 py-1"
-                  aria-label="Planned monthly contribution"
+                  className="shrink-0 flex flex-col items-end cursor-not-allowed"
+                  onClick={(e) => e.stopPropagation()}
                 >
-                  <span className="font-medium text-monarch-text-dark">$</span>
-                  <span className="w-14 ml-auto inline-block text-right font-medium text-monarch-text-dark tabular-nums">
-                    {Math.round(goal.plannedMonthlyContribution).toLocaleString('en-US')}
-                  </span>
-                  {showTarget && (
-                    <span className="text-monarch-text-muted tabular-nums ml-1">
-                      / {monthlyTarget.toLocaleString('en-US')}
+                  <div
+                    className="inline-flex items-center rounded bg-monarch-bg-card border border-monarch-border px-2 py-1"
+                    aria-label="Planned monthly contribution"
+                  >
+                    <span className="font-medium text-monarch-text-dark mr-1">$</span>
+                    <span
+                      className="text-right font-medium text-monarch-text-dark tabular-nums"
+                      style={{ width: `${budgetWidth}ch` }}
+                    >
+                      {budgetFormatted}
                     </span>
-                  )}
+                    {showTarget && (
+                      <span className="text-monarch-text-muted tabular-nums ml-1">
+                        / {monthlyTarget.toLocaleString('en-US')}
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-xs mt-0.5" style={{ color: 'var(--monarch-text-muted)' }}>
+                    budgeted in {currentMonthAbbr}.
+                  </span>
                 </div>
-                <span className="text-xs mt-0.5" style={{ color: 'var(--monarch-text-muted)' }}>
-                  budgeted in {currentMonthAbbr}.
-                </span>
-              </div>
+              </Tooltip>
             );
           })()}
         </div>

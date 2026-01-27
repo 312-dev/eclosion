@@ -283,17 +283,17 @@ function createLayout(
     maxH: MAX_H,
   }));
 
-  // Add placeholder
+  // Add placeholder - locked to 1x1, never resizable
   layout.push({
     i: ADD_PLACEHOLDER_ID,
     x: 0,
     y: 0,
     w: 1,
     h: 1,
-    minW: MIN_W,
-    maxW: Math.min(MAX_W, cols),
-    minH: MIN_H,
-    maxH: MAX_H,
+    minW: 1,
+    maxW: 1,
+    minH: 1,
+    maxH: 1,
     static: true,
     isDraggable: false,
     isResizable: false,
@@ -587,7 +587,8 @@ export const StashWidgetGrid = memo(function StashWidgetGrid({
         margin={MARGIN}
         containerPadding={[0, 0]}
         useCSSTransforms={true}
-        compactType={null}
+        compactType="vertical"
+        preventCollision={true}
       >
         {sortedItems.map((item, index) => {
           const isGoal = 'type' in item && item.type === 'monarch_goal';
