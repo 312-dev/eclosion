@@ -7,7 +7,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { NavLink, useNavigate, useLocation, Link } from 'react-router-dom';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import {
   Settings,
   Lock,
@@ -26,7 +26,7 @@ import {
   AlertTriangle,
   RotateCcw,
 } from 'lucide-react';
-import { RecurringIcon, NotesIcon, StashIcon, AppIcon } from '../wizards/WizardComponents';
+import { RecurringIcon, NotesIcon, StashIcon } from '../wizards/WizardComponents';
 import { Tooltip } from '../ui/Tooltip';
 import { Icons } from '../icons';
 import { useDemo } from '../../context/DemoContext';
@@ -206,16 +206,6 @@ export function SidebarNavigation({ onLock }: Readonly<SidebarNavigationProps>) 
 
   return (
     <nav className="sidebar-nav" aria-label="Main navigation">
-      {/* Logo section - web only (desktop shows logo in title bar) */}
-      {!isDesktop && (
-        <div className="sidebar-logo sidebar-desktop-only">
-          <Link to={`${prefix}/`} className="sidebar-logo-link" aria-label="Eclosion - Go to home">
-            <AppIcon size={28} />
-            <span className="sidebar-logo-text">Eclosion</span>
-          </Link>
-        </div>
-      )}
-
       {/* Tools section - scrollable on mobile */}
       <div className="sidebar-nav-tools">
         <div className="sidebar-nav-sections">

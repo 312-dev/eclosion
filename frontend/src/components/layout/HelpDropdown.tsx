@@ -12,6 +12,7 @@ import { HelpCircle, BookOpen, Play, ChevronRight, Mail, HeartHandshake } from '
 import { FaReddit } from 'react-icons/fa';
 import { getDocsUrl } from '../../utils';
 import { DiagnosticsPromptDialog } from './DiagnosticsPromptDialog';
+import { motion, AnimatePresence, slideDownVariants } from '../motion';
 
 declare const __APP_VERSION__: string;
 
@@ -104,116 +105,128 @@ export function HelpDropdown({ hasTour, onStartTour }: HelpDropdownProps) {
       >
         <HelpCircle className="app-header-icon" aria-hidden="true" />
       </button>
-      {showDropdown && (
-        <div
-          className="absolute right-0 mt-2 w-48 rounded-lg shadow-lg py-1 z-50"
-          style={{
-            backgroundColor: 'var(--monarch-bg-card)',
-            border: '1px solid var(--monarch-border)',
-          }}
-          role="menu"
-          aria-orientation="vertical"
-        >
-          {hasTour && (
-            <button
-              type="button"
-              onClick={handleStartTour}
-              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left transition-colors hover:bg-(--monarch-bg-page)"
-              style={{ color: 'var(--monarch-text-dark)' }}
-              role="menuitem"
-            >
-              <Play
-                className="h-4 w-4"
-                style={{ color: 'var(--monarch-orange)' }}
-                aria-hidden="true"
-              />
-              Interactive Guide
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={handleOpenGuide}
-            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left transition-colors hover:bg-(--monarch-bg-page)"
-            style={{ color: 'var(--monarch-text-dark)' }}
-            role="menuitem"
+      <AnimatePresence>
+        {showDropdown && (
+          <motion.div
+            className="absolute right-0 mt-2 w-48 rounded-lg shadow-lg py-1 z-50 origin-top-right"
+            style={{
+              backgroundColor: 'var(--monarch-bg-card)',
+              border: '1px solid var(--monarch-border)',
+            }}
+            role="menu"
+            aria-orientation="vertical"
+            variants={slideDownVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
           >
-            <BookOpen
-              className="h-4 w-4"
-              style={{ color: 'var(--monarch-orange)' }}
-              aria-hidden="true"
-            />
-            User Guide
-          </button>
-          <div className="relative">
-            <button
-              type="button"
-              onMouseEnter={() => setShowSupportSubmenu(true)}
-              onClick={() => setShowSupportSubmenu(!showSupportSubmenu)}
-              className="w-full flex items-center justify-between gap-3 px-4 py-2.5 text-sm text-left transition-colors hover:bg-(--monarch-bg-page)"
-              style={{ color: 'var(--monarch-text-dark)' }}
-              role="menuitem"
-              aria-haspopup="menu"
-              aria-expanded={showSupportSubmenu}
-            >
-              <span className="flex items-center gap-3">
-                <HeartHandshake
+            {hasTour && (
+              <button
+                type="button"
+                onClick={handleStartTour}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left transition-colors hover:bg-(--monarch-bg-page)"
+                style={{ color: 'var(--monarch-text-dark)' }}
+                role="menuitem"
+              >
+                <Play
                   className="h-4 w-4"
                   style={{ color: 'var(--monarch-orange)' }}
                   aria-hidden="true"
                 />
-                Get Support
-              </span>
-              <ChevronRight className="h-3 w-3" aria-hidden="true" />
+                Interactive Guide
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={handleOpenGuide}
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left transition-colors hover:bg-(--monarch-bg-page)"
+              style={{ color: 'var(--monarch-text-dark)' }}
+              role="menuitem"
+            >
+              <BookOpen
+                className="h-4 w-4"
+                style={{ color: 'var(--monarch-orange)' }}
+                aria-hidden="true"
+              />
+              User Guide
             </button>
-            {showSupportSubmenu && (
-              <div
-                ref={supportMenuRef}
-                className="absolute right-full top-0 mr-1 w-40 rounded-lg shadow-lg py-1 z-50"
-                style={{
-                  backgroundColor: 'var(--monarch-bg-card)',
-                  border: '1px solid var(--monarch-border)',
-                }}
-                role="menu"
-                aria-orientation="vertical"
+            <div className="relative">
+              <button
+                type="button"
+                onMouseEnter={() => setShowSupportSubmenu(true)}
+                onClick={() => setShowSupportSubmenu(!showSupportSubmenu)}
+                className="w-full flex items-center justify-between gap-3 px-4 py-2.5 text-sm text-left transition-colors hover:bg-(--monarch-bg-page)"
+                style={{ color: 'var(--monarch-text-dark)' }}
+                role="menuitem"
+                aria-haspopup="menu"
+                aria-expanded={showSupportSubmenu}
               >
-                <a
-                  href={SUPPORT_REDDIT_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left transition-colors hover:bg-(--monarch-bg-page)"
-                  style={{ color: 'var(--monarch-text-dark)', textDecoration: 'none' }}
-                  role="menuitem"
-                  onClick={() => {
-                    setShowDropdown(false);
-                    setShowSupportSubmenu(false);
-                  }}
-                >
-                  <FaReddit
-                    size={16}
-                    style={{ color: 'var(--monarch-orange)' }}
-                    aria-hidden="true"
-                  />
-                  via Reddit
-                </a>
-                <button
-                  type="button"
-                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left transition-colors hover:bg-(--monarch-bg-page)"
-                  style={{ color: 'var(--monarch-text-dark)' }}
-                  role="menuitem"
-                  onClick={handleEmailClick}
-                >
-                  <Mail
+                <span className="flex items-center gap-3">
+                  <HeartHandshake
                     className="h-4 w-4"
                     style={{ color: 'var(--monarch-orange)' }}
                     aria-hidden="true"
                   />
-                  via Email
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+                  Get Support
+                </span>
+                <ChevronRight className="h-3 w-3" aria-hidden="true" />
+              </button>
+              <AnimatePresence>
+                {showSupportSubmenu && (
+                  <motion.div
+                    ref={supportMenuRef}
+                    className="absolute right-full top-0 mr-1 w-40 rounded-lg shadow-lg py-1 z-50 origin-top-right"
+                    style={{
+                      backgroundColor: 'var(--monarch-bg-card)',
+                      border: '1px solid var(--monarch-border)',
+                    }}
+                    role="menu"
+                    aria-orientation="vertical"
+                    variants={slideDownVariants}
+                    initial="initial"
+                    animate="animate"
+                    exit="exit"
+                  >
+                    <a
+                      href={SUPPORT_REDDIT_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left transition-colors hover:bg-(--monarch-bg-page)"
+                      style={{ color: 'var(--monarch-text-dark)', textDecoration: 'none' }}
+                      role="menuitem"
+                      onClick={() => {
+                        setShowDropdown(false);
+                        setShowSupportSubmenu(false);
+                      }}
+                    >
+                      <FaReddit
+                        size={16}
+                        style={{ color: 'var(--monarch-orange)' }}
+                        aria-hidden="true"
+                      />
+                      via Reddit
+                    </a>
+                    <button
+                      type="button"
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left transition-colors hover:bg-(--monarch-bg-page)"
+                      style={{ color: 'var(--monarch-text-dark)' }}
+                      role="menuitem"
+                      onClick={handleEmailClick}
+                    >
+                      <Mail
+                        className="h-4 w-4"
+                        style={{ color: 'var(--monarch-orange)' }}
+                        aria-hidden="true"
+                      />
+                      via Email
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       <DiagnosticsPromptDialog
         isOpen={showDiagnosticsPrompt}
         onClose={() => setShowDiagnosticsPrompt(false)}

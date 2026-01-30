@@ -27,6 +27,7 @@ import {
   useStashConfigQuery,
   usePendingCountQuery,
   useAutoSyncStatusQuery,
+  useMonarchGoalsQuery,
 } from '../../api/queries';
 import { useAuth } from '../../context/AuthContext';
 import { useDemo } from '../../context/DemoContext';
@@ -66,6 +67,7 @@ export function AppShell() {
   const { data: stashData } = useStashQuery();
   const { data: stashConfig } = useStashConfigQuery();
   const { data: pendingCount = 0 } = usePendingCountQuery();
+  const { data: monarchGoals = [] } = useMonarchGoalsQuery();
 
   // Auto-sync visibility management (5 min foreground, 60 min background)
   const { data: autoSyncStatus } = useAutoSyncStatusQuery();
@@ -79,6 +81,8 @@ export function AppShell() {
       pendingCount,
       isBrowserConfigured: !!stashConfig?.selectedBrowser,
       isDesktop,
+      hasMonarchGoalsEnabled: stashConfig?.showMonarchGoals ?? false,
+      monarchGoalCount: monarchGoals.filter((g) => !g.isCompleted).length,
     });
 
   // Track if we've already notified the tray (only notify once on initial load)
@@ -176,10 +180,12 @@ export function AppShell() {
       <TourController isOpen={showTour} onClose={handleTourClose} />
       <div
         className="app-layout"
-        style={{
-          backgroundColor: 'var(--monarch-bg-page)',
-          ...(isDesktop && ({ '--header-height': '48px' } as React.CSSProperties)),
-        }}
+        style={
+          {
+            backgroundColor: 'var(--monarch-bg-page)',
+            '--header-height': '48px',
+          } as React.CSSProperties
+        }
       >
         <a href="#main-content" className="skip-link">
           Skip to main content
@@ -187,11 +193,9 @@ export function AppShell() {
 
         <AppHeader
           isDemo={isDemo}
-          isDesktop={isDesktop}
           isMacOSElectron={isMacOSElectron}
           isWindowsElectron={isWindowsElectron}
           pathPrefix={pathPrefix}
-          lastSync={data.last_sync}
           isSyncing={isPageSyncing}
           isFetching={isFetching}
           hasTour={hasTour}
