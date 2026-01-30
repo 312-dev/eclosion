@@ -168,7 +168,9 @@ class TestEventRetrieval:
         security_service.log_event(event_type="LOGIN_ATTEMPT", success=False)
         security_service.log_event(event_type="LOGOUT", success=True)
 
-        events, total = security_service.get_events(limit=10, event_type="LOGIN_ATTEMPT", success=False)
+        events, total = security_service.get_events(
+            limit=10, event_type="LOGIN_ATTEMPT", success=False
+        )
         assert len(events) == 1
         assert total == 1
         assert events[0].event_type == "LOGIN_ATTEMPT"
