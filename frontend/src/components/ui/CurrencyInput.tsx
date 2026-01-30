@@ -5,7 +5,8 @@
  * Replaces inline currency inputs in RecurringRow, RollupZone, and ReadyToAssign.
  */
 
-import { useRef, useEffect, type ChangeEvent } from 'react';
+import { useRef, useEffect, type ChangeEvent, type KeyboardEvent } from 'react';
+import { useArrowKeyIncrement } from '../../hooks/useArrowKeyIncrement';
 
 export interface CurrencyInputProps {
   /** Current value */
@@ -71,6 +72,20 @@ export function CurrencyInput({
     onChange(clampedValue);
   };
 
+  // Arrow key increment/decrement handler
+  const handleArrowKey = useArrowKeyIncrement({
+    value,
+    onChange,
+    step,
+    ...(min !== undefined && { min }),
+    ...(max !== undefined && { max }),
+    disabled,
+  });
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    handleArrowKey(e);
+  };
+
   const borderColor = warning ? 'var(--monarch-warning)' : 'var(--monarch-border)';
 
   const focusBorderColor = warning ? 'var(--monarch-warning)' : 'var(--monarch-primary)';
@@ -92,6 +107,7 @@ export function CurrencyInput({
         type="number"
         value={value || ''}
         onChange={handleChange}
+        onKeyDown={handleKeyDown}
         onBlur={onBlur}
         disabled={disabled}
         placeholder={placeholder}
