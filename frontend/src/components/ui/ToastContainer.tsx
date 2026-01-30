@@ -7,6 +7,7 @@
 
 import { Icons } from '../icons';
 import type { Toast, ToastType } from '../../context/ToastContext';
+import { motion, AnimatePresence, slideUpVariants } from '../motion';
 
 function ToastIcon({ type }: { type: ToastType }) {
   const iconProps = { size: 16, className: 'shrink-0' };
@@ -57,35 +58,45 @@ interface ToastContainerProps {
 }
 
 export function ToastContainer({ toasts, onRemove }: ToastContainerProps) {
-  if (toasts.length === 0) return null;
+  // Don't render container when there are no toasts
+  if (toasts.length === 0) {
+    return null;
+  }
 
   return (
     <div className="toast-container">
-      {toasts.map((toast) => {
-        const styles = getToastStyles(toast.type);
-        return (
-          <div
-            key={toast.id}
-            className="toast-item"
-            data-type={toast.type}
-            style={{
-              backgroundColor: styles.bg,
-              color: styles.color,
-              borderLeft: `3px solid ${styles.border}`,
-            }}
-          >
-            <ToastIcon type={toast.type} />
-            <span className="toast-message">{toast.message}</span>
-            <button
-              onClick={() => onRemove(toast.id)}
-              className="toast-close"
-              style={{ color: styles.color }}
+      <AnimatePresence mode="popLayout">
+        {toasts.map((toast) => {
+          const styles = getToastStyles(toast.type);
+          return (
+            <motion.div
+              key={toast.id}
+              layout
+              className="toast-item"
+              data-type={toast.type}
+              style={{
+                backgroundColor: styles.bg,
+                color: styles.color,
+                borderLeft: `3px solid ${styles.border}`,
+              }}
+              variants={slideUpVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
             >
-              <Icons.X size={14} />
-            </button>
-          </div>
-        );
-      })}
+              <ToastIcon type={toast.type} />
+              <span className="toast-message">{toast.message}</span>
+              <button
+                onClick={() => onRemove(toast.id)}
+                className="toast-close"
+                style={{ color: styles.color }}
+              >
+                <Icons.X size={14} />
+              </button>
+            </motion.div>
+          );
+        })}
+      </AnimatePresence>
     </div>
   );
 }

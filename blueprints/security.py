@@ -1,7 +1,7 @@
 # Security blueprint
 # /security/* endpoints for security status and audit logs
 
-from flask import Blueprint, Response, jsonify, request
+from flask import Blueprint, Response, request
 from markupsafe import escape as markupsafe_escape
 
 from core import api_handler, config
@@ -74,7 +74,7 @@ def get_security_events():
     if success_param is not None:
         success_filter = success_param.lower() == "true"
 
-    events = services.security_service.get_events(
+    events, total = services.security_service.get_events(
         limit=limit, offset=offset, event_type=event_type, success=success_filter
     )
 
@@ -94,14 +94,13 @@ def get_security_events():
         for e in events
     ]
 
-    # Return using jsonify with validated integer values
-    return jsonify(
-        {
-            "events": sanitized_events,
-            "limit": int(limit),
-            "offset": int(offset),
-        }
-    )
+    # Return dict - api_handler decorator handles jsonify
+    return {
+        "events": sanitized_events,
+        "total": int(total),
+        "limit": int(limit),
+        "offset": int(offset),
+    }
 
 
 @security_bp.route("/events/summary", methods=["GET"])

@@ -18,6 +18,7 @@ import { CloseButton } from './CloseButton';
 import { useScrollLock } from '../../hooks/useScrollLock';
 import { useModalStack } from '../../hooks/useModalStack';
 import { Z_INDEX } from '../../constants';
+import { motion, AnimatePresence, fadeVariants, scaleVariants } from '../motion';
 
 /**
  * Context for modal footer portal.
@@ -223,103 +224,117 @@ export function Modal({
     [closeOnBackdrop, onClose]
   );
 
-  if (!isOpen) return null;
-
   // Calculate z-index for backdrop and modal content
   const backdropZIndex = Z_INDEX.MODAL_BACKDROP + stackOffset;
   const modalZIndex = Z_INDEX.MODAL + stackOffset;
 
   const modalContent = (
-    // Backdrop overlay - click to close is handled via onClick
-    // Keyboard closing is handled via Escape key in handleKeyDown
-    <div
-      className="fixed inset-0 flex items-center justify-center p-4 backdrop-blur-sm"
-      style={{
-        backgroundColor: 'rgba(0, 0, 0, 0.4)',
-        zIndex: backdropZIndex,
-      }}
-      onPointerDown={handleBackdropPointerDown}
-      onClick={handleBackdropClick}
-    >
-      {/* Dialog */}
-      <dialog
-        ref={modalRef}
-        open
-        aria-modal="true"
-        aria-labelledby={titleId}
-        aria-describedby={description ? descriptionId : undefined}
-        className={`relative w-full ${MAX_WIDTH_CLASSES[maxWidth]} flex flex-col rounded-lg p-0 m-0`}
-        style={{
-          backgroundColor: 'var(--monarch-bg-card)',
-          boxShadow:
-            '0 0 0 1px rgba(0, 0, 0, 0.1), 0 10px 30px -5px rgba(0, 0, 0, 0.5), 0 20px 50px -10px rgba(0, 0, 0, 0.4)',
-          maxHeight: 'var(--modal-max-height)',
-          zIndex: modalZIndex,
-        }}
-      >
-        {/* Header */}
-        <div
-          className="flex items-center justify-between p-4 border-b rounded-t-lg"
+    <AnimatePresence>
+      {isOpen && (
+        // Backdrop overlay - click to close is handled via onClick
+        // Keyboard closing is handled via Escape key in handleKeyDown
+        <motion.div
+          className="fixed inset-0 flex items-center justify-center p-4 backdrop-blur-sm"
           style={{
-            borderColor: 'var(--monarch-border)',
-            backgroundColor: 'var(--monarch-bg-page)',
+            backgroundColor: 'rgba(0, 0, 0, 0.4)',
+            zIndex: backdropZIndex,
           }}
+          onPointerDown={handleBackdropPointerDown}
+          onClick={handleBackdropClick}
+          variants={fadeVariants}
+          initial="initial"
+          animate="animate"
+          exit="exit"
         >
-          <div>
-            <h2
-              id={titleId}
-              className="text-lg font-semibold"
-              style={{ color: 'var(--monarch-text)' }}
-            >
-              {title}
-            </h2>
-            {description && (
-              <p
-                id={descriptionId}
-                className="mt-1 text-sm"
-                style={{ color: 'var(--monarch-text-muted)' }}
-              >
-                {description}
-              </p>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            {headerActions}
-            {showCloseButton && (
-              <CloseButton onClick={onClose} size="md" aria-label="Close modal" />
-            )}
-          </div>
-        </div>
-
-        {/* Body - wrapped in context provider for footer portal */}
-        <ModalFooterContext.Provider value={footerContainer}>
-          <div
-            className="modal-body-scroll p-4 flex-1 min-h-0 overflow-y-scroll"
+          {/* Dialog */}
+          <motion.dialog
+            ref={modalRef}
+            open
+            aria-modal="true"
+            aria-labelledby={titleId}
+            aria-describedby={description ? descriptionId : undefined}
+            className={`relative w-full ${MAX_WIDTH_CLASSES[maxWidth]} flex flex-col rounded-lg p-0 m-0`}
             style={{
+              backgroundColor: 'var(--monarch-bg-card)',
               boxShadow:
-                'inset 0 8px 8px -8px rgba(0,0,0,0.15), inset 0 -8px 8px -8px rgba(0,0,0,0.15)',
+                '0 0 0 1px rgba(0, 0, 0, 0.1), 0 10px 30px -5px rgba(0, 0, 0, 0.5), 0 20px 50px -10px rgba(0, 0, 0, 0.4)',
+              maxHeight: 'var(--modal-max-height)',
+              zIndex: modalZIndex,
             }}
+            variants={scaleVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
           >
-            {children}
-          </div>
-        </ModalFooterContext.Provider>
+            {/* Header */}
+            <div
+              className="flex items-center justify-between p-4 border-b rounded-t-lg"
+              style={{
+                borderColor: 'var(--monarch-border)',
+                backgroundColor: 'var(--monarch-bg-page)',
+              }}
+            >
+              <div>
+                <h2
+                  id={titleId}
+                  className="text-lg font-semibold"
+                  style={{ color: 'var(--monarch-text)' }}
+                >
+                  {title}
+                </h2>
+                {description && (
+                  <p
+                    id={descriptionId}
+                    className="mt-1 text-sm"
+                    style={{ color: 'var(--monarch-text-muted)' }}
+                  >
+                    {description}
+                  </p>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                {headerActions}
+                {showCloseButton && (
+                  <CloseButton onClick={onClose} size="md" aria-label="Close modal" />
+                )}
+              </div>
+            </div>
 
-        {/* Footer - sticky at bottom, never scrolls with content */}
-        {/* Renders both explicit footer prop and portal content from children */}
-        <div
-          ref={setFooterContainer}
-          className="shrink-0 empty:hidden rounded-b-lg"
-          style={{
-            borderColor: 'var(--monarch-border)',
-            backgroundColor: 'var(--monarch-bg-page)',
-          }}
-        >
-          {/* Portal content from children renders here via useModalFooter() */}
-          {/* Explicit footer prop also renders here */}
-          {footer && <div className="p-4 border-t" style={{ borderColor: 'var(--monarch-border)' }}>{footer}</div>}
-        </div>
-      </dialog>
-    </div>
+            {/* Body - wrapped in context provider for footer portal */}
+            <ModalFooterContext.Provider value={footerContainer}>
+              <div
+                className="modal-body-scroll p-4 flex-1 min-h-0 overflow-y-scroll"
+                style={{
+                  boxShadow:
+                    'inset 0 8px 8px -8px rgba(0,0,0,0.15), inset 0 -8px 8px -8px rgba(0,0,0,0.15)',
+                }}
+              >
+                {children}
+              </div>
+            </ModalFooterContext.Provider>
+
+            {/* Footer - sticky at bottom, never scrolls with content */}
+            {/* Renders both explicit footer prop and portal content from children */}
+            <div
+              ref={setFooterContainer}
+              className="shrink-0 empty:hidden rounded-b-lg"
+              style={{
+                borderColor: 'var(--monarch-border)',
+                backgroundColor: 'var(--monarch-bg-page)',
+              }}
+            >
+              {/* Portal content from children renders here via useModalFooter() */}
+              {/* Explicit footer prop also renders here */}
+              {footer && (
+                <div className="p-4 border-t" style={{ borderColor: 'var(--monarch-border)' }}>
+                  {footer}
+                </div>
+              )}
+            </div>
+          </motion.dialog>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 
   return createPortal(modalContent, document.body);

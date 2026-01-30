@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent, renderHook } from '@testing-library/react';
+import { render, screen, fireEvent, renderHook, waitFor } from '@testing-library/react';
 import { ToastProvider, useToast } from './ToastContext';
 
 describe('ToastContext', () => {
@@ -192,7 +192,7 @@ describe('ToastContext', () => {
   });
 
   describe('toast dismissal', () => {
-    it('can be manually dismissed via close button', () => {
+    it('can be manually dismissed via close button', async () => {
       function TestComponent() {
         const toast = useToast();
         // Use duration 0 to prevent auto-dismiss
@@ -214,7 +214,10 @@ describe('ToastContext', () => {
 
       if (closeBtn) {
         fireEvent.click(closeBtn);
-        expect(screen.queryByText('Dismissable')).not.toBeInTheDocument();
+        // Wait for exit animation to complete
+        await waitFor(() => {
+          expect(screen.queryByText('Dismissable')).not.toBeInTheDocument();
+        });
       }
     });
   });

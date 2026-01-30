@@ -202,7 +202,7 @@ class SecurityService:
         offset: int = 0,
         event_type: str | None = None,
         success: bool | None = None,
-    ) -> list[SecurityEvent]:
+    ) -> tuple[list[SecurityEvent], int]:
         """
         Retrieve security events with optional filtering.
 
@@ -213,27 +213,34 @@ class SecurityService:
             success: Filter by success/failure
 
         Returns:
-            List of SecurityEvent objects
+            Tuple of (list of SecurityEvent objects, total count matching filters)
         """
         try:
             conn = self._get_connection()
-            query = "SELECT * FROM security_events WHERE 1=1"
+
+            # Build WHERE clause for both queries
+            where_clause = "WHERE 1=1"
             params: list = []
 
             if event_type:
-                query += " AND event_type = ?"
+                where_clause += " AND event_type = ?"
                 params.append(event_type)
             if success is not None:
-                query += " AND success = ?"
+                where_clause += " AND success = ?"
                 params.append(1 if success else 0)
 
-            query += " ORDER BY timestamp DESC LIMIT ? OFFSET ?"
+            # Get total count with filters
+            count_query = f"SELECT COUNT(*) FROM security_events {where_clause}"
+            total = conn.execute(count_query, params).fetchone()[0]
+
+            # Get paginated results
+            query = f"SELECT * FROM security_events {where_clause} ORDER BY timestamp DESC LIMIT ? OFFSET ?"
             params.extend([limit, offset])
 
             cursor = conn.execute(query, params)
             rows = cursor.fetchall()
 
-            return [
+            events = [
                 SecurityEvent(
                     id=row["id"],
                     event_type=row["event_type"],
@@ -247,9 +254,10 @@ class SecurityService:
                 )
                 for row in rows
             ]
+            return events, total
         except Exception as e:
             logger.error("Failed to get security events: %s", e)
-            return []
+            return [], 0
 
     def get_summary(self) -> SecurityEventSummary:
         """Get aggregate statistics for security events."""
@@ -428,7 +436,7 @@ class SecurityService:
             CSV string of all events with sanitized values
         """
         try:
-            events = self.get_events(limit=10000, offset=0)
+            events, _ = self.get_events(limit=10000, offset=0)
             output = io.StringIO()
             writer = csv.writer(output)
 

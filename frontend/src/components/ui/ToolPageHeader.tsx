@@ -6,8 +6,8 @@
  * Optionally includes a settings button that opens a settings modal.
  */
 
-import type { ReactNode } from 'react';
-import { Settings } from 'lucide-react';
+import { useRef, type ReactNode } from 'react';
+import { SettingsIcon, type SettingsIconHandle } from './settings';
 
 interface ToolPageHeaderProps {
   readonly icon: ReactNode;
@@ -19,7 +19,16 @@ interface ToolPageHeaderProps {
   readonly onSettingsClick?: () => void;
 }
 
-export function ToolPageHeader({ icon, title, description, descriptionExtra, actions, onSettingsClick }: ToolPageHeaderProps) {
+export function ToolPageHeader({
+  icon,
+  title,
+  description,
+  descriptionExtra,
+  actions,
+  onSettingsClick,
+}: ToolPageHeaderProps) {
+  const settingsRef = useRef<SettingsIconHandle>(null);
+
   return (
     <div className="mb-6">
       <div className="flex items-center gap-3">
@@ -27,16 +36,14 @@ export function ToolPageHeader({ icon, title, description, descriptionExtra, act
           className="p-3 rounded-lg shrink-0"
           style={{
             backgroundColor: 'var(--monarch-orange-light)',
+            color: 'var(--tool-header-icon)',
           }}
         >
           {icon}
         </div>
 
         <div className="flex-1 min-w-0">
-          <h1
-            className="text-2xl font-semibold"
-            style={{ color: 'var(--monarch-text-dark)' }}
-          >
+          <h1 className="text-2xl font-semibold" style={{ color: 'var(--monarch-text-dark)' }}>
             {title}
           </h1>
           <p className="text-sm mt-1" style={{ color: 'var(--monarch-text-muted)' }}>
@@ -51,11 +58,17 @@ export function ToolPageHeader({ icon, title, description, descriptionExtra, act
           <button
             type="button"
             onClick={onSettingsClick}
+            onMouseEnter={() => settingsRef.current?.startAnimation()}
+            onMouseLeave={() => settingsRef.current?.stopAnimation()}
             className="p-2 rounded-lg hover:bg-(--monarch-bg-hover) transition-colors shrink-0"
             aria-label={`${title} settings`}
             title="Settings"
           >
-            <Settings size={20} style={{ color: 'var(--monarch-text-muted)' }} />
+            <SettingsIcon
+              ref={settingsRef}
+              size={20}
+              style={{ color: 'var(--monarch-text-muted)' }}
+            />
           </button>
         )}
       </div>

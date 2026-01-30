@@ -1,40 +1,96 @@
 /**
  * Security Panel
  *
- * Displays security events, login history, and summary statistics.
- * Used in the Settings tab.
+ * Shows recent login activity in a simple, Google-style format.
  */
 
 import { useState } from 'react';
-import { CheckCircle, AlertCircle, Globe, Download } from 'lucide-react';
+import { Shield, ChevronDown, ChevronUp, Download, MapPin } from 'lucide-react';
 import {
-  useSecuritySummaryQuery,
   useSecurityEventsQuery,
+  useSecurityAlertsQuery,
   useExportSecurityEventsMutation,
 } from '../api/queries';
-import { SecurityEventList } from './SecurityEventList';
 import { useToast } from '../context/ToastContext';
+import type { SecurityEvent } from '../types';
 
 interface SecurityPanelProps {
   className?: string;
 }
 
-type EventFilter = 'all' | 'LOGIN_ATTEMPT' | 'UNLOCK_ATTEMPT';
+function formatRelativeTime(timestamp: string): string {
+  const date = new Date(timestamp);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-const PAGE_SIZE = 3;
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function LoginEvent({ event }: { event: SecurityEvent }) {
+  const location = [event.city, event.country].filter(Boolean).join(', ') || 'Unknown location';
+
+  return (
+    <div className="flex items-center justify-between py-2">
+      <div className="flex items-center gap-3">
+        <div
+          className="w-2 h-2 rounded-full"
+          style={{
+            backgroundColor: event.success
+              ? 'var(--monarch-success, #22c55e)'
+              : 'var(--monarch-error, #ef4444)',
+          }}
+        />
+        <div>
+          <div className="text-sm" style={{ color: 'var(--monarch-text-dark)' }}>
+            {event.success ? 'Signed in' : 'Failed sign-in attempt'}
+          </div>
+          <div className="text-xs" style={{ color: 'var(--monarch-text-muted)' }}>
+            {location}
+          </div>
+        </div>
+      </div>
+      <div className="text-xs" style={{ color: 'var(--monarch-text-muted)' }}>
+        {formatRelativeTime(event.timestamp)}
+      </div>
+    </div>
+  );
+}
 
 export function SecurityPanel({ className = '' }: SecurityPanelProps) {
-  const [filter, setFilter] = useState<EventFilter>('all');
-  const [page, setPage] = useState(0);
+  const [expanded, setExpanded] = useState(false);
   const toast = useToast();
 
-  const { data: summary, isLoading: summaryLoading } = useSecuritySummaryQuery();
-  const { data: events, isLoading: eventsLoading } = useSecurityEventsQuery({
-    limit: PAGE_SIZE,
-    offset: page * PAGE_SIZE,
-    eventType: filter === 'all' ? undefined : filter,
+  // Only fetch login attempts
+  const { data, isLoading } = useSecurityEventsQuery({
+    limit: expanded ? 20 : 5,
+    offset: 0,
+    eventType: 'LOGIN_ATTEMPT',
   });
+
+  // Fetch alerts (failed logins since last successful login)
+  const { data: alerts } = useSecurityAlertsQuery();
+
   const exportMutation = useExportSecurityEventsMutation();
+
+  const events = data?.events ?? [];
+  const totalLogins = data?.total ?? 0;
+
+  // Get unique locations from failed attempts (same as banner)
+  const failedLocations = alerts?.events
+    ? Array.from(
+        new Set(
+          alerts.events.map((e) => [e.city, e.country].filter(Boolean).join(', ')).filter(Boolean)
+        )
+      )
+    : [];
 
   const handleExport = async () => {
     try {
@@ -42,149 +98,105 @@ export function SecurityPanel({ className = '' }: SecurityPanelProps) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `security_events_${new Date().toISOString().split('T')[0]}.csv`;
+      a.download = `security_log_${new Date().toISOString().split('T')[0]}.csv`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      toast.success('Security logs exported');
+      toast.success('Security log exported');
     } catch {
-      toast.error('Failed to export logs');
+      toast.error('Failed to export');
     }
   };
 
-  const summaryCards = [
-    {
-      label: 'Total Logins',
-      value: summary?.successful_logins ?? 0,
-      icon: CheckCircle,
-      color: 'var(--monarch-success, #22c55e)',
-    },
-    {
-      label: 'Failed Attempts',
-      value: (summary?.failed_logins ?? 0) + (summary?.failed_unlock_attempts ?? 0),
-      icon: AlertCircle,
-      color: 'var(--monarch-error, #ef4444)',
-    },
-    {
-      label: 'Unique IPs',
-      value: summary?.unique_ips ?? 0,
-      icon: Globe,
-      color: 'var(--monarch-orange, #ff692d)',
-    },
-  ];
+  if (isLoading) {
+    return (
+      <div className={className}>
+        <div className="animate-pulse space-y-3">
+          {[1, 2, 3].map((i) => (
+            <div
+              key={i}
+              className="h-12 rounded"
+              style={{ backgroundColor: 'var(--monarch-bg-hover)' }}
+            />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
-  // Calculate total pages from summary data
-  const totalEvents = summary?.total_events ?? 0;
-  const totalPages = Math.ceil(totalEvents / PAGE_SIZE);
+  if (events.length === 0) {
+    return (
+      <div className={`text-center py-6 ${className}`}>
+        <Shield size={24} className="mx-auto mb-2" style={{ color: 'var(--monarch-text-muted)' }} />
+        <p className="text-sm" style={{ color: 'var(--monarch-text-muted)' }}>
+          No login activity recorded
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className={className}>
-      {/* Summary Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
-        {summaryCards.map((card) => (
-          <div
-            key={card.label}
-            className="p-3 rounded-lg"
-            style={{ backgroundColor: 'var(--monarch-bg-page)' }}
-          >
-            <div className="flex items-center gap-2 mb-1">
-              <card.icon size={16} style={{ color: card.color }} aria-hidden="true" />
-              <span className="text-xs" style={{ color: 'var(--monarch-text-muted)' }}>
-                {card.label}
-              </span>
-            </div>
-            <div className="text-xl font-semibold" style={{ color: 'var(--monarch-text-dark)' }}>
-              {summaryLoading ? '...' : card.value}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Filter and Actions */}
-      <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
-        <select
-          value={filter}
-          onChange={(e) => {
-            setFilter(e.target.value as EventFilter);
-            setPage(0); // Reset to first page when filter changes
-          }}
-          className="px-3 py-1.5 rounded-lg text-sm"
+      {/* Failed attempts warning - same as SecurityAlertBanner */}
+      {alerts?.has_alerts && alerts.count > 0 && (
+        <div
+          className="px-3 py-2 rounded-lg mb-3"
           style={{
-            backgroundColor: 'var(--monarch-bg-page)',
-            border: '1px solid var(--monarch-border)',
-            color: 'var(--monarch-text-dark)',
+            backgroundColor: 'var(--monarch-error-bg, rgba(239, 68, 68, 0.1))',
+            border: '1px solid var(--monarch-error, #ef4444)',
           }}
-          aria-label="Filter events"
         >
-          <option value="all">All Events</option>
-          <option value="LOGIN_ATTEMPT">Logins</option>
-          <option value="UNLOCK_ATTEMPT">Unlocks</option>
-        </select>
-
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={handleExport}
-            disabled={exportMutation.isPending}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm hover:opacity-80 transition-opacity ${
-              exportMutation.isPending ? 'cursor-wait' : 'cursor-pointer'
-            }`}
-            style={{
-              color: 'var(--monarch-text-dark)',
-              backgroundColor: 'var(--monarch-bg-page)',
-              border: '1px solid var(--monarch-border)',
-            }}
-            aria-label="Export security logs as CSV"
-          >
-            <Download size={14} aria-hidden="true" />
-            Export
-          </button>
-        </div>
-      </div>
-
-      {/* Events List */}
-      <SecurityEventList events={events?.events ?? []} loading={eventsLoading} />
-
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2 mt-4">
-          <button
-            type="button"
-            onClick={() => setPage((p) => Math.max(0, p - 1))}
-            disabled={page === 0}
-            className="px-3 py-1.5 rounded-lg text-sm disabled:opacity-40"
-            style={{
-              backgroundColor: 'var(--monarch-bg-page)',
-              color: 'var(--monarch-text-dark)',
-            }}
-            aria-label="Previous page"
-          >
-            ←
-          </button>
-          <span className="text-sm" style={{ color: 'var(--monarch-text-muted)' }}>
-            Page {page + 1} of {totalPages}
-          </span>
-          <button
-            type="button"
-            onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-            disabled={page >= totalPages - 1}
-            className="px-3 py-1.5 rounded-lg text-sm disabled:opacity-40"
-            style={{
-              backgroundColor: 'var(--monarch-bg-page)',
-              color: 'var(--monarch-text-dark)',
-            }}
-            aria-label="Next page"
-          >
-            →
-          </button>
+          <div className="font-medium text-sm" style={{ color: 'var(--monarch-error, #ef4444)' }}>
+            {alerts.count} failed login attempt{alerts.count > 1 ? 's' : ''} since your last sign-in
+          </div>
+          {failedLocations.length > 0 && (
+            <div
+              className="flex items-center gap-1 mt-1 text-xs"
+              style={{ color: 'var(--monarch-text-muted)' }}
+            >
+              <MapPin size={12} aria-hidden="true" />
+              <span>From: {failedLocations.join(' • ')}</span>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Retention Notice */}
-      <p className="text-xs mt-3 text-center" style={{ color: 'var(--monarch-text-muted)' }}>
-        Logs auto-delete after 90 days
-      </p>
+      {/* Login list */}
+      <div className="divide-y" style={{ borderColor: 'var(--monarch-border)' }}>
+        {events.map((event) => (
+          <LoginEvent key={event.id} event={event} />
+        ))}
+      </div>
+
+      {/* Show more / Export */}
+      <div
+        className="flex items-center justify-between mt-3 pt-3 border-t"
+        style={{ borderColor: 'var(--monarch-border)' }}
+      >
+        {totalLogins > 5 && (
+          <button
+            type="button"
+            onClick={() => setExpanded(!expanded)}
+            className="flex items-center gap-1 text-xs hover:opacity-80"
+            style={{ color: 'var(--monarch-text-muted)' }}
+          >
+            {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            {expanded ? 'Show less' : `Show more (${totalLogins} total)`}
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={handleExport}
+          disabled={exportMutation.isPending}
+          className="flex items-center gap-1 text-xs hover:opacity-80 ml-auto"
+          style={{ color: 'var(--monarch-text-muted)' }}
+          aria-label="Export full security log"
+        >
+          <Download size={12} />
+          Export
+        </button>
+      </div>
     </div>
   );
 }
