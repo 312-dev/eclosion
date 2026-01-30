@@ -51,11 +51,13 @@ export async function getSecurityEvents(
     events = events.filter((e) => e.success === options.success);
   }
 
+  const total = events.length;
   const offset = options?.offset ?? 0;
   const limit = options?.limit ?? 50;
 
   return {
     events: events.slice(offset, offset + limit),
+    total,
     limit,
     offset,
   };
@@ -105,14 +107,37 @@ export async function exportSecurityEvents(): Promise<Blob> {
 }
 
 /**
- * Get security alerts.
+ * Get security alerts (failed logins since last successful login).
  */
 export async function getSecurityAlerts(): Promise<SecurityAlertsResponse> {
   await simulateDelay(50);
+
+  // Find the most recent successful login
+  const loginAttempts = DEMO_SECURITY_EVENTS.filter((e) => e.event_type === 'LOGIN_ATTEMPT').sort(
+    (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+  );
+
+  const lastSuccessfulLogin = loginAttempts.find((e) => e.success);
+  const lastSuccessTime = lastSuccessfulLogin
+    ? new Date(lastSuccessfulLogin.timestamp).getTime()
+    : 0;
+
+  // Find failed logins that happened after the last successful login
+  const failedSinceLastSuccess = loginAttempts.filter(
+    (e) => !e.success && new Date(e.timestamp).getTime() > lastSuccessTime
+  );
+
   return {
-    has_alerts: false,
-    count: 0,
-    events: [],
+    has_alerts: failedSinceLastSuccess.length > 0,
+    count: failedSinceLastSuccess.length,
+    events: failedSinceLastSuccess.map((e) => ({
+      id: e.id,
+      event_type: e.event_type,
+      timestamp: e.timestamp,
+      ip_address: e.ip_address,
+      country: e.country,
+      city: e.city,
+    })),
   };
 }
 

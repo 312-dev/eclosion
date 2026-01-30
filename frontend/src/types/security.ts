@@ -17,6 +17,7 @@ export interface SecurityEvent {
 
 export interface SecurityEventsResponse {
   events: SecurityEvent[];
+  total: number;
   limit: number;
   offset: number;
 }

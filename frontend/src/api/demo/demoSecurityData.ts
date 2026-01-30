@@ -1,7 +1,8 @@
 /**
  * Demo Security Events Data
  *
- * Mock security events for demo mode - 23 events to test pagination (PAGE_SIZE = 10)
+ * Mock security events for demo mode - 24 events to test pagination (PAGE_SIZE = 10)
+ * Includes 2 failed login attempts after the most recent successful login to demo security alerts.
  */
 
 import type { SecurityEvent } from '../../types';
@@ -10,25 +11,35 @@ export const DEMO_SECURITY_EVENTS: SecurityEvent[] = [
   {
     id: 1,
     event_type: 'LOGIN_ATTEMPT',
-    success: true,
-    timestamp: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
-    ip_address: '73.45.123.89',
-    country: 'United States',
-    city: 'San Francisco',
-    details: null,
-  },
-  {
-    id: 2,
-    event_type: 'LOGIN_ATTEMPT',
     success: false,
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
+    timestamp: new Date(Date.now() - 1000 * 60 * 10).toISOString(), // 10 min ago - after last success
     ip_address: '185.220.101.45',
     country: 'Germany',
     city: 'Frankfurt',
     details: 'Invalid credentials',
   },
   {
+    id: 2,
+    event_type: 'LOGIN_ATTEMPT',
+    success: false,
+    timestamp: new Date(Date.now() - 1000 * 60 * 15).toISOString(), // 15 min ago - after last success
+    ip_address: '91.243.82.116',
+    country: 'Russia',
+    city: 'Moscow',
+    details: 'Invalid credentials',
+  },
+  {
     id: 3,
+    event_type: 'LOGIN_ATTEMPT',
+    success: true,
+    timestamp: new Date(Date.now() - 1000 * 60 * 30).toISOString(), // 30 min ago - last successful login
+    ip_address: '73.45.123.89',
+    country: 'United States',
+    city: 'San Francisco',
+    details: null,
+  },
+  {
+    id: 4,
     event_type: 'UNLOCK_ATTEMPT',
     success: true,
     timestamp: new Date(Date.now() - 1000 * 60 * 60 * 4).toISOString(),
@@ -38,7 +49,7 @@ export const DEMO_SECURITY_EVENTS: SecurityEvent[] = [
     details: null,
   },
   {
-    id: 4,
+    id: 5,
     event_type: 'LOGIN_ATTEMPT',
     success: false,
     timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
@@ -48,7 +59,7 @@ export const DEMO_SECURITY_EVENTS: SecurityEvent[] = [
     details: 'Invalid credentials',
   },
   {
-    id: 5,
+    id: 6,
     event_type: 'LOGIN_ATTEMPT',
     success: true,
     timestamp: new Date(Date.now() - 1000 * 60 * 60 * 26).toISOString(),
@@ -58,7 +69,7 @@ export const DEMO_SECURITY_EVENTS: SecurityEvent[] = [
     details: null,
   },
   {
-    id: 6,
+    id: 7,
     event_type: 'SESSION_TIMEOUT',
     success: true,
     timestamp: new Date(Date.now() - 1000 * 60 * 60 * 28).toISOString(),
@@ -68,7 +79,7 @@ export const DEMO_SECURITY_EVENTS: SecurityEvent[] = [
     details: null,
   },
   {
-    id: 7,
+    id: 8,
     event_type: 'UNLOCK_ATTEMPT',
     success: false,
     timestamp: new Date(Date.now() - 1000 * 60 * 60 * 30).toISOString(),
@@ -78,7 +89,7 @@ export const DEMO_SECURITY_EVENTS: SecurityEvent[] = [
     details: 'Invalid passphrase',
   },
   {
-    id: 8,
+    id: 9,
     event_type: 'LOGIN_ATTEMPT',
     success: true,
     timestamp: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString(),
@@ -88,7 +99,7 @@ export const DEMO_SECURITY_EVENTS: SecurityEvent[] = [
     details: null,
   },
   {
-    id: 9,
+    id: 10,
     event_type: 'LOGOUT',
     success: true,
     timestamp: new Date(Date.now() - 1000 * 60 * 60 * 50).toISOString(),
@@ -98,7 +109,7 @@ export const DEMO_SECURITY_EVENTS: SecurityEvent[] = [
     details: null,
   },
   {
-    id: 10,
+    id: 11,
     event_type: 'LOGIN_ATTEMPT',
     success: true,
     timestamp: new Date(Date.now() - 1000 * 60 * 60 * 72).toISOString(),
@@ -108,7 +119,7 @@ export const DEMO_SECURITY_EVENTS: SecurityEvent[] = [
     details: null,
   },
   {
-    id: 11,
+    id: 12,
     event_type: 'SESSION_LOCK',
     success: true,
     timestamp: new Date(Date.now() - 1000 * 60 * 60 * 74).toISOString(),
@@ -118,7 +129,7 @@ export const DEMO_SECURITY_EVENTS: SecurityEvent[] = [
     details: null,
   },
   {
-    id: 12,
+    id: 13,
     event_type: 'LOGIN_ATTEMPT',
     success: false,
     timestamp: new Date(Date.now() - 1000 * 60 * 60 * 96).toISOString(),
@@ -128,7 +139,7 @@ export const DEMO_SECURITY_EVENTS: SecurityEvent[] = [
     details: 'Invalid credentials',
   },
   {
-    id: 13,
+    id: 14,
     event_type: 'LOGIN_ATTEMPT',
     success: true,
     timestamp: new Date(Date.now() - 1000 * 60 * 60 * 120).toISOString(),
@@ -138,7 +149,7 @@ export const DEMO_SECURITY_EVENTS: SecurityEvent[] = [
     details: null,
   },
   {
-    id: 14,
+    id: 15,
     event_type: 'UNLOCK_ATTEMPT',
     success: true,
     timestamp: new Date(Date.now() - 1000 * 60 * 60 * 122).toISOString(),
@@ -148,7 +159,7 @@ export const DEMO_SECURITY_EVENTS: SecurityEvent[] = [
     details: null,
   },
   {
-    id: 15,
+    id: 16,
     event_type: 'LOGIN_ATTEMPT',
     success: true,
     timestamp: new Date(Date.now() - 1000 * 60 * 60 * 144).toISOString(),
@@ -158,7 +169,7 @@ export const DEMO_SECURITY_EVENTS: SecurityEvent[] = [
     details: null,
   },
   {
-    id: 16,
+    id: 17,
     event_type: 'SESSION_TIMEOUT',
     success: true,
     timestamp: new Date(Date.now() - 1000 * 60 * 60 * 168).toISOString(),
@@ -168,7 +179,7 @@ export const DEMO_SECURITY_EVENTS: SecurityEvent[] = [
     details: null,
   },
   {
-    id: 17,
+    id: 18,
     event_type: 'LOGIN_ATTEMPT',
     success: true,
     timestamp: new Date(Date.now() - 1000 * 60 * 60 * 192).toISOString(),
@@ -178,7 +189,7 @@ export const DEMO_SECURITY_EVENTS: SecurityEvent[] = [
     details: null,
   },
   {
-    id: 18,
+    id: 19,
     event_type: 'LOGOUT',
     success: true,
     timestamp: new Date(Date.now() - 1000 * 60 * 60 * 216).toISOString(),
@@ -188,7 +199,7 @@ export const DEMO_SECURITY_EVENTS: SecurityEvent[] = [
     details: null,
   },
   {
-    id: 19,
+    id: 20,
     event_type: 'LOGIN_ATTEMPT',
     success: true,
     timestamp: new Date(Date.now() - 1000 * 60 * 60 * 240).toISOString(),
@@ -198,7 +209,7 @@ export const DEMO_SECURITY_EVENTS: SecurityEvent[] = [
     details: null,
   },
   {
-    id: 20,
+    id: 21,
     event_type: 'LOGIN_ATTEMPT',
     success: true,
     timestamp: new Date(Date.now() - 1000 * 60 * 60 * 264).toISOString(),
@@ -208,7 +219,7 @@ export const DEMO_SECURITY_EVENTS: SecurityEvent[] = [
     details: null,
   },
   {
-    id: 21,
+    id: 22,
     event_type: 'UNLOCK_ATTEMPT',
     success: true,
     timestamp: new Date(Date.now() - 1000 * 60 * 60 * 288).toISOString(),
@@ -218,7 +229,7 @@ export const DEMO_SECURITY_EVENTS: SecurityEvent[] = [
     details: null,
   },
   {
-    id: 22,
+    id: 23,
     event_type: 'LOGIN_ATTEMPT',
     success: true,
     timestamp: new Date(Date.now() - 1000 * 60 * 60 * 312).toISOString(),
@@ -228,7 +239,7 @@ export const DEMO_SECURITY_EVENTS: SecurityEvent[] = [
     details: null,
   },
   {
-    id: 23,
+    id: 24,
     event_type: 'SET_PASSPHRASE',
     success: true,
     timestamp: new Date(Date.now() - 1000 * 60 * 60 * 336).toISOString(),

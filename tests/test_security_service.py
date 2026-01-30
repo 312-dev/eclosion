@@ -51,8 +51,9 @@ class TestSecurityEventLogging:
             details="Test login",
         )
 
-        events = security_service.get_events(limit=10)
+        events, total = security_service.get_events(limit=10)
         assert len(events) == 1
+        assert total == 1
         assert events[0].event_type == "LOGIN_ATTEMPT"
         assert events[0].success is True
         assert events[0].details == "Test login"
@@ -67,7 +68,7 @@ class TestSecurityEventLogging:
             details="Failed login",
         )
 
-        events = security_service.get_events(limit=10)
+        events, _ = security_service.get_events(limit=10)
         assert len(events) == 1
         assert events[0].ip_address == "192.168.1.1"
 
@@ -80,7 +81,7 @@ class TestSecurityEventLogging:
             details=long_details,
         )
 
-        events = security_service.get_events(limit=10)
+        events, _ = security_service.get_events(limit=10)
         assert len(events[0].details) == 500
 
     def test_log_event_truncates_user_agent(self, security_service: SecurityService) -> None:
@@ -92,7 +93,7 @@ class TestSecurityEventLogging:
             user_agent=long_ua,
         )
 
-        events = security_service.get_events(limit=10)
+        events, _ = security_service.get_events(limit=10)
         assert len(events[0].user_agent) == 256
 
     def test_log_multiple_events(self, security_service: SecurityService) -> None:
@@ -103,8 +104,9 @@ class TestSecurityEventLogging:
                 success=i % 2 == 0,
             )
 
-        events = security_service.get_events(limit=10)
+        events, total = security_service.get_events(limit=10)
         assert len(events) == 5
+        assert total == 5
 
 
 class TestEventRetrieval:
@@ -115,19 +117,21 @@ class TestEventRetrieval:
         for _ in range(10):
             security_service.log_event(event_type="TEST", success=True)
 
-        events = security_service.get_events(limit=5)
+        events, total = security_service.get_events(limit=5)
         assert len(events) == 5
+        assert total == 10  # Total count should be unaffected by limit
 
     def test_get_events_with_offset(self, security_service: SecurityService) -> None:
         """Should respect offset parameter."""
         for i in range(10):
             security_service.log_event(event_type=f"EVENT_{i}", success=True)
 
-        all_events = security_service.get_events(limit=10)
-        offset_events = security_service.get_events(limit=5, offset=5)
+        all_events, _ = security_service.get_events(limit=10)
+        offset_events, total = security_service.get_events(limit=5, offset=5)
 
         # Events are ordered by timestamp DESC, so offset skips most recent
         assert len(offset_events) == 5
+        assert total == 10  # Total count should be unaffected by offset
         # The IDs should be different from the first 5
         all_ids = {e.id for e in all_events[:5]}
         offset_ids = {e.id for e in offset_events}
@@ -139,8 +143,9 @@ class TestEventRetrieval:
         security_service.log_event(event_type="LOGOUT", success=True)
         security_service.log_event(event_type="LOGIN_ATTEMPT", success=False)
 
-        events = security_service.get_events(limit=10, event_type="LOGIN_ATTEMPT")
+        events, total = security_service.get_events(limit=10, event_type="LOGIN_ATTEMPT")
         assert len(events) == 2
+        assert total == 2  # Total should reflect filtered count
         assert all(e.event_type == "LOGIN_ATTEMPT" for e in events)
 
     def test_get_events_filter_by_success(self, security_service: SecurityService) -> None:
@@ -149,11 +154,13 @@ class TestEventRetrieval:
         security_service.log_event(event_type="TEST", success=False)
         security_service.log_event(event_type="TEST", success=True)
 
-        success_events = security_service.get_events(limit=10, success=True)
-        failed_events = security_service.get_events(limit=10, success=False)
+        success_events, success_total = security_service.get_events(limit=10, success=True)
+        failed_events, failed_total = security_service.get_events(limit=10, success=False)
 
         assert len(success_events) == 2
+        assert success_total == 2
         assert len(failed_events) == 1
+        assert failed_total == 1
 
     def test_get_events_combined_filters(self, security_service: SecurityService) -> None:
         """Should combine multiple filters."""
@@ -161,8 +168,9 @@ class TestEventRetrieval:
         security_service.log_event(event_type="LOGIN_ATTEMPT", success=False)
         security_service.log_event(event_type="LOGOUT", success=True)
 
-        events = security_service.get_events(limit=10, event_type="LOGIN_ATTEMPT", success=False)
+        events, total = security_service.get_events(limit=10, event_type="LOGIN_ATTEMPT", success=False)
         assert len(events) == 1
+        assert total == 1
         assert events[0].event_type == "LOGIN_ATTEMPT"
         assert events[0].success is False
 
@@ -172,7 +180,7 @@ class TestEventRetrieval:
         security_service.log_event(event_type="SECOND", success=True)
         security_service.log_event(event_type="THIRD", success=True)
 
-        events = security_service.get_events(limit=10)
+        events, _ = security_service.get_events(limit=10)
         # Most recent should be first
         assert events[0].event_type == "THIRD"
         assert events[-1].event_type == "FIRST"
@@ -330,13 +338,17 @@ class TestClearEvents:
             security_service.log_event(event_type="TEST", success=True)
 
         # Verify events exist
-        assert len(security_service.get_events(limit=10)) == 5
+        events, total = security_service.get_events(limit=10)
+        assert len(events) == 5
+        assert total == 5
 
         # Clear events
         security_service.clear_events()
 
         # Verify events are gone
-        assert len(security_service.get_events(limit=10)) == 0
+        events, total = security_service.get_events(limit=10)
+        assert len(events) == 0
+        assert total == 0
 
 
 class TestFailedSinceLastLogin:
