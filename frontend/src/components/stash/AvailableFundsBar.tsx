@@ -252,12 +252,6 @@ export function AvailableFundsBar({ leftToBudget, items }: Readonly<AvailableFun
   const tooltipContent =
     breakdown && detailedBreakdown && runningTotals ? (
       <div className="text-sm space-y-2 min-w-72">
-        <div
-          className="font-medium border-b pb-1 mb-2"
-          style={{ borderColor: 'var(--monarch-border)' }}
-        >
-          Cash to Stash
-        </div>
         <div className="space-y-1">
           <ExpectedIncomeRow
             amount={rawExpectedIncome}
@@ -329,12 +323,6 @@ export function AvailableFundsBar({ leftToBudget, items }: Readonly<AvailableFun
   const ltbTooltipContent =
     breakdown && detailedBreakdown ? (
       <div className="text-sm space-y-2 min-w-72">
-        <div
-          className="font-medium border-b pb-1 mb-2"
-          style={{ borderColor: 'var(--monarch-border)' }}
-        >
-          Left to Budget
-        </div>
         <div className="space-y-1">
           <div className="flex justify-between items-center gap-2">
             <span className="flex-1" style={{ color: 'var(--monarch-text-muted)' }}>
@@ -406,9 +394,9 @@ export function AvailableFundsBar({ leftToBudget, items }: Readonly<AvailableFun
       </div>
     ) : null;
 
-  // Shared box shadow style for the floating card - pronounced with wide spread
+  // Shared box shadow style for the floating card - uses page background color to match vignette gradient
   const cardShadow =
-    '0 -12px 48px rgba(0, 0, 0, 0.25), 0 -4px 16px rgba(0, 0, 0, 0.15), 0 0 80px rgba(0, 0, 0, 0.1)';
+    '0 -12px 48px color-mix(in srgb, var(--monarch-bg-page) 60%, transparent), 0 -4px 16px color-mix(in srgb, var(--monarch-bg-page) 40%, transparent), 0 0 80px color-mix(in srgb, var(--monarch-bg-page) 25%, transparent)';
 
   const floatingBar = createPortal(
     <>
@@ -451,9 +439,8 @@ export function AvailableFundsBar({ leftToBudget, items }: Readonly<AvailableFun
               style={{
                 backgroundColor: (() => {
                   if (isLoading) return 'var(--monarch-bg-card)';
-                  if (isPositive)
-                    return 'color-mix(in srgb, var(--monarch-success) 10%, var(--monarch-bg-card))';
-                  return 'color-mix(in srgb, var(--monarch-error) 10%, var(--monarch-bg-card))';
+                  if (isPositive) return 'var(--monarch-success-bg)';
+                  return 'var(--monarch-error-bg)';
                 })(),
               }}
             >
@@ -606,9 +593,8 @@ export function AvailableFundsBar({ leftToBudget, items }: Readonly<AvailableFun
 
               const ltbBgColor = (() => {
                 if (isLoading) return 'var(--monarch-bg-card)';
-                if (ltbIsPositive)
-                  return 'color-mix(in srgb, var(--monarch-success) 10%, var(--monarch-bg-card))';
-                return 'color-mix(in srgb, var(--monarch-error) 10%, var(--monarch-bg-card))';
+                if (ltbIsPositive) return 'var(--monarch-success-bg)';
+                return 'var(--monarch-error-bg)';
               })();
 
               return (
@@ -729,12 +715,6 @@ export function AvailableFundsBar({ leftToBudget, items }: Readonly<AvailableFun
               const isPositiveTotal = combinedTotal >= 0;
               const totalAvailableTooltip = (
                 <div className="text-sm space-y-2 min-w-72">
-                  <div
-                    className="font-medium border-b pb-1 mb-2"
-                    style={{ borderColor: 'var(--monarch-border)' }}
-                  >
-                    Total Available
-                  </div>
                   <div className="space-y-1">
                     <div className="flex justify-between items-center gap-2">
                       <span className="flex-1" style={{ color: 'var(--monarch-text-muted)' }}>
@@ -812,7 +792,7 @@ export function AvailableFundsBar({ leftToBudget, items }: Readonly<AvailableFun
                     color: 'var(--monarch-text-muted)',
                   }}
                 >
-                  <span>Total Available: </span>
+                  <span>Total Commitable: </span>
                   <HoverCard content={totalAvailableTooltip} side="top" align="center">
                     <span
                       className="font-medium tabular-nums cursor-help"

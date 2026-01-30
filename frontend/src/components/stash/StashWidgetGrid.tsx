@@ -139,7 +139,7 @@ function AddStashCard({
       <div
         className="flex-1 min-h-28 flex items-center justify-center"
         style={{
-          backgroundColor: 'rgba(0, 0, 0, 0.2)',
+          backgroundColor: 'var(--monarch-border)',
         }}
       >
         <div
