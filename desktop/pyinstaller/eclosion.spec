@@ -59,6 +59,14 @@ a = Analysis(
         'dateutil',
         'dateutil.relativedelta',
 
+        # Image processing for metadata service
+        'PIL',
+        'PIL.Image',
+
+        # HTML parsing for metadata service
+        'bs4',
+        'lxml',
+
         # Monarch Money client dependencies
         'aiohttp',
         'gql',
@@ -83,7 +91,6 @@ a = Analysis(
         'matplotlib',
         'numpy',
         'pandas',
-        'PIL',
         'cv2',
         'scipy',
         'IPython',
