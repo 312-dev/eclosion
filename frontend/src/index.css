@@ -1807,6 +1807,14 @@ span.react-resizable-handle.react-resizable-handle-se:hover {
   opacity: 1 !important;
 }
 
+/* Force resize handle visible during guided tour arrange-cards step */
+/* Target the resize handle in the react-grid-item that contains the tour target */
+.tour-show-resize
+  .react-grid-item:has([data-tour='stash-move-card'])
+  > span.react-resizable-handle.react-resizable-handle-se {
+  opacity: 1 !important;
+}
+
 /* Apple-style resize indicator - SVG arc with rounded stroke caps */
 /* Override default react-resizable ::after styling and apply our custom arc */
 .stash-widget-grid .react-grid-item > .react-resizable-handle::after {

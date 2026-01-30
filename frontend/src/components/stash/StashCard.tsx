@@ -11,7 +11,7 @@
  * - Withdraw/Deposit overlay on hover
  */
 
-import { memo, useState, useCallback } from 'react';
+import { memo, useState, useCallback, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { StashItem, ItemStatus, StashData } from '../../types';
 import { SavingsProgressBar } from '../shared';
@@ -28,6 +28,11 @@ import {
   useDistributionModeType,
   useDistributionMode,
 } from '../../context/DistributionModeContext';
+import {
+  TOUR_SHOW_OVERLAY_EVENT,
+  TOUR_SHOW_EDIT_BUTTON_EVENT,
+  TOUR_HIDE_ALL_EVENT,
+} from '../layout/stashTourSteps';
 import { useProjectedStashItem } from '../../hooks';
 import {
   useAvailableToStash,
@@ -169,6 +174,41 @@ export const StashCard = memo(function StashCard({
   // Track mouse and focus state separately - overlay closes only when both leave
   const [isMouseInside, setIsMouseInside] = useState(false);
   const [isFocusInside, setIsFocusInside] = useState(false);
+
+  // Tour-forced UI states (show overlay/edit during guided tour)
+  const [tourShowOverlay, setTourShowOverlay] = useState(false);
+  const [tourShowEditButton, setTourShowEditButton] = useState(false);
+
+  // Listen for tour events to show overlay/edit button (only on first card)
+  useEffect(() => {
+    if (!isFirstCard) return;
+
+    const handleShowOverlay = () => {
+      setTourShowOverlay(true);
+      setShowOverlay(true);
+    };
+    const handleShowEditButton = () => {
+      setTourShowEditButton(true);
+    };
+    const handleHideAll = () => {
+      setTourShowOverlay(false);
+      setTourShowEditButton(false);
+      // Don't force-close overlay if mouse/focus is inside
+      if (!isMouseInside && !isFocusInside) {
+        setShowOverlay(false);
+      }
+    };
+
+    globalThis.addEventListener(TOUR_SHOW_OVERLAY_EVENT, handleShowOverlay);
+    globalThis.addEventListener(TOUR_SHOW_EDIT_BUTTON_EVENT, handleShowEditButton);
+    globalThis.addEventListener(TOUR_HIDE_ALL_EVENT, handleHideAll);
+
+    return () => {
+      globalThis.removeEventListener(TOUR_SHOW_OVERLAY_EVENT, handleShowOverlay);
+      globalThis.removeEventListener(TOUR_SHOW_EDIT_BUTTON_EVENT, handleShowEditButton);
+      globalThis.removeEventListener(TOUR_HIDE_ALL_EVENT, handleHideAll);
+    };
+  }, [isFirstCard, isMouseInside, isFocusInside]);
 
   // Track Take mode state for budget input highlighting
   const [isTakeModeActive, setIsTakeModeActive] = useState(false);
@@ -505,11 +545,11 @@ export const StashCard = memo(function StashCard({
 
   const handleMouseLeave = useCallback(() => {
     setIsMouseInside(false);
-    // Only close if focus is also outside AND input has no value
-    if (!isFocusInside && !hasInputValue) {
+    // Only close if focus is also outside AND input has no value AND tour isn't forcing it open
+    if (!isFocusInside && !hasInputValue && !tourShowOverlay) {
       closeOverlay();
     }
-  }, [isFocusInside, hasInputValue, closeOverlay]);
+  }, [isFocusInside, hasInputValue, tourShowOverlay, closeOverlay]);
 
   // Focus handler - track when focus enters the overlay area
   const handleFocus = useCallback(() => {
@@ -532,12 +572,12 @@ export const StashCard = memo(function StashCard({
         return;
       }
       setIsFocusInside(false);
-      // Only close if mouse is also outside AND input has no value
-      if (!isMouseInside && !hasInputValue) {
+      // Only close if mouse is also outside AND input has no value AND tour isn't forcing it open
+      if (!isMouseInside && !hasInputValue && !tourShowOverlay) {
         closeOverlay();
       }
     },
-    [isMouseInside, hasInputValue, closeOverlay]
+    [isMouseInside, hasInputValue, tourShowOverlay, closeOverlay]
   );
 
   // Get projected values in hypothesize mode (reverts to actual when mode exits)
@@ -723,7 +763,9 @@ export const StashCard = memo(function StashCard({
             onPointerDown={(e) => e.stopPropagation()}
             onMouseDown={(e) => e.stopPropagation()}
             onTouchStart={(e) => e.stopPropagation()}
-            className="absolute top-2 right-2 p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity icon-btn-hover"
+            className={`absolute top-2 right-2 p-2 rounded-lg transition-opacity icon-btn-hover ${
+              tourShowEditButton ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+            }`}
             style={{
               backgroundColor: 'var(--card-edit-btn-bg)',
               backdropFilter: 'blur(4px)',

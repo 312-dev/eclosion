@@ -423,8 +423,9 @@ export function AvailableFundsBar({ leftToBudget, items }: Readonly<AvailableFun
       {/* Fixed floating card - always centered */}
       {/* Desktop: offset by sidebar width (220px), bottom-18 for footer */}
       {/* Mobile: full width centered, bottom-20 for mobile nav */}
-      <div className="fixed left-0 right-0 md:left-55 bottom-20 md:bottom-18 z-40 flex justify-center pointer-events-none">
+      <div className="fixed left-0 right-0 md:left-55 bottom-20 md:bottom-18 z-30 flex justify-center pointer-events-none">
         <div
+          data-tour="stash-available-funds"
           className={`group pointer-events-auto rounded-xl overflow-hidden relative ${shouldShake ? 'animate-error-shake' : ''}`}
           style={{
             backgroundColor: 'var(--monarch-bg-card)',
@@ -580,9 +581,13 @@ export function AvailableFundsBar({ leftToBudget, items }: Readonly<AvailableFun
                   <Icons.Split size={16} style={{ opacity: 0.5 }} />
                 </div>
               ) : (
-                <DistributeButton items={items} compact iconOnly groupPosition="top" />
+                <span data-tour="stash-distribute-mode" className="contents">
+                  <DistributeButton items={items} compact iconOnly groupPosition="top" />
+                </span>
               )}
-              <HypothesizeButton items={items} compact iconOnly groupPosition="bottom" />
+              <span data-tour="stash-hypothesize-mode" className="contents">
+                <HypothesizeButton items={items} compact iconOnly groupPosition="bottom" />
+              </span>
             </div>
 
             {/* Right: Left to Budget - fixed width */}
@@ -807,25 +812,16 @@ export function AvailableFundsBar({ leftToBudget, items }: Readonly<AvailableFun
                     color: 'var(--monarch-text-muted)',
                   }}
                 >
-                  <span>
-                    Total Available:{' '}
+                  <span>Total Available: </span>
+                  <HoverCard content={totalAvailableTooltip} side="top" align="center">
                     <span
-                      className="font-medium tabular-nums"
+                      className="font-medium tabular-nums cursor-help"
                       style={{
                         color: isPositiveTotal ? 'var(--monarch-success)' : 'var(--monarch-error)',
                       }}
                     >
                       {formatCurrency(combinedTotal, currencyOpts)}
                     </span>
-                  </span>
-                  <HoverCard content={totalAvailableTooltip} side="top" align="center">
-                    <button
-                      type="button"
-                      className="p-0.5 rounded hover:bg-white/10 transition-colors"
-                      aria-label="Total available breakdown"
-                    >
-                      <Icons.Info size={12} style={{ color: 'var(--monarch-text-muted)' }} />
-                    </button>
                   </HoverCard>
                 </div>
               );
