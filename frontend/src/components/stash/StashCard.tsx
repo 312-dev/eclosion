@@ -17,12 +17,13 @@ import type { StashItem, ItemStatus, StashData } from '../../types';
 import { SavingsProgressBar } from '../shared';
 import { Icons } from '../icons';
 import { formatCurrency, getStatusStyles } from '../../utils';
-import { parseLocalDate } from '../../utils/savingsCalculations';
+import { parseLocalDate, calculateExpectedProgress } from '../../utils/savingsCalculations';
 import { StashBudgetInput } from './StashBudgetInput';
 import { StashItemImage } from './StashItemImage';
 import { StashTitleDropdown } from './StashTitleDropdown';
 import { TakeStashOverlay } from './WithdrawDepositOverlay';
 import { motion, AnimatePresence, TIMING } from '../motion';
+import { AnimatedEmoji } from '../ui';
 // Note: CardAllocationInput is no longer used - replaced by TakeStashOverlay
 import {
   useDistributionModeType,
@@ -178,6 +179,9 @@ export const StashCard = memo(function StashCard({
   // Tour-forced UI states (show overlay/edit during guided tour)
   const [tourShowOverlay, setTourShowOverlay] = useState(false);
   const [tourShowEditButton, setTourShowEditButton] = useState(false);
+
+  // Card-level hover state for animated emoji
+  const [isCardHovered, setIsCardHovered] = useState(false);
 
   // Listen for tour events to show overlay/edit button (only on first card)
   useEffect(() => {
@@ -634,12 +638,15 @@ export const StashCard = memo(function StashCard({
   const progressPercent = getProgressPercent();
 
   return (
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- hover handlers for visual animation only
     <div
       className="group rounded-xl border overflow-hidden transition-shadow hover:shadow-md h-full flex flex-col"
       style={{
         backgroundColor: 'var(--monarch-bg-card)',
         borderColor: 'var(--monarch-border)',
       }}
+      onMouseEnter={() => setIsCardHovered(true)}
+      onMouseLeave={() => setIsCardHovered(false)}
     >
       {/* Image Area - drag handle (fills remaining space after content) */}
       {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions -- role="button" is applied conditionally via spread when not archived */}
@@ -691,7 +698,7 @@ export const StashCard = memo(function StashCard({
                 <motion.div
                   key="stash-overlay"
                   className="absolute inset-0 flex items-center justify-center"
-                  style={{ backgroundColor: overlayBgColor }}
+                  style={{ backgroundColor: overlayBgColor, backdropFilter: 'blur(8px)' }}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
@@ -740,14 +747,14 @@ export const StashCard = memo(function StashCard({
             return (
               <div className="absolute top-2 left-2">
                 <span
-                  className="inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium"
                   style={{
                     backgroundColor: 'var(--card-badge-bg)',
                     color: 'var(--card-badge-text)',
                     backdropFilter: 'blur(4px)',
                   }}
                 >
-                  <BadgeIcon size={12} style={{ color: config.color }} />
+                  <BadgeIcon size={14} style={{ color: config.color }} />
                   {config.label}
                 </span>
               </div>
@@ -813,7 +820,14 @@ export const StashCard = memo(function StashCard({
                       title={item.name}
                       onClick={(e) => e.stopPropagation()}
                     >
-                      {hasImage && <span className="mr-1.5">{item.emoji || '🎯'}</span>}
+                      {hasImage && (
+                        <AnimatedEmoji
+                          emoji={item.emoji || '🎯'}
+                          isAnimating={isCardHovered}
+                          size={20}
+                          className="mr-1.5 align-middle"
+                        />
+                      )}
                       {item.name}
                     </a>
                   ) : (
@@ -822,7 +836,14 @@ export const StashCard = memo(function StashCard({
                       style={{ color: 'var(--monarch-text-dark)' }}
                       title={item.name}
                     >
-                      {hasImage && <span className="mr-1.5">{item.emoji || '🎯'}</span>}
+                      {hasImage && (
+                        <AnimatedEmoji
+                          emoji={item.emoji || '🎯'}
+                          isAnimating={isCardHovered}
+                          size={20}
+                          className="mr-1.5 align-middle"
+                        />
+                      )}
                       {item.name}
                     </h3>
                   )}
@@ -838,7 +859,14 @@ export const StashCard = memo(function StashCard({
                       style={{ color: 'var(--monarch-text-dark)' }}
                       title={item.name}
                     >
-                      {hasImage && <span className="mr-1.5">{item.emoji || '🎯'}</span>}
+                      {hasImage && (
+                        <AnimatedEmoji
+                          emoji={item.emoji || '🎯'}
+                          isAnimating={isCardHovered}
+                          size={20}
+                          className="mr-1.5 align-middle"
+                        />
+                      )}
                       {item.name}
                     </a>
                   ) : (
@@ -847,7 +875,14 @@ export const StashCard = memo(function StashCard({
                       style={{ color: 'var(--monarch-text-dark)' }}
                       title={item.name}
                     >
-                      {hasImage && <span className="mr-1.5">{item.emoji || '🎯'}</span>}
+                      {hasImage && (
+                        <AnimatedEmoji
+                          emoji={item.emoji || '🎯'}
+                          isAnimating={isCardHovered}
+                          size={20}
+                          className="mr-1.5 align-middle"
+                        />
+                      )}
                       {item.name}
                     </h3>
                   )}
@@ -944,6 +979,12 @@ export const StashCard = memo(function StashCard({
               savedLabel="committed"
               // Flex categories behave like savings_buffer (spending reduces balance)
               goalType={item.is_flexible_group ? 'savings_buffer' : item.goal_type}
+              // Show expected progress tick for time-based goals (not savings_buffer which has no end date)
+              expectedProgressPercent={
+                item.goal_type === 'savings_buffer'
+                  ? null
+                  : calculateExpectedProgress(item.target_date)
+              }
               {...(item.available_to_spend !== undefined && {
                 availableToSpend: item.available_to_spend,
               })}
