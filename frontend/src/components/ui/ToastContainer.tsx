@@ -58,6 +58,11 @@ interface ToastContainerProps {
 }
 
 export function ToastContainer({ toasts, onRemove }: ToastContainerProps) {
+  // Don't render container when there are no toasts
+  if (toasts.length === 0) {
+    return null;
+  }
+
   return (
     <div className="toast-container">
       <AnimatePresence mode="popLayout">
