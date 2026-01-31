@@ -1284,6 +1284,37 @@ const electronAPI = {
    */
   setDeveloperMode: (enabled: boolean): Promise<boolean> =>
     ipcRenderer.invoke('set-developer-mode', enabled),
+
+  // =========================================================================
+  // Remote Access (Tunnel)
+  // =========================================================================
+
+  /**
+   * Remote access tunnel API for exposing the app to the internet.
+   * Allows access from phones/browsers outside the local network.
+   * Remote users authenticate with the desktop app passphrase.
+   */
+  tunnel: {
+    /**
+     * Start a tunnel to expose the backend for remote access.
+     */
+    start: (): Promise<{ success: boolean; url?: string; error?: string }> =>
+      ipcRenderer.invoke('tunnel:start'),
+
+    /**
+     * Stop the active tunnel.
+     */
+    stop: (): Promise<{ success: boolean }> => ipcRenderer.invoke('tunnel:stop'),
+
+    /**
+     * Get the current tunnel status.
+     */
+    getStatus: (): Promise<{
+      active: boolean;
+      url: string | null;
+      enabled: boolean;
+    }> => ipcRenderer.invoke('tunnel:get-status'),
+  },
 };
 
 // Expose the API to the renderer process
