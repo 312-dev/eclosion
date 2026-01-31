@@ -217,7 +217,7 @@ jobs:
 
           npx tsx scripts/release-notes-updater/generate-notes.ts \
             --from "$LAST_STABLE" \
-            --to HEAD \
+            --to "$NEW_TAG" \
             --repo-url "https://github.com/${{ github.repository }}" \
             --beta \
             --polish \

@@ -278,7 +278,7 @@ jobs:
 
           npx tsx scripts/release-notes-updater/generate-notes.ts \
             --from "$LAST_TAG" \
-            --to HEAD \
+            --to "$NEW_TAG" \
             --repo-url "https://github.com/${{ github.repository }}" \
             --polish \
             > /tmp/release-notes.md
