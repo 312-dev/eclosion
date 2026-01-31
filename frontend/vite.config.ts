@@ -205,6 +205,16 @@ export default defineConfig(() => ({
     __CHANGELOG__: JSON.stringify(changelog),
   },
   server: {
+    // HMR configuration for tunnel access
+    // When accessed through a tunnel, HMR websocket must connect to localhost
+    hmr:
+      process.env.VITE_TUNNEL_MODE === 'true'
+        ? {
+            host: 'localhost',
+            protocol: 'ws',
+            clientPort: Number.parseInt(process.env.VITE_PORT || '5174'),
+          }
+        : undefined,
     proxy: {
       '/auth': {
         target: 'http://127.0.0.1:5001',

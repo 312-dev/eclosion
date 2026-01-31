@@ -184,3 +184,38 @@ export function calculateYearRange(
 
   return Array.from(allYears).sort((a, b) => a - b);
 }
+
+/**
+ * Calculate min/max month bounds for notes navigation.
+ *
+ * - Max: Always 2 years ahead from current month
+ * - Min: 2 years back, or earliest note month if it's further back
+ *
+ * @param noteMonths - Array of month keys that have notes (e.g., ["2023-01", "2024-06"])
+ * @returns Object with minMonth and maxMonth as MonthKey strings
+ */
+export function calculateNoteMonthBounds(noteMonths: readonly MonthKey[]): {
+  minMonth: MonthKey;
+  maxMonth: MonthKey;
+} {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1;
+
+  // Max is always 2 years ahead
+  const maxMonth = formatMonthKey(currentYear + 2, currentMonth);
+
+  // Default min is 2 years back
+  let minMonth = formatMonthKey(currentYear - 2, currentMonth);
+
+  // Check if any notes go further back than 2 years
+  if (noteMonths.length > 0) {
+    const sortedMonths = [...noteMonths].sort((a, b) => a.localeCompare(b));
+    const earliestNote = sortedMonths[0];
+    if (earliestNote && earliestNote < minMonth) {
+      minMonth = earliestNote;
+    }
+  }
+
+  return { minMonth, maxMonth };
+}
