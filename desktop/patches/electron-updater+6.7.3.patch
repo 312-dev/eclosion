@@ -1,0 +1,16 @@
+diff --git a/node_modules/electron-updater/out/providers/GitHubProvider.js b/node_modules/electron-updater/out/providers/GitHubProvider.js
+index 1b0a663..ede9ab7 100644
+--- a/node_modules/electron-updater/out/providers/GitHubProvider.js
++++ b/node_modules/electron-updater/out/providers/GitHubProvider.js
+@@ -65,6 +65,11 @@ class GitHubProvider extends BaseGitHubProvider {
+                         const hrefTag = hrefElement[1];
+                         //Get Channel from this release's tag
+                         const hrefChannel = ((_c = semver.prerelease(hrefTag)) === null || _c === void 0 ? void 0 : _c[0]) || null;
++                        // PATCH: Skip stable releases when looking for a specific channel (beta/alpha)
++                        // See: https://github.com/electron-userland/electron-builder/issues/XXXX
++                        if (currentChannel && hrefChannel === null) {
++                            continue;
++                        }
+                         const shouldFetchVersion = !currentChannel || ["alpha", "beta"].includes(currentChannel);
+                         const isCustomChannel = hrefChannel !== null && !["alpha", "beta"].includes(String(hrefChannel));
+                         // Allow moving from alpha to beta but not down

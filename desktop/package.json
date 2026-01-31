@@ -17,6 +17,7 @@
   ],
   "license": "MIT",
   "scripts": {
+    "postinstall": "patch-package",
     "dev": "npm run build:main && unset ELECTRON_RUN_AS_NODE && electronmon .",
     "dev:watch": "node scripts/build-main.js --watch",
     "build:main": "node scripts/build-main.js",
@@ -64,6 +65,7 @@
     "electronmon": "^2.0.4",
     "esbuild": "^0.27.2",
     "eslint": "^9.17.0",
+    "patch-package": "^8.0.1",
     "png-to-ico": "^3.0.0",
     "sharp": "^0.34.0",
     "typescript": "~5.9.0",
