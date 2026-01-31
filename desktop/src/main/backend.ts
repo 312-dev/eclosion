@@ -282,6 +282,10 @@ export class BackendManager extends EventEmitter {
     // Initialize backend-specific log file
     initBackendLog();
 
+    // Get frontend path for serving static files via tunnel
+    const resourcesPath = process.resourcesPath || app.getAppPath();
+    const frontendPath = path.join(resourcesPath, 'frontend');
+
     this.process = spawn(backendPath, [], {
       env: {
         ...process.env,
@@ -302,6 +306,9 @@ export class BackendManager extends EventEmitter {
         RELEASE_CHANNEL: typeof __RELEASE_CHANNEL__ !== 'undefined' ? __RELEASE_CHANNEL__ : 'dev',
         // Pass Chromium version for User-Agent in Monarch API requests
         CHROME_VERSION: process.versions.chrome,
+        // Frontend path for serving static files via remote tunnel
+        // In desktop mode, the frontend is bundled with Electron, not Flask
+        FRONTEND_PATH: frontendPath,
       },
       stdio: ['ignore', 'pipe', 'pipe'],
     });

@@ -725,17 +725,30 @@ class CredentialsManager:
             repo = CredentialsRepository(session)
             return repo.load(passphrase)
 
-    def save(self, email: str, password: str, mfa_secret: str, passphrase: str) -> None:
+    def save(
+        self,
+        email: str,
+        password: str,
+        mfa_secret: str,
+        passphrase: str,
+        notes_key: str | None = None,
+    ) -> None:
         """Encrypt and save credentials to database."""
         with db_session() as session:
             repo = CredentialsRepository(session)
-            repo.save(email, password, mfa_secret, passphrase)
+            repo.save(email, password, mfa_secret, passphrase, notes_key)
 
     def verify_passphrase(self, passphrase: str) -> bool:
         """Verify if a passphrase can decrypt the stored credentials."""
         with db_session() as session:
             repo = CredentialsRepository(session)
             return repo.verify_passphrase(passphrase)
+
+    def get_notes_key(self, passphrase: str) -> str | None:
+        """Get the decrypted notes key for remote access."""
+        with db_session() as session:
+            repo = CredentialsRepository(session)
+            return repo.get_notes_key(passphrase)
 
     def clear(self) -> None:
         """Delete stored credentials."""

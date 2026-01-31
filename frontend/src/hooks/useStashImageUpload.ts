@@ -145,12 +145,15 @@ export function useStashImageUpload(): UseStashImageUploadResult {
         return imagePath;
       }
 
-      if (!globalThis.electron?.stash) {
-        // Fallback: return the path as-is
-        return imagePath;
+      if (globalThis.electron?.stash) {
+        // Desktop mode with Electron available: use IPC
+        return globalThis.electron.stash.getImageUrl(imagePath);
       }
 
-      return globalThis.electron.stash.getImageUrl(imagePath);
+      // Tunnel/remote mode: Electron not available, use backend API
+      // The path is just a filename like "item-123.png"
+      // Construct the API URL to fetch from the backend
+      return `/stash/images/${encodeURIComponent(imagePath)}`;
     },
     [isDemo]
   );

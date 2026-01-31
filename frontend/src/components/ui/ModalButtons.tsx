@@ -46,7 +46,7 @@ const VARIANT_STYLES: Record<
   { bg: string; bgDisabled: string; text: string; textDisabled: string; border?: string }
 > = {
   primary: {
-    bg: 'var(--monarch-teal)',
+    bg: 'var(--monarch-orange)',
     bgDisabled: 'var(--monarch-border)',
     text: 'white',
     textDisabled: 'var(--monarch-text-muted)',

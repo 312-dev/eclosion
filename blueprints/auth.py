@@ -6,14 +6,18 @@ import logging
 from flask import Blueprint, jsonify, request, session
 
 from core import api_handler, async_flask, config
-from core.audit import audit_log
-from core.middleware import sanitize_api_result
+from core.audit import audit_log, get_client_ip
+from core.middleware import is_tunnel_request, sanitize_api_result
 from core.rate_limit import limiter
 from core.session import SessionManager
 
 from . import get_services
 
 logger = logging.getLogger(__name__)
+
+# Common error messages
+_ERR_DESKTOP_MODE_ONLY = "Desktop mode only"
+_ERR_PASSPHRASE_REQUIRED = "Passphrase is required"
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
 
@@ -110,7 +114,7 @@ async def auth_desktop_login():
     services = get_services()
 
     if not config.is_desktop_environment():
-        return jsonify({"success": False, "error": "Desktop mode only"}), 403
+        return jsonify({"success": False, "error": "_ERR_DESKTOP_MODE_ONLY"}), 403
 
     try:
         data = request.get_json()
@@ -167,7 +171,7 @@ def auth_set_passphrase():
 
     if not passphrase:
         audit_log(services.security_service, "SET_PASSPHRASE", False, "Empty passphrase provided")
-        return {"success": False, "error": "Passphrase is required"}
+        return {"success": False, "error": "_ERR_PASSPHRASE_REQUIRED"}
 
     result = services.sync_service.set_passphrase(passphrase)
     audit_log(
@@ -207,7 +211,7 @@ async def auth_unlock():
 
     if not passphrase:
         audit_log(services.security_service, "UNLOCK_ATTEMPT", False, "Empty passphrase")
-        return {"success": False, "unlock_success": False, "error": "Passphrase is required"}
+        return {"success": False, "unlock_success": False, "error": "_ERR_PASSPHRASE_REQUIRED"}
 
     if validate:
         # New flow: unlock AND validate against Monarch
@@ -332,7 +336,7 @@ async def auth_update_credentials():
 
     if not passphrase:
         audit_log(services.security_service, "UPDATE_CREDENTIALS", False, "Missing passphrase")
-        return {"success": False, "error": "Passphrase is required"}
+        return {"success": False, "error": "_ERR_PASSPHRASE_REQUIRED"}
 
     result = await services.sync_service.update_credentials(email, password, mfa_secret, passphrase)
     audit_log(services.security_service, "UPDATE_CREDENTIALS", result.get("success", False), "")
@@ -359,8 +363,22 @@ def auth_reset_app():
     - Clears session
 
     User will need to re-login with Monarch credentials and set a new passphrase.
+
+    Security: This endpoint is BLOCKED for tunnel/remote requests.
+    Only the local desktop app or self-hosted web can reset credentials.
     """
     services = get_services()
+
+    # Block tunnel/remote requests - only local access can reset
+    if is_tunnel_request():
+        audit_log(
+            services.security_service,
+            "RESET_APP",
+            False,
+            "Blocked: tunnel request attempted to reset app",
+        )
+        return {"success": False, "error": "App can only be reset from the desktop app"}
+
     services.sync_service.reset_credentials_only()
     # Clear session
     session.pop("auth_unlocked", None)
@@ -369,3 +387,171 @@ def auth_reset_app():
         services.security_service, "RESET_APP", True, "Credentials cleared, preferences preserved"
     )
     return {"success": True, "message": "App reset. Please log in again."}
+
+
+# =============================================================================
+# Remote Access (Tunnel) Endpoints
+# =============================================================================
+
+
+@auth_bp.route("/save-for-remote", methods=["POST"])
+@limiter.limit("5 per minute")
+@api_handler(handle_mfa=False)
+def auth_save_for_remote():
+    """
+    Save current session credentials encrypted with a passphrase for remote access.
+
+    Called when desktop user enables remote access for the first time.
+    Takes credentials from in-memory session and stores them on backend.
+    This enables verify_passphrase() to work for remote unlock authentication.
+
+    Security: This endpoint is BLOCKED for tunnel/remote requests.
+    Only the local desktop app can set or change the passphrase.
+    """
+    services = get_services()
+
+    # Block tunnel/remote requests - only desktop app can set passphrase
+    if is_tunnel_request():
+        audit_log(
+            services.security_service,
+            "SAVE_FOR_REMOTE",
+            False,
+            "Blocked: tunnel request attempted to change passphrase",
+        )
+        return {"success": False, "error": "Passphrase can only be changed from the desktop app"}
+
+    data = request.get_json()
+    passphrase = data.get("passphrase", "")
+    notes_key = data.get("notes_key")  # Desktop's notes encryption key
+
+    if not passphrase:
+        audit_log(services.security_service, "SAVE_FOR_REMOTE", False, "Empty passphrase")
+        return {"success": False, "error": _ERR_PASSPHRASE_REQUIRED}
+
+    result = services.sync_service.credentials_service.save_session_credentials_for_remote(
+        passphrase, notes_key=notes_key
+    )
+    audit_log(
+        services.security_service,
+        "SAVE_FOR_REMOTE",
+        result.get("success", False),
+        "Credentials saved for remote access",
+    )
+
+    if result.get("success"):
+        session["auth_unlocked"] = True
+        session["session_passphrase"] = passphrase
+
+    return result
+
+
+@auth_bp.route("/remote-unlock", methods=["POST"])
+@limiter.limit("5 per minute")  # Strict rate limit to prevent brute-force
+@api_handler(handle_mfa=False)
+def auth_remote_unlock():
+    """
+    Unlock remote access with the desktop passphrase.
+
+    Called by remote users (accessing via tunnel) to authenticate.
+    Validates passphrase by attempting PBKDF2 decryption of stored credentials.
+    On success, sets session['remote_unlocked'] = True.
+
+    Security features:
+    - Rate limited to 5 attempts per minute per IP
+    - Server-side lockout after 10 failed attempts (15 min)
+    - Lockout only applies to tunnel requests (not local desktop)
+    - Session is regenerated on success to prevent fixation
+    """
+    services = get_services()
+    data = request.get_json()
+    passphrase = data.get("passphrase", "")
+    client_ip = get_client_ip()
+
+    # Only enforce IP lockout for tunnel requests (remote access)
+    # Local desktop app users share the same IP and shouldn't be locked out
+    if is_tunnel_request() and services.security_service.is_ip_locked_out(client_ip):
+        remaining = services.security_service.get_lockout_remaining_seconds(client_ip)
+        audit_log(
+            services.security_service,
+            "REMOTE_UNLOCK",
+            False,
+            f"IP locked out, {remaining}s remaining",
+        )
+        return {
+            "success": False,
+            "error": f"Too many failed attempts. Try again in {remaining // 60 + 1} minutes.",
+            "locked_out": True,
+            "retry_after": remaining,
+        }
+
+    if not passphrase:
+        audit_log(services.security_service, "REMOTE_UNLOCK", False, "Empty passphrase")
+        return {"success": False, "error": _ERR_PASSPHRASE_REQUIRED}
+
+    # Check if credentials exist (desktop must be configured)
+    if not services.sync_service.has_stored_credentials():
+        audit_log(services.security_service, "REMOTE_UNLOCK", False, "No credentials configured")
+        return {"success": False, "error": "Desktop not configured"}
+
+    # Unlock credentials (decrypt and load into memory for Monarch API calls)
+    credentials_service = services.sync_service.credentials_service
+    unlock_result = credentials_service.unlock(passphrase)
+    if unlock_result.get("success"):
+        # Success - clear any lockout state and regenerate session
+        if is_tunnel_request():
+            services.security_service.clear_ip_lockout(client_ip)
+
+        # Regenerate session to prevent session fixation attacks
+        # Save current session data, clear, then restore with new ID
+        old_session_data = dict(session)
+        session.clear()
+        session.update(old_session_data)
+
+        session.permanent = True
+        session["remote_unlocked"] = True
+
+        # Use desktop's notes_key if available, otherwise fall back to passphrase
+        # This ensures tunnel users can decrypt notes created by desktop
+        notes_key = credentials_service.get_notes_key(passphrase)
+        session["session_passphrase"] = notes_key if notes_key else passphrase
+
+        audit_log(
+            services.security_service,
+            "REMOTE_UNLOCK",
+            True,
+            "Credentials unlocked for remote session",
+        )
+        return {"success": True}
+
+    # Failure - record failed attempt for tunnel requests
+    audit_log(services.security_service, "REMOTE_UNLOCK", False, "Invalid passphrase")
+
+    if is_tunnel_request():
+        is_now_locked = services.security_service.record_failed_remote_unlock(client_ip)
+        if is_now_locked:
+            remaining = services.security_service.get_lockout_remaining_seconds(client_ip)
+            return {
+                "success": False,
+                "error": f"Too many failed attempts. Try again in {remaining // 60 + 1} minutes.",
+                "locked_out": True,
+                "retry_after": remaining,
+            }
+
+    return {"success": False, "error": "Invalid passphrase"}
+
+
+@auth_bp.route("/remote-status", methods=["GET"])
+@api_handler(handle_mfa=False)
+def auth_remote_status():
+    """
+    Check if current session is authenticated for remote access.
+
+    Returns:
+    - remote_unlocked: True if session has remote access authentication
+    - remote_enabled: True if desktop credentials are configured (remote access possible)
+    """
+    services = get_services()
+    return {
+        "remote_unlocked": session.get("remote_unlocked", False),
+        "remote_enabled": services.sync_service.has_stored_credentials(),
+    }

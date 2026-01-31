@@ -568,13 +568,21 @@ export function AvailableFundsBar({ leftToBudget, items }: Readonly<AvailableFun
                   <Icons.Split size={16} style={{ opacity: 0.5 }} />
                 </div>
               ) : (
-                <span data-tour="stash-distribute-mode" className="contents">
-                  <DistributeButton items={items} compact iconOnly groupPosition="top" />
-                </span>
+                <DistributeButton
+                  items={items}
+                  compact
+                  iconOnly
+                  groupPosition="top"
+                  dataTour="stash-distribute-mode"
+                />
               )}
-              <span data-tour="stash-hypothesize-mode" className="contents">
-                <HypothesizeButton items={items} compact iconOnly groupPosition="bottom" />
-              </span>
+              <HypothesizeButton
+                items={items}
+                compact
+                iconOnly
+                groupPosition="bottom"
+                dataTour="stash-hypothesize-mode"
+              />
             </div>
 
             {/* Right: Left to Budget - fixed width */}

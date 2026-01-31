@@ -110,6 +110,7 @@ import {
 } from './auto-backup';
 import { migrateSettings } from './settings-migration';
 import { checkAndRepairBackend } from './integrity';
+import { startTunnel, cleanupTunnel, isRemoteAccessEnabled } from './tunnel';
 
 /**
  * Check if the app is running from a macOS DMG volume mount.
@@ -498,6 +499,29 @@ async function checkAndRunStartupSync(sessionRestored: boolean): Promise<void> {
 }
 
 /**
+ * Auto-start remote access tunnel if it was enabled when the app last quit.
+ * Remote users authenticate with the desktop app passphrase (validated via PBKDF2).
+ */
+async function tryAutoStartTunnel(): Promise<void> {
+  // Check if remote access should auto-start
+  if (!isRemoteAccessEnabled()) {
+    return;
+  }
+
+  debugLog('Remote access was enabled - auto-starting tunnel...');
+
+  try {
+    const port = backendManager.getPort();
+    if (port) {
+      const url = await startTunnel(port);
+      debugLog(`Remote access tunnel auto-started: ${url}`);
+    }
+  } catch (error) {
+    debugLog(`Failed to auto-start tunnel: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+/**
  * Start the backend and complete initialization once it's ready.
  * This runs in the background while the window displays the loading screen.
  */
@@ -506,6 +530,9 @@ async function startBackendAndInitialize(): Promise<void> {
   await backendManager.start();
   recordMilestone('backendStarted');
   debugLog(`Backend started on port ${backendManager.getPort()}`);
+
+  // Auto-start remote access tunnel if it was enabled when the app last quit
+  await tryAutoStartTunnel();
 
   // Fetch last sync time and update tray
   const lastSyncIso = await backendManager.fetchLastSyncTime();
@@ -659,6 +686,9 @@ async function cleanup(): Promise<void> {
 
   // Cleanup auto-backup
   cleanupAutoBackup();
+
+  // Cleanup remote access tunnel
+  cleanupTunnel();
 
   // Destroy tray
   destroyTray();

@@ -260,15 +260,11 @@
   --monarch-primary: var(--monarch-orange);
   --monarch-primary-hover: var(--monarch-orange-hover);
 
-  /* Teal - used for secondary actions, success states in forms */
-  --monarch-teal: #14b8a6;
-  --monarch-teal-light: rgba(20, 184, 166, 0.15);
-
   /* Blue - used for info, links */
   --monarch-blue: #3b82f6;
 
-  /* Tint - accent color for buttons (same as teal) */
-  --monarch-tint: #14b8a6;
+  /* Tint - accent color for buttons (same as orange) */
+  --monarch-tint: var(--monarch-orange);
 
   /* Text alias */
   --monarch-text: var(--monarch-text-dark);
@@ -389,15 +385,11 @@
   --monarch-primary: var(--monarch-orange);
   --monarch-primary-hover: var(--monarch-orange-hover);
 
-  /* Teal - brighter for dark backgrounds */
-  --monarch-teal: #2dd4bf;
-  --monarch-teal-light: rgba(45, 212, 191, 0.2);
-
   /* Blue */
   --monarch-blue: #60a5fa;
 
-  /* Tint */
-  --monarch-tint: #2dd4bf;
+  /* Tint - accent color for buttons (same as orange) */
+  --monarch-tint: var(--monarch-orange);
 
   /* Text alias */
   --monarch-text: var(--monarch-text-dark);

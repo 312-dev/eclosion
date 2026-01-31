@@ -33,6 +33,7 @@ class CredentialsRepository:
         password: str,
         mfa_secret: str | None,
         passphrase: str,
+        notes_key: str | None = None,
     ) -> None:
         """
         Encrypt and save user credentials.
@@ -42,6 +43,7 @@ class CredentialsRepository:
             password: Monarch Money password
             mfa_secret: Optional MFA secret key
             passphrase: User's encryption passphrase
+            notes_key: Optional desktop notes encryption key (for remote access)
         """
         enc = CredentialEncryption(passphrase=passphrase)
         now = datetime.now(UTC)
@@ -55,6 +57,7 @@ class CredentialsRepository:
                 email_encrypted=enc.encrypt(email),
                 password_encrypted=enc.encrypt(password),
                 mfa_secret_encrypted=enc.encrypt(mfa_secret) if mfa_secret else None,
+                notes_key_encrypted=enc.encrypt(notes_key) if notes_key else None,
                 created_at=now,
                 updated_at=now,
             )
@@ -100,6 +103,26 @@ class CredentialsRepository:
             return result is not None
         except DecryptionError:
             return False
+
+    def get_notes_key(self, passphrase: str) -> str | None:
+        """
+        Get the decrypted notes key after verifying passphrase.
+
+        Used by remote access to retrieve the desktop's notes encryption key.
+        Returns None if no notes_key is stored or passphrase is invalid.
+        """
+        from cryptography.fernet import InvalidToken
+
+        creds = self.session.query(Credentials).first()
+        if not creds or not creds.notes_key_encrypted:
+            return None
+
+        try:
+            salt = CredentialEncryption.salt_from_b64(creds.salt)
+            enc = CredentialEncryption(passphrase=passphrase, salt=salt)
+            return enc.decrypt(creds.notes_key_encrypted)
+        except InvalidToken:
+            return None
 
     def delete(self) -> None:
         """Delete stored credentials."""

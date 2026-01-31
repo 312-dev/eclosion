@@ -231,7 +231,7 @@ export function StashActionsDropdown({
               }}
               role="menuitem"
               onClick={() => handleAsyncAction(onArchive)}
-              className="w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-black/5 transition-colors text-monarch-teal"
+              className="w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-black/5 transition-colors text-monarch-orange"
             >
               <PackageIcon size={14} />
               Archive

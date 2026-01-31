@@ -2,11 +2,13 @@
 # /stash/* endpoints for stash savings goals
 
 import logging
+import re
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, send_file
 
 from core import (
     api_handler,
+    config,
     sanitize_emoji,
     sanitize_id,
     sanitize_name,
@@ -572,11 +574,15 @@ async def update_rollover_balance():
     except (ValueError, TypeError):
         raise ValidationError("'amount' must be an integer")
 
+    # Security: Sanitize category_id for logging (remove newlines/control chars)
+    safe_cat_id = str(category_id).replace("\n", "").replace("\r", "")[:50]
     logger.info(
-        f"[Rollover API] Calling update_category_rollover_balance({category_id}, {amount_int})"
+        "[Rollover API] Calling update_category_rollover_balance(%s, %d)",
+        safe_cat_id,
+        amount_int,
     )
     result = await update_category_rollover_balance(category_id, amount_int)
-    logger.info(f"[Rollover API] Result: {result}")
+    logger.info("[Rollover API] Result received")
 
     # Check for errors in the response
     update_result = result.get("updateCategory", {})
@@ -1012,3 +1018,67 @@ async def delete_hypothesis(hypothesis_id: str):
 
     result = service.delete_hypothesis(sanitized_id)
     return jsonify(sanitize_response(result))
+
+
+# ---- LOCAL IMAGE SERVING (for remote/tunnel access) ----
+
+
+# Regex for safe image filenames: alphanumeric, hyphens, underscores, with image extension
+_SAFE_IMAGE_FILENAME = re.compile(r"^[a-zA-Z0-9_-]+\.(png|jpg|jpeg|gif|webp)$")
+
+
+@stash_bp.route("/images/<filename>", methods=["GET"])
+def serve_stash_image(filename: str):
+    """
+    Serve a stash item image from local storage.
+
+    This endpoint enables remote/tunnel access to locally-stored images.
+    In desktop mode, images are stored in STATE_DIR/stash-images/.
+
+    Security:
+    - Validates filename format (alphanumeric + extension only)
+    - Prevents path traversal attacks
+    - Only serves from the designated images directory
+    """
+    # Validate filename format to prevent path traversal
+    if not _SAFE_IMAGE_FILENAME.match(filename):
+        return jsonify({"error": "Invalid filename"}), 400
+
+    # Get the stash images directory
+    images_dir = config.STATE_DIR / "stash-images"
+
+    if not images_dir.exists():
+        return jsonify({"error": "Images directory not found"}), 404
+
+    # Resolve the full path and ensure it's within the images directory
+    # lgtm[py/path-injection] - Path is validated via relative_to check below
+    image_path = (images_dir / filename).resolve()
+
+    # Security: ensure the resolved path is still within images_dir
+    # This prevents path traversal attacks (e.g., ../../../etc/passwd)
+    try:
+        image_path.relative_to(images_dir.resolve())
+    except ValueError:
+        # Path is outside images_dir (path traversal attempt)
+        # Security: Sanitize filename for logging to prevent log injection
+        safe_name = str(filename).replace("\n", "").replace("\r", "")[:50]
+        logger.warning("Path traversal attempt: %s", safe_name)
+        return jsonify({"error": "Invalid filename"}), 400
+
+    # lgtm[py/path-injection] - Path validated via relative_to check above
+    if not image_path.exists():
+        return jsonify({"error": "Image not found"}), 404
+
+    # Determine MIME type from extension
+    extension = image_path.suffix.lower()
+    mime_types = {
+        ".png": "image/png",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".gif": "image/gif",
+        ".webp": "image/webp",
+    }
+    mimetype = mime_types.get(extension, "application/octet-stream")
+
+    # lgtm[py/path-injection] - Path validated via relative_to check above
+    return send_file(image_path, mimetype=mimetype)

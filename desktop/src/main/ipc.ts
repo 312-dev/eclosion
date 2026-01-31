@@ -111,6 +111,13 @@ import {
 import { setupBookmarkIpcHandlers } from './bookmarks';
 import { setupStashIpcHandlers } from './stash';
 import { setupOpenverseIpcHandlers } from './openverse';
+import {
+  startTunnel,
+  stopTunnel,
+  getTunnelUrl,
+  isTunnelActive,
+  isRemoteAccessEnabled,
+} from './tunnel';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
@@ -1242,4 +1249,49 @@ export function setupIpcHandlers(backendManager: BackendManager): void {
 
   // Setup Openverse credential storage IPC handlers
   setupOpenverseIpcHandlers();
+
+  // =========================================================================
+  // Remote Access (Tunnel)
+  // =========================================================================
+
+  /**
+   * Start a tunnel to expose the backend for remote access.
+   * Remote users will authenticate with the desktop app passphrase.
+   */
+  ipcMain.handle('tunnel:start', async () => {
+    const port = backendManager.getPort();
+    if (!port) {
+      return { success: false, error: 'Backend not running' };
+    }
+
+    try {
+      const url = await startTunnel(port);
+      return { success: true, url };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to start tunnel',
+      };
+    }
+  });
+
+  /**
+   * Stop the active tunnel.
+   */
+  ipcMain.handle('tunnel:stop', () => {
+    stopTunnel();
+    return { success: true };
+  });
+
+  /**
+   * Get the current tunnel status.
+   */
+  ipcMain.handle('tunnel:get-status', () => {
+    return {
+      active: isTunnelActive(),
+      url: getTunnelUrl(),
+      enabled: isRemoteAccessEnabled(),
+    };
+  });
+
 }

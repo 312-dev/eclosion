@@ -1,17 +1,12 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { getErrorMessage } from '../../utils';
 import { isDesktopMode } from '../../utils/apiBase';
-import { UI } from '../../constants';
 import { ElectronTitleBar } from '../ElectronTitleBar';
-import {
-  getCooldownSeconds,
-  validatePassphrase,
-  getLockoutState,
-  setLockoutState,
-  clearLockoutState,
-} from './PassphraseUtils';
+import { validatePassphrase, getLockoutState, clearLockoutState } from './PassphraseUtils';
 import { usePassphraseBiometric } from './usePassphraseBiometric';
+import { useRemoteUnlock } from './useRemoteUnlock';
+import { usePassphraseSubmit } from './usePassphraseSubmit';
+import { useCooldownTimer } from './useCooldownTimer';
 import { PassphraseHeader } from './PassphraseHeader';
 import {
   PasswordInput,
@@ -28,6 +23,8 @@ interface PassphrasePromptProps {
   onResetApp?: () => void;
   onFallbackRequest?: () => void;
   autoPromptBiometric?: boolean;
+  /** Remote mode: for tunnel access - hides biometrics/reset, uses server-side lockout */
+  remoteMode?: boolean;
 }
 
 export function PassphrasePrompt({
@@ -37,6 +34,7 @@ export function PassphrasePrompt({
   onResetApp,
   onFallbackRequest,
   autoPromptBiometric = true,
+  remoteMode = false,
 }: Readonly<PassphrasePromptProps>) {
   const {
     setPassphrase: savePassphrase,
@@ -51,10 +49,16 @@ export function PassphrasePrompt({
   const [showPassphrase, setShowPassphrase] = useState(false);
   const [requireBiometric, setRequireBiometric] = useState(false);
   const [failedAttempts, setFailedAttempts] = useState(0);
-  const [cooldownUntil, setCooldownUntil] = useState<number | null>(null);
-  const [cooldownRemaining, setCooldownRemaining] = useState(0);
   const [lockoutLoaded, setLockoutLoaded] = useState(false);
+  const { cooldownRemaining, isInCooldown, startCooldown, setCooldownUntil } = useCooldownTimer();
   const [requireBiometricLoaded, setRequireBiometricLoaded] = useState(false);
+
+  // Remote unlock hook (only active when remoteMode is true)
+  const remoteUnlock = useRemoteUnlock({
+    onSuccess,
+    setError,
+    setPassphrase,
+  });
 
   useEffect(() => {
     getLockoutState().then((state) => {
@@ -62,13 +66,13 @@ export function PassphrasePrompt({
       setCooldownUntil(state.cooldownUntil);
       setLockoutLoaded(true);
     });
-  }, []);
+  }, [setCooldownUntil]);
 
   const clearCooldown = useCallback(() => {
     setFailedAttempts(0);
     setCooldownUntil(null);
     clearLockoutState();
-  }, []);
+  }, [setCooldownUntil]);
 
   const {
     biometric,
@@ -93,7 +97,6 @@ export function PassphrasePrompt({
   const requirements = useMemo(() => validatePassphrase(passphrase), [passphrase]);
   const allRequirementsMet = requirements.every((r) => r.met);
   const passwordsMatch = passphrase === confirmPassphrase;
-  const isInCooldown = cooldownRemaining > 0;
   const isValid =
     mode === 'unlock'
       ? passphrase.length > 0 && !isInCooldown && lockoutLoaded
@@ -123,69 +126,34 @@ export function PassphrasePrompt({
     }
   }, [mode, requireBiometric, requireBiometricLoaded, onFallbackRequest]);
 
-  useEffect(() => {
-    if (!cooldownUntil) {
-      setCooldownRemaining(0);
-      return;
-    }
-    const updateRemaining = () => {
-      const remaining = Math.max(0, Math.ceil((cooldownUntil - Date.now()) / 1000));
-      setCooldownRemaining(remaining);
-      if (remaining <= 0) setCooldownUntil(null);
-    };
-    updateRemaining();
-    const interval = setInterval(updateRemaining, UI.INTERVAL.COOLDOWN_TICK);
-    return () => clearInterval(interval);
-  }, [cooldownUntil]);
+  const { handleSubmit } = usePassphraseSubmit({
+    passphrase,
+    mode,
+    remoteMode,
+    isValid,
+    loading,
+    failedAttempts,
+    setLoading,
+    setError,
+    setFailedAttempts,
+    startCooldown,
+    clearCooldown,
+    savePassphrase,
+    unlockCredentials,
+    storePassphraseForSync,
+    offerBiometricEnrollment,
+    onSuccess,
+    onCredentialUpdateNeeded,
+    remoteUnlockSubmit: remoteUnlock.handleRemoteUnlockSubmit,
+  });
 
-  const startCooldown = useCallback((attempts: number) => {
-    const seconds = getCooldownSeconds(attempts);
-    const newCooldownUntil = seconds > 0 ? Date.now() + seconds * 1000 : null;
-    if (newCooldownUntil) setCooldownUntil(newCooldownUntil);
-    setLockoutState({ failedAttempts: attempts, cooldownUntil: newCooldownUntil });
-  }, []);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!isValid || loading) return;
-    setLoading(true);
-    setError(null);
-    try {
-      if (mode === 'create') {
-        const result = await savePassphrase(passphrase);
-        if (result.success) {
-          await storePassphraseForSync(passphrase);
-          await offerBiometricEnrollment(passphrase);
-          onSuccess();
-        } else {
-          setError(result.error || 'Failed to set passphrase');
-        }
-      } else {
-        const result = await unlockCredentials(passphrase);
-        if (result.success) {
-          clearCooldown();
-          await storePassphraseForSync(passphrase);
-          await offerBiometricEnrollment(passphrase);
-          onSuccess();
-        } else if (result.needs_credential_update && result.unlock_success) {
-          clearCooldown();
-          await storePassphraseForSync(passphrase);
-          onCredentialUpdateNeeded?.(passphrase);
-        } else {
-          const newAttempts = failedAttempts + 1;
-          setFailedAttempts(newAttempts);
-          startCooldown(newAttempts);
-          setError(result.error || 'Invalid passphrase');
-        }
-      }
-    } catch (err) {
-      setError(getErrorMessage(err));
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Server lockout takes precedence over client-side cooldown in remote mode
+  const isServerLockedOut = remoteMode && remoteUnlock.isServerLockedOut;
+  const isInCooldownOrLockout = isInCooldown || isServerLockedOut;
 
   const getButtonText = () => {
+    if (isServerLockedOut)
+      return `Wait ${remoteUnlock.formatTime(remoteUnlock.serverLockoutSeconds)}`;
     if (isInCooldown) return `Wait ${cooldownRemaining}s`;
     if (loading) return mode === 'create' ? 'Encrypting...' : 'Unlocking...';
     return mode === 'create' ? 'Encrypt & Save' : 'Unlock';
@@ -195,11 +163,14 @@ export function PassphrasePrompt({
     if (mode === 'create') {
       return 'Your Monarch credentials will be encrypted with this passphrase. Only you can decrypt them.';
     }
+    if (remoteMode) {
+      return 'Enter your app passphrase to access Eclosion remotely.';
+    }
     if (isDesktopBiometricOnly) return `Use ${biometric.displayName} to unlock your credentials.`;
     return 'Enter your passphrase to unlock your encrypted credentials.';
   };
 
-  const isButtonDisabled = loading || !isValid || isInCooldown;
+  const isButtonDisabled = loading || !isValid || isInCooldownOrLockout;
 
   return (
     <div
@@ -214,12 +185,12 @@ export function PassphrasePrompt({
           border: '1px solid var(--monarch-border)',
         }}
       >
-        <PassphraseHeader mode={mode} />
+        <PassphraseHeader mode={mode} remoteMode={remoteMode} />
         <p className="mb-6" style={{ color: 'var(--monarch-text-muted)' }}>
           {getDescriptionText()}
         </p>
 
-        {biometricWasReset && biometric.available && (
+        {biometricWasReset && biometric.available && !remoteMode && (
           <BiometricResetBanner displayName={biometric.displayName} />
         )}
 
@@ -232,15 +203,18 @@ export function PassphrasePrompt({
           </div>
         )}
 
-        {mode === 'unlock' && biometric.available && (requireBiometric || biometric.enrolled) && (
-          <BiometricUnlockButton
-            displayName={biometric.displayName}
-            loading={biometricLoading}
-            disabled={biometricLoading || loading || isInCooldown}
-            onClick={handleBiometricUnlock}
-            showPassphraseDivider={!isDesktopBiometricOnly}
-          />
-        )}
+        {mode === 'unlock' &&
+          !remoteMode &&
+          biometric.available &&
+          (requireBiometric || biometric.enrolled) && (
+            <BiometricUnlockButton
+              displayName={biometric.displayName}
+              loading={biometricLoading}
+              disabled={biometricLoading || loading || isInCooldown}
+              onClick={handleBiometricUnlock}
+              showPassphraseDivider={!isDesktopBiometricOnly}
+            />
+          )}
 
         {isDesktopBiometricOnly && onFallbackRequest && (
           <button
@@ -293,7 +267,7 @@ export function PassphrasePrompt({
             >
               {getButtonText()}
             </button>
-            {isInCooldown && mode === 'unlock' && (
+            {isInCooldownOrLockout && mode === 'unlock' && (
               <p
                 className="text-xs text-center mt-2"
                 style={{ color: 'var(--monarch-text-muted)' }}
@@ -304,7 +278,7 @@ export function PassphrasePrompt({
           </form>
         )}
 
-        {mode === 'unlock' && onResetApp && !isDesktopBiometricOnly && (
+        {mode === 'unlock' && onResetApp && !isDesktopBiometricOnly && !remoteMode && (
           <button
             type="button"
             onClick={onResetApp}

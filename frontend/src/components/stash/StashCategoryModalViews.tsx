@@ -97,7 +97,7 @@ export function CreateNewCategoryView({
           type="button"
           onClick={onSwitchView}
           className="text-sm flex items-center gap-1 hover:underline"
-          style={{ color: 'var(--monarch-teal)' }}
+          style={{ color: 'var(--monarch-orange)' }}
         >
           Or use an existing category
           <Icons.ChevronRight size={14} />
@@ -207,7 +207,7 @@ export function UseExistingCategoryView({
                                 : 'var(--monarch-bg-page)',
                               color: 'var(--monarch-text-dark)',
                               borderLeft: isSelected
-                                ? '3px solid var(--monarch-teal)'
+                                ? '3px solid var(--monarch-orange)'
                                 : '3px solid transparent',
                               boxShadow: isSelected ? '0 2px 8px rgba(26, 183, 165, 0.15)' : 'none',
                             }}
@@ -218,7 +218,7 @@ export function UseExistingCategoryView({
                             />
                             <span className="flex-1">{decodeHtmlEntities(group.name)}</span>
                             {isSelected && (
-                              <Icons.Check size={16} style={{ color: 'var(--monarch-teal)' }} />
+                              <Icons.Check size={16} style={{ color: 'var(--monarch-orange)' }} />
                             )}
                           </button>
                         );
@@ -251,7 +251,7 @@ export function UseExistingCategoryView({
                                 : 'var(--monarch-bg-page)',
                               color: 'var(--monarch-text-dark)',
                               borderLeft: isSelected
-                                ? '3px solid var(--monarch-teal)'
+                                ? '3px solid var(--monarch-orange)'
                                 : '3px solid transparent',
                               boxShadow: isSelected ? '0 2px 8px rgba(26, 183, 165, 0.15)' : 'none',
                             }}
@@ -259,7 +259,7 @@ export function UseExistingCategoryView({
                             {cat.icon && <span className="text-base">{cat.icon}</span>}
                             <span className="flex-1">{decodeHtmlEntities(cat.name)}</span>
                             {isSelected && (
-                              <Icons.Check size={16} style={{ color: 'var(--monarch-teal)' }} />
+                              <Icons.Check size={16} style={{ color: 'var(--monarch-orange)' }} />
                             )}
                           </button>
                         );
@@ -276,7 +276,7 @@ export function UseExistingCategoryView({
           type="button"
           onClick={onSwitchView}
           className="text-sm flex items-center gap-1 hover:underline"
-          style={{ color: 'var(--monarch-teal)' }}
+          style={{ color: 'var(--monarch-orange)' }}
         >
           <Icons.ChevronLeft size={14} />
           Back to create new

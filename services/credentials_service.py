@@ -494,6 +494,54 @@ class CredentialsService:
         # Clear dev session file if in dev mode
         _clear_dev_session()
 
+    def save_session_credentials_for_remote(
+        self, passphrase: str, notes_key: str | None = None
+    ) -> dict[str, Any]:
+        """
+        Save current session credentials encrypted for remote access.
+
+        Used when desktop user enables remote access for the first time.
+        Takes credentials from in-memory session and stores them on backend
+        encrypted with the provided passphrase.
+
+        This enables `verify_passphrase()` to work for remote unlock authentication.
+        The notes_key is also stored encrypted so tunnel users can decrypt notes.
+
+        Args:
+            passphrase: User's encryption passphrase for remote access
+            notes_key: Desktop's notes encryption key (for note sync with tunnel)
+
+        Returns:
+            success: True if credentials were saved
+            error: Error message if save failed
+        """
+        if not CredentialsService._session_credentials:
+            return {
+                "success": False,
+                "error": "No session credentials available. Please login first.",
+            }
+
+        creds = CredentialsService._session_credentials
+        email = creds.get("email")
+        password = creds.get("password")
+        mfa_secret = creds.get("mfa_secret", "")
+
+        if not email or not password:
+            return {"success": False, "error": "Invalid session credentials."}
+
+        try:
+            self.credentials_manager.save(
+                email=email,
+                password=password,
+                mfa_secret=mfa_secret,
+                passphrase=passphrase,
+                notes_key=notes_key,
+            )
+            return {"success": True, "message": "Credentials saved for remote access."}
+        except Exception as e:
+            logger.error(f"[SAVE_FOR_REMOTE] Failed to save credentials: {e}")
+            return {"success": False, "error": "Failed to save credentials."}
+
     async def reauthenticate(self, mfa_code: str) -> dict[str, Any]:
         """
         Re-authenticate with a one-time MFA code.
@@ -520,3 +568,18 @@ class CredentialsService:
             return {"success": True, "message": "Re-authenticated successfully."}
         except Exception as e:
             return format_auth_response(e, has_mfa_secret=True)
+
+    def get_notes_key(self, passphrase: str) -> str | None:
+        """
+        Get the desktop notes encryption key for remote access.
+
+        After verifying the passphrase, returns the decrypted notes_key
+        so tunnel users can encrypt/decrypt notes with the same key as desktop.
+
+        Args:
+            passphrase: User's encryption passphrase
+
+        Returns:
+            The notes encryption key, or None if not stored or passphrase invalid
+        """
+        return self.credentials_manager.get_notes_key(passphrase)

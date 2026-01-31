@@ -56,8 +56,8 @@ export function MonthlyTargetPreview({ monthlyTarget, targetDate }: MonthlyTarge
     <div
       className="p-3 rounded-md text-sm"
       style={{
-        backgroundColor: isInvalid ? 'var(--monarch-orange-bg)' : 'var(--monarch-teal-light)',
-        color: isInvalid ? 'var(--monarch-orange)' : 'var(--monarch-teal)',
+        backgroundColor: isInvalid ? 'var(--monarch-orange-bg)' : 'var(--monarch-orange-light)',
+        color: 'var(--monarch-orange)',
       }}
     >
       {isInvalid ? (
@@ -87,10 +87,7 @@ export function CategoryInfoDisplay({
 }: CategoryInfoDisplayProps) {
   return (
     <div>
-      <span
-        className="block text-sm font-medium mb-1"
-        style={{ color: 'var(--monarch-text)' }}
-      >
+      <span className="block text-sm font-medium mb-1" style={{ color: 'var(--monarch-text)' }}>
         Linked Category
       </span>
       <div
@@ -100,29 +97,29 @@ export function CategoryInfoDisplay({
           border: '1px solid var(--monarch-border)',
         }}
       >
-      <div className="flex items-center gap-2">
-        <Icons.ListTree size={14} style={{ color: 'var(--monarch-text-muted)' }} />
-        <div className="text-sm">
-          {categoryGroupName && (
-            <>
-              <span style={{ color: 'var(--monarch-text-muted)' }}>{categoryGroupName}</span>
-              <span style={{ color: 'var(--monarch-text-muted)' }}> › </span>
-            </>
-          )}
-          <span style={{ color: 'var(--monarch-text)' }}>{categoryName}</span>
+        <div className="flex items-center gap-2">
+          <Icons.ListTree size={14} style={{ color: 'var(--monarch-text-muted)' }} />
+          <div className="text-sm">
+            {categoryGroupName && (
+              <>
+                <span style={{ color: 'var(--monarch-text-muted)' }}>{categoryGroupName}</span>
+                <span style={{ color: 'var(--monarch-text-muted)' }}> › </span>
+              </>
+            )}
+            <span style={{ color: 'var(--monarch-text)' }}>{categoryName}</span>
+          </div>
         </div>
-      </div>
-      <a
-        href={`https://app.monarch.com/categories/${categoryId}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex items-center gap-1 text-xs hover:underline"
-        style={{ color: 'var(--monarch-teal)' }}
-        aria-label="View category in Monarch"
-      >
-        <span>View</span>
-        <Icons.ExternalLink size={12} />
-      </a>
+        <a
+          href={`https://app.monarch.com/categories/${categoryId}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1 text-xs hover:underline"
+          style={{ color: 'var(--monarch-orange)' }}
+          aria-label="View category in Monarch"
+        >
+          <span>View</span>
+          <Icons.ExternalLink size={12} />
+        </a>
       </div>
     </div>
   );

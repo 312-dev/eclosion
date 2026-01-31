@@ -24,6 +24,7 @@ import {
   buildCategoryGroupsWithNotes,
   convertEffectiveGeneralNote,
   hasAnyNotes,
+  calculateNoteMonthBounds,
 } from '../../utils';
 import { STORAGE_KEYS } from '../../constants';
 import type { MonthKey, EffectiveGeneralNote, CategoryGroupWithNotes } from '../../types/notes';
@@ -83,10 +84,25 @@ export function NotesTab() {
   usePageTitle('Notes');
 
   // Preload all notes data into cache for instant navigation
-  useAllNotesQuery();
+  const { data: allNotesData } = useAllNotesQuery();
 
   // Fetch month notes data (will use cached data from preload)
   const { data: monthData, isLoading: notesLoading } = useMonthNotesQuery(currentMonth);
+
+  // Calculate min/max bounds for month navigation
+  // - Max: 2 years ahead
+  // - Min: 2 years back, or earliest note if further back
+  const { minMonth, maxMonth } = useMemo(() => {
+    if (!allNotesData) {
+      return calculateNoteMonthBounds([]);
+    }
+    // Collect all months that have notes
+    const noteMonths = [
+      ...allNotesData.notes.map((n) => n.monthKey),
+      ...Object.keys(allNotesData.general_notes),
+    ];
+    return calculateNoteMonthBounds(noteMonths);
+  }, [allNotesData]);
 
   // Fetch all Monarch categories from the shared category store
   const { data: notesCategories, isLoading: categoriesLoading } = useCategoriesByGroup();
@@ -250,7 +266,12 @@ export function NotesTab() {
 
         {/* Month navigation */}
         <div className="mb-4 lg:mb-6">
-          <MonthYearSelector currentMonth={currentMonth} onMonthChange={setCurrentMonth} />
+          <MonthYearSelector
+            currentMonth={currentMonth}
+            onMonthChange={setCurrentMonth}
+            minMonth={minMonth}
+            maxMonth={maxMonth}
+          />
         </div>
 
         {/* General month notes - mobile only (stacked below navigator) */}

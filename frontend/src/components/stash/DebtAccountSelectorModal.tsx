@@ -123,7 +123,7 @@ export function DebtAccountSelectorModal({
         disabled={!selectedAccountId}
         className="px-4 py-2 text-sm font-medium rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         style={{
-          backgroundColor: selectedAccountId ? 'var(--monarch-teal)' : 'var(--monarch-bg-page)',
+          backgroundColor: selectedAccountId ? 'var(--monarch-orange)' : 'var(--monarch-bg-page)',
           color: selectedAccountId ? 'white' : 'var(--monarch-text-muted)',
         }}
       >
@@ -150,7 +150,7 @@ export function DebtAccountSelectorModal({
           <div className="flex items-center justify-center py-8">
             <div
               className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin"
-              style={{ borderColor: 'var(--monarch-teal)', borderTopColor: 'transparent' }}
+              style={{ borderColor: 'var(--monarch-orange)', borderTopColor: 'transparent' }}
             />
           </div>
         ) : debtAccounts.length === 0 ? (
@@ -190,11 +190,11 @@ export function DebtAccountSelectorModal({
                         onClick={() => handleRowClick(account.id)}
                         onDoubleClick={() => handleRowDoubleClick(account)}
                         className={`w-full flex items-center justify-between p-3 rounded-lg transition-colors ${
-                          isSelected ? 'ring-2 ring-(--monarch-teal)' : ''
+                          isSelected ? 'ring-2 ring-(--monarch-orange)' : ''
                         }`}
                         style={{
                           backgroundColor: isSelected
-                            ? 'var(--monarch-teal-light)'
+                            ? 'var(--monarch-orange-light)'
                             : 'var(--monarch-bg-page)',
                           border: '1px solid var(--monarch-border)',
                         }}
@@ -233,7 +233,7 @@ export function DebtAccountSelectorModal({
                             })}
                           </span>
                           {isSelected && (
-                            <Icons.Check size={16} style={{ color: 'var(--monarch-teal)' }} />
+                            <Icons.Check size={16} style={{ color: 'var(--monarch-orange)' }} />
                           )}
                         </div>
                       </button>

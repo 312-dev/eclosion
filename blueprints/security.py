@@ -61,6 +61,7 @@ def get_security_events():
     - limit: Max events to return (default: 50, max: 200)
     - offset: Pagination offset (default: 0)
     - event_type: Filter by event type (e.g., "LOGIN_ATTEMPT")
+    - event_types: Filter by multiple event types (comma-separated, e.g., "LOGIN_ATTEMPT,REMOTE_UNLOCK")
     - success: Filter by success/failure (true/false)
     """
     services = get_services()
@@ -68,14 +69,22 @@ def get_security_events():
     limit = min(request.args.get("limit", 50, type=int), 200)
     offset = request.args.get("offset", 0, type=int)
     event_type = request.args.get("event_type")
+    event_types_param = request.args.get("event_types")
     success_param = request.args.get("success")
 
     success_filter: bool | None = None
     if success_param is not None:
         success_filter = success_param.lower() == "true"
 
+    # Support both single event_type and comma-separated event_types
+    event_types: list[str] | None = None
+    if event_types_param:
+        event_types = [t.strip() for t in event_types_param.split(",") if t.strip()]
+    elif event_type:
+        event_types = [event_type]
+
     events, total = services.security_service.get_events(
-        limit=limit, offset=offset, event_type=event_type, success=success_filter
+        limit=limit, offset=offset, event_types=event_types, success=success_filter
     )
 
     # Sanitize all string fields to prevent reflected XSS
@@ -185,3 +194,35 @@ def dismiss_security_alerts():
     services = get_services()
     services.security_service.dismiss_security_alert()
     return {"success": True}
+
+
+@security_bp.route("/debug/headers", methods=["GET"])
+@api_handler(handle_mfa=False)
+def debug_headers():
+    """Debug endpoint to see all request headers (for diagnosing tunnel IP issues).
+
+    Only enabled in debug mode for security reasons.
+    Response is JSON (not HTML) so XSS is not a concern.
+    """
+    if not config.DEBUG_MODE:
+        return {"error": "Debug endpoint disabled in production"}, 403
+
+    # Sanitize header values to prevent any potential injection attacks
+    def sanitize(val: str | None) -> str | None:
+        if val is None:
+            return None
+        return str(markupsafe_escape(val))
+
+    # lgtm[py/reflective-xss] - Response is JSON (auto-escaped), debug-only, and values are sanitized
+    return {
+        "remote_addr": sanitize(request.remote_addr),
+        "host": sanitize(request.host),
+        "headers": {k: sanitize(v) for k, v in request.headers.items()},
+        "ip_related": {
+            "X-Forwarded-For": sanitize(request.headers.get("X-Forwarded-For")),
+            "X-Real-IP": sanitize(request.headers.get("X-Real-IP")),
+            "CF-Connecting-IP": sanitize(request.headers.get("CF-Connecting-IP")),
+            "True-Client-IP": sanitize(request.headers.get("True-Client-IP")),
+            "X-Client-IP": sanitize(request.headers.get("X-Client-IP")),
+        },
+    }

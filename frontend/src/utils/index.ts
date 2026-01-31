@@ -59,6 +59,8 @@ export {
   hasAnyNotes,
 } from './notesTransform';
 
+export { calculateNoteMonthBounds } from './dateRangeUtils';
+
 export { sanitizeHtml } from './sanitizeHtml';
 
 export { isSafeUrl, getSafeHref } from './safeUrl';

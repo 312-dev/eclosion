@@ -53,7 +53,9 @@ export async function initializeDesktopBetaDetection(): Promise<void> {
   if (typeof localStorage === 'undefined') return;
 
   // Check if we're in desktop mode with electron API
-  const electron = (globalThis as { electron?: { getUpdateChannel?: () => Promise<'stable' | 'beta'> } }).electron;
+  const electron = (
+    globalThis as { electron?: { getUpdateChannel?: () => Promise<'stable' | 'beta'> } }
+  ).electron;
   if (!electron?.getUpdateChannel) {
     // Not desktop mode - clear any stale flag
     localStorage.removeItem(DESKTOP_BETA_KEY);
@@ -109,9 +111,7 @@ export function getBetaModeOverride(): boolean | null {
  * - https://eclosion.app/docs for production
  */
 export function getDocsBaseUrl(): string {
-  return isBetaEnvironment()
-    ? 'https://beta.eclosion.app/docs'
-    : 'https://eclosion.app/docs';
+  return isBetaEnvironment() ? 'https://beta.eclosion.app/docs' : 'https://eclosion.app/docs';
 }
 
 /**
@@ -133,7 +133,44 @@ export function getDocsUrl(version?: string): string {
  * - https://eclosion.app for production
  */
 export function getSiteBaseUrl(): string {
-  return isBetaEnvironment()
-    ? 'https://beta.eclosion.app'
-    : 'https://eclosion.app';
+  return isBetaEnvironment() ? 'https://beta.eclosion.app' : 'https://eclosion.app';
+}
+
+/**
+ * Marketing site hostnames (keep in sync with useIsMarketingSite.ts).
+ */
+const MARKETING_HOSTNAMES = ['eclosion.app', 'pages.dev'];
+
+/**
+ * Check if the current site is accessed via a remote tunnel.
+ *
+ * Tunnel sites are detected by exclusion - they are:
+ * - Not desktop (Electron)
+ * - Not localhost
+ * - Not marketing site (eclosion.app, pages.dev)
+ *
+ * This means the app is being accessed via Tunnelmole or similar tunnel service,
+ * typically for remote access from a phone or other device.
+ */
+export function isTunnelSite(): boolean {
+  // Desktop mode is never a tunnel site
+  if (globalThis.electron !== undefined) {
+    return false;
+  }
+
+  const hostname = globalThis.location?.hostname ?? '';
+
+  // Development is not a tunnel site
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    return false;
+  }
+
+  // Check if hostname is a marketing site
+  const isMarketingSite = MARKETING_HOSTNAMES.some((domain) => hostname.includes(domain));
+  if (isMarketingSite) {
+    return false;
+  }
+
+  // If none of the above, this is a tunnel site
+  return true;
 }

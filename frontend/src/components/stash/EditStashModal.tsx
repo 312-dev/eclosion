@@ -14,7 +14,7 @@ import type { StashItem } from '../../types';
 /** Get button styles based on disabled state */
 function getPrimaryButtonStyle(isDisabled: boolean) {
   return {
-    backgroundColor: isDisabled ? 'var(--monarch-border)' : 'var(--monarch-teal)',
+    backgroundColor: isDisabled ? 'var(--monarch-border)' : 'var(--monarch-orange)',
     color: isDisabled ? 'var(--monarch-text-muted)' : 'white',
     cursor: isDisabled ? 'not-allowed' : 'pointer',
   } as const;

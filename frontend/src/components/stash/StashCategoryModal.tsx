@@ -192,7 +192,7 @@ export function StashCategoryModal({
         disabled={isDisabled}
         className="px-4 py-2 text-sm font-medium rounded-md btn-press"
         style={{
-          backgroundColor: isDisabled ? 'var(--monarch-border)' : 'var(--monarch-teal)',
+          backgroundColor: isDisabled ? 'var(--monarch-border)' : 'var(--monarch-orange)',
           color: isDisabled ? 'var(--monarch-text-muted)' : 'white',
           cursor: isDisabled ? 'not-allowed' : 'pointer',
         }}
