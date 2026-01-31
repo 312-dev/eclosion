@@ -289,7 +289,7 @@ export function NoteEditorMDX({
                   isSaving ? 'cursor-wait' : ''
                 }`}
                 style={{
-                  backgroundColor: 'var(--monarch-tint)',
+                  backgroundColor: 'var(--monarch-orange)',
                   color: 'white',
                 }}
                 aria-label="Save note"

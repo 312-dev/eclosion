@@ -1,95 +1,54 @@
 /**
  * Month Year Selector
  *
- * Styled navigation bar with month display and navigation arrows.
+ * Styled navigation bar with HTML5 month input and navigation arrows.
  * Features a subtle card design with accent styling.
  */
 
-import { useState, useRef, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Calendar, RotateCcw } from 'lucide-react';
-import {
-  parseMonthKey,
-  formatMonthKey,
-  getCurrentMonthKey,
-  navigateMonth,
-  getMonthDifference,
-  calculateYearRange,
-} from '../../utils/dateRangeUtils';
+import { useRef } from 'react';
+import { Calendar, ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react';
+import { getCurrentMonthKey, navigateMonth, getMonthDifference } from '../../utils/dateRangeUtils';
 import type { MonthKey } from '../../types/notes';
 
 interface MonthYearSelectorProps {
   readonly currentMonth: MonthKey;
   readonly onMonthChange: (month: MonthKey) => void;
-  readonly yearsWithNotes?: readonly number[];
-  readonly minYearRange?: number;
+  readonly minMonth?: MonthKey;
+  readonly maxMonth?: MonthKey;
 }
-
-const MONTHS = [
-  { value: 1, label: 'January' },
-  { value: 2, label: 'February' },
-  { value: 3, label: 'March' },
-  { value: 4, label: 'April' },
-  { value: 5, label: 'May' },
-  { value: 6, label: 'June' },
-  { value: 7, label: 'July' },
-  { value: 8, label: 'August' },
-  { value: 9, label: 'September' },
-  { value: 10, label: 'October' },
-  { value: 11, label: 'November' },
-  { value: 12, label: 'December' },
-];
 
 export function MonthYearSelector({
   currentMonth,
   onMonthChange,
-  yearsWithNotes = [],
-  minYearRange = 1,
+  minMonth,
+  maxMonth,
 }: MonthYearSelectorProps) {
-  const [isMonthOpen, setIsMonthOpen] = useState(false);
-  const [isYearOpen, setIsYearOpen] = useState(false);
-  const monthRef = useRef<HTMLDivElement>(null);
-  const yearRef = useRef<HTMLDivElement>(null);
-
-  const { year: selectedYear, month: selectedMonth } = parseMonthKey(currentMonth);
-  const currentYear = new Date().getFullYear();
+  const inputRef = useRef<HTMLInputElement>(null);
   const currentMonthKey = getCurrentMonthKey();
   const isCurrentMonth = currentMonth === currentMonthKey;
   const monthDiff = getMonthDifference(currentMonthKey, currentMonth);
 
-  const availableYears = calculateYearRange(currentYear, yearsWithNotes, minYearRange);
-  const selectedMonthData = MONTHS.find((m) => m.value === selectedMonth);
+  // Check if navigation is possible within bounds
+  const canGoPrev = !minMonth || currentMonth > minMonth;
+  const canGoNext = !maxMonth || currentMonth < maxMonth;
 
-  // Close dropdowns on click outside or escape
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (monthRef.current && !monthRef.current.contains(e.target as Node)) setIsMonthOpen(false);
-      if (yearRef.current && !yearRef.current.contains(e.target as Node)) setIsYearOpen(false);
-    };
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setIsMonthOpen(false);
-        setIsYearOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, []);
-
-  const handlePrevMonth = () => onMonthChange(navigateMonth(currentMonth, -1));
-  const handleNextMonth = () => onMonthChange(navigateMonth(currentMonth, 1));
+  const handlePrevMonth = () => {
+    if (canGoPrev) {
+      onMonthChange(navigateMonth(currentMonth, -1));
+    }
+  };
+  const handleNextMonth = () => {
+    if (canGoNext) {
+      onMonthChange(navigateMonth(currentMonth, 1));
+    }
+  };
   const handleGoToToday = () => onMonthChange(currentMonthKey);
 
-  const handleMonthSelect = (month: number) => {
-    onMonthChange(formatMonthKey(selectedYear, month));
-    setIsMonthOpen(false);
-  };
-  const handleYearSelect = (year: number) => {
-    onMonthChange(formatMonthKey(year, selectedMonth));
-    setIsYearOpen(false);
+  const handleMonthInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    if (value) {
+      onMonthChange(value as MonthKey);
+    }
   };
 
   // Format relative time indicator
@@ -124,149 +83,35 @@ export function MonthYearSelector({
         <button
           type="button"
           onClick={handlePrevMonth}
-          className="p-2 rounded-lg hover:bg-(--monarch-bg-hover) transition-colors icon-btn-hover"
+          disabled={!canGoPrev}
+          className={`p-2 rounded-lg transition-colors ${
+            canGoPrev
+              ? 'hover:bg-(--monarch-bg-hover) icon-btn-hover'
+              : 'opacity-30 cursor-not-allowed'
+          }`}
           aria-label="Previous month"
         >
           <ChevronLeft size={20} style={{ color: 'var(--monarch-text-muted)' }} />
         </button>
 
-        {/* Center: Calendar icon + Month/Year title */}
+        {/* Center: Calendar icon + Month input */}
         <div className="flex flex-col items-center">
           <div className="flex items-center gap-2">
             <div className="p-2 rounded-xl" style={{ backgroundColor: 'var(--monarch-bg-hover)' }}>
               <Calendar size={18} style={{ color: 'var(--monarch-text-muted)' }} />
             </div>
-            <div ref={monthRef} className="relative">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsMonthOpen(!isMonthOpen);
-                  setIsYearOpen(false);
-                }}
-                className="text-xl font-semibold cursor-pointer hover:opacity-70 transition-opacity"
-                style={{ color: 'var(--monarch-text-dark)' }}
-                aria-expanded={isMonthOpen}
-                aria-haspopup="menu"
-                aria-label={`Month: ${selectedMonthData?.label}. Click to change.`}
-              >
-                {selectedMonthData?.label}
-              </button>
-
-              {/* Month dropdown */}
-              {isMonthOpen && (
-                <div
-                  className="absolute top-full left-1/2 -translate-x-1/2 mt-1 py-1 rounded-lg shadow-lg min-w-35"
-                  style={{
-                    backgroundColor: 'var(--monarch-bg-card)',
-                    border: '1px solid var(--monarch-border)',
-                    zIndex: 'var(--z-index-dropdown)',
-                  }}
-                  role="menu"
-                  aria-label="Select month"
-                >
-                  {MONTHS.map((month) => {
-                    const isSelected = month.value === selectedMonth;
-                    const isCurrent =
-                      month.value === new Date().getMonth() + 1 && selectedYear === currentYear;
-
-                    return (
-                      <button
-                        key={month.value}
-                        type="button"
-                        role="menuitem"
-                        onClick={() => handleMonthSelect(month.value)}
-                        className={`w-full px-3 py-1.5 text-left text-sm transition-colors ${
-                          isSelected ? 'font-medium' : ''
-                        } hover:bg-(--monarch-bg-hover)`}
-                        style={{
-                          color: isSelected ? 'var(--monarch-orange)' : 'var(--monarch-text-dark)',
-                          backgroundColor: isSelected
-                            ? 'var(--monarch-orange-light)'
-                            : 'transparent',
-                        }}
-                        aria-current={isSelected ? 'true' : undefined}
-                      >
-                        {month.label}
-                        {isCurrent && !isSelected && (
-                          <span
-                            className="ml-2 text-xs"
-                            style={{ color: 'var(--monarch-text-muted)' }}
-                          >
-                            (current)
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            {/* Year selector */}
-            <div ref={yearRef} className="relative">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsYearOpen(!isYearOpen);
-                  setIsMonthOpen(false);
-                }}
-                className="text-xl font-semibold cursor-pointer hover:opacity-70 transition-opacity"
-                style={{ color: 'var(--monarch-text-dark)' }}
-                aria-expanded={isYearOpen}
-                aria-haspopup="menu"
-                aria-label={`Year: ${selectedYear}. Click to change.`}
-              >
-                {selectedYear}
-              </button>
-
-              {/* Year dropdown */}
-              {isYearOpen && (
-                <div
-                  className="absolute top-full left-1/2 -translate-x-1/2 mt-1 py-1 rounded-lg shadow-lg min-w-25 max-h-50 overflow-y-auto"
-                  style={{
-                    backgroundColor: 'var(--monarch-bg-card)',
-                    border: '1px solid var(--monarch-border)',
-                    zIndex: 'var(--z-index-dropdown)',
-                  }}
-                  role="menu"
-                  aria-label="Select year"
-                >
-                  {availableYears.map((year) => {
-                    const isSelected = year === selectedYear;
-                    const isCurrent = year === currentYear;
-
-                    return (
-                      <button
-                        key={year}
-                        type="button"
-                        role="menuitem"
-                        onClick={() => handleYearSelect(year)}
-                        className={`w-full px-3 py-1.5 text-left text-sm transition-colors ${
-                          isSelected ? 'font-medium' : ''
-                        } hover:bg-(--monarch-bg-hover)`}
-                        style={{
-                          color: isSelected ? 'var(--monarch-orange)' : 'var(--monarch-text-dark)',
-                          backgroundColor: isSelected
-                            ? 'var(--monarch-orange-light)'
-                            : 'transparent',
-                        }}
-                        aria-current={isSelected ? 'true' : undefined}
-                      >
-                        {year}
-                        {isCurrent && !isSelected && (
-                          <span
-                            className="ml-2 text-xs"
-                            style={{ color: 'var(--monarch-text-muted)' }}
-                          >
-                            (current)
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+            <input
+              ref={inputRef}
+              type="month"
+              value={currentMonth}
+              onChange={handleMonthInputChange}
+              onClick={() => inputRef.current?.showPicker()}
+              min={minMonth}
+              max={maxMonth}
+              className="text-xl font-semibold cursor-pointer bg-transparent border-none text-center focus:outline-none [&::-webkit-calendar-picker-indicator]:hidden"
+              style={{ color: 'var(--monarch-text-dark)' }}
+              aria-label="Select month and year"
+            />
           </div>
 
           {/* Relative time indicator or current month badge */}
@@ -309,7 +154,12 @@ export function MonthYearSelector({
         <button
           type="button"
           onClick={handleNextMonth}
-          className="p-2 rounded-lg hover:bg-(--monarch-bg-hover) transition-colors icon-btn-hover"
+          disabled={!canGoNext}
+          className={`p-2 rounded-lg transition-colors ${
+            canGoNext
+              ? 'hover:bg-(--monarch-bg-hover) icon-btn-hover'
+              : 'opacity-30 cursor-not-allowed'
+          }`}
           aria-label="Next month"
         >
           <ChevronRight size={20} style={{ color: 'var(--monarch-text-muted)' }} />
