@@ -376,7 +376,11 @@ export class BackendManager extends EventEmitter {
 
     while (Date.now() - startTime < timeout) {
       try {
-        const response = await fetch(healthUrl);
+        const response = await fetch(healthUrl, {
+          headers: this.desktopSecret
+            ? { 'X-Desktop-Secret': this.desktopSecret }
+            : {},
+        });
         if (response.ok) {
           console.log('Backend is healthy');
           return;
@@ -420,7 +424,11 @@ export class BackendManager extends EventEmitter {
 
     this.healthCheckInterval = setInterval(async () => {
       try {
-        const response = await fetch(`http://127.0.0.1:${this.port}/health`);
+        const response = await fetch(`http://127.0.0.1:${this.port}/health`, {
+          headers: this.desktopSecret
+            ? { 'X-Desktop-Secret': this.desktopSecret }
+            : {},
+        });
         if (response.ok) {
           this.restartAttempts = 0; // Reset on successful check
           updateHealthStatus(true);
