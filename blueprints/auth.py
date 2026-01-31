@@ -469,8 +469,7 @@ def auth_remote_unlock():
 
     # Only enforce IP lockout for tunnel requests (remote access)
     # Local desktop app users share the same IP and shouldn't be locked out
-    if is_tunnel_request():
-        if services.security_service.is_ip_locked_out(client_ip):
+    if is_tunnel_request() and services.security_service.is_ip_locked_out(client_ip):
             remaining = services.security_service.get_lockout_remaining_seconds(client_ip)
             audit_log(
                 services.security_service,

@@ -49,7 +49,6 @@ function getCloudflaredPath(): string {
   }
 
   const platform = process.platform;
-  const arch = process.arch;
 
   let binaryName = 'cloudflared';
   if (platform === 'win32') {

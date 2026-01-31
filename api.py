@@ -272,10 +272,7 @@ def _should_proxy_to_vite(path: str, query: str) -> bool:
         return True
 
     # Also proxy requests with Vite query params (e.g., ?import for JSON modules)
-    if query and ("import" in query or "t=" in query):
-        return True
-
-    return False
+    return bool(query and ("import" in query or "t=" in query))
 
 
 @app.errorhandler(404)

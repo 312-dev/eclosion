@@ -8,6 +8,7 @@ from flask import Blueprint, jsonify, request, send_file
 
 from core import (
     api_handler,
+    config,
     sanitize_emoji,
     sanitize_id,
     sanitize_name,
@@ -15,7 +16,6 @@ from core import (
     sanitize_response,
     sanitize_url,
 )
-from core import config
 from core.exceptions import ValidationError
 from core.middleware import sanitize_api_result
 from services.metadata_service import fetch_favicon, fetch_og_image
