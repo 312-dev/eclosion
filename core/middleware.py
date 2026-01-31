@@ -320,7 +320,9 @@ def enforce_tunnel_auth(services: "Services") -> tuple[Response, int] | None:
     )
 
     if is_api_request():
-        return jsonify({"error": "Remote access requires authentication", "code": "REMOTE_AUTH_REQUIRED"}), 401
+        return jsonify(
+            {"error": "Remote access requires authentication", "code": "REMOTE_AUTH_REQUIRED"}
+        ), 401
 
     # For page requests, redirect to remote unlock page
     return redirect("/remote-unlock"), 302
@@ -556,8 +558,7 @@ def fix_session_cookie_for_tunnel(response: Response) -> Response:
             # Remove existing SameSite and Secure attributes
             parts = [p.strip() for p in cookie.split(";")]
             filtered_parts = [
-                p for p in parts
-                if not p.lower().startswith("samesite") and p.lower() != "secure"
+                p for p in parts if not p.lower().startswith("samesite") and p.lower() != "secure"
             ]
 
             # Add correct attributes for tunnel access

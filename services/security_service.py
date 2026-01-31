@@ -543,7 +543,9 @@ class SecurityService:
                     logger.debug("[Geolocation] Success: %s -> %s, %s", ip_address, city, country)
                     return country, city
                 else:
-                    logger.debug("[Geolocation] API returned non-success for %s: %s", ip_address, data)
+                    logger.debug(
+                        "[Geolocation] API returned non-success for %s: %s", ip_address, data
+                    )
         except Exception as e:
             # Sanitize error message to prevent log injection using replace() chains
             sanitized_error = str(e).replace("\r\n", " ").replace("\n", " ").replace("\r", " ")

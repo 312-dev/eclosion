@@ -228,9 +228,7 @@ def _proxy_to_vite(path: str = "/"):
 
         # Build Flask response from Vite response
         excluded_headers = ["content-encoding", "transfer-encoding", "connection"]
-        headers = {
-            k: v for k, v in resp.headers.items() if k.lower() not in excluded_headers
-        }
+        headers = {k: v for k, v in resp.headers.items() if k.lower() not in excluded_headers}
 
         return Response(resp.content, status=resp.status_code, headers=headers)
     except http_requests.RequestException as e:

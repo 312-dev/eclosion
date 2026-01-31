@@ -470,19 +470,19 @@ def auth_remote_unlock():
     # Only enforce IP lockout for tunnel requests (remote access)
     # Local desktop app users share the same IP and shouldn't be locked out
     if is_tunnel_request() and services.security_service.is_ip_locked_out(client_ip):
-            remaining = services.security_service.get_lockout_remaining_seconds(client_ip)
-            audit_log(
-                services.security_service,
-                "REMOTE_UNLOCK",
-                False,
-                f"IP locked out, {remaining}s remaining",
-            )
-            return {
-                "success": False,
-                "error": f"Too many failed attempts. Try again in {remaining // 60 + 1} minutes.",
-                "locked_out": True,
-                "retry_after": remaining,
-            }
+        remaining = services.security_service.get_lockout_remaining_seconds(client_ip)
+        audit_log(
+            services.security_service,
+            "REMOTE_UNLOCK",
+            False,
+            f"IP locked out, {remaining}s remaining",
+        )
+        return {
+            "success": False,
+            "error": f"Too many failed attempts. Try again in {remaining // 60 + 1} minutes.",
+            "locked_out": True,
+            "retry_after": remaining,
+        }
 
     if not passphrase:
         audit_log(services.security_service, "REMOTE_UNLOCK", False, "Empty passphrase")
@@ -515,7 +515,12 @@ def auth_remote_unlock():
         notes_key = credentials_service.get_notes_key(passphrase)
         session["session_passphrase"] = notes_key if notes_key else passphrase
 
-        audit_log(services.security_service, "REMOTE_UNLOCK", True, "Credentials unlocked for remote session")
+        audit_log(
+            services.security_service,
+            "REMOTE_UNLOCK",
+            True,
+            "Credentials unlocked for remote session",
+        )
         return {"success": True}
 
     # Failure - record failed attempt for tunnel requests

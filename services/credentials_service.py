@@ -516,7 +516,10 @@ class CredentialsService:
             error: Error message if save failed
         """
         if not CredentialsService._session_credentials:
-            return {"success": False, "error": "No session credentials available. Please login first."}
+            return {
+                "success": False,
+                "error": "No session credentials available. Please login first.",
+            }
 
         creds = CredentialsService._session_credentials
         email = creds.get("email")
