@@ -301,9 +301,9 @@ export function NewStashImageUpload({
                   <Icons.Refresh
                     size={24}
                     className="animate-spin"
-                    style={{ color: 'var(--monarch-teal)' }}
+                    style={{ color: 'var(--monarch-orange)' }}
                   />
-                  <span className="text-sm" style={{ color: 'var(--monarch-teal)' }}>
+                  <span className="text-sm" style={{ color: 'var(--monarch-orange)' }}>
                     Fetching image...
                   </span>
                 </>

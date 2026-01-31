@@ -9,7 +9,11 @@ import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useDemo } from '../context/DemoContext';
 import { useRecurringTour, useNotesTour, useStashTour } from './';
+import { isTunnelSite } from '../utils/environment';
 import type { DashboardData } from '../types';
+
+// Cache tunnel detection at module level (doesn't change during session)
+const IS_TUNNEL_SITE = isTunnelSite();
 
 interface UseAppTourParams {
   dashboardData: DashboardData | undefined;
@@ -79,18 +83,23 @@ export function useAppTour({
   });
 
   // Get the correct tour state based on current page
+  // On tunnel sites, treat all tours as already seen (skip help tips for remote users)
   const getTourConfig = () => {
     if (isStashPage)
       return {
         steps: stashTourSteps,
-        seen: hasSeenStashTour,
+        seen: IS_TUNNEL_SITE || hasSeenStashTour,
         hasSteps: hasStashTourSteps,
       };
     if (isNotesPage)
-      return { steps: notesTourSteps, seen: hasSeenNotesTour, hasSteps: hasNotesTourSteps };
+      return {
+        steps: notesTourSteps,
+        seen: IS_TUNNEL_SITE || hasSeenNotesTour,
+        hasSteps: hasNotesTourSteps,
+      };
     return {
       steps: recurringTourSteps,
-      seen: hasSeenRecurringTour,
+      seen: IS_TUNNEL_SITE || hasSeenRecurringTour,
       hasSteps: hasRecurringTourSteps,
     };
   };

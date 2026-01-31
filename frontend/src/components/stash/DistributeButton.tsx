@@ -27,6 +27,8 @@ interface DistributeButtonProps {
   readonly groupPosition?: ButtonGroupPosition;
   /** Icon-only mode (no label) */
   readonly iconOnly?: boolean;
+  /** Data-tour attribute for guided tour highlighting */
+  readonly dataTour?: string;
 }
 
 /**
@@ -80,6 +82,7 @@ export function DistributeButton({
   compact = false,
   groupPosition = 'standalone',
   iconOnly = false,
+  dataTour,
 }: DistributeButtonProps) {
   const isRateLimited = useIsRateLimited();
   const { enterDistributeMode, exitMode, mode, hasChanges, requestSubmit } = useDistributionMode();
@@ -162,6 +165,7 @@ export function DistributeButton({
         boxShadow: isDisabled ? undefined : boxShadow,
       }}
       aria-label={isInDistributeMode ? exitLabel : 'Distribute funds'}
+      data-tour={dataTour}
     >
       {isInDistributeMode ? (
         <>

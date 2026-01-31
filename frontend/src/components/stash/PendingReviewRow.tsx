@@ -123,7 +123,7 @@ export function PendingReviewRow({
           className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md btn-press"
           style={{
             backgroundColor: 'transparent',
-            color: 'var(--monarch-teal)',
+            color: 'var(--monarch-orange)',
             border: '1px solid var(--monarch-border)',
           }}
           aria-label={`Create stash from ${displayName}`}

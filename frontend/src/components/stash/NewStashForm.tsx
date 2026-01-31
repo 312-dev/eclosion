@@ -372,7 +372,7 @@ export function NewStashForm({
             >
               <div>
                 <span style={{ color: 'var(--monarch-text-muted)' }}>Monthly: </span>
-                <span style={{ color: 'var(--monarch-teal)', fontWeight: 500 }}>
+                <span style={{ color: 'var(--monarch-orange)', fontWeight: 500 }}>
                   ${monthlyTarget}/mo
                 </span>
               </div>

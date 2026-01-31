@@ -27,6 +27,8 @@ interface HypothesizeButtonProps {
   readonly groupPosition?: ButtonGroupPosition;
   /** Icon-only mode (no label) */
   readonly iconOnly?: boolean;
+  /** Data-tour attribute for guided tour highlighting */
+  readonly dataTour?: string;
 }
 
 /**
@@ -75,6 +77,7 @@ export function HypothesizeButton({
   compact = false,
   groupPosition = 'standalone',
   iconOnly = false,
+  dataTour,
 }: HypothesizeButtonProps) {
   const {
     enterHypothesizeMode,
@@ -241,6 +244,7 @@ export function HypothesizeButton({
         boxShadow: isDisabled ? undefined : boxShadow,
       }}
       aria-label={isInHypothesizeMode ? exitLabel : 'Hypothesize fund allocation'}
+      data-tour={dataTour}
     >
       {isInHypothesizeMode ? (
         <>

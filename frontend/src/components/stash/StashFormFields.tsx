@@ -153,7 +153,7 @@ export function UrlInput({ id, value, onChange }: UrlInputProps) {
             style={{
               backgroundColor: 'var(--monarch-bg-page)',
               border: '1px solid var(--monarch-border)',
-              color: 'var(--monarch-teal)',
+              color: 'var(--monarch-orange)',
             }}
             aria-label="Open URL in new tab"
           >
@@ -257,7 +257,7 @@ function UrlEditModalContent({
             onClick={handleSave}
             className="px-3 py-1.5 text-sm rounded-md font-medium transition-colors"
             style={{
-              backgroundColor: 'var(--monarch-teal)',
+              backgroundColor: 'var(--monarch-orange)',
               color: 'white',
             }}
           >
@@ -384,7 +384,7 @@ export function UrlDisplay({ value, onChange, onModalOpenChange }: UrlDisplayPro
             target="_blank"
             rel="noopener noreferrer"
             className="hover:underline truncate"
-            style={{ color: 'var(--monarch-teal)' }}
+            style={{ color: 'var(--monarch-orange)' }}
             title={value}
           >
             {displayUrl}
@@ -628,11 +628,11 @@ export function TargetDateInput({
               key={pick.label}
               type="button"
               onClick={() => onChange(pick.date)}
-              className={`px-2 py-1 text-xs rounded-md btn-press ${value === pick.date ? 'ring-2 ring-(--monarch-teal)' : ''}`}
+              className={`px-2 py-1 text-xs rounded-md btn-press ${value === pick.date ? 'ring-2 ring-(--monarch-orange)' : ''}`}
               style={{
                 backgroundColor:
-                  value === pick.date ? 'var(--monarch-teal-light)' : 'var(--monarch-bg-page)',
-                color: value === pick.date ? 'var(--monarch-teal)' : 'var(--monarch-text-muted)',
+                  value === pick.date ? 'var(--monarch-orange-light)' : 'var(--monarch-bg-page)',
+                color: value === pick.date ? 'var(--monarch-orange)' : 'var(--monarch-text-muted)',
                 border: '1px solid var(--monarch-border)',
               }}
             >
@@ -943,7 +943,7 @@ export function GoalTypeSelector({ value, onChange, hideLabel = false }: GoalTyp
                   {isSelected && (
                     <Icons.Check
                       className="w-3.5 h-3.5 mt-0.5"
-                      style={{ color: 'var(--monarch-teal)' }}
+                      style={{ color: 'var(--monarch-orange)' }}
                     />
                   )}
                 </div>
