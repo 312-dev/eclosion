@@ -12,6 +12,38 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def get_client_ip() -> str | None:
+    """Get the real client IP, accounting for tunnel proxies.
+
+    Priority:
+    1. CF-Connecting-IP (Cloudflare Quick Tunnel header - used for remote access)
+    2. X-Real-IP (common proxy header, used by nginx and some tunnels)
+    3. X-Forwarded-For (standard proxy header, take first IP)
+    4. request.remote_addr (direct connection fallback)
+    """
+    # Cloudflare provides the original client IP in this header
+    cf_ip = request.headers.get("CF-Connecting-IP")
+    if cf_ip:
+        logger.debug("[IP] Using CF-Connecting-IP: %s", cf_ip)
+        return cf_ip.strip()
+
+    # X-Real-IP is often used by nginx and some tunnel providers
+    real_ip = request.headers.get("X-Real-IP")
+    if real_ip:
+        logger.debug("[IP] Using X-Real-IP: %s", real_ip)
+        return real_ip.strip()
+
+    # Standard proxy header - first IP is the original client
+    forwarded_for = request.headers.get("X-Forwarded-For")
+    if forwarded_for:
+        client_ip = forwarded_for.split(",")[0].strip()
+        logger.debug("[IP] Using X-Forwarded-For: %s (full: %s)", client_ip, forwarded_for)
+        return client_ip
+
+    logger.debug("[IP] Using remote_addr: %s", request.remote_addr)
+    return request.remote_addr
+
+
 def _sanitize_log_value(value: str | None) -> str:
     """Sanitize a value for safe logging by removing control characters."""
     if value is None:
@@ -43,9 +75,8 @@ def audit_log(
     Valid events: LOGIN, LOGOUT, MFA_*, SESSION_*, RESET_*, INSTANCE_*, UNLOCK, PASSPHRASE_*
     """
     status = "SUCCESS" if success else "FAILED"
-    # Get client IP, sanitize and use repr() to prevent log injection
-    # repr() is recognized by static analyzers as a sanitization barrier
-    raw_ip = request.headers.get("X-Forwarded-For", request.remote_addr) or "unknown"
+    # Get client IP (handles Cloudflare tunnels), sanitize and use repr() for log injection prevention
+    raw_ip = get_client_ip() or "unknown"
     safe_ip = repr(_sanitize_log_value(raw_ip))
     safe_details = repr(_sanitize_log_value(details)) if details else "''"
     # Use %-style formatting with repr'd values for CodeQL compatibility
@@ -53,7 +84,7 @@ def audit_log(
 
     # Store event in SQLite database for security panel
     user_agent = request.headers.get("User-Agent", "")[:256]
-    ip_address = raw_ip.split(",")[0].strip() if raw_ip != "unknown" else None
+    ip_address = raw_ip if raw_ip != "unknown" else None
     security_service.log_event(
         event_type=event,
         success=success,

@@ -28,6 +28,8 @@ class Credentials(Base):
     email_encrypted: Mapped[str] = mapped_column(Text, nullable=False)
     password_encrypted: Mapped[str] = mapped_column(Text, nullable=False)
     mfa_secret_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Desktop notes encryption key - stored encrypted so tunnel users can access it
+    notes_key_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(UTC), nullable=False
     )

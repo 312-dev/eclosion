@@ -58,7 +58,21 @@ CREATE TABLE IF NOT EXISTS security_preferences (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS ip_lockouts (
+    ip_address TEXT PRIMARY KEY,
+    failed_attempts INTEGER NOT NULL DEFAULT 0,
+    locked_until TEXT,
+    last_attempt TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_ip_lockouts_locked_until
+    ON ip_lockouts(locked_until);
 """
+
+# Lockout configuration
+LOCKOUT_THRESHOLD = 10  # Failed attempts before lockout
+LOCKOUT_DURATION_MINUTES = 15  # How long to lock out an IP
 
 
 @dataclass
@@ -189,8 +203,8 @@ class SecurityService:
             )
             conn.commit()
 
-            # Update last login timestamp if this is a successful login
-            if event_type == "LOGIN_ATTEMPT" and success:
+            # Update last login timestamp if this is a successful login or remote unlock
+            if event_type in ("LOGIN_ATTEMPT", "REMOTE_UNLOCK") and success:
                 self._set_preference("last_login_timestamp", timestamp)
 
         except Exception as e:
@@ -200,7 +214,7 @@ class SecurityService:
         self,
         limit: int = 50,
         offset: int = 0,
-        event_type: str | None = None,
+        event_types: list[str] | None = None,
         success: bool | None = None,
     ) -> tuple[list[SecurityEvent], int]:
         """
@@ -209,7 +223,7 @@ class SecurityService:
         Args:
             limit: Maximum number of events to return
             offset: Number of events to skip
-            event_type: Filter by event type
+            event_types: Filter by event types (list of event type strings)
             success: Filter by success/failure
 
         Returns:
@@ -222,9 +236,10 @@ class SecurityService:
             where_clause = "WHERE 1=1"
             params: list = []
 
-            if event_type:
-                where_clause += " AND event_type = ?"
-                params.append(event_type)
+            if event_types:
+                placeholders = ",".join("?" for _ in event_types)
+                where_clause += f" AND event_type IN ({placeholders})"
+                params.extend(event_types)
             if success is not None:
                 where_clause += " AND success = ?"
                 params.append(1 if success else 0)
@@ -352,7 +367,7 @@ class SecurityService:
             conn = self._get_connection()
             query = """
                 SELECT * FROM security_events
-                WHERE event_type IN ('LOGIN_ATTEMPT', 'UNLOCK_ATTEMPT', 'UNLOCK_AND_VALIDATE')
+                WHERE event_type IN ('LOGIN_ATTEMPT', 'UNLOCK_ATTEMPT', 'UNLOCK_AND_VALIDATE', 'REMOTE_UNLOCK')
                 AND success = 0
             """
             params: list = []
@@ -487,14 +502,23 @@ class SecurityService:
         """
         # Validate IP address format to prevent SSRF
         if not ip_address:
+            logger.debug("[Geolocation] No IP address provided")
             return None, None
         try:
             parsed_ip = ipaddress.ip_address(ip_address)
         except ValueError:
+            logger.debug("[Geolocation] Invalid IP format: %s", ip_address)
             return None, None
 
         # Skip private/local/reserved IPs
         if parsed_ip.is_private or parsed_ip.is_loopback or parsed_ip.is_reserved:
+            logger.debug(
+                "[Geolocation] Skipping private/local/reserved IP: %s (private=%s, loopback=%s, reserved=%s)",
+                ip_address,
+                parsed_ip.is_private,
+                parsed_ip.is_loopback,
+                parsed_ip.is_reserved,
+            )
             return None, None
 
         # Check cache first
@@ -508,13 +532,18 @@ class SecurityService:
             safe_ip = urllib.parse.quote(str(parsed_ip), safe="")
             url = f"http://ip-api.com/json/{safe_ip}?fields=status,country,city"
             req = urllib.request.Request(url, headers={"User-Agent": "Eclosion/1.0"})
+            logger.debug("[Geolocation] Looking up IP: %s", ip_address)
             with urllib.request.urlopen(req, timeout=5) as response:
                 data = json.loads(response.read().decode())
+                logger.debug("[Geolocation] API response for %s: %s", ip_address, data)
                 if data.get("status") == "success":
                     country = data.get("country")
                     city = data.get("city")
                     self._cache_geolocation(ip_address, country, city)
+                    logger.debug("[Geolocation] Success: %s -> %s, %s", ip_address, city, country)
                     return country, city
+                else:
+                    logger.debug("[Geolocation] API returned non-success for %s: %s", ip_address, data)
         except Exception as e:
             # Sanitize error message to prevent log injection using replace() chains
             sanitized_error = str(e).replace("\r\n", " ").replace("\n", " ").replace("\r", " ")
@@ -576,3 +605,136 @@ class SecurityService:
             conn.commit()
         except Exception as e:
             logger.warning("Failed to set security preference: %s", e)
+
+    # =========================================================================
+    # IP Lockout Management (for remote access brute-force protection)
+    # =========================================================================
+
+    def is_ip_locked_out(self, ip_address: str | None) -> bool:
+        """
+        Check if an IP address is currently locked out.
+
+        Returns True if the IP has exceeded the failure threshold and is still
+        within the lockout period.
+        """
+        if not ip_address:
+            return False
+
+        try:
+            conn = self._get_connection()
+            cursor = conn.execute(
+                "SELECT locked_until FROM ip_lockouts WHERE ip_address = ?",
+                (ip_address,),
+            )
+            row = cursor.fetchone()
+            if not row or not row["locked_until"]:
+                return False
+
+            locked_until = datetime.fromisoformat(row["locked_until"])
+            if datetime.now(UTC) < locked_until:
+                return True
+
+            # Lockout expired, clear it
+            self._clear_ip_lockout(ip_address)
+            return False
+        except Exception as e:
+            logger.warning("Failed to check IP lockout: %s", e)
+            return False
+
+    def record_failed_remote_unlock(self, ip_address: str | None) -> bool:
+        """
+        Record a failed remote unlock attempt for an IP.
+
+        Returns True if the IP is now locked out (threshold exceeded).
+        """
+        if not ip_address:
+            return False
+
+        try:
+            conn = self._get_connection()
+            now = datetime.now(UTC).isoformat()
+
+            # Get current attempt count
+            cursor = conn.execute(
+                "SELECT failed_attempts FROM ip_lockouts WHERE ip_address = ?",
+                (ip_address,),
+            )
+            row = cursor.fetchone()
+            current_attempts = row["failed_attempts"] if row else 0
+            new_attempts = current_attempts + 1
+
+            # Check if we should lock out
+            locked_until = None
+            if new_attempts >= LOCKOUT_THRESHOLD:
+                locked_until = (
+                    datetime.now(UTC) + timedelta(minutes=LOCKOUT_DURATION_MINUTES)
+                ).isoformat()
+                logger.warning(
+                    "IP %s locked out until %s after %d failed attempts",
+                    ip_address,
+                    locked_until,
+                    new_attempts,
+                )
+
+            # Upsert the lockout record
+            conn.execute(
+                """
+                INSERT INTO ip_lockouts (ip_address, failed_attempts, locked_until, last_attempt)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(ip_address) DO UPDATE SET
+                    failed_attempts = ?,
+                    locked_until = ?,
+                    last_attempt = ?
+                """,
+                (ip_address, new_attempts, locked_until, now, new_attempts, locked_until, now),
+            )
+            conn.commit()
+
+            return new_attempts >= LOCKOUT_THRESHOLD
+        except Exception as e:
+            logger.warning("Failed to record failed unlock attempt: %s", e)
+            return False
+
+    def clear_ip_lockout(self, ip_address: str | None) -> None:
+        """
+        Clear lockout state for an IP address.
+
+        Called on successful remote unlock to reset the failure counter.
+        """
+        if not ip_address:
+            return
+        self._clear_ip_lockout(ip_address)
+
+    def _clear_ip_lockout(self, ip_address: str) -> None:
+        """Internal method to clear lockout state."""
+        try:
+            conn = self._get_connection()
+            conn.execute("DELETE FROM ip_lockouts WHERE ip_address = ?", (ip_address,))
+            conn.commit()
+        except Exception as e:
+            logger.warning("Failed to clear IP lockout: %s", e)
+
+    def get_lockout_remaining_seconds(self, ip_address: str | None) -> int:
+        """
+        Get the number of seconds remaining in a lockout.
+
+        Returns 0 if not locked out.
+        """
+        if not ip_address:
+            return 0
+
+        try:
+            conn = self._get_connection()
+            cursor = conn.execute(
+                "SELECT locked_until FROM ip_lockouts WHERE ip_address = ?",
+                (ip_address,),
+            )
+            row = cursor.fetchone()
+            if not row or not row["locked_until"]:
+                return 0
+
+            locked_until = datetime.fromisoformat(row["locked_until"])
+            remaining = (locked_until - datetime.now(UTC)).total_seconds()
+            return max(0, int(remaining))
+        except Exception:
+            return 0
