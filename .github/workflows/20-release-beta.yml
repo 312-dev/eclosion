@@ -26,6 +26,11 @@ on:
         required: false
         type: string
 
+# Only one beta release at a time - cancel any in-progress run
+concurrency:
+  group: release-beta
+  cancel-in-progress: true
+
 permissions: {}
 
 jobs:

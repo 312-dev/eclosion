@@ -37,6 +37,11 @@ on:
         required: false
         type: string
 
+# Only one stable release at a time - cancel any in-progress run
+concurrency:
+  group: release-stable
+  cancel-in-progress: true
+
 permissions: {}
 
 jobs:
