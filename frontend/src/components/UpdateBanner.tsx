@@ -22,7 +22,7 @@ export function UpdateBanner() {
   return (
     <>
       <output
-        className="update-banner flex items-center justify-between gap-3 py-2 px-4 text-sm"
+        className="header-banner update-banner flex items-center justify-between gap-3 py-2 px-4 text-sm"
         style={{
           backgroundColor: 'var(--monarch-orange)',
           borderTop: '1px solid var(--monarch-border)',

@@ -14,6 +14,7 @@ import { StashCategoryModal, type CategorySelection } from './StashCategoryModal
 import { useToast } from '../../context/ToastContext';
 import { useIsRateLimited } from '../../context/RateLimitContext';
 import { calculateStashMonthlyTarget } from '../../utils/savingsCalculations';
+import { getLocalDateString } from '../../utils/dateRangeUtils';
 import { StashImageUpload } from './StashImageUpload';
 import { EditStashProgress } from './EditStashProgress';
 import { DeleteStashConfirmModal } from './DeleteStashConfirmModal';
@@ -41,7 +42,7 @@ function getFormValidationError(name: string, amount: string, targetDate: string
 
 /** Get the target date, adjusting for archived items with past dates */
 function getInitialTargetDate(item: StashItem): string {
-  const today = new Date().toISOString().split('T')[0] ?? '';
+  const today = getLocalDateString();
   return item.is_archived && item.target_date < today ? today : item.target_date;
 }
 
@@ -211,7 +212,7 @@ export function EditStashForm({
 
   const isDisabled = isSubmitting || isRateLimited || isStartingBalanceOverAvailable;
 
-  const today = useMemo(() => new Date().toISOString().split('T')[0], []);
+  const today = useMemo(() => getLocalDateString(), []);
   const amountNum = Number.parseFloat(amount) || 0;
 
   const onCategoryConfirm = (selection: CategorySelection) =>

@@ -36,7 +36,9 @@ interface MonthTransitionBannerContentProps {
   };
 }
 
-function MonthTransitionBannerContent({ monthTransition }: Readonly<MonthTransitionBannerContentProps>) {
+function MonthTransitionBannerContent({
+  monthTransition,
+}: Readonly<MonthTransitionBannerContentProps>) {
   const {
     currentCalendarMonth,
     dataMonth,
@@ -59,7 +61,7 @@ function MonthTransitionBannerContent({ monthTransition }: Readonly<MonthTransit
     return (
       <output
         aria-live="polite"
-        className="month-transition-banner flex items-center gap-3 py-2 px-4 text-sm"
+        className="header-banner month-transition-banner flex items-center gap-3 py-2 px-4 text-sm"
         style={{
           backgroundColor: 'var(--monarch-info-bg)',
           borderTop: '1px solid var(--monarch-border)',
@@ -78,7 +80,7 @@ function MonthTransitionBannerContent({ monthTransition }: Readonly<MonthTransit
       <div
         role="alert"
         aria-live="assertive"
-        className="month-transition-banner flex items-center justify-between gap-3 py-2 px-4 text-sm"
+        className="header-banner month-transition-banner flex items-center justify-between gap-3 py-2 px-4 text-sm"
         style={{
           backgroundColor: 'var(--monarch-error-bg)',
           borderTop: '1px solid var(--monarch-border)',
@@ -125,7 +127,7 @@ function MonthTransitionBannerContent({ monthTransition }: Readonly<MonthTransit
     <div
       role="alert"
       aria-live="polite"
-      className="month-transition-banner flex items-center justify-between gap-3 py-2 px-4 text-sm"
+      className="header-banner month-transition-banner flex items-center justify-between gap-3 py-2 px-4 text-sm"
       style={{
         backgroundColor: 'var(--monarch-warning-bg)',
         borderTop: '1px solid var(--monarch-border)',

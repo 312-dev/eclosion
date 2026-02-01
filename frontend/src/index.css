@@ -818,7 +818,7 @@ input[type='radio'] {
      This may be overridden for macOS Electron (73px) to account for traffic lights.
      See AppShell.tsx for platform-specific adjustments. */
   --header-height: 55px;
-  --rate-limit-banner-height: 40px;
+  --banner-height: 40px;
   --footer-height: 45px; /* Match .app-footer height */
   height: 100vh;
   padding-top: var(--header-height);
@@ -827,81 +827,71 @@ input[type='radio'] {
   flex-direction: column;
 }
 
-/* When rate limit banner is visible inside header, increase effective header height */
-.app-layout:has(.app-header .rate-limit-banner) {
-  padding-top: calc(var(--header-height) + var(--rate-limit-banner-height));
+/* Header banners - automatically adjust padding based on number of visible banners.
+   Uses adjacent sibling selectors to count how many .header-banner elements are rendered.
+   Each banner adds --banner-height to the padding-top. */
+
+/* 1 banner */
+.app-layout:has(.app-header .header-banner) {
+  padding-top: calc(var(--header-height) + var(--banner-height));
 }
 
-.app-layout:has(.app-header .rate-limit-banner) .sidebar-nav {
-  max-height: calc(
-    100vh - var(--header-height) - var(--rate-limit-banner-height) - var(--footer-height)
-  );
+/* 2 banners */
+.app-layout:has(.app-header .header-banner + .header-banner) {
+  padding-top: calc(var(--header-height) + var(--banner-height) * 2);
 }
 
-/* When offline banner is visible inside header, increase effective header height */
-.app-layout:has(.app-header .offline-banner) {
-  padding-top: calc(var(--header-height) + var(--rate-limit-banner-height));
+/* 3 banners */
+.app-layout:has(.app-header .header-banner + .header-banner + .header-banner) {
+  padding-top: calc(var(--header-height) + var(--banner-height) * 3);
 }
 
-.app-layout:has(.app-header .offline-banner) .sidebar-nav {
-  max-height: calc(
-    100vh - var(--header-height) - var(--rate-limit-banner-height) - var(--footer-height)
-  );
+/* 4 banners */
+.app-layout:has(.app-header .header-banner + .header-banner + .header-banner + .header-banner) {
+  padding-top: calc(var(--header-height) + var(--banner-height) * 4);
 }
 
-/* When both rate-limit and offline banners are visible */
-.app-layout:has(.app-header .rate-limit-banner):has(.app-header .offline-banner) {
-  padding-top: calc(var(--header-height) + var(--rate-limit-banner-height) * 2);
+/* 5 banners */
+.app-layout:has(
+  .app-header .header-banner + .header-banner + .header-banner + .header-banner + .header-banner
+) {
+  padding-top: calc(var(--header-height) + var(--banner-height) * 5);
 }
 
-.app-layout:has(.app-header .rate-limit-banner):has(.app-header .offline-banner) .sidebar-nav {
-  max-height: calc(
-    100vh - var(--header-height) - var(--rate-limit-banner-height) * 2 - var(--footer-height)
-  );
-}
+/* Desktop only: Adjust sidebar max-height when banners are visible.
+   Mobile nav is position:fixed at bottom, so it doesn't need max-height adjustments. */
+@media (min-width: 768px) {
+  .app-layout:has(.app-header .header-banner) .sidebar-nav {
+    max-height: calc(100vh - var(--header-height) - var(--banner-height) - var(--footer-height));
+  }
 
-/* When update banner is visible inside header */
-.app-layout:has(.app-header .update-banner) {
-  padding-top: calc(var(--header-height) + var(--rate-limit-banner-height));
-}
+  .app-layout:has(.app-header .header-banner + .header-banner) .sidebar-nav {
+    max-height: calc(
+      100vh - var(--header-height) - var(--banner-height) * 2 - var(--footer-height)
+    );
+  }
 
-.app-layout:has(.app-header .update-banner) .sidebar-nav {
-  max-height: calc(
-    100vh - var(--header-height) - var(--rate-limit-banner-height) - var(--footer-height)
-  );
-}
+  .app-layout:has(.app-header .header-banner + .header-banner + .header-banner) .sidebar-nav {
+    max-height: calc(
+      100vh - var(--header-height) - var(--banner-height) * 3 - var(--footer-height)
+    );
+  }
 
-/* When desktop update banner is visible inside header */
-.app-layout:has(.app-header .desktop-update-banner) {
-  padding-top: calc(var(--header-height) + var(--rate-limit-banner-height));
-}
+  .app-layout:has(.app-header .header-banner + .header-banner + .header-banner + .header-banner)
+    .sidebar-nav {
+    max-height: calc(
+      100vh - var(--header-height) - var(--banner-height) * 4 - var(--footer-height)
+    );
+  }
 
-.app-layout:has(.app-header .desktop-update-banner) .sidebar-nav {
-  max-height: calc(
-    100vh - var(--header-height) - var(--rate-limit-banner-height) - var(--footer-height)
-  );
-}
-
-/* When month transition banner is visible inside header */
-.app-layout:has(.app-header .month-transition-banner) {
-  padding-top: calc(var(--header-height) + var(--rate-limit-banner-height));
-}
-
-.app-layout:has(.app-header .month-transition-banner) .sidebar-nav {
-  max-height: calc(
-    100vh - var(--header-height) - var(--rate-limit-banner-height) - var(--footer-height)
-  );
-}
-
-/* When distribution mode banner is visible inside header */
-.app-layout:has(.app-header .distribution-mode-banner) {
-  padding-top: calc(var(--header-height) + var(--rate-limit-banner-height));
-}
-
-.app-layout:has(.app-header .distribution-mode-banner) .sidebar-nav {
-  max-height: calc(
-    100vh - var(--header-height) - var(--rate-limit-banner-height) - var(--footer-height)
-  );
+  .app-layout:has(
+      .app-header .header-banner + .header-banner + .header-banner + .header-banner + .header-banner
+    )
+    .sidebar-nav {
+    max-height: calc(
+      100vh - var(--header-height) - var(--banner-height) * 5 - var(--footer-height)
+    );
+  }
 }
 
 .app-scroll-area {

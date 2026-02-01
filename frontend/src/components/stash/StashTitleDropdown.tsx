@@ -12,6 +12,7 @@ import { useState, useCallback, useRef, useEffect, useId, type ReactNode } from 
 import { createPortal } from 'react-dom';
 import { ExternalLinkIcon, Icons } from '../icons';
 import { decodeHtmlEntities } from '../../utils';
+import { getLocalDateString } from '../../utils/dateRangeUtils';
 import { motion, AnimatePresence, slideDownVariants } from '../motion';
 
 interface StashTitleDropdownProps {
@@ -126,7 +127,7 @@ export function StashTitleDropdown({
 
   // Generate Monarch category URL if categoryId is available
   const monarchUrl = categoryId
-    ? `https://app.monarch.com/categories/${categoryId}?breakdown=category&date=${new Date().toISOString().split('T')[0]}&sankey=category&timeframe=month&view=breakdown`
+    ? `https://app.monarch.com/categories/${categoryId}?breakdown=category&date=${getLocalDateString()}&sankey=category&timeframe=month&view=breakdown`
     : null;
 
   let itemIndex = 0;

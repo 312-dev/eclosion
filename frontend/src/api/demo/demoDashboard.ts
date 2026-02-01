@@ -5,6 +5,7 @@
  */
 
 import type { DashboardData, SyncResult } from '../../types';
+import { getCurrentMonthKey } from '../../utils/dateRangeUtils';
 import { getDemoState, updateDemoState, simulateDelay } from './demoState';
 
 /**
@@ -28,7 +29,7 @@ export async function triggerSync(): Promise<SyncResult> {
     dashboard: {
       ...s.dashboard,
       last_sync: new Date().toISOString(),
-      data_month: new Date().toISOString().slice(0, 7),
+      data_month: getCurrentMonthKey(),
     },
   }));
 

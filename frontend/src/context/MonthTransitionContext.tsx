@@ -51,9 +51,12 @@ interface MonthTransitionContextValue extends MonthTransitionState, MonthTransit
 // Helpers
 // ============================================================================
 
-/** Get current month in YYYY-MM format */
+/** Get current month in YYYY-MM format (local time, not UTC) */
 function getCurrentMonth(): string {
-  return new Date().toISOString().slice(0, 7);
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  return `${year}-${month}`;
 }
 
 /** Format YYYY-MM to full month name (e.g., "January") */

@@ -20,7 +20,7 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 # Current schema version - bump when adding migrations
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 11
 
 
 def column_exists(conn: sqlite3.Connection, table: str, column: str) -> bool:
@@ -154,6 +154,147 @@ def migrate_v6_stash_sort_order(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
+def migrate_v7_credentials_notes_key(conn: sqlite3.Connection) -> None:
+    """
+    Migration v7: Add notes_key_encrypted column to credentials table.
+
+    Stores the desktop's notes encryption key encrypted with the user's passphrase.
+    This allows tunnel/remote users to decrypt notes created by the desktop app.
+    """
+    if not column_exists(conn, "credentials", "notes_key_encrypted"):
+        cursor = conn.cursor()
+        cursor.execute("ALTER TABLE credentials ADD COLUMN notes_key_encrypted TEXT")
+        conn.commit()
+
+
+def migrate_v8_wishlist_items_grid_layout(conn: sqlite3.Connection) -> None:
+    """
+    Migration v8: Add grid layout columns to wishlist_items.
+
+    Adds grid_x, grid_y, col_span, row_span for widget-style resizable cards,
+    and image_attribution for Openverse image credits.
+    """
+    cursor = conn.cursor()
+
+    if not column_exists(conn, "wishlist_items", "grid_x"):
+        cursor.execute(
+            "ALTER TABLE wishlist_items ADD COLUMN grid_x INTEGER NOT NULL DEFAULT 0"
+        )
+    if not column_exists(conn, "wishlist_items", "grid_y"):
+        cursor.execute(
+            "ALTER TABLE wishlist_items ADD COLUMN grid_y INTEGER NOT NULL DEFAULT 0"
+        )
+    if not column_exists(conn, "wishlist_items", "col_span"):
+        cursor.execute(
+            "ALTER TABLE wishlist_items ADD COLUMN col_span INTEGER NOT NULL DEFAULT 1"
+        )
+    if not column_exists(conn, "wishlist_items", "row_span"):
+        cursor.execute(
+            "ALTER TABLE wishlist_items ADD COLUMN row_span INTEGER NOT NULL DEFAULT 1"
+        )
+    if not column_exists(conn, "wishlist_items", "image_attribution"):
+        cursor.execute("ALTER TABLE wishlist_items ADD COLUMN image_attribution TEXT")
+
+    conn.commit()
+
+
+def migrate_v9_wishlist_config_stash_settings(conn: sqlite3.Connection) -> None:
+    """
+    Migration v9: Add stash feature columns to wishlist_config.
+
+    Adds include_expected_income, show_monarch_goals, selected_cash_account_ids,
+    and buffer_amount for the Available to Stash calculation.
+    """
+    cursor = conn.cursor()
+
+    if not column_exists(conn, "wishlist_config", "include_expected_income"):
+        cursor.execute(
+            "ALTER TABLE wishlist_config ADD COLUMN include_expected_income "
+            "BOOLEAN NOT NULL DEFAULT 1"
+        )
+    if not column_exists(conn, "wishlist_config", "show_monarch_goals"):
+        cursor.execute(
+            "ALTER TABLE wishlist_config ADD COLUMN show_monarch_goals "
+            "BOOLEAN NOT NULL DEFAULT 1"
+        )
+    if not column_exists(conn, "wishlist_config", "selected_cash_account_ids"):
+        cursor.execute(
+            "ALTER TABLE wishlist_config ADD COLUMN selected_cash_account_ids TEXT"
+        )
+    if not column_exists(conn, "wishlist_config", "buffer_amount"):
+        cursor.execute(
+            "ALTER TABLE wishlist_config ADD COLUMN buffer_amount INTEGER NOT NULL DEFAULT 0"
+        )
+
+    conn.commit()
+
+
+def migrate_v10_monarch_goal_layout_table(conn: sqlite3.Connection) -> None:
+    """
+    Migration v10: Create monarch_goal_layout table if it doesn't exist.
+
+    This table stores grid positions for Monarch savings goals displayed in Stash.
+    May already exist from create_all(), but older DBs might not have it.
+    """
+    cursor = conn.cursor()
+
+    # Check if table exists
+    cursor.execute("""
+        SELECT name FROM sqlite_master
+        WHERE type='table' AND name='monarch_goal_layout'
+    """)
+
+    if not cursor.fetchone():
+        cursor.execute("""
+            CREATE TABLE monarch_goal_layout (
+                goal_id VARCHAR(100) PRIMARY KEY,
+                grid_x INTEGER NOT NULL DEFAULT 0,
+                grid_y INTEGER NOT NULL DEFAULT 0,
+                col_span INTEGER NOT NULL DEFAULT 1,
+                row_span INTEGER NOT NULL DEFAULT 1,
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        conn.commit()
+
+
+def migrate_v11_stash_hypotheses_extended(conn: sqlite3.Connection) -> None:
+    """
+    Migration v11: Add extended fields to stash_hypotheses table.
+
+    Adds custom_available_funds, custom_left_to_budget, and item_apys
+    for full scenario persistence in hypothesize mode.
+    """
+    cursor = conn.cursor()
+
+    # Check if table exists first (may not exist if user never used hypotheses)
+    cursor.execute("""
+        SELECT name FROM sqlite_master
+        WHERE type='table' AND name='stash_hypotheses'
+    """)
+
+    if not cursor.fetchone():
+        # Table doesn't exist - create_all() will handle it
+        return
+
+    if not column_exists(conn, "stash_hypotheses", "custom_available_funds"):
+        cursor.execute(
+            "ALTER TABLE stash_hypotheses ADD COLUMN custom_available_funds FLOAT"
+        )
+    if not column_exists(conn, "stash_hypotheses", "custom_left_to_budget"):
+        cursor.execute(
+            "ALTER TABLE stash_hypotheses ADD COLUMN custom_left_to_budget FLOAT"
+        )
+    if not column_exists(conn, "stash_hypotheses", "item_apys"):
+        cursor.execute(
+            "ALTER TABLE stash_hypotheses ADD COLUMN item_apys TEXT NOT NULL DEFAULT '{}'"
+        )
+
+    conn.commit()
+
+
 # Migration definitions
 # Each migration runs only if current DB version < migration version
 # "sql" can be a string (executed as script) or a callable (called with conn)
@@ -222,6 +363,41 @@ MIGRATIONS = [
         "version": 6,
         "description": "Add sort_order for stash reordering",
         "sql": migrate_v6_stash_sort_order,
+    },
+    # Version 7: Add notes_key_encrypted to credentials
+    # Stores desktop's notes encryption key for tunnel/remote access
+    {
+        "version": 7,
+        "description": "Add notes_key_encrypted to credentials",
+        "sql": migrate_v7_credentials_notes_key,
+    },
+    # Version 8: Add grid layout and image attribution to wishlist_items
+    # Enables widget-style resizable cards and Openverse image credits
+    {
+        "version": 8,
+        "description": "Add grid layout columns to wishlist_items",
+        "sql": migrate_v8_wishlist_items_grid_layout,
+    },
+    # Version 9: Add stash feature columns to wishlist_config
+    # Enables Available to Stash calculation customization
+    {
+        "version": 9,
+        "description": "Add stash settings to wishlist_config",
+        "sql": migrate_v9_wishlist_config_stash_settings,
+    },
+    # Version 10: Create monarch_goal_layout table
+    # Stores grid positions for Monarch goals in Stash view
+    {
+        "version": 10,
+        "description": "Create monarch_goal_layout table",
+        "sql": migrate_v10_monarch_goal_layout_table,
+    },
+    # Version 11: Add extended fields to stash_hypotheses
+    # Enables full scenario persistence with custom overrides and APYs
+    {
+        "version": 11,
+        "description": "Add extended fields to stash_hypotheses",
+        "sql": migrate_v11_stash_hypotheses_extended,
     },
 ]
 

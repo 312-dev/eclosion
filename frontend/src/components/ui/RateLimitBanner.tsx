@@ -64,7 +64,7 @@ export function RateLimitBanner() {
     <div
       role="alert"
       aria-live="polite"
-      className="rate-limit-banner flex items-center justify-between gap-3 py-2 px-4 text-sm"
+      className="header-banner rate-limit-banner flex items-center justify-between gap-3 py-2 px-4 text-sm"
       style={{
         backgroundColor: 'var(--monarch-warning-bg)',
         borderTop: '1px solid var(--monarch-border)',

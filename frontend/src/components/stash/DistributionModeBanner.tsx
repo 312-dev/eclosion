@@ -63,7 +63,7 @@ export function DistributionModeBanner() {
   return (
     <>
       <div
-        className="distribution-mode-banner w-full px-4 py-2 flex items-center justify-between gap-4 animate-slide-down"
+        className="header-banner distribution-mode-banner w-full px-4 py-2 flex items-center justify-between gap-4 animate-slide-down"
         style={{
           backgroundColor: bannerBg,
           borderBottom: `1px solid ${bannerBorder}`,

@@ -47,11 +47,25 @@ export function parseMonthKey(monthKey: MonthKey): { year: number; month: number
 }
 
 /**
- * Get current month key
+ * Get current month key (YYYY-MM format, local time)
  */
 export function getCurrentMonthKey(): MonthKey {
   const now = new Date();
   return formatMonthKey(now.getFullYear(), now.getMonth() + 1);
+}
+
+/**
+ * Get current date string in YYYY-MM-DD format (local time, not UTC).
+ *
+ * IMPORTANT: Do NOT use `new Date().toISOString().slice(0, 10)` as that returns
+ * UTC date, which can be wrong near midnight in timezones behind UTC.
+ */
+export function getLocalDateString(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 /**

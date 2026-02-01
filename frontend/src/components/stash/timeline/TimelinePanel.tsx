@@ -12,6 +12,7 @@ import type { NamedEvent, ProjectedCardState } from '../../../types/timeline';
 import { useDistributionMode } from '../../../context/DistributionModeContext';
 import { useTimelineProjection } from '../../../hooks/useTimelineProjection';
 import { useTimelineZoom } from '../../../hooks/useTimelineZoom';
+import { getCurrentMonthKey, getLocalDateString } from '../../../utils/dateRangeUtils';
 import { TimelineChart } from './TimelineChart';
 import { TimelineZoomControls } from './TimelineZoomControls';
 import { TimelineSidebar } from './TimelineSidebar';
@@ -145,10 +146,13 @@ export function TimelinePanel({ items, formatCurrency }: TimelinePanelProps) {
 
   const handleRangeChange = useCallback(
     (months: number) => {
-      const today = new Date().toISOString().slice(0, 10);
+      const today = getLocalDateString();
       const endDate = new Date();
       endDate.setMonth(endDate.getMonth() + months);
-      setDateRange(today, endDate.toISOString().slice(0, 10));
+      const endYear = endDate.getFullYear();
+      const endMonth = String(endDate.getMonth() + 1).padStart(2, '0');
+      const endDay = String(endDate.getDate()).padStart(2, '0');
+      setDateRange(today, `${endYear}-${endMonth}-${endDay}`);
     },
     [setDateRange]
   );
@@ -160,7 +164,7 @@ export function TimelinePanel({ items, formatCurrency }: TimelinePanelProps) {
 
   // Normalize year-only dates to a valid month, ensuring it's not in the past
   const normalizeToMonth = useCallback((date: string) => {
-    const currentMonth = new Date().toISOString().slice(0, 7);
+    const currentMonth = getCurrentMonthKey();
     const currentYear = currentMonth.slice(0, 4);
 
     // If it's a year-only date (e.g., "2027")
@@ -190,7 +194,7 @@ export function TimelinePanel({ items, formatCurrency }: TimelinePanelProps) {
   }
 
   // Get current month for new events
-  const currentMonth = new Date().toISOString().slice(0, 7);
+  const currentMonth = getCurrentMonthKey();
 
   return (
     <div

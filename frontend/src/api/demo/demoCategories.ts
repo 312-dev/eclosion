@@ -11,6 +11,7 @@ import type {
   UnmappedCategory,
   LinkCategoryResult,
 } from '../../types';
+import { getLocalDateString } from '../../utils/dateRangeUtils';
 import { getDemoState, updateDemoState, simulateDelay } from './demoState';
 
 /**
@@ -231,9 +232,11 @@ export async function updateCategoryGroupSettings(
     } else if (settings.rollover_enabled === true || settings.rollover_start_month) {
       rolloverPeriod = {
         id: rolloverPeriod?.id ?? `rollover-${group_id}`,
-        start_month: settings.rollover_start_month ?? rolloverPeriod?.start_month ?? new Date().toISOString().slice(0, 10),
+        start_month:
+          settings.rollover_start_month ?? rolloverPeriod?.start_month ?? getLocalDateString(),
         end_month: rolloverPeriod?.end_month ?? null,
-        starting_balance: settings.rollover_starting_balance ?? rolloverPeriod?.starting_balance ?? 0,
+        starting_balance:
+          settings.rollover_starting_balance ?? rolloverPeriod?.starting_balance ?? 0,
         type: settings.rollover_type ?? rolloverPeriod?.type ?? 'monthly',
         frequency: rolloverPeriod?.frequency ?? 'monthly',
         target_amount: rolloverPeriod?.target_amount ?? null,
@@ -243,8 +246,12 @@ export async function updateCategoryGroupSettings(
     updatedGroup = {
       ...existingGroup,
       ...(settings.name !== undefined && { name: settings.name }),
-      ...(settings.budget_variability !== undefined && { budget_variability: settings.budget_variability }),
-      ...(settings.group_level_budgeting_enabled !== undefined && { group_level_budgeting_enabled: settings.group_level_budgeting_enabled }),
+      ...(settings.budget_variability !== undefined && {
+        budget_variability: settings.budget_variability,
+      }),
+      ...(settings.group_level_budgeting_enabled !== undefined && {
+        group_level_budgeting_enabled: settings.group_level_budgeting_enabled,
+      }),
       rollover_enabled: rolloverPeriod !== null,
       rollover_period: rolloverPeriod,
     };

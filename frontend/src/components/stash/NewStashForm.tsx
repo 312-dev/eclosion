@@ -24,6 +24,7 @@ import {
   calculateMonthsRemaining,
   formatMonthsRemaining,
 } from '../../utils/savingsCalculations';
+import { getLocalDateString } from '../../utils/dateRangeUtils';
 import { InlineCategorySelector, type CategorySelectionResult } from './InlineCategorySelector';
 import { NewStashImageUpload } from './NewStashImageUpload';
 import { SavingsProgressBar } from '../shared';
@@ -99,7 +100,7 @@ export function NewStashForm({
     bufferAmount: stashConfig?.bufferAmount ?? 0,
   });
 
-  const today = useMemo(() => new Date().toISOString().split('T')[0], []);
+  const today = useMemo(() => getLocalDateString(), []);
 
   const startingBalanceNum = Number.parseInt(startingBalance, 10) || 0;
 

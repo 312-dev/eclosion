@@ -6,6 +6,7 @@ import { createPortal } from 'react-dom';
 import { X, ChevronDown, Check } from 'lucide-react';
 import type { NamedEvent, NamedEventType, TimelineItemConfig } from '../../../types/timeline';
 import { Z_INDEX } from '../../../constants';
+import { getCurrentMonthKey } from '../../../utils/dateRangeUtils';
 import { createArrowKeyHandler } from '../../../hooks/useArrowKeyIncrement';
 
 const POPOVER_WIDTH = 288;
@@ -159,7 +160,7 @@ export function TimelineEditPopover({
   const [amount, setAmount] = useState(event?.amount?.toString() ?? '');
   const [date, setDate] = useState(event?.date ?? initialDate);
   const [error, setError] = useState<string | null>(null);
-  const minDate = new Date().toISOString().slice(0, 7);
+  const minDate = getCurrentMonthKey();
 
   const handleAmountKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     const currentValue = Number.parseInt(amount, 10) || 0;
