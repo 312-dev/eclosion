@@ -50,9 +50,7 @@ afterPack: afterPack.js
 
 # macOS configuration
 # Universal binary with architecture-specific Python backends.
-# afterPack.js removes the non-matching backend from each arch build, so:
-# - arm64 build has only backend-arm64, x64 build has only backend-x64
-# @electron/universal merges them without lipo (different directory names).
+# Both backend-arm64 and backend-x64 are included in the universal app.
 # At runtime, backend.ts selects the correct directory based on process.arch.
 mac:
   category: public.app-category.finance
@@ -67,10 +65,6 @@ mac:
   entitlements: entitlements.mac.plist
   entitlementsInherit: entitlements.mac.plist
   darkModeSupport: true
-  # Skip arch check for backend directories - they are intentionally different per-arch
-  # This tells @electron/universal to NOT try to merge these files with lipo
-  # Pattern must match the full path from app bundle root (Contents/Resources/...)
-  singleArchFiles: "Contents/Resources/backend-{arm64,x64}/**/*"
   # afterPack.js pre-signs backend with --no-strict (required for PyInstaller)
   # signIgnore prevents electron-builder from re-signing and breaking those signatures
   # NOTE: These are regex patterns, not glob patterns

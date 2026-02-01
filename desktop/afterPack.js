@@ -341,24 +341,17 @@ exports.default = async function (context) {
   // electron-builder Arch enum: 0 = ia32, 1 = x64, 2 = armv7l, 3 = arm64, 4 = universal
   // When building universal, electron-builder first builds x64, then arm64, then merges.
   //
-  // Strategy: Remove the "wrong" backend directory from each single-arch build.
-  // - arm64 build: keep only backend-arm64
-  // - x64 build: keep only backend-x64
-  // During universal merge, each directory is unique to its arch so no lipo merge happens.
+  // Strategy: Keep BOTH backend directories in BOTH arch builds. This way both builds
+  // have identical file structures, and @electron/universal can merge them without issues.
   // At runtime, backend.ts selects the correct directory based on process.arch.
+  //
+  // NOTE: singleArchFiles only works for ASAR files, not extraResources like our backends.
+  // So we MUST have identical files in both builds for the merge to succeed.
   const archName = arch === 3 ? 'arm64' : arch === 1 ? 'x64' : null;
 
   if (archName) {
     console.log(`Architecture: ${archName} (arch=${arch})`);
-
-    // Remove the backend directory that doesn't match this architecture
-    if (archName === 'arm64' && fs.existsSync(backendX64)) {
-      console.log('  Removing backend-x64 (will be added from x64 build during merge)');
-      fs.rmSync(backendX64, { recursive: true, force: true });
-    } else if (archName === 'x64' && fs.existsSync(backendArm64)) {
-      console.log('  Removing backend-arm64 (will be added from arm64 build during merge)');
-      fs.rmSync(backendArm64, { recursive: true, force: true });
-    }
+    console.log('  Keeping both backend directories for universal merge compatibility');
   }
 
   const backendDirs = [];
