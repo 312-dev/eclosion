@@ -9,10 +9,11 @@
 #
 # Flow:
 #   1. Validate main branch
-#   2. Calculate version
-#   3. Create draft pre-release
-#   4. Run release pipeline (security → build all → validate → publish)
-#   5. Finalize pre-release (mark non-draft)
+#   2. Verify CI and Security passed
+#   3. Calculate version
+#   4. Create draft pre-release
+#   5. Run release pipeline (build all → validate → publish)
+#   6. Finalize pre-release (mark non-draft)
 #
 # If any step fails, the release remains in draft state and nothing is published.
 

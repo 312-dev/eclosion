@@ -9,12 +9,13 @@
 #
 # Flow:
 #   1. Validate main branch
-#   2. Calculate next version based on bump type
-#   3. Update version files
-#   4. Generate release notes from commits/PRs since last tag
-#   5. Create draft release
-#   6. Run release pipeline (build all → validate → publish)
-#   7. Finalize release (mark non-draft)
+#   2. Verify CI and Security passed
+#   3. Calculate next version based on bump type
+#   4. Update version files
+#   5. Generate release notes from commits/PRs since last tag
+#   6. Create draft release
+#   7. Run release pipeline (build all → validate → publish)
+#   8. Finalize release (mark non-draft)
 #
 # If any step fails, the release remains in draft state and nothing is published.
 
