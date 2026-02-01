@@ -398,6 +398,20 @@ jobs:
           done
           cat checksums-macos-${{ matrix.arch }}.txt
 
+      - name: Rename mac yml to be architecture-specific
+        working-directory: desktop/release
+        run: |
+          # Rename latest-mac.yml or beta-mac.yml to include architecture
+          # This prevents one arch from overwriting the other when artifacts are merged
+          for yml in *-mac.yml; do
+            if [ -f "$yml" ]; then
+              newname="${yml%-mac.yml}-mac-${{ matrix.arch }}.yml"
+              echo "Renaming $yml to $newname"
+              mv "$yml" "$newname"
+            fi
+          done
+          ls -la *-mac*.yml || true
+
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
@@ -406,7 +420,7 @@ jobs:
             desktop/release/*.dmg
             desktop/release/*.zip
             desktop/release/*.blockmap
-            desktop/release/*-mac.yml
+            desktop/release/*-mac-*.yml
             desktop/release/checksums-macos-${{ matrix.arch }}.txt
           retention-days: 30
 
@@ -760,6 +774,102 @@ jobs:
         run: |
           echo "Artifacts to upload:"
           find artifacts -type f -exec ls -lh {} \;
+
+      - name: Merge Mac yml files from different architectures
+        run: |
+          # Merge architecture-specific mac yml files into a single latest-mac.yml (or beta-mac.yml)
+          # This allows electron-updater to pick the right architecture based on process.arch
+          cd artifacts
+
+          # Check for stable (latest-mac-*.yml) or beta (beta-mac-*.yml) files
+          for prefix in latest beta; do
+            ARM64_YML="${prefix}-mac-arm64.yml"
+            X64_YML="${prefix}-mac-x64.yml"
+            OUTPUT_YML="${prefix}-mac.yml"
+
+            if [ -f "$ARM64_YML" ] && [ -f "$X64_YML" ]; then
+              echo "Merging $ARM64_YML and $X64_YML into $OUTPUT_YML"
+
+              # Use node to properly merge the YAML files
+              node << MERGE_SCRIPT
+                const fs = require('fs');
+                const yaml = require('yaml');
+
+                // Simple YAML parser (electron-builder uses simple format)
+                function parseSimpleYaml(content) {
+                  const result = { files: [] };
+                  let currentFile = null;
+
+                  for (const line of content.split('\n')) {
+                    if (line.startsWith('version:')) {
+                      result.version = line.split(':')[1].trim();
+                    } else if (line.startsWith('releaseDate:')) {
+                      result.releaseDate = line.split('releaseDate:')[1].trim();
+                    } else if (line.startsWith('path:')) {
+                      result.path = line.split(':')[1].trim();
+                    } else if (line.startsWith('sha512:') && !currentFile) {
+                      result.sha512 = line.split(':')[1].trim();
+                    } else if (line.match(/^  - url:/)) {
+                      if (currentFile) result.files.push(currentFile);
+                      currentFile = { url: line.split('url:')[1].trim() };
+                    } else if (currentFile && line.match(/^\s+sha512:/)) {
+                      currentFile.sha512 = line.split(':')[1].trim();
+                    } else if (currentFile && line.match(/^\s+size:/)) {
+                      currentFile.size = parseInt(line.split(':')[1].trim());
+                    } else if (currentFile && line.match(/^\s+blockMapSize:/)) {
+                      currentFile.blockMapSize = parseInt(line.split(':')[1].trim());
+                    }
+                  }
+                  if (currentFile) result.files.push(currentFile);
+                  return result;
+                }
+
+                const arm64 = parseSimpleYaml(fs.readFileSync('${ARM64_YML}', 'utf8'));
+                const x64 = parseSimpleYaml(fs.readFileSync('${X64_YML}', 'utf8'));
+
+                // Merge files arrays - ARM64 first so it's preferred on Apple Silicon
+                const merged = {
+                  version: arm64.version,
+                  files: [...arm64.files, ...x64.files],
+                  path: arm64.path,  // Default to ARM64
+                  sha512: arm64.sha512,
+                  releaseDate: arm64.releaseDate
+                };
+
+                // Generate merged YAML
+                let output = 'version: ' + merged.version + '\n';
+                output += 'files:\n';
+                for (const file of merged.files) {
+                  output += '  - url: ' + file.url + '\n';
+                  output += '    sha512: ' + file.sha512 + '\n';
+                  output += '    size: ' + file.size + '\n';
+                  if (file.blockMapSize) {
+                    output += '    blockMapSize: ' + file.blockMapSize + '\n';
+                  }
+                }
+                output += 'path: ' + merged.path + '\n';
+                output += 'sha512: ' + merged.sha512 + '\n';
+                output += 'releaseDate: ' + merged.releaseDate + '\n';
+
+                fs.writeFileSync('${OUTPUT_YML}', output);
+                console.log('Merged ${OUTPUT_YML}:');
+                console.log(output);
+          MERGE_SCRIPT
+
+              # Remove the architecture-specific files
+              rm "$ARM64_YML" "$X64_YML"
+              echo "Removed architecture-specific yml files"
+            elif [ -f "$ARM64_YML" ]; then
+              echo "Only $ARM64_YML found, renaming to $OUTPUT_YML"
+              mv "$ARM64_YML" "$OUTPUT_YML"
+            elif [ -f "$X64_YML" ]; then
+              echo "Only $X64_YML found, renaming to $OUTPUT_YML"
+              mv "$X64_YML" "$OUTPUT_YML"
+            fi
+          done
+
+          echo "Final mac yml files:"
+          ls -la *-mac.yml 2>/dev/null || echo "No mac yml files"
 
       - name: Combine checksums
         run: |

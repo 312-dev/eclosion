@@ -59,6 +59,41 @@ function getBackendPath(): string {
  *
  * Returns true if corruption is detected, false if OK.
  */
+/**
+ * Check if a macOS binary matches the expected architecture.
+ * Reads the Mach-O header to determine if it's arm64 or x86_64.
+ */
+function checkBinaryArchitecture(binaryPath: string): 'arm64' | 'x64' | 'unknown' {
+  try {
+    // Read first 8 bytes of the binary (Mach-O magic + CPU type)
+    const fd = fs.openSync(binaryPath, 'r');
+    const buffer = Buffer.alloc(8);
+    fs.readSync(fd, buffer, 0, 8, 0);
+    fs.closeSync(fd);
+
+    // Mach-O magic numbers
+    const MH_MAGIC_64 = 0xfeedfacf; // 64-bit little endian
+    const MH_CIGAM_64 = 0xcffaedfe; // 64-bit big endian
+
+    const magic = buffer.readUInt32LE(0);
+    if (magic !== MH_MAGIC_64 && magic !== MH_CIGAM_64) {
+      // Could be a fat binary or not a Mach-O file
+      return 'unknown';
+    }
+
+    // CPU type is at offset 4
+    const cpuType = buffer.readUInt32LE(4);
+    const CPU_TYPE_ARM64 = 0x0100000c; // ARM64
+    const CPU_TYPE_X86_64 = 0x01000007; // x86_64
+
+    if (cpuType === CPU_TYPE_ARM64) return 'arm64';
+    if (cpuType === CPU_TYPE_X86_64) return 'x64';
+    return 'unknown';
+  } catch {
+    return 'unknown';
+  }
+}
+
 export async function isBackendCorrupted(): Promise<boolean> {
   const backendPath = getBackendPath();
   const expectedVersion = app.getVersion();
@@ -70,6 +105,19 @@ export async function isBackendCorrupted(): Promise<boolean> {
   if (!fs.existsSync(backendPath)) {
     debugLog(`Backend not found at ${backendPath}`);
     return false; // Not corrupted, just missing (will fail later with proper error)
+  }
+
+  // On macOS, check if the binary architecture matches the system
+  if (process.platform === 'darwin') {
+    const binaryArch = checkBinaryArchitecture(backendPath);
+    const systemArch = process.arch; // 'arm64' or 'x64'
+
+    debugLog(`Binary architecture: ${binaryArch}, System architecture: ${systemArch}`);
+
+    if (binaryArch !== 'unknown' && binaryArch !== systemArch) {
+      debugLog(`CORRUPTED: Architecture mismatch - binary is ${binaryArch} but system is ${systemArch}`);
+      return true;
+    }
   }
 
   try {
