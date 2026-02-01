@@ -49,20 +49,16 @@ protocols:
 afterPack: afterPack.js
 
 # macOS configuration
-# Build arm64 and x64 separately (not universal) because we have architecture-specific
-# Python backends. @electron/universal cannot handle separate binaries in extraResources.
-# afterPack.js removes the non-matching backend from each build.
+# Universal binary with architecture-specific Python backends.
+# afterPack.js renames the correct backend to "backend/" for each arch build,
+# then @electron/universal merges them with lipo into true universal binaries.
 mac:
   category: public.app-category.finance
   target:
     - target: dmg
-      arch:
-        - arm64
-        - x64
+      arch: universal
     - target: zip
-      arch:
-        - arm64
-        - x64
+      arch: universal
   icon: assets/icon.icns
   hardenedRuntime: true
   gatekeeperAssess: false
@@ -75,7 +71,6 @@ mac:
   signIgnore:
     - ".*backend.*"
     - ".*Python\\.framework.*"
-  # Both backends are copied, afterPack removes the non-matching one
   extraResources:
     - from: ../frontend/dist
       to: frontend

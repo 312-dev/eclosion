@@ -33,26 +33,17 @@ function debugLog(msg: string): void {
 }
 
 /**
- * Get the path to the backend executable based on platform and architecture.
+ * Get the path to the backend executable based on platform.
  *
- * On macOS, the app is a universal binary containing backends for both ARM64 and x64.
- * We select the appropriate backend at runtime based on process.arch.
+ * On macOS, the backend binaries are merged into universal binaries via lipo
+ * during the build process. All platforms use the same "backend/" directory.
  *
- * Directory structure:
- * - macOS: resources/backend-arm64/ and resources/backend-x64/
- * - Windows/Linux: resources/backend/
+ * Directory structure (all platforms): resources/backend/
  */
 function getBackendPath(): string {
   const resourcesPath = process.resourcesPath || app.getAppPath();
-
-  if (process.platform === 'darwin') {
-    // macOS universal binary: select architecture-specific backend
-    const archDir = process.arch === 'arm64' ? 'backend-arm64' : 'backend-x64';
-    return path.join(resourcesPath, archDir, 'eclosion-backend');
-  }
-
-  // Windows and Linux: single architecture backend
   const backendDir = path.join(resourcesPath, 'backend');
+
   if (process.platform === 'win32') {
     return path.join(backendDir, 'eclosion-backend.exe');
   }
@@ -74,10 +65,10 @@ function getBackendPath(): string {
  * Returns true if corruption is detected, false if OK.
  */
 /**
- * Check if a macOS binary matches the expected architecture.
- * Reads the Mach-O header to determine if it's arm64 or x86_64.
+ * Check if a macOS binary is a universal (fat) binary or matches a specific architecture.
+ * Reads the Mach-O header to determine the type.
  */
-function checkBinaryArchitecture(binaryPath: string): 'arm64' | 'x64' | 'unknown' {
+function checkBinaryArchitecture(binaryPath: string): 'arm64' | 'x64' | 'universal' | 'unknown' {
   try {
     // Read first 8 bytes of the binary (Mach-O magic + CPU type)
     const fd = fs.openSync(binaryPath, 'r');
@@ -88,10 +79,17 @@ function checkBinaryArchitecture(binaryPath: string): 'arm64' | 'x64' | 'unknown
     // Mach-O magic numbers
     const MH_MAGIC_64 = 0xfeedfacf; // 64-bit little endian
     const MH_CIGAM_64 = 0xcffaedfe; // 64-bit big endian
+    const FAT_MAGIC = 0xcafebabe; // Fat binary (big endian)
+    const FAT_CIGAM = 0xbebafeca; // Fat binary (little endian)
 
     const magic = buffer.readUInt32LE(0);
+
+    // Check for fat binary (universal)
+    if (magic === FAT_MAGIC || magic === FAT_CIGAM) {
+      return 'universal';
+    }
+
     if (magic !== MH_MAGIC_64 && magic !== MH_CIGAM_64) {
-      // Could be a fat binary or not a Mach-O file
       return 'unknown';
     }
 
@@ -121,14 +119,17 @@ export async function isBackendCorrupted(): Promise<boolean> {
     return false; // Not corrupted, just missing (will fail later with proper error)
   }
 
-  // On macOS, check if the binary architecture matches the system
+  // On macOS, check if the binary architecture is compatible with the system
   if (process.platform === 'darwin') {
     const binaryArch = checkBinaryArchitecture(backendPath);
     const systemArch = process.arch; // 'arm64' or 'x64'
 
     debugLog(`Binary architecture: ${binaryArch}, System architecture: ${systemArch}`);
 
-    if (binaryArch !== 'unknown' && binaryArch !== systemArch) {
+    // Universal binaries work on both architectures
+    if (binaryArch === 'universal') {
+      debugLog('Binary is universal - compatible with all architectures');
+    } else if (binaryArch !== 'unknown' && binaryArch !== systemArch) {
       debugLog(`CORRUPTED: Architecture mismatch - binary is ${binaryArch} but system is ${systemArch}`);
       return true;
     }

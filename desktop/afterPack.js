@@ -340,20 +340,34 @@ exports.default = async function (context) {
 
   // electron-builder Arch enum: 0 = ia32, 1 = x64, 2 = armv7l, 3 = arm64, 4 = universal
   // When building universal, electron-builder first builds x64, then arm64, then merges.
-  // We need to remove the "wrong" backend directory from each single-arch build
-  // so that the universal merge just copies each backend without lipo conflicts.
+  //
+  // Strategy: Rename the correct arch's backend to a common "backend/" directory.
+  // This allows @electron/universal to merge them with lipo into actual universal binaries.
+  // Result: A single universal backend that works on both arm64 and x64 Macs.
   const archName = arch === 3 ? 'arm64' : arch === 1 ? 'x64' : null;
 
   if (archName) {
     console.log(`Architecture: ${archName} (arch=${arch})`);
 
-    // Remove the backend directory that doesn't match this architecture
-    if (archName === 'arm64' && fs.existsSync(backendX64)) {
-      console.log('  Removing backend-x64 from arm64 build (will be added from x64 build during merge)');
-      fs.rmSync(backendX64, { recursive: true, force: true });
-    } else if (archName === 'x64' && fs.existsSync(backendArm64)) {
-      console.log('  Removing backend-arm64 from x64 build (will be added from arm64 build during merge)');
-      fs.rmSync(backendArm64, { recursive: true, force: true });
+    // Rename the correct backend to "backend/" and delete the other
+    if (archName === 'arm64') {
+      if (fs.existsSync(backendX64)) {
+        console.log('  Removing backend-x64 (wrong arch)');
+        fs.rmSync(backendX64, { recursive: true, force: true });
+      }
+      if (fs.existsSync(backendArm64) && !fs.existsSync(backendSingle)) {
+        console.log('  Renaming backend-arm64 -> backend');
+        fs.renameSync(backendArm64, backendSingle);
+      }
+    } else if (archName === 'x64') {
+      if (fs.existsSync(backendArm64)) {
+        console.log('  Removing backend-arm64 (wrong arch)');
+        fs.rmSync(backendArm64, { recursive: true, force: true });
+      }
+      if (fs.existsSync(backendX64) && !fs.existsSync(backendSingle)) {
+        console.log('  Renaming backend-x64 -> backend');
+        fs.renameSync(backendX64, backendSingle);
+      }
     }
   }
 
