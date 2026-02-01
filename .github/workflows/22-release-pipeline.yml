@@ -3,14 +3,15 @@
 # Unified release orchestrator that handles the complete release process
 # for both beta and production releases. Ensures strict stage gating:
 #
-#   Security → Build All → Validate → Publish → Finalize
+#   Build All → Validate → Publish → Finalize
 #
+# Security scanning happens on merge to main (CI workflow), not at release time.
 # Nothing is published unless ALL builds succeed. Nothing is finalized
 # unless ALL publishing steps succeed.
 #
 # Usage:
-#   - Called by create-beta.yml for beta releases
-#   - Called by create-stable.yml for production releases
+#   - Called by 20-release-beta.yml for beta releases
+#   - Called by 21-release-stable.yml for production releases
 
 name: "22 Release: Pipeline"
 
@@ -29,11 +30,6 @@ on:
         description: 'Git tag (e.g., v1.2.0)'
         required: true
         type: string
-      skip_security:
-        description: 'Skip security scan (for re-runs after security already passed)'
-        required: false
-        type: boolean
-        default: false
       skip_docker:
         description: 'Skip Docker build (for beta releases where Docker is not needed)'
         required: false
@@ -41,11 +37,6 @@ on:
         default: false
       skip_screenshots:
         description: 'Skip screenshot generation (for beta releases)'
-        required: false
-        type: boolean
-        default: false
-      skip_codeql:
-        description: 'Skip CodeQL scan (code was already scanned on merge to main)'
         required: false
         type: boolean
         default: false
@@ -74,36 +65,17 @@ on:
 #   contents: write     - For checkout and release operations
 #   packages: write     - For Docker image publishing
 #   id-token: write     - For Sigstore keyless signing
-#   security-events: write - For security scanning
 #   deployments: write  - For Cloudflare deployment
 
 jobs:
   # ===========================================================================
-  # STAGE 1: SECURITY GATE
-  # ===========================================================================
-  security:
-    name: "Stage 1: Security Scan"
-    if: ${{ !inputs.skip_security }}
-    uses: ./.github/workflows/10-security.yml
-    with:
-      severity: high
-      skip_dast: true
-      # Skip CodeQL - code was already scanned on merge to main
-      skip_codeql: ${{ inputs.skip_codeql }}
-    permissions:
-      security-events: write
-      contents: read
-
-  # ===========================================================================
-  # STAGE 2: BUILD ALL ARTIFACTS
+  # STAGE 1: BUILD ALL ARTIFACTS
   # All builds run in parallel but ALL must succeed to proceed
   # ===========================================================================
 
   # Build frontend once - shared by Docker and Cloudflare
   build-frontend:
-    name: "Stage 2: Build Frontend"
-    needs: [security]
-    if: always() && (needs.security.result == 'success' || needs.security.result == 'skipped')
+    name: "Stage 1: Build Frontend"
     runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:
@@ -139,9 +111,9 @@ jobs:
 
   # Generate screenshots for README (skipped for beta releases)
   generate-screenshots:
-    name: "Stage 2: Generate Screenshots"
-    needs: [security, build-frontend]
-    if: always() && !inputs.skip_screenshots && (needs.security.result == 'success' || needs.security.result == 'skipped') && needs.build-frontend.result == 'success'
+    name: "Stage 1: Generate Screenshots"
+    needs: [build-frontend]
+    if: ${{ !inputs.skip_screenshots && needs.build-frontend.result == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -194,9 +166,7 @@ jobs:
 
   # Build desktop apps for all platforms
   build-desktop:
-    name: "Stage 2: Build Desktop Apps"
-    needs: [security]
-    if: always() && (needs.security.result == 'success' || needs.security.result == 'skipped')
+    name: "Stage 1: Build Desktop Apps"
     uses: ./.github/workflows/23-build-desktop.yml
     with:
       version: ${{ inputs.version }}
@@ -211,9 +181,9 @@ jobs:
   # Build Docker image (push with SHA tag, not version tag yet)
   # Skipped for beta releases since beta testers typically use desktop app
   build-docker:
-    name: "Stage 2: Build Docker Image"
-    needs: [security, build-frontend]
-    if: always() && !inputs.skip_docker && (needs.security.result == 'success' || needs.security.result == 'skipped') && needs.build-frontend.result == 'success'
+    name: "Stage 1: Build Docker Image"
+    needs: [build-frontend]
+    if: ${{ !inputs.skip_docker && needs.build-frontend.result == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     outputs:
@@ -285,11 +255,11 @@ jobs:
           echo "Verify with: \`cosign verify ${{ steps.image.outputs.tag }}@${{ steps.build.outputs.digest }} --certificate-oidc-issuer https://token.actions.githubusercontent.com --certificate-identity-regexp https://github.com/${{ github.repository }}/\`" >> $GITHUB_STEP_SUMMARY
 
   # ===========================================================================
-  # STAGE 3: VALIDATION GATE
+  # STAGE 2: VALIDATION GATE
   # Ensures ALL builds passed before any publishing
   # ===========================================================================
   validate-builds:
-    name: "Stage 3: Validate All Builds"
+    name: "Stage 2: Validate All Builds"
     needs: [build-frontend, build-desktop, build-docker, generate-screenshots]
     # Always run this job so we can validate which builds succeeded/were skipped
     if: always()
@@ -330,14 +300,14 @@ jobs:
           echo "✅ All builds passed validation" >> $GITHUB_STEP_SUMMARY
 
   # ===========================================================================
-  # STAGE 4: PUBLISH
+  # STAGE 3: PUBLISH
   # Only runs after ALL builds are validated
   # ===========================================================================
 
   # Tag Docker image with version (promotes SHA tag to version tag)
   # Skipped if Docker build was skipped (beta releases)
   publish-docker:
-    name: "Stage 4: Publish Docker"
+    name: "Stage 3: Publish Docker"
     needs: [validate-builds, build-docker]
     if: needs.build-docker.result == 'success'
     runs-on: ubuntu-latest
@@ -386,7 +356,7 @@ jobs:
   # NOTE: Package visibility must be set to public manually once via GitHub UI:
   # Repository > Packages > Package Settings > Danger Zone > Change visibility
   publish-desktop:
-    name: "Stage 4: Publish Desktop"
+    name: "Stage 3: Publish Desktop"
     needs: [validate-builds]
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -485,7 +455,7 @@ jobs:
   # Create docs version snapshot (production only)
   # Runs BEFORE deploy-cloudflare so the new version is included in the Docusaurus build
   create-docs-version:
-    name: "Stage 4: Create Docs Version"
+    name: "Stage 3: Create Docs Version"
     needs: [validate-builds]
     if: inputs.release_type == 'production'
     runs-on: ubuntu-latest
@@ -535,7 +505,7 @@ jobs:
   # For production releases, also waits for docs version to be created
   # Beta releases skip environment protection (no review required)
   deploy-cloudflare:
-    name: "Stage 4: Deploy Cloudflare"
+    name: "Stage 3: Deploy Cloudflare"
     needs: [validate-builds, build-frontend, publish-docker, publish-desktop, create-docs-version]
     if: always() && needs.validate-builds.result == 'success' && needs.build-frontend.result == 'success' && (needs.publish-docker.result == 'success' || needs.publish-docker.result == 'skipped') && needs.publish-desktop.result == 'success' && (needs.create-docs-version.result == 'success' || needs.create-docs-version.result == 'skipped')
     runs-on: ubuntu-latest
@@ -611,11 +581,11 @@ jobs:
           fi
 
   # ===========================================================================
-  # STAGE 5: FINALIZE
+  # STAGE 4: FINALIZE
   # Only runs after ALL publishing steps succeed
   # ===========================================================================
   finalize:
-    name: "Stage 5: Finalize Release"
+    name: "Stage 4: Finalize Release"
     needs: [publish-docker, publish-desktop, deploy-cloudflare, create-docs-version]
     if: always() && (needs.publish-docker.result == 'success' || needs.publish-docker.result == 'skipped') && needs.publish-desktop.result == 'success' && needs.deploy-cloudflare.result == 'success' && (needs.create-docs-version.result == 'success' || needs.create-docs-version.result == 'skipped')
     runs-on: ubuntu-latest
