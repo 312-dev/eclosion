@@ -10,6 +10,7 @@
  * 2. Verify it executes successfully (not corrupted)
  * 3. Verify the output matches the expected app version
  *
+ * The backend has its version baked in via version.txt during the CI build.
  * This is more reliable than size-based checks because it actually tests
  * if the binary is executable and contains the correct version.
  */
@@ -45,85 +46,21 @@ function getBackendPath(): string {
 }
 
 /**
- * Critical packages that must exist in _internal/ for the backend to function.
- * PyInstaller bundles packages differently based on their type:
- * - Packages with C extensions: created as directories (e.g., sqlalchemy/)
- * - Pure Python packages: bundled into the binary, with only .dist-info metadata
- *
- * We check for .dist-info directories which exist for all properly installed packages.
- */
-const CRITICAL_PACKAGES = [
-  'flask',
-  'werkzeug',
-  'sqlalchemy',
-];
-
-/**
- * Check if the backend's _internal directory has critical package metadata.
- * This catches partial updates where the main binary works but dependencies are missing.
- *
- * We check for .dist-info directories (e.g., flask-3.1.2.dist-info) because:
- * 1. They always exist for properly bundled packages
- * 2. Pure Python packages may not have separate directories (they're compiled into binary)
- * 3. The version in .dist-info can help debug version mismatches
- */
-function checkInternalIntegrity(backendDir: string): { ok: boolean; missing: string[] } {
-  const internalDir = path.join(backendDir, '_internal');
-
-  if (!fs.existsSync(internalDir)) {
-    debugLog(`CORRUPTED: _internal directory missing at ${internalDir}`);
-    return { ok: false, missing: ['_internal'] };
-  }
-
-  // List all items in _internal to find .dist-info directories
-  let internalContents: string[];
-  try {
-    internalContents = fs.readdirSync(internalDir);
-  } catch {
-    debugLog(`CORRUPTED: Cannot read _internal directory`);
-    return { ok: false, missing: ['_internal'] };
-  }
-
-  const missing: string[] = [];
-  for (const pkg of CRITICAL_PACKAGES) {
-    // Look for {package}-{version}.dist-info pattern
-    const hasDistInfo = internalContents.some(
-      (item) => item.startsWith(`${pkg}-`) && item.endsWith('.dist-info')
-    );
-    // Also check for package directory (for packages with C extensions like sqlalchemy)
-    const hasDir = internalContents.includes(pkg);
-
-    if (!hasDistInfo && !hasDir) {
-      missing.push(pkg);
-    }
-  }
-
-  if (missing.length > 0) {
-    debugLog(`CORRUPTED: Missing critical packages in _internal: ${missing.join(', ')}`);
-    return { ok: false, missing };
-  }
-
-  return { ok: true, missing: [] };
-}
-
-/**
  * Check if the backend binary is corrupted.
  *
- * This performs multiple levels of validation:
+ * Validation:
  * 1. Verifies the binary exists
- * 2. Verifies the _internal directory has critical Python packages
- * 3. Verifies the binary is executable via --version
- * 4. Verifies the version matches the expected app version
+ * 2. Verifies the binary is executable via --version
+ * 3. Verifies the version matches the expected app version
  *
- * The _internal check is critical because partial updates (from file locking
- * during Squirrel.Mac updates) can leave the main binary working but missing
- * essential Python dependencies like sqlalchemy.
+ * The backend reads its version from the bundled version.txt (baked in during
+ * CI build). If critical packages are missing, the backend won't start at all
+ * (import error), so we don't need to check for specific packages.
  *
  * Returns true if corruption is detected, false if OK.
  */
 export async function isBackendCorrupted(): Promise<boolean> {
   const backendPath = getBackendPath();
-  const backendDir = path.dirname(backendPath);
   const expectedVersion = app.getVersion();
 
   debugLog(`Backend path: ${backendPath}`);
@@ -135,24 +72,11 @@ export async function isBackendCorrupted(): Promise<boolean> {
     return false; // Not corrupted, just missing (will fail later with proper error)
   }
 
-  // Check _internal directory integrity BEFORE running --version.
-  // A corrupted backend might still respond to --version but fail at runtime
-  // when it tries to import missing Python packages.
-  const internalCheck = checkInternalIntegrity(backendDir);
-  if (!internalCheck.ok) {
-    debugLog(`CORRUPTED: Missing critical packages: ${internalCheck.missing.join(', ')}`);
-    return true;
-  }
-
   try {
     // Run the backend with --version flag
-    // Pass APP_VERSION env var so backend knows expected version
+    // Backend reads its version from bundled version.txt, not from env var
     const { stdout, stderr } = await execFileAsync(backendPath, ['--version'], {
       timeout: 10000, // 10 second timeout
-      env: {
-        ...process.env,
-        APP_VERSION: expectedVersion,
-      },
     });
 
     const backendVersion = stdout.trim();
@@ -168,7 +92,7 @@ export async function isBackendCorrupted(): Promise<boolean> {
       return true;
     }
 
-    debugLog('Backend integrity check passed - version and dependencies verified');
+    debugLog('Backend integrity check passed - version verified');
     return false;
   } catch (error) {
     // If the binary fails to execute, it's corrupted

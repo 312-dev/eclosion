@@ -6,8 +6,41 @@ consistency across the application and easy modification.
 """
 
 import os
+import sys
 from datetime import timedelta
 from pathlib import Path
+
+
+def _get_version() -> str:
+    """
+    Get the application version.
+
+    Priority:
+    1. APP_VERSION env var (from Electron or Docker)
+    2. Bundled version.txt (baked in during PyInstaller build)
+    3. Fallback to "dev"
+    """
+    env_version = os.environ.get("APP_VERSION")
+    if env_version:
+        return env_version
+
+    try:
+        if getattr(sys, "frozen", False):
+            # Running as PyInstaller bundle
+            bundle_dir = os.path.dirname(sys.executable)
+            version_file = os.path.join(bundle_dir, "_internal", "version.txt")
+        else:
+            # Running as script - version.txt is in project root
+            version_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), "version.txt")
+
+        if os.path.exists(version_file):
+            with open(version_file) as f:
+                return f.read().strip()
+    except Exception:
+        pass
+
+    return "dev"
+
 
 # Determine if running in Docker container
 _IN_CONTAINER = os.path.exists("/.dockerenv") or os.environ.get("DOCKER_CONTAINER") == "1"
@@ -124,8 +157,8 @@ API_BASE_URL = os.environ.get("API_BASE_URL", f"http://127.0.0.1:{SERVER_PORT}")
 # Increment MAJOR for breaking changes, MINOR for additive changes
 SCHEMA_VERSION = "1.0"
 
-# App version from Docker build args or fallback
-APP_VERSION = os.environ.get("APP_VERSION", "dev")
+# App version from Electron, Docker, or bundled version.txt
+APP_VERSION = _get_version()
 
 # Release channel: stable, beta, or dev
 RELEASE_CHANNEL = os.environ.get("RELEASE_CHANNEL", "dev")
