@@ -177,21 +177,13 @@ def migrate_v8_wishlist_items_grid_layout(conn: sqlite3.Connection) -> None:
     cursor = conn.cursor()
 
     if not column_exists(conn, "wishlist_items", "grid_x"):
-        cursor.execute(
-            "ALTER TABLE wishlist_items ADD COLUMN grid_x INTEGER NOT NULL DEFAULT 0"
-        )
+        cursor.execute("ALTER TABLE wishlist_items ADD COLUMN grid_x INTEGER NOT NULL DEFAULT 0")
     if not column_exists(conn, "wishlist_items", "grid_y"):
-        cursor.execute(
-            "ALTER TABLE wishlist_items ADD COLUMN grid_y INTEGER NOT NULL DEFAULT 0"
-        )
+        cursor.execute("ALTER TABLE wishlist_items ADD COLUMN grid_y INTEGER NOT NULL DEFAULT 0")
     if not column_exists(conn, "wishlist_items", "col_span"):
-        cursor.execute(
-            "ALTER TABLE wishlist_items ADD COLUMN col_span INTEGER NOT NULL DEFAULT 1"
-        )
+        cursor.execute("ALTER TABLE wishlist_items ADD COLUMN col_span INTEGER NOT NULL DEFAULT 1")
     if not column_exists(conn, "wishlist_items", "row_span"):
-        cursor.execute(
-            "ALTER TABLE wishlist_items ADD COLUMN row_span INTEGER NOT NULL DEFAULT 1"
-        )
+        cursor.execute("ALTER TABLE wishlist_items ADD COLUMN row_span INTEGER NOT NULL DEFAULT 1")
     if not column_exists(conn, "wishlist_items", "image_attribution"):
         cursor.execute("ALTER TABLE wishlist_items ADD COLUMN image_attribution TEXT")
 
@@ -214,13 +206,10 @@ def migrate_v9_wishlist_config_stash_settings(conn: sqlite3.Connection) -> None:
         )
     if not column_exists(conn, "wishlist_config", "show_monarch_goals"):
         cursor.execute(
-            "ALTER TABLE wishlist_config ADD COLUMN show_monarch_goals "
-            "BOOLEAN NOT NULL DEFAULT 1"
+            "ALTER TABLE wishlist_config ADD COLUMN show_monarch_goals BOOLEAN NOT NULL DEFAULT 1"
         )
     if not column_exists(conn, "wishlist_config", "selected_cash_account_ids"):
-        cursor.execute(
-            "ALTER TABLE wishlist_config ADD COLUMN selected_cash_account_ids TEXT"
-        )
+        cursor.execute("ALTER TABLE wishlist_config ADD COLUMN selected_cash_account_ids TEXT")
     if not column_exists(conn, "wishlist_config", "buffer_amount"):
         cursor.execute(
             "ALTER TABLE wishlist_config ADD COLUMN buffer_amount INTEGER NOT NULL DEFAULT 0"
@@ -280,13 +269,9 @@ def migrate_v11_stash_hypotheses_extended(conn: sqlite3.Connection) -> None:
         return
 
     if not column_exists(conn, "stash_hypotheses", "custom_available_funds"):
-        cursor.execute(
-            "ALTER TABLE stash_hypotheses ADD COLUMN custom_available_funds FLOAT"
-        )
+        cursor.execute("ALTER TABLE stash_hypotheses ADD COLUMN custom_available_funds FLOAT")
     if not column_exists(conn, "stash_hypotheses", "custom_left_to_budget"):
-        cursor.execute(
-            "ALTER TABLE stash_hypotheses ADD COLUMN custom_left_to_budget FLOAT"
-        )
+        cursor.execute("ALTER TABLE stash_hypotheses ADD COLUMN custom_left_to_budget FLOAT")
     if not column_exists(conn, "stash_hypotheses", "item_apys"):
         cursor.execute(
             "ALTER TABLE stash_hypotheses ADD COLUMN item_apys TEXT NOT NULL DEFAULT '{}'"
