@@ -338,11 +338,11 @@ exports.default = async function (context) {
   const backendX64 = path.join(resourcesDir, 'backend-x64');
   const backendSingle = path.join(resourcesDir, 'backend');
 
-  // electron-builder arch values: 0 = x64, 1 = ia32, 3 = arm64, 4 = universal
+  // electron-builder Arch enum: 0 = ia32, 1 = x64, 2 = armv7l, 3 = arm64, 4 = universal
   // When building universal, electron-builder first builds x64, then arm64, then merges.
   // We need to remove the "wrong" backend directory from each single-arch build
   // so that the universal merge just copies each backend without lipo conflicts.
-  const archName = arch === 3 ? 'arm64' : arch === 0 ? 'x64' : null;
+  const archName = arch === 3 ? 'arm64' : arch === 1 ? 'x64' : null;
 
   if (archName) {
     console.log(`Architecture: ${archName} (arch=${arch})`);
