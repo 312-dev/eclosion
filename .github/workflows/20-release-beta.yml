@@ -259,7 +259,9 @@ jobs:
       tag: ${{ needs.calculate-version.outputs.tag }}
       skip_docker: true
       skip_screenshots: true
-      skip_codeql: true
+      # Skip security scan entirely - code was already scanned on merge to main
+      # Weekly scheduled scan catches new CVEs
+      skip_security: true
     secrets:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
