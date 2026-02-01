@@ -34,6 +34,16 @@ on:
         required: false
         type: boolean
         default: false
+      skip_docker:
+        description: 'Skip Docker build (for beta releases where Docker is not needed)'
+        required: false
+        type: boolean
+        default: false
+      skip_screenshots:
+        description: 'Skip screenshot generation (for beta releases)'
+        required: false
+        type: boolean
+        default: false
     secrets:
       CLOUDFLARE_API_TOKEN:
         required: true
@@ -120,11 +130,11 @@ jobs:
           path: frontend/dist
           retention-days: 1
 
-  # Generate screenshots for README
+  # Generate screenshots for README (skipped for beta releases)
   generate-screenshots:
     name: "Stage 2: Generate Screenshots"
     needs: [security, build-frontend]
-    if: always() && (needs.security.result == 'success' || needs.security.result == 'skipped') && needs.build-frontend.result == 'success'
+    if: always() && !inputs.skip_screenshots && (needs.security.result == 'success' || needs.security.result == 'skipped') && needs.build-frontend.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -192,10 +202,11 @@ jobs:
       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
   # Build Docker image (push with SHA tag, not version tag yet)
+  # Skipped for beta releases since beta testers typically use desktop app
   build-docker:
     name: "Stage 2: Build Docker Image"
     needs: [security, build-frontend]
-    if: always() && (needs.security.result == 'success' || needs.security.result == 'skipped') && needs.build-frontend.result == 'success'
+    if: always() && !inputs.skip_docker && (needs.security.result == 'success' || needs.security.result == 'skipped') && needs.build-frontend.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     outputs:
@@ -297,11 +308,12 @@ jobs:
             echo "::error::Desktop build failed"
             exit 1
           fi
-          if [[ "${{ needs.build-docker.result }}" != "success" ]]; then
+          # Docker and screenshots can be skipped for beta releases
+          if [[ "${{ needs.build-docker.result }}" != "success" && "${{ needs.build-docker.result }}" != "skipped" ]]; then
             echo "::error::Docker build failed"
             exit 1
           fi
-          if [[ "${{ needs.generate-screenshots.result }}" != "success" ]]; then
+          if [[ "${{ needs.generate-screenshots.result }}" != "success" && "${{ needs.generate-screenshots.result }}" != "skipped" ]]; then
             echo "::error::Screenshot generation failed"
             exit 1
           fi
@@ -314,9 +326,11 @@ jobs:
   # ===========================================================================
 
   # Tag Docker image with version (promotes SHA tag to version tag)
+  # Skipped if Docker build was skipped (beta releases)
   publish-docker:
     name: "Stage 4: Publish Docker"
     needs: [validate-builds, build-docker]
+    if: needs.build-docker.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -379,6 +393,7 @@ jobs:
           merge-multiple: true
 
       - name: Download screenshot artifacts
+        if: ${{ !inputs.skip_screenshots }}
         uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
           name: screenshots-${{ github.run_id }}
@@ -440,18 +455,23 @@ jobs:
             fi
           done
 
-          echo "Uploading screenshots to release $TAG..."
-          for file in screenshots/*.png; do
-            if [ -f "$file" ]; then
-              echo "Uploading: $(basename "$file")"
-              gh release upload "$TAG" "$file" --clobber || echo "::warning::Failed to upload $file"
-            fi
-          done
+          # Upload screenshots if they were generated
+          if [ -d "screenshots" ]; then
+            echo "Uploading screenshots to release $TAG..."
+            for file in screenshots/*.png; do
+              if [ -f "$file" ]; then
+                echo "Uploading: $(basename "$file")"
+                gh release upload "$TAG" "$file" --clobber || echo "::warning::Failed to upload $file"
+              fi
+            done
+            echo "## Screenshots Published" >> $GITHUB_STEP_SUMMARY
+            echo "Uploaded screenshots to release $TAG" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "Skipping screenshot upload (not generated for this release)"
+          fi
 
           echo "## Desktop Artifacts Published" >> $GITHUB_STEP_SUMMARY
           echo "Uploaded to release $TAG" >> $GITHUB_STEP_SUMMARY
-          echo "## Screenshots Published" >> $GITHUB_STEP_SUMMARY
-          echo "Uploaded screenshots to release $TAG" >> $GITHUB_STEP_SUMMARY
 
   # Create docs version snapshot (production only)
   # Runs BEFORE deploy-cloudflare so the new version is included in the Docusaurus build
@@ -507,7 +527,7 @@ jobs:
   deploy-cloudflare:
     name: "Stage 4: Deploy Cloudflare"
     needs: [validate-builds, build-frontend, publish-docker, publish-desktop, create-docs-version]
-    if: always() && needs.validate-builds.result == 'success' && needs.build-frontend.result == 'success' && needs.publish-docker.result == 'success' && needs.publish-desktop.result == 'success' && (needs.create-docs-version.result == 'success' || needs.create-docs-version.result == 'skipped')
+    if: always() && needs.validate-builds.result == 'success' && needs.build-frontend.result == 'success' && (needs.publish-docker.result == 'success' || needs.publish-docker.result == 'skipped') && needs.publish-desktop.result == 'success' && (needs.create-docs-version.result == 'success' || needs.create-docs-version.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: ${{ inputs.release_type }}
@@ -587,7 +607,7 @@ jobs:
   finalize:
     name: "Stage 5: Finalize Release"
     needs: [publish-docker, publish-desktop, deploy-cloudflare, create-docs-version]
-    if: always() && needs.publish-docker.result == 'success' && needs.publish-desktop.result == 'success' && needs.deploy-cloudflare.result == 'success' && (needs.create-docs-version.result == 'success' || needs.create-docs-version.result == 'skipped')
+    if: always() && (needs.publish-docker.result == 'success' || needs.publish-docker.result == 'skipped') && needs.publish-desktop.result == 'success' && needs.deploy-cloudflare.result == 'success' && (needs.create-docs-version.result == 'success' || needs.create-docs-version.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
