@@ -21,6 +21,9 @@ import { debugLog } from './logger';
 /** Update check timeout for boot (10 seconds) */
 const BOOT_UPDATE_TIMEOUT_MS = 10000;
 
+/** Time to wait after stopping backend for file handles to be released */
+const BACKEND_STOP_DELAY_MS = 1500;
+
 const LOG_PREFIX = '[Updater]';
 
 // Update channels
@@ -29,6 +32,53 @@ type UpdateChannel = 'stable' | 'beta';
 let updateAvailable = false;
 let updateDownloaded = false;
 let updateInfo: UpdateInfo | null = null;
+
+/**
+ * Callback to stop the backend before installing updates.
+ * Set via setBackendStopCallback() from index.ts.
+ */
+let stopBackendCallback: (() => Promise<void>) | null = null;
+
+/**
+ * Register a callback to stop the backend before installing updates.
+ * This must be called from index.ts after the backendManager is created.
+ *
+ * CRITICAL: The backend process holds open file handles on files in the
+ * extraResources directory (_internal/*.so, etc.). If these handles are
+ * not released before Squirrel.Mac tries to replace the app bundle,
+ * the update will be partial/corrupted.
+ */
+export function setBackendStopCallback(callback: () => Promise<void>): void {
+  stopBackendCallback = callback;
+}
+
+/**
+ * Stop the backend and wait for file handles to be released.
+ * Returns true if backend was stopped successfully, false otherwise.
+ */
+async function stopBackendForUpdate(): Promise<boolean> {
+  if (!stopBackendCallback) {
+    debugLog('No backend stop callback registered - proceeding without stopping backend', LOG_PREFIX);
+    return true;
+  }
+
+  try {
+    debugLog('Stopping backend before update installation...', LOG_PREFIX);
+    await stopBackendCallback();
+
+    // Give the OS time to release file handles after the process exits.
+    // On macOS, file handles may not be released immediately after SIGKILL.
+    debugLog(`Waiting ${BACKEND_STOP_DELAY_MS}ms for file handles to be released...`, LOG_PREFIX);
+    await new Promise(resolve => setTimeout(resolve, BACKEND_STOP_DELAY_MS));
+
+    debugLog('Backend stopped successfully', LOG_PREFIX);
+    return true;
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    debugLog(`Failed to stop backend: ${errorMessage}`, LOG_PREFIX);
+    return false;
+  }
+}
 
 /**
  * Extract a clean, user-friendly error message from an electron-updater error.
@@ -222,8 +272,12 @@ export async function checkForUpdates(): Promise<{ updateAvailable: boolean; ver
 /**
  * Download and install the update.
  * This will quit the app and install the update.
+ *
+ * CRITICAL: This function MUST stop the backend before calling quitAndInstall().
+ * The backend holds open file handles on files in _internal/ which prevents
+ * Squirrel.Mac from replacing them, resulting in a corrupted/partial update.
  */
-export function quitAndInstall(): void {
+export async function quitAndInstall(): Promise<void> {
   if (!updateDownloaded) {
     debugLog('quitAndInstall called but no update downloaded', LOG_PREFIX);
     notifyRenderer('update-error', { message: 'No update available to install' });
@@ -231,6 +285,15 @@ export function quitAndInstall(): void {
   }
 
   try {
+    // CRITICAL: Stop the backend BEFORE calling autoUpdater.quitAndInstall().
+    // The backend process holds open file handles on .so files in _internal/.
+    // If these handles are not released, Squirrel.Mac cannot replace the files,
+    // resulting in a corrupted update (missing sqlalchemy, wrong binary size, etc.).
+    const backendStopped = await stopBackendForUpdate();
+    if (!backendStopped) {
+      debugLog('Warning: Backend may not have stopped cleanly - update may be incomplete', LOG_PREFIX);
+    }
+
     debugLog('Installing update...', LOG_PREFIX);
     // Set isQuitting flag to prevent window close handler from hiding to tray
     // instead of actually quitting. Without this, closeToTray=true would
@@ -298,6 +361,10 @@ export async function offerUpdateOnStartupFailure(): Promise<boolean> {
 
   if (result.response === 0) {
     debugLog('User chose to install update after startup failure', LOG_PREFIX);
+
+    // Stop the backend before installing update
+    await stopBackendForUpdate();
+
     setIsQuitting(true);
     autoUpdater.quitAndInstall(false, true);
     return true;

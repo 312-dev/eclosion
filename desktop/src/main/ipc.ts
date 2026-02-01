@@ -288,9 +288,10 @@ export function setupIpcHandlers(backendManager: BackendManager): void {
 
   /**
    * Quit and install pending update.
+   * This stops the backend before installing to prevent file locking issues.
    */
-  ipcMain.handle('quit-and-install', () => {
-    quitAndInstall();
+  ipcMain.handle('quit-and-install', async () => {
+    await quitAndInstall();
   });
 
   /**

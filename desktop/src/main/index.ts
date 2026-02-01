@@ -84,7 +84,7 @@ import {
   showReauthNotification,
 } from './tray';
 import { setupIpcHandlers, createLoadingReadyPromise } from './ipc';
-import { initializeUpdater, scheduleUpdateChecks, offerUpdateOnStartupFailure, checkForUpdatesOnBoot } from './updater';
+import { initializeUpdater, scheduleUpdateChecks, offerUpdateOnStartupFailure, checkForUpdatesOnBoot, setBackendStopCallback } from './updater';
 import { createMinimalMenu, setSyncCallback } from './menu';
 import {
   registerDeepLinkProtocol,
@@ -303,6 +303,16 @@ async function initialize(): Promise<void> {
       debugLog('Initializing updater...');
       logStartupTiming('Initializing updater');
       initializeUpdater();
+
+      // Register callback to stop backend before installing updates.
+      // CRITICAL: The backend holds open file handles on _internal/*.so files.
+      // If not stopped before Squirrel.Mac replaces the app, updates are corrupted.
+      setBackendStopCallback(async () => {
+        if (backendManager) {
+          await backendManager.stop();
+        }
+      });
+
       logStartupTiming('Updater initialized');
       debugLog('Updater initialized');
 

@@ -45,16 +45,62 @@ function getBackendPath(): string {
 }
 
 /**
- * Check if the backend binary is corrupted by running it with --version.
+ * Critical directories that must exist in _internal/ for the backend to function.
+ * These are Python packages that are essential for the Flask app.
+ */
+const CRITICAL_INTERNAL_DIRS = [
+  'flask',
+  'werkzeug',
+  'sqlalchemy',  // Database ORM - missing this breaks the app
+  'monarchmoney',
+];
+
+/**
+ * Check if the backend's _internal directory has critical files.
+ * This catches partial updates where the main binary works but dependencies are missing.
+ */
+function checkInternalIntegrity(backendDir: string): { ok: boolean; missing: string[] } {
+  const internalDir = path.join(backendDir, '_internal');
+
+  if (!fs.existsSync(internalDir)) {
+    debugLog(`CORRUPTED: _internal directory missing at ${internalDir}`);
+    return { ok: false, missing: ['_internal'] };
+  }
+
+  const missing: string[] = [];
+  for (const dir of CRITICAL_INTERNAL_DIRS) {
+    const dirPath = path.join(internalDir, dir);
+    if (!fs.existsSync(dirPath)) {
+      missing.push(dir);
+    }
+  }
+
+  if (missing.length > 0) {
+    debugLog(`CORRUPTED: Missing critical directories in _internal: ${missing.join(', ')}`);
+    return { ok: false, missing };
+  }
+
+  return { ok: true, missing: [] };
+}
+
+/**
+ * Check if the backend binary is corrupted.
  *
- * This is more reliable than size-based checks because it:
- * 1. Verifies the binary is actually executable (not corrupted)
- * 2. Verifies the version matches the expected app version
+ * This performs multiple levels of validation:
+ * 1. Verifies the binary exists
+ * 2. Verifies the _internal directory has critical Python packages
+ * 3. Verifies the binary is executable via --version
+ * 4. Verifies the version matches the expected app version
+ *
+ * The _internal check is critical because partial updates (from file locking
+ * during Squirrel.Mac updates) can leave the main binary working but missing
+ * essential Python dependencies like sqlalchemy.
  *
  * Returns true if corruption is detected, false if OK.
  */
 export async function isBackendCorrupted(): Promise<boolean> {
   const backendPath = getBackendPath();
+  const backendDir = path.dirname(backendPath);
   const expectedVersion = app.getVersion();
 
   debugLog(`Backend path: ${backendPath}`);
@@ -64,6 +110,15 @@ export async function isBackendCorrupted(): Promise<boolean> {
   if (!fs.existsSync(backendPath)) {
     debugLog(`Backend not found at ${backendPath}`);
     return false; // Not corrupted, just missing (will fail later with proper error)
+  }
+
+  // Check _internal directory integrity BEFORE running --version.
+  // A corrupted backend might still respond to --version but fail at runtime
+  // when it tries to import missing Python packages.
+  const internalCheck = checkInternalIntegrity(backendDir);
+  if (!internalCheck.ok) {
+    debugLog(`CORRUPTED: Missing critical packages: ${internalCheck.missing.join(', ')}`);
+    return true;
   }
 
   try {
@@ -90,7 +145,7 @@ export async function isBackendCorrupted(): Promise<boolean> {
       return true;
     }
 
-    debugLog('Backend integrity check passed - version verified');
+    debugLog('Backend integrity check passed - version and dependencies verified');
     return false;
   } catch (error) {
     // If the binary fails to execute, it's corrupted
