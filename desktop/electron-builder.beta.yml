@@ -63,8 +63,10 @@ afterPack: afterPack.js
 
 # macOS configuration
 # Universal binary with architecture-specific Python backends.
-# afterPack.js renames the correct backend to "backend/" for each arch build,
-# then @electron/universal merges them with lipo into true universal binaries.
+# afterPack.js removes the non-matching backend from each arch build, so:
+# - arm64 build has only backend-arm64, x64 build has only backend-x64
+# @electron/universal merges them without lipo (different directory names).
+# At runtime, backend.ts selects the correct directory based on process.arch.
 mac:
   category: public.app-category.finance
   target:
