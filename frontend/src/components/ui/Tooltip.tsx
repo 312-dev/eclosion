@@ -115,7 +115,7 @@ export function Tooltip({
       onOpenChange={handleOpenChange}
     >
       <RadixTooltip.Trigger asChild>
-        <span ref={triggerRef as React.RefObject<HTMLSpanElement>} className="contents">
+        <span ref={triggerRef as React.RefObject<HTMLSpanElement>} className="inline-flex">
           {children}
         </span>
       </RadixTooltip.Trigger>

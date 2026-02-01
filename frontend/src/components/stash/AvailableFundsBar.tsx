@@ -570,6 +570,7 @@ export function AvailableFundsBar({ leftToBudget, items }: Readonly<AvailableFun
                 <div
                   className="flex items-center justify-center flex-1 px-2.5 rounded-t-md animate-pulse"
                   style={{ backgroundColor: 'var(--monarch-bg-hover)' }}
+                  data-tour="stash-distribute-mode"
                 >
                   <Icons.Split size={16} style={{ opacity: 0.5 }} />
                 </div>

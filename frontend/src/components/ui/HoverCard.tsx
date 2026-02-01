@@ -110,7 +110,7 @@ export function HoverCard({
       onOpenChange={handleOpenChange}
     >
       <RadixHoverCard.Trigger asChild>
-        <span ref={triggerRef as React.RefObject<HTMLSpanElement>} className="contents">
+        <span ref={triggerRef as React.RefObject<HTMLSpanElement>} className="inline-flex">
           {children}
         </span>
       </RadixHoverCard.Trigger>

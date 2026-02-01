@@ -50,12 +50,17 @@ export function PendingReviewRow({
       }}
     >
       {/* Favicon */}
-      <div
-        className="w-8 h-8 rounded-md flex items-center justify-center shrink-0 overflow-hidden"
+      <a
+        href={decodedUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="w-8 h-8 rounded-md flex items-center justify-center shrink-0 overflow-hidden hover:opacity-80 transition-opacity"
         style={{
           backgroundColor: 'var(--monarch-bg-page)',
           border: '1px solid var(--monarch-border)',
         }}
+        onClick={(e) => e.stopPropagation()}
+        aria-label={`Open ${displayName} in new tab`}
       >
         {item.logo_url ? (
           // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- onError is not user interaction
@@ -72,7 +77,7 @@ export function PendingReviewRow({
         ) : (
           <ExternalLink size={16} style={{ color: 'var(--monarch-text-muted)' }} />
         )}
-      </div>
+      </a>
 
       {/* Name and hostname */}
       <div className="flex-1 min-w-0">
