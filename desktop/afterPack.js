@@ -31,9 +31,15 @@
  * @see https://developer.apple.com/documentation/security/notarizing_macos_software_before_distribution
  */
 
-const { execSync } = require('child_process');
-const path = require('path');
-const fs = require('fs');
+const { execSync, execFile } = require('node:child_process');
+const { promisify } = require('node:util');
+const path = require('node:path');
+const fs = require('node:fs');
+
+const execFileAsync = promisify(execFile);
+
+// Number of parallel codesign processes (tuned for GitHub Actions macOS runners)
+const PARALLEL_SIGN_LIMIT = 8;
 
 /**
  * Recursively find all files matching a predicate
@@ -113,6 +119,66 @@ function signFile(filePath, identity, entitlementsPath, useNoStrict = false, use
   execSync(cmd, { stdio: 'inherit' });
 }
 
+/**
+ * Sign a single file asynchronously (for parallel signing)
+ * @param {string} filePath - Path to file
+ * @param {string} identity - Signing identity
+ * @param {string} entitlementsPath - Path to entitlements plist
+ * @param {boolean} useNoStrict - Whether to use --no-strict flag
+ * @returns {Promise<{success: boolean, path: string, error?: string}>}
+ */
+async function signFileAsync(filePath, identity, entitlementsPath, useNoStrict = false) {
+  const args = [
+    '--sign', identity,
+    '--force',
+    '--timestamp',
+    '--options', 'runtime',
+  ];
+
+  if (useNoStrict) {
+    args.push('--no-strict');
+  }
+
+  if (entitlementsPath) {
+    args.push('--entitlements', entitlementsPath);
+  }
+
+  args.push(filePath);
+
+  try {
+    await execFileAsync('codesign', args);
+    return { success: true, path: filePath };
+  } catch (e) {
+    return { success: false, path: filePath, error: e.message };
+  }
+}
+
+/**
+ * Run async tasks in parallel with concurrency limit
+ * @param {Array<() => Promise<T>>} tasks - Array of task functions
+ * @param {number} limit - Max concurrent tasks
+ * @returns {Promise<T[]>}
+ */
+async function runParallel(tasks, limit) {
+  const results = [];
+  const executing = new Set();
+
+  for (const task of tasks) {
+    const promise = task().then((result) => {
+      executing.delete(promise);
+      return result;
+    });
+    executing.add(promise);
+    results.push(promise);
+
+    if (executing.size >= limit) {
+      await Promise.race(executing);
+    }
+  }
+
+  return Promise.all(results);
+}
+
 exports.default = async function (context) {
   const { electronPlatformName, appOutDir } = context;
 
@@ -174,18 +240,26 @@ exports.default = async function (context) {
     });
 
     console.log(`  Found ${binaries.length} binaries to sign in _internal`);
+    console.log(`  Signing in parallel (max ${PARALLEL_SIGN_LIMIT} concurrent)...`);
 
-    // Sign binaries (deepest first by sorting by path depth)
-    binaries.sort((a, b) => b.split('/').length - a.split('/').length);
+    // Sign binaries in parallel for faster builds
+    // Note: We don't need to sort by depth when signing in parallel since each
+    // binary is signed independently (no nested bundle issues for .so/.dylib files)
+    const signTasks = binaries.map((binary) => () =>
+      signFileAsync(binary, identity, entitlementsPath, true)
+    );
 
-    for (const binary of binaries) {
-      const relativePath = path.relative(backendDir, binary);
-      console.log(`  Signing: ${relativePath}`);
-      try {
-        signFile(binary, identity, entitlementsPath, true); // --no-strict for PyInstaller binaries
-      } catch (e) {
-        console.log(`    Warning: Failed to sign ${relativePath}: ${e.message}`);
-      }
+    const startTime = Date.now();
+    const results = await runParallel(signTasks, PARALLEL_SIGN_LIMIT);
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+
+    // Report results
+    const failures = results.filter((r) => !r.success);
+    console.log(`  Signed ${results.length - failures.length}/${results.length} binaries in ${elapsed}s`);
+
+    for (const failure of failures) {
+      const relativePath = path.relative(backendDir, failure.path);
+      console.log(`    Warning: Failed to sign ${relativePath}: ${failure.error}`);
     }
 
     // Step 2: Sign Python.framework

@@ -105,17 +105,10 @@ nsis:
   include: installer/custom.nsh
 
 # Linux configuration
+# AppImage-only for faster builds - works on all distros without package manager integration
 linux:
   target:
     - target: AppImage
-      arch:
-        - x64
-        - arm64
-    - target: deb
-      arch:
-        - x64
-        - arm64
-    - target: rpm
       arch:
         - x64
         - arm64
@@ -129,25 +122,6 @@ linux:
 # AppImage configuration
 appImage:
   artifactName: ${productName}-${version}-${arch}.${ext}
-
-# Debian package configuration
-deb:
-  depends:
-    - gconf2
-    - gconf-service
-    - libnotify4
-    - libappindicator1
-    - libxtst6
-    - libnss3
-
-# RPM package configuration (Fedora/RHEL)
-rpm:
-  depends:
-    - GConf2
-    - libnotify
-    - libappindicator-gtk3
-    - libXtst
-    - nss
 
 # Auto-update configuration
 # electron-updater will look for these manifest files
