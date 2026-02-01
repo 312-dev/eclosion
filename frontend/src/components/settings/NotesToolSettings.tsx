@@ -74,7 +74,6 @@ export const NotesToolSettings = forwardRef<HTMLDivElement, NotesToolSettingsPro
                 label="Hidden categories"
                 description="Categories hidden from the notes view"
                 isLast
-                variant={variant}
               >
                 <button
                   type="button"

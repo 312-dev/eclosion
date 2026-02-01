@@ -86,16 +86,22 @@ export function RollupStats({
   const formattedMonthly = Math.ceil(totalMonthly);
 
   return (
-    <div className="flex items-end gap-4 shrink-0" onClick={(e) => e.stopPropagation()}>
+    <div
+      className="flex items-end gap-4 shrink-0 w-full sm:w-auto justify-end"
+      onClick={(e) => e.stopPropagation()}
+    >
       {/* Budgeted - right-aligned like dedicated categories */}
       <div className="flex flex-col items-end">
-        <span className="text-xs text-monarch-text-muted">{monthLabel}. Budget</span>
+        <span className="text-[10px] sm:text-xs font-medium uppercase tracking-wide text-monarch-text-muted">
+          {monthLabel}. Budget
+        </span>
         <div className="flex items-center whitespace-nowrap rounded bg-monarch-bg-card border border-monarch-border px-2 py-1 focus-within:border-monarch-orange">
           <span className="font-medium text-monarch-text-dark">$</span>
           <input
             ref={inputRef}
             type="text"
             inputMode="numeric"
+            pattern="[0-9]*"
             value={budgetValue}
             onChange={handleChange}
             onBlur={onBudgetSubmit}
@@ -163,8 +169,10 @@ export function RollupStats({
       </div>
 
       {/* Status - centered like dedicated categories */}
-      <div className="text-center w-24">
-        <span className="text-xs text-monarch-text-muted">Status</span>
+      <div className="text-center w-20 sm:w-24">
+        <span className="text-[10px] sm:text-xs font-medium uppercase tracking-wide text-monarch-text-muted">
+          Status
+        </span>
         <div className="h-8 flex items-center justify-center">
           <StatusBadge status={rollupStatus} size="sm" />
         </div>

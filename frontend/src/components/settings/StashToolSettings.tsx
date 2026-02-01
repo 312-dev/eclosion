@@ -346,7 +346,7 @@ export const StashToolSettings = forwardRef<HTMLDivElement, StashToolSettingsPro
                 }
               >
                 {/* === GENERAL SECTION === */}
-                <SettingsRow label="Default Category Group" variant={variant}>
+                <SettingsRow label="Default Category Group">
                   <SearchableSelect
                     value={config?.defaultCategoryGroupId || ''}
                     onChange={handleGroupChange}
@@ -361,12 +361,11 @@ export const StashToolSettings = forwardRef<HTMLDivElement, StashToolSettingsPro
                 </SettingsRow>
 
                 {/* === AVAILABLE FUNDS SECTION === */}
-                <SettingsSectionHeader title="Available Funds" variant={variant} />
+                <SettingsSectionHeader title="Available Funds" />
 
                 <SettingsRow
                   label="Include expected income"
                   description="Add planned income to Available Funds calculation"
-                  variant={variant}
                 >
                   <ToggleSwitch
                     checked={config?.includeExpectedIncome ?? true}
@@ -383,7 +382,6 @@ export const StashToolSettings = forwardRef<HTMLDivElement, StashToolSettingsPro
                 <SettingsRow
                   label="Cash accounts"
                   description="Select which accounts to include (credit cards always included)"
-                  variant={variant}
                 >
                   <button
                     type="button"
@@ -404,7 +402,6 @@ export const StashToolSettings = forwardRef<HTMLDivElement, StashToolSettingsPro
                 <SettingsRow
                   label="Reserved buffer"
                   description="Reserve funds that won't count toward Available Funds"
-                  variant={variant}
                 >
                   <div className="flex items-center gap-1.5">
                     <span className="text-sm" style={{ color: 'var(--monarch-text-muted)' }}>
@@ -428,12 +425,11 @@ export const StashToolSettings = forwardRef<HTMLDivElement, StashToolSettingsPro
                 </SettingsRow>
 
                 {/* === DISPLAY SECTION === */}
-                <SettingsSectionHeader title="Display" variant={variant} />
+                <SettingsSectionHeader title="Display" />
 
                 <SettingsRow
                   label="Show Monarch savings goals"
                   description="Display your Monarch Money savings goals alongside Stash items"
-                  variant={variant}
                 >
                   <ToggleSwitch
                     checked={config?.showMonarchGoals ?? true}
@@ -448,13 +444,12 @@ export const StashToolSettings = forwardRef<HTMLDivElement, StashToolSettingsPro
                 </SettingsRow>
 
                 {/* === AUTOMATION SECTION === */}
-                <SettingsSectionHeader title="Automation" variant={variant} />
+                <SettingsSectionHeader title="Automation" />
 
                 <SettingsRow
                   label="Auto-archive completed"
                   description="Archive items at the start of the month after being fully funded"
                   isLast={!isBrowserSyncConfigured && !onSetupBookmarkSync}
-                  variant={variant}
                 >
                   <ToggleSwitch
                     checked={config?.autoArchiveOnGoalMet ?? true}
@@ -471,12 +466,11 @@ export const StashToolSettings = forwardRef<HTMLDivElement, StashToolSettingsPro
                 {/* === BOOKMARK SYNC SECTION (Desktop only) === */}
                 {!isBrowserSyncConfigured && onSetupBookmarkSync && (
                   <>
-                    <SettingsSectionHeader title="Bookmark Sync" variant={variant} />
+                    <SettingsSectionHeader title="Bookmark Sync" />
                     <SettingsRow
                       label="Browser bookmarks"
                       description="Convert browser bookmarks to stashes"
                       isLast
-                      variant={variant}
                     >
                       <button
                         type="button"
@@ -496,11 +490,10 @@ export const StashToolSettings = forwardRef<HTMLDivElement, StashToolSettingsPro
 
                 {isBrowserSyncConfigured && (
                   <>
-                    <SettingsSectionHeader title="Bookmark Sync" variant={variant} />
+                    <SettingsSectionHeader title="Bookmark Sync" />
                     <SettingsRow
                       label="Bookmark source"
                       description={`Synced with ${browserLabel}`}
-                      variant={variant}
                     >
                       <div className="flex items-center gap-2">
                         {onChangeBookmarkSource && (
@@ -540,7 +533,6 @@ export const StashToolSettings = forwardRef<HTMLDivElement, StashToolSettingsPro
                       label="Archive when bookmark deleted"
                       description="Automatically archive items when source bookmark is removed"
                       isLast
-                      variant={variant}
                     >
                       <ToggleSwitch
                         checked={config?.autoArchiveOnBookmarkDelete ?? true}

@@ -5,19 +5,13 @@
  * Allows users to either create a new category in a group or use an existing one.
  */
 
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import { Icons } from '../icons';
-import { decodeHtmlEntities } from '../../utils';
 import { SearchableSelect } from '../SearchableSelect';
-import type { SelectOption, SelectGroup } from '../SearchableSelect';
 import {
-  useCategoryGroupsList,
-  useRefreshCategoryGroups,
-  useUnmappedCategoriesList,
-  useFlexibleCategoryGroups,
-  useRefreshFlexibleCategoryGroups,
-} from '../../api/queries';
-import type { UnmappedCategory } from '../../types/category';
+  useCategorySelectorData,
+  useInlineCategorySelectorData,
+} from './useInlineCategorySelectorData';
 
 export type CategorySelectionMode = 'create_new' | 'use_existing';
 
@@ -51,20 +45,25 @@ export function InlineCategorySelector({
   onChange,
   defaultCategoryGroupId,
 }: InlineCategorySelectorProps) {
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const {
+    categoryGroups,
+    unmappedCategories,
+    flexibleGroups,
+    groupsLoading,
+    categoriesLoading,
+    flexibleGroupsLoading,
+    groupOptions,
+    existingGroups,
+    isRefreshing,
+    handleRefreshGroups,
+    refreshFlexibleGroups,
+  } = useCategorySelectorData();
 
-  // Data fetching
-  const { groups: categoryGroups, isLoading: groupsLoading } = useCategoryGroupsList();
-  const refreshGroups = useRefreshCategoryGroups();
-  const { categories: unmappedCategories, isLoading: categoriesLoading } =
-    useUnmappedCategoriesList();
-  const { groups: flexibleGroups, isLoading: flexibleGroupsLoading } = useFlexibleCategoryGroups();
-  const refreshFlexibleGroups = useRefreshFlexibleCategoryGroups();
-
-  // Get IDs of flexible groups for filtering
-  const flexibleGroupIds = useMemo(
-    () => new Set(flexibleGroups.map((g) => g.id)),
-    [flexibleGroups]
+  const { existingValue, handleExistingChange } = useInlineCategorySelectorData(
+    value,
+    onChange,
+    unmappedCategories,
+    flexibleGroups
   );
 
   // Set default group on mount if provided and no selection
@@ -86,124 +85,6 @@ export function InlineCategorySelector({
     refreshFlexibleGroups();
   }, [refreshFlexibleGroups]);
 
-  // Filter categories for "use existing" mode
-  // Group categories by their category group (excluding flexible groups)
-  const groupedCategories = useMemo(() => {
-    const grouped = unmappedCategories.reduce(
-      (acc, cat) => {
-        const groupId = cat.group_id || 'uncategorized';
-        // Skip categories belonging to flexible groups
-        if (flexibleGroupIds.has(groupId)) {
-          return acc;
-        }
-        acc[groupId] ??= {
-          groupId,
-          groupName: cat.group_name || 'Uncategorized',
-          groupOrder: cat.group_order,
-          categories: [],
-        };
-        acc[groupId].categories.push(cat);
-        return acc;
-      },
-      {} as Record<
-        string,
-        { groupId: string; groupName: string; groupOrder: number; categories: UnmappedCategory[] }
-      >
-    );
-    return Object.values(grouped).sort((a, b) => a.groupOrder - b.groupOrder);
-  }, [unmappedCategories, flexibleGroupIds]);
-
-  // Build options for category group dropdown (Create New mode)
-  const groupOptions: SelectOption[] = useMemo(
-    () =>
-      (categoryGroups ?? []).map((group) => {
-        const isFlexible = flexibleGroupIds.has(group.id);
-        const option: SelectOption = {
-          value: group.id,
-          label: decodeHtmlEntities(group.name),
-          disabled: isFlexible,
-        };
-        if (isFlexible) {
-          option.disabledReason = 'Uses flexible rollover. Select in "Use existing" instead.';
-        }
-        return option;
-      }),
-    [categoryGroups, flexibleGroupIds]
-  );
-
-  // Build grouped options for existing categories dropdown (Use Existing mode)
-  // Uses prefixes to distinguish between flexible groups and categories
-  const existingGroups: SelectGroup[] = useMemo(() => {
-    const groups: SelectGroup[] = [];
-
-    // Add flexible groups first
-    if (flexibleGroups.length > 0) {
-      groups.push({
-        label: 'Rollover Groups',
-        options: flexibleGroups.map((group) => ({
-          value: `flex:${group.id}`,
-          label: `📁 ${decodeHtmlEntities(group.name)}`,
-        })),
-      });
-    }
-
-    // Add individual categories grouped by their category group
-    groupedCategories.forEach((group) => {
-      groups.push({
-        label: decodeHtmlEntities(group.groupName),
-        options: group.categories.map((cat) => ({
-          value: `cat:${cat.id}`,
-          label: cat.icon
-            ? `${cat.icon} ${decodeHtmlEntities(cat.name)}`
-            : decodeHtmlEntities(cat.name),
-        })),
-      });
-    });
-
-    return groups;
-  }, [flexibleGroups, groupedCategories]);
-
-  // Get current value for existing category dropdown
-  const existingValue = useMemo(() => {
-    if (value.flexibleGroupId) return `flex:${value.flexibleGroupId}`;
-    if (value.categoryId) return `cat:${value.categoryId}`;
-    return '';
-  }, [value.flexibleGroupId, value.categoryId]);
-
-  // Handle selection from existing categories dropdown
-  const handleExistingChange = useCallback(
-    (selectedValue: string) => {
-      if (selectedValue.startsWith('flex:')) {
-        const groupId = selectedValue.slice(5);
-        const group = flexibleGroups.find((g) => g.id === groupId);
-        onChange({
-          mode: 'use_existing',
-          flexibleGroupId: groupId,
-          flexibleGroupName: group?.name || '',
-        });
-      } else if (selectedValue.startsWith('cat:')) {
-        const categoryId = selectedValue.slice(4);
-        const cat = unmappedCategories.find((c) => c.id === categoryId);
-        onChange({
-          mode: 'use_existing',
-          categoryId,
-          categoryName: cat?.name || '',
-        });
-      }
-    },
-    [flexibleGroups, unmappedCategories, onChange]
-  );
-
-  const handleRefreshGroups = useCallback(async () => {
-    setIsRefreshing(true);
-    try {
-      await refreshGroups();
-      await refreshFlexibleGroups();
-    } finally {
-      setIsRefreshing(false);
-    }
-  }, [refreshGroups, refreshFlexibleGroups]);
-
   const handleGroupChange = useCallback(
     (groupId: string) => {
       const group = categoryGroups?.find((g) => g.id === groupId);
@@ -219,7 +100,6 @@ export function InlineCategorySelector({
   const handleModeSwitch = useCallback(
     (mode: CategorySelectionMode) => {
       if (mode === 'create_new') {
-        // Restore default group if available
         const group = defaultCategoryGroupId
           ? categoryGroups?.find((g) => g.id === defaultCategoryGroupId)
           : undefined;

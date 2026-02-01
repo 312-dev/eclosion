@@ -292,10 +292,10 @@ export function CategoryGroupRow({ group, currentMonth }: CategoryGroupRowProps)
 
   return (
     <>
-      <div className="px-4 py-3">
+      <div className="px-4 py-3 overflow-hidden">
         {/* Inner card for note content */}
         <div
-          className="rounded-lg p-3 section-enter"
+          className="rounded-lg p-3 section-enter overflow-hidden"
           style={{
             backgroundColor: 'var(--monarch-bg-card)',
             border: '1px solid var(--monarch-border)',

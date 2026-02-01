@@ -28,6 +28,7 @@ import { MonarchGoalCard } from './MonarchGoalCard';
 import { Icons } from '../icons';
 import { PlusIcon, type PlusIconHandle } from '../ui/plus';
 import { useIsInDistributionMode } from '../../context/DistributionModeContext';
+import { useMediaQuery, breakpoints } from '../../hooks/useMediaQuery';
 
 // Use RGL directly instead of WidthProvider to avoid ref conflicts
 const GridLayout = RGL;
@@ -370,6 +371,7 @@ export const StashWidgetGrid = memo(function StashWidgetGrid({
   archivedItems = [],
 }: StashWidgetGridProps) {
   const isInDistributionMode = useIsInDistributionMode();
+  const isTouchDevice = useMediaQuery(breakpoints.isTouchDevice);
 
   // Tour-forced resize handle visibility
   const [tourShowResizeHandle, setTourShowResizeHandle] = useState(false);
@@ -606,8 +608,8 @@ export const StashWidgetGrid = memo(function StashWidgetGrid({
         onLayoutChange={handleLayoutChange}
         onResizeStop={handleResizeStop}
         onDragStop={handleDragStop}
-        isResizable={!isInDistributionMode}
-        isDraggable={!isInDistributionMode}
+        isResizable={!isInDistributionMode && !isTouchDevice}
+        isDraggable={!isInDistributionMode && !isTouchDevice}
         draggableHandle=".stash-card-image"
         resizeHandles={['se']}
         margin={MARGIN}

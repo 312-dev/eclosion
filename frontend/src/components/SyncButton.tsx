@@ -103,7 +103,7 @@ export function SyncButton({
         type="button"
         onClick={onSync}
         disabled={isDisabled}
-        className={`flex items-center justify-center p-1.5 rounded disabled:opacity-60 disabled:cursor-not-allowed transition-colors hover:bg-(--monarch-bg-page) ${
+        className={`flex items-center justify-center p-1.5 rounded-lg disabled:opacity-60 disabled:cursor-not-allowed transition-colors hover:bg-(--monarch-bg-hover) ${
           isLoading ? 'cursor-wait' : ''
         }`}
         style={{ color: syncBlocked ? 'var(--monarch-warning)' : 'var(--monarch-text-muted)' }}

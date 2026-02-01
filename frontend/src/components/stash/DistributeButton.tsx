@@ -13,6 +13,7 @@ import { useIsRateLimited } from '../../context/RateLimitContext';
 import { useDistributionMode } from '../../context/DistributionModeContext';
 import { Tooltip } from '../ui/Tooltip';
 import { ExitDistributeConfirmModal } from './ExitDistributeConfirmModal';
+import { useMediaQuery, breakpoints } from '../../hooks/useMediaQuery';
 import type { StashItem } from '../../types';
 
 /** Position in a button group for styling borders/corners */
@@ -87,6 +88,7 @@ export function DistributeButton({
   const isRateLimited = useIsRateLimited();
   const { enterDistributeMode, exitMode, mode, hasChanges, requestSubmit } = useDistributionMode();
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const isTouchDevice = useMediaQuery(breakpoints.isTouchDevice);
 
   const activeStashItems = getActiveStashItems(items);
   const hasNoItems = activeStashItems.length === 0;
@@ -192,7 +194,7 @@ export function DistributeButton({
   const tooltipContent = tooltipMessage ?? getDefaultTooltip();
 
   const buttonWithTooltip = showTooltip ? (
-    <Tooltip content={tooltipContent} side="top">
+    <Tooltip content={tooltipContent} side="top" disabled={isTouchDevice && !isDisabled}>
       {buttonContent}
     </Tooltip>
   ) : (

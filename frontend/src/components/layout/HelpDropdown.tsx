@@ -1,18 +1,26 @@
 /**
  * HelpDropdown - Help button with dropdown menu for documentation and support links
  *
- * Behavior varies by environment:
- * - Desktop: Dropdown with "Interactive Guide" (when tour available), "User Guide", and "Get Support"
- * - Web + tour available: Direct start tour (no dropdown)
- * - Web + no tour: Direct link to user guide (no dropdown)
+ * Shows a dropdown with help options on all platforms.
+ * Page-specific help items are shown based on current route.
  */
 
 import { useState, useRef, useEffect } from 'react';
-import { HelpCircle, BookOpen, Play, ChevronRight, Mail, HeartHandshake } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
+import {
+  HelpCircle,
+  BookOpen,
+  Play,
+  ChevronRight,
+  Mail,
+  HeartHandshake,
+  Target,
+} from 'lucide-react';
 import { FaReddit } from 'react-icons/fa';
 import { getDocsUrl } from '../../utils';
 import { DiagnosticsPromptDialog } from './DiagnosticsPromptDialog';
 import { motion, AnimatePresence, slideDownVariants } from '../motion';
+import { OPEN_STASH_VS_GOALS_EVENT } from '../stash';
 
 declare const __APP_VERSION__: string;
 
@@ -30,10 +38,14 @@ export function HelpDropdown({ hasTour, onStartTour }: HelpDropdownProps) {
   const [showDiagnosticsPrompt, setShowDiagnosticsPrompt] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const supportMenuRef = useRef<HTMLDivElement>(null);
+  const location = useLocation();
 
   const isDesktop = globalThis.window !== undefined && !!globalThis.electron;
-  const hasDropdown = isDesktop;
+  const isOnStashPage = location.pathname.includes('/stash');
   const userGuideUrl = getDocsUrl(__APP_VERSION__);
+
+  // Show dropdown if on desktop OR if there are page-specific help items
+  const hasDropdown = isDesktop || isOnStashPage;
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -86,6 +98,11 @@ export function HelpDropdown({ hasTour, onStartTour }: HelpDropdownProps) {
     setShowDiagnosticsPrompt(true);
   };
 
+  const handleStashVsGoalsClick = () => {
+    setShowDropdown(false);
+    globalThis.dispatchEvent(new CustomEvent(OPEN_STASH_VS_GOALS_EVENT));
+  };
+
   const getAriaLabel = () => {
     if (hasDropdown) return 'Get help';
     if (hasTour) return 'Show tutorial';
@@ -93,17 +110,17 @@ export function HelpDropdown({ hasTour, onStartTour }: HelpDropdownProps) {
   };
 
   return (
-    <div className="relative hidden sm:block" ref={dropdownRef}>
+    <div className="relative" ref={dropdownRef}>
       <button
         type="button"
         onClick={handleClick}
-        className="app-header-btn flex items-center gap-1"
+        className="flex items-center justify-center p-1.5 rounded-lg transition-colors hover:bg-(--monarch-bg-hover)"
         style={{ color: 'var(--monarch-text-muted)' }}
         aria-label={getAriaLabel()}
         aria-expanded={hasDropdown ? showDropdown : undefined}
         aria-haspopup={hasDropdown ? 'menu' : undefined}
       >
-        <HelpCircle className="app-header-icon" aria-hidden="true" />
+        <HelpCircle size={16} aria-hidden="true" />
       </button>
       <AnimatePresence>
         {showDropdown && (
@@ -150,6 +167,22 @@ export function HelpDropdown({ hasTour, onStartTour }: HelpDropdownProps) {
               />
               User Guide
             </button>
+            {isOnStashPage && (
+              <button
+                type="button"
+                onClick={handleStashVsGoalsClick}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left transition-colors hover:bg-(--monarch-bg-page)"
+                style={{ color: 'var(--monarch-text-dark)' }}
+                role="menuitem"
+              >
+                <Target
+                  className="h-4 w-4"
+                  style={{ color: 'var(--monarch-orange)' }}
+                  aria-hidden="true"
+                />
+                Stashes vs. Monarch Goals
+              </button>
+            )}
             <div className="relative">
               <button
                 type="button"

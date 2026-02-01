@@ -23,7 +23,7 @@ import {
 import { useToast } from '../../context/ToastContext';
 import { usePageTitle } from '../../hooks';
 import { PageLoadingSpinner } from '../ui/LoadingSpinner';
-import { ToolPageHeader, ToolSettingsModal } from '../ui';
+import { ToolPageHeader, ToolSettingsModal, HorizontalTabsScroll } from '../ui';
 import { RecurringIcon } from '../wizards/SetupWizardIcons';
 import type { SyncResult } from '../../types';
 
@@ -128,7 +128,7 @@ export function RecurringTab() {
   }
 
   return (
-    <div className="recurring-tab-layout tab-content-enter px-6" data-testid="recurring-content">
+    <div className="recurring-tab-layout tab-content-enter" data-testid="recurring-content">
       {/* Main content area */}
       <div className="recurring-tab-content">
         {/* Header */}
@@ -139,40 +139,39 @@ export function RecurringTab() {
           onSettingsClick={() => setShowSettingsModal(true)}
         />
 
-        {/* Horizontal tabs */}
-        <div
-          className="flex items-center gap-1 mb-4 border-b"
-          style={{ borderColor: 'var(--monarch-border)' }}
-        >
-          <button
-            className="px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors"
-            style={{
-              color: 'var(--monarch-orange)',
-              borderColor: 'var(--monarch-orange)',
-            }}
-          >
-            Recurring Categories
-          </button>
-          <a
-            href="https://app.monarch.com/recurring/all"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-4 py-2.5 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 hover-text-muted-to-dark"
-            style={{ borderColor: 'transparent' }}
-          >
-            All Recurring
-            <ExternalLink size={14} />
-          </a>
-          <a
-            href="https://app.monarch.com/settings/categories"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-4 py-2.5 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 hover-text-muted-to-dark"
-            style={{ borderColor: 'transparent' }}
-          >
-            Category Groups
-            <ExternalLink size={14} />
-          </a>
+        {/* Horizontal tabs - scrollable on mobile with fade effect */}
+        <div className="mb-4 border-b" style={{ borderColor: 'var(--monarch-border)' }}>
+          <HorizontalTabsScroll>
+            <button
+              className="px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap shrink-0"
+              style={{
+                color: 'var(--monarch-orange)',
+                borderColor: 'var(--monarch-orange)',
+              }}
+            >
+              Recurring Categories
+            </button>
+            <a
+              href="https://app.monarch.com/recurring/all"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-4 py-2.5 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 hover-text-muted-to-dark whitespace-nowrap shrink-0"
+              style={{ borderColor: 'transparent' }}
+            >
+              All Recurring
+              <ExternalLink size={14} />
+            </a>
+            <a
+              href="https://app.monarch.com/settings/categories"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-4 py-2.5 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 hover-text-muted-to-dark whitespace-nowrap shrink-0"
+              style={{ borderColor: 'transparent' }}
+            >
+              Category Groups
+              <ExternalLink size={14} />
+            </a>
+          </HorizontalTabsScroll>
         </div>
 
         {syncResult && (

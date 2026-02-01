@@ -76,15 +76,15 @@ export function DeveloperSection() {
         }}
       >
         <div className="p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start gap-3 min-w-0">
               <div
-                className="p-2.5 rounded-lg"
+                className="p-2.5 rounded-lg shrink-0"
                 style={{ backgroundColor: 'var(--monarch-bg-page)' }}
               >
                 <Code size={20} style={{ color: 'var(--monarch-text-muted)' }} />
               </div>
-              <div>
+              <div className="min-w-0 pt-0.5">
                 <div className="font-medium" style={{ color: 'var(--monarch-text-dark)' }}>
                   Developer Mode
                 </div>
@@ -95,19 +95,21 @@ export function DeveloperSection() {
                 </div>
               </div>
             </div>
-            {loading ? (
-              <div
-                className="w-9 h-5 rounded-full animate-pulse"
-                style={{ backgroundColor: 'var(--monarch-border)' }}
-              />
-            ) : (
-              <ToggleSwitch
-                checked={developerMode}
-                onChange={handleToggle}
-                ariaLabel="Toggle developer mode"
-                disabled={isBetaBuild}
-              />
-            )}
+            <div className="pt-2 shrink-0">
+              {loading ? (
+                <div
+                  className="w-9 h-5 rounded-full animate-pulse"
+                  style={{ backgroundColor: 'var(--monarch-border)' }}
+                />
+              ) : (
+                <ToggleSwitch
+                  checked={developerMode}
+                  onChange={handleToggle}
+                  ariaLabel="Toggle developer mode"
+                  disabled={isBetaBuild}
+                />
+              )}
+            </div>
           </div>
         </div>
         {developerMode && (

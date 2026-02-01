@@ -112,9 +112,6 @@ export function CategoryTree({
                   <span className="font-medium" style={{ color: 'var(--monarch-text-dark)' }}>
                     {spacifyEmoji(decodeHtmlEntities(group.name))}
                   </span>
-                  <span className="text-sm" style={{ color: 'var(--monarch-text-muted)' }}>
-                    ({group.categories.length})
-                  </span>
                   {group.effectiveNote.note && (
                     <span
                       className="ml-auto px-2 py-0.5 text-xs rounded-full"

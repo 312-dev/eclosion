@@ -107,7 +107,7 @@ export function HiddenCategoriesModal({
             <p className="text-sm mt-1 text-monarch-text-muted">
               Select categories to hide from the notes view
               {hiddenCount > 0 && (
-                <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-(--monarch-bg-hover)">
+                <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-(--monarch-bg-hover) whitespace-nowrap inline-block">
                   {hiddenCount} hidden
                 </span>
               )}
@@ -210,7 +210,7 @@ export function HiddenCategoriesModal({
                           onClick={() => onToggleGroup(group.id)}
                           className={`p-1.5 rounded transition-colors ${
                             isGroupHidden
-                              ? 'bg-(--monarch-orange) text-white'
+                              ? 'bg-(--monarch-bg-card) text-monarch-text-dark'
                               : 'hover:bg-(--monarch-bg-card)'
                           }`}
                           title={isGroupHidden ? 'Show entire group' : 'Hide entire group'}
@@ -257,7 +257,7 @@ export function HiddenCategoriesModal({
                                   disabled={isGroupHidden}
                                   className={`p-1.5 rounded transition-colors ${
                                     isCategoryHidden && !isGroupHidden
-                                      ? 'bg-(--monarch-orange) text-white'
+                                      ? 'bg-(--monarch-bg-card) text-monarch-text-dark'
                                       : 'hover:bg-(--monarch-bg-card)'
                                   } ${isGroupHidden ? 'opacity-50 cursor-not-allowed' : ''}`}
                                   title={(() => {

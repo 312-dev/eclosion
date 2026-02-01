@@ -129,3 +129,13 @@ export {
 
 // Tunnel status for remote access
 export { useTunnelStatus, type UseTunnelStatusReturn } from './useTunnelStatus';
+
+// Scroll detection and interaction
+export { useScrollEnd } from './useScrollEnd';
+export { useDragScroll } from './useDragScroll';
+export {
+  useEdgeScroll,
+  type UseEdgeScrollOptions,
+  type UseEdgeScrollReturn,
+} from './useEdgeScroll';
+export { useToolbarScroll } from './useToolbarScroll';

@@ -18,6 +18,7 @@ import {
   Area,
 } from 'recharts';
 import { Z_INDEX } from '../../constants';
+import { useMediaQuery, breakpoints } from '../../hooks/useMediaQuery';
 import { AnchorIcon } from '../icons';
 import type { BurndownPoint } from './burndownUtils';
 
@@ -146,6 +147,7 @@ function useChartColors() {
 
 export function BurndownChart({ data, formatCurrency }: BurndownChartProps) {
   const colors = useChartColors();
+  const isMobile = useMediaQuery(breakpoints.sm);
 
   if (data.length < 2) return null;
 
@@ -158,6 +160,10 @@ export function BurndownChart({ data, formatCurrency }: BurndownChartProps) {
   // Only enable horizontal scroll for charts with many data points
   const minChartWidth = data.length * 70;
   const needsScroll = data.length > 12;
+
+  // On mobile, calculate interval to show ~4-5 labels to prevent overlap
+  // On desktop, show all labels
+  const xAxisInterval = isMobile ? Math.max(0, Math.ceil(data.length / 5) - 1) : 0;
 
   return (
     <div
@@ -178,11 +184,11 @@ export function BurndownChart({ data, formatCurrency }: BurndownChartProps) {
               </linearGradient>
             </defs>
             <XAxis
-              dataKey="fullLabel"
+              dataKey={isMobile ? 'month' : 'fullLabel'}
               axisLine={false}
               tickLine={false}
               tick={{ fontSize: 11, fill: colors.textMuted }}
-              interval={0}
+              interval={xAxisInterval}
               dy={10}
             />
             <YAxis
@@ -197,9 +203,9 @@ export function BurndownChart({ data, formatCurrency }: BurndownChartProps) {
             <RechartsTooltip
               content={<CustomTooltip formatCurrency={formatCurrency} />}
               cursor={{ stroke: colors.border, strokeDasharray: '3 3' }}
-              allowEscapeViewBox={{ x: true, y: true }}
+              allowEscapeViewBox={isMobile ? { x: false, y: false } : { x: true, y: true }}
               wrapperStyle={{ zIndex: Z_INDEX.TOOLTIP }}
-              offset={20}
+              offset={isMobile ? 10 : 20}
             />
             <Area type="monotone" dataKey="amount" stroke="none" fill="url(#burndownGradient)" />
             <Line

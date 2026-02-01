@@ -15,6 +15,7 @@ import { DesktopUpdateBanner } from '../update';
 import { MonthTransitionBanner } from '../ui/MonthTransitionBanner';
 import { DistributionModeBanner } from '../stash/DistributionModeBanner';
 import { RemoteAccessIndicator } from '../RemoteAccessIndicator';
+import { useMediaQuery, breakpoints } from '../../hooks/useMediaQuery';
 
 interface AppHeaderProps {
   isDemo: boolean;
@@ -39,6 +40,7 @@ export function AppHeader({
   onSync,
   onStartTour,
 }: Readonly<AppHeaderProps>) {
+  const isMobile = useMediaQuery(breakpoints.sm);
   // Desktop title bar: compact height with vertically centered content
   const desktopHeaderHeight = 48;
   // Account for native window controls
@@ -57,6 +59,17 @@ export function AppHeader({
           paddingRight: isWindowsElectron ? `${windowsControlsWidth}px` : undefined,
         }}
       >
+        {/* Remote access indicator - left side on mobile only */}
+        {isMobile && (
+          <div
+            style={{
+              position: 'absolute',
+              left: '1rem',
+            }}
+          >
+            <RemoteAccessIndicator />
+          </div>
+        )}
         {/* Centered logo - standard across all platforms */}
         <div
           className="app-brand"
@@ -89,7 +102,7 @@ export function AppHeader({
             right: isWindowsElectron ? `${windowsControlsWidth}px` : '1rem',
           }}
         >
-          <RemoteAccessIndicator />
+          {!isMobile && <RemoteAccessIndicator />}
           <SyncButton onSync={onSync} isSyncing={isSyncing} isFetching={isFetching} compact />
           <HelpDropdown hasTour={hasTour} onStartTour={onStartTour} />
         </div>

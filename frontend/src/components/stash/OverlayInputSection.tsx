@@ -73,6 +73,7 @@ export const OverlayInputSection = memo(function OverlayInputSection({
           ref={inputRef}
           type="text"
           inputMode="numeric"
+          pattern="[0-9]*"
           value={formattedValue}
           onChange={onChange}
           onFocus={onFocus}

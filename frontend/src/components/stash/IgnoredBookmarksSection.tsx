@@ -92,10 +92,11 @@ function IgnoredBookmarkRow({ item, onCreateTarget, animationIndex = 0 }: Ignore
       <button
         type="button"
         onClick={onCreateTarget}
-        className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded btn-press shrink-0"
+        className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-md btn-press shrink-0"
         style={{
-          backgroundColor: 'var(--monarch-orange)',
-          color: 'white',
+          backgroundColor: 'transparent',
+          color: 'var(--monarch-orange)',
+          border: '1px solid var(--monarch-border)',
         }}
         aria-label={`Create stash from ${item.name}`}
       >

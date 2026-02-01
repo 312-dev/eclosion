@@ -411,7 +411,7 @@ export function AvailableFundsBar({ leftToBudget, items }: Readonly<AvailableFun
       {/* Fixed floating card - always centered */}
       {/* Desktop: offset by sidebar width (220px), bottom-18 for footer */}
       {/* Mobile: full width centered, bottom-20 for mobile nav */}
-      <div className="fixed left-0 right-0 md:left-55 bottom-20 md:bottom-18 z-30 flex justify-center pointer-events-none">
+      <div className="fixed left-0 right-0 md:left-55 bottom-20 md:bottom-18 z-30 flex justify-center px-4 md:px-0 pointer-events-none">
         <div
           data-tour="stash-available-funds"
           className={`group pointer-events-auto rounded-xl overflow-hidden relative ${shouldShake ? 'animate-error-shake' : ''}`}
@@ -453,21 +453,20 @@ export function AvailableFundsBar({ leftToBudget, items }: Readonly<AvailableFun
               >
                 Cash to Stash
               </span>
-              <div className="flex items-center gap-1.5">
-                {(isLoading || isHypothesizeMode) && (
-                  <Icons.MoneyBills
-                    size={16}
-                    style={{
-                      color: isLoading ? 'var(--monarch-text-muted)' : displayedIconColor,
-                    }}
-                    aria-hidden="true"
-                  />
-                )}
+              <div className="relative flex items-center justify-center">
                 {isLoading && (
-                  <div
-                    className="h-6 w-16 rounded animate-pulse"
-                    style={{ backgroundColor: 'var(--monarch-bg-hover)' }}
-                  />
+                  <>
+                    <Icons.MoneyBills
+                      size={16}
+                      className="absolute right-full mr-1.5"
+                      style={{ color: 'var(--monarch-text-muted)' }}
+                      aria-hidden="true"
+                    />
+                    <div
+                      className="h-6 w-16 rounded animate-pulse"
+                      style={{ backgroundColor: 'var(--monarch-bg-hover)' }}
+                    />
+                  </>
                 )}
                 {!isLoading && isHypothesizeMode && (
                   <div
@@ -477,6 +476,12 @@ export function AvailableFundsBar({ leftToBudget, items }: Readonly<AvailableFun
                       border: '1px solid var(--hypothesize-input-border)',
                     }}
                   >
+                    <Icons.MoneyBills
+                      size={16}
+                      className="absolute right-full mr-1.5"
+                      style={{ color: displayedIconColor }}
+                      aria-hidden="true"
+                    />
                     <span
                       className="text-base font-bold"
                       style={{
@@ -522,9 +527,10 @@ export function AvailableFundsBar({ leftToBudget, items }: Readonly<AvailableFun
                 )}
                 {!isLoading && !isHypothesizeMode && (
                   <HoverCard content={tooltipContent} side="top" align="center" closeDelay={400}>
-                    <div className="flex items-center gap-1.5 cursor-help">
+                    <div className="relative flex items-center justify-center cursor-help">
                       <Icons.MoneyBills
                         size={16}
+                        className="absolute right-full mr-1.5"
                         style={{
                           color: displayedIconColor,
                         }}
@@ -620,9 +626,10 @@ export function AvailableFundsBar({ leftToBudget, items }: Readonly<AvailableFun
                     Left to Budget
                   </span>
                   {isLoading && (
-                    <div className="flex items-center gap-1.5">
+                    <div className="relative flex items-center justify-center">
                       <Icons.CircleFadingPlus
                         size={16}
+                        className="absolute right-full mr-1.5"
                         style={{ color: 'var(--monarch-text-muted)', opacity: 0.8 }}
                         aria-hidden="true"
                       />
@@ -633,12 +640,7 @@ export function AvailableFundsBar({ leftToBudget, items }: Readonly<AvailableFun
                     </div>
                   )}
                   {!isLoading && isHypothesizeMode && (
-                    <div className="flex items-center gap-1.5">
-                      <Icons.CircleFadingPlus
-                        size={16}
-                        style={{ color: ltbIconColor }}
-                        aria-hidden="true"
-                      />
+                    <div className="relative flex items-center justify-center">
                       <div
                         className={`relative flex items-center px-2 py-0.5 rounded-lg transition-all duration-200 ${isLtbInputFocused ? 'ring-2 ring-purple-400' : ''}`}
                         style={{
@@ -646,6 +648,12 @@ export function AvailableFundsBar({ leftToBudget, items }: Readonly<AvailableFun
                           border: '1px solid var(--hypothesize-input-border)',
                         }}
                       >
+                        <Icons.CircleFadingPlus
+                          size={16}
+                          className="absolute right-full mr-1.5"
+                          style={{ color: ltbIconColor }}
+                          aria-hidden="true"
+                        />
                         <span
                           className="text-base font-bold"
                           style={{
@@ -697,9 +705,10 @@ export function AvailableFundsBar({ leftToBudget, items }: Readonly<AvailableFun
                       align="center"
                       closeDelay={400}
                     >
-                      <div className="flex items-center gap-1.5 cursor-help">
+                      <div className="relative flex items-center justify-center cursor-help">
                         <Icons.CircleFadingPlus
                           size={16}
+                          className="absolute right-full mr-1.5"
                           style={{ color: ltbIconColor }}
                           aria-hidden="true"
                         />

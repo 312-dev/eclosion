@@ -192,7 +192,7 @@ export function RemoteAccessPassphraseModal({
                   Saving...
                 </>
               )}
-              {!loading && mode === 'change' && 'Update Passphrase'}
+              {!loading && mode === 'change' && 'Update'}
               {!loading && mode === 'create' && 'Enable Remote Access'}
             </button>
           </div>

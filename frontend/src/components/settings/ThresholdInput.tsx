@@ -74,6 +74,7 @@ export function ThresholdInput({ defaultValue, disabled, onChange }: ThresholdIn
       <input
         type="text"
         inputMode="numeric"
+        pattern="[0-9]*"
         value={inputValue}
         onChange={handleChange}
         placeholder="any"

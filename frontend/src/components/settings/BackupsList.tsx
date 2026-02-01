@@ -17,13 +17,10 @@ export function BackupsList({ backups, onRestore }: BackupsListProps) {
   if (backups.length === 0) return null;
 
   return (
-    <div className="px-4 py-3 ml-14">
+    <div className="px-4 py-3">
       <div className="flex items-center gap-2 mb-2">
         <History size={14} style={{ color: 'var(--monarch-text-muted)' }} />
-        <span
-          className="text-sm font-medium"
-          style={{ color: 'var(--monarch-text-dark)' }}
-        >
+        <span className="text-sm font-medium" style={{ color: 'var(--monarch-text-dark)' }}>
           Available Backups ({backups.length})
         </span>
       </div>
@@ -42,16 +39,10 @@ export function BackupsList({ backups, onRestore }: BackupsListProps) {
             }}
           >
             <div className="flex items-center gap-3">
-              <span
-                className="text-sm"
-                style={{ color: 'var(--monarch-text-dark)' }}
-              >
+              <span className="text-sm" style={{ color: 'var(--monarch-text-dark)' }}>
                 {formatBackupDate(backup.createdAt)}
               </span>
-              <span
-                className="text-xs"
-                style={{ color: 'var(--monarch-text-muted)' }}
-              >
+              <span className="text-xs" style={{ color: 'var(--monarch-text-muted)' }}>
                 {formatBytes(backup.sizeBytes)}
               </span>
             </div>
@@ -71,10 +62,7 @@ export function BackupsList({ backups, onRestore }: BackupsListProps) {
         ))}
       </div>
       {backups.length > 5 && (
-        <p
-          className="text-xs mt-2"
-          style={{ color: 'var(--monarch-text-muted)' }}
-        >
+        <p className="text-xs mt-2" style={{ color: 'var(--monarch-text-muted)' }}>
           Showing 5 most recent backups
         </p>
       )}

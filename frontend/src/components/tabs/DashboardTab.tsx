@@ -51,7 +51,7 @@ export function DashboardTab() {
   usePageTitle('Dashboard', data?.config.user_first_name);
 
   return (
-    <div className="max-w-3xl tab-content-enter" data-testid="dashboard-content">
+    <div className="max-w-200 tab-content-enter" data-testid="dashboard-content">
       {/* Welcome Section */}
       <div className="mb-8">
         <h1 className="text-2xl font-semibold mb-2" style={{ color: 'var(--monarch-text-dark)' }}>

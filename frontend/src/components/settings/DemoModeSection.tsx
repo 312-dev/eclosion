@@ -21,7 +21,10 @@ export function DemoModeSection() {
 
   return (
     <section className="mb-8">
-      <h2 className="text-xs font-semibold uppercase tracking-wider mb-3 px-1 flex items-center gap-1.5" style={{ color: 'var(--monarch-orange)' }}>
+      <h2
+        className="text-xs font-semibold uppercase tracking-wider mb-3 px-1 flex items-center gap-1.5"
+        style={{ color: 'var(--monarch-orange)' }}
+      >
         <RotateCcw size={12} />
         Demo Mode
       </h2>
@@ -30,19 +33,19 @@ export function DemoModeSection() {
         style={{
           backgroundColor: 'var(--monarch-bg-card)',
           border: '1px solid var(--monarch-orange)',
-          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)'
+          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
         }}
       >
         <div className="p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start gap-3 min-w-0">
               <div
-                className="p-2.5 rounded-lg"
+                className="p-2.5 rounded-lg shrink-0"
                 style={{ backgroundColor: 'var(--monarch-orange-light)' }}
               >
                 <RotateCcw size={20} style={{ color: 'var(--monarch-orange)' }} />
               </div>
-              <div>
+              <div className="min-w-0 pt-0.5">
                 <div className="font-medium" style={{ color: 'var(--monarch-text-dark)' }}>
                   Reset Demo Data
                 </div>
@@ -51,17 +54,19 @@ export function DemoModeSection() {
                 </div>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={handleReset}
-              className="px-3 py-1.5 rounded-lg text-sm font-medium"
-              style={{
-                backgroundColor: 'var(--monarch-orange)',
-                color: 'white',
-              }}
-            >
-              Reset
-            </button>
+            <div className="pt-1.5 shrink-0">
+              <button
+                type="button"
+                onClick={handleReset}
+                className="px-3 py-1.5 rounded-lg text-sm font-medium"
+                style={{
+                  backgroundColor: 'var(--monarch-orange)',
+                  color: 'white',
+                }}
+              >
+                Reset
+              </button>
+            </div>
           </div>
         </div>
         <div

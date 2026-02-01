@@ -293,11 +293,11 @@ export function CategoryRow({ category, groupId, groupName, currentMonth }: Cate
   return (
     <>
       <div
-        className="flex items-start gap-3 px-4 py-3 border-t hover:bg-(--monarch-bg-hover) transition-colors group"
+        className="flex flex-col gap-2 px-4 py-3 border-t hover:bg-(--monarch-bg-hover) transition-colors group"
         style={{ borderColor: 'var(--monarch-border)' }}
       >
         {/* Category icon/name */}
-        <div className="flex items-center gap-2 w-48 shrink-0">
+        <div className="flex items-center gap-2">
           {category.icon && (
             <span className="text-base" aria-hidden="true">
               {decodeHtmlEntities(category.icon)}
@@ -319,8 +319,8 @@ export function CategoryRow({ category, groupId, groupName, currentMonth }: Cate
           </a>
         </div>
 
-        {/* Note content area */}
-        <div className="flex-1 min-w-0">{renderNoteContent()}</div>
+        {/* Note content area - stacked below category name */}
+        <div className="min-w-0">{renderNoteContent()}</div>
       </div>
 
       {/* Revision history modal */}

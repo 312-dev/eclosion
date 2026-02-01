@@ -146,6 +146,7 @@ export function BufferInputRow({
           <input
             type="text"
             inputMode="numeric"
+            pattern="[0-9]*"
             value={formattedBuffer}
             onChange={handleChange}
             onKeyDown={handleKeyDown}

@@ -239,13 +239,25 @@ export function NotesTab() {
 
   return (
     <NotesEditorProvider>
-      <div className="max-w-7xl mx-auto px-6 tab-content-enter">
+      <div className="max-w-7xl mx-auto tab-content-enter">
         {/* Header */}
         <ToolPageHeader
           icon={<NotesIcon size={40} />}
-          title="Monthly Notes"
+          title="Notes"
           description="Add notes to categories and months"
-          actions={
+          onSettingsClick={() => setShowSettingsModal(true)}
+        />
+
+        {/* Month navigation */}
+        <div className="mb-4 lg:mb-6">
+          <MonthYearSelector
+            currentMonth={currentMonth}
+            onMonthChange={setCurrentMonth}
+            minMonth={minMonth}
+            maxMonth={maxMonth}
+          />
+          {/* Export button - floated right under divider */}
+          <div className="flex justify-end -mt-1">
             <button
               type="button"
               onClick={handleOpenExportModal}
@@ -260,18 +272,7 @@ export function NotesTab() {
               <Download size={14} />
               Export
             </button>
-          }
-          onSettingsClick={() => setShowSettingsModal(true)}
-        />
-
-        {/* Month navigation */}
-        <div className="mb-4 lg:mb-6">
-          <MonthYearSelector
-            currentMonth={currentMonth}
-            onMonthChange={setCurrentMonth}
-            minMonth={minMonth}
-            maxMonth={maxMonth}
-          />
+          </div>
         </div>
 
         {/* General month notes - mobile only (stacked below navigator) */}

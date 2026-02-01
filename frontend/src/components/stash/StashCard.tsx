@@ -48,6 +48,7 @@ import {
 import { useToast } from '../../context/ToastContext';
 import { useIsRateLimited } from '../../context/RateLimitContext';
 import { useDemo } from '../../context/DemoContext';
+import { useMediaQuery, breakpoints } from '../../hooks/useMediaQuery';
 
 interface StashCardProps {
   readonly item: StashItem;
@@ -166,6 +167,7 @@ export const StashCard = memo(function StashCard({
   const queryClient = useQueryClient();
   const isDemo = useDemo();
   const distributionMode = useDistributionModeType();
+  const isTouchDevice = useMediaQuery(breakpoints.isTouchDevice);
   const isInDistributionMode = distributionMode !== null;
   const isHypothesizeMode = distributionMode === 'hypothesize';
 
@@ -771,7 +773,9 @@ export const StashCard = memo(function StashCard({
             onMouseDown={(e) => e.stopPropagation()}
             onTouchStart={(e) => e.stopPropagation()}
             className={`absolute top-2 right-2 p-2 rounded-lg transition-opacity icon-btn-hover ${
-              tourShowEditButton ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+              tourShowEditButton || isTouchDevice
+                ? 'opacity-100'
+                : 'opacity-0 group-hover:opacity-100'
             }`}
             style={{
               backgroundColor: 'var(--card-edit-btn-bg)',

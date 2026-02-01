@@ -6,15 +6,12 @@
 
 interface SettingsSectionHeaderProps {
   readonly title: string;
-  readonly variant?: 'page' | 'modal';
 }
 
-export function SettingsSectionHeader({ title, variant = 'page' }: SettingsSectionHeaderProps) {
-  const marginClass = variant === 'modal' ? '' : 'ml-14';
-
+export function SettingsSectionHeader({ title }: SettingsSectionHeaderProps) {
   return (
     <div
-      className={`px-4 pt-4 pb-2 ${marginClass}`}
+      className="px-4 pt-4 pb-2"
       style={{ borderTop: '1px solid var(--monarch-border-light, rgba(0,0,0,0.06))' }}
     >
       <h3

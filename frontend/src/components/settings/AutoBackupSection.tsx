@@ -285,7 +285,7 @@ export function AutoBackupSection() {
       </SettingsRow>
 
       <div
-        className="px-4 py-3 ml-14 flex items-center justify-between"
+        className="px-4 py-3 flex items-center justify-between"
         style={{
           borderBottom:
             backups.length > 0

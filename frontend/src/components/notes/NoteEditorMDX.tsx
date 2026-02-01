@@ -29,6 +29,7 @@ import { evaluateMathExpression } from '../../utils/mathEvaluator';
 import { decodeHtmlEntities } from '../../utils';
 import { useIsRateLimited } from '../../context/RateLimitContext';
 import { Tooltip } from '../ui/Tooltip';
+import { useMediaQuery, useToolbarScroll } from '../../hooks';
 
 interface MathSuggestion {
   expression: string;
@@ -78,6 +79,15 @@ export function NoteEditorMDX({
   const [isFocused, setIsFocused] = useState(false);
   const [mathSuggestion, setMathSuggestion] = useState<MathSuggestion | null>(null);
   const isRateLimited = useIsRateLimited();
+  const isMobile = useMediaQuery('(max-width: 767px)');
+
+  // Whether to show toolbar (used for CSS class, not for conditional rendering)
+  const showToolbar = !hideToolbar && !readOnly;
+
+  // Desktop: drag-to-scroll and hover-to-scroll on MDXEditor toolbar
+  useToolbarScroll(containerRef, '.mdxeditor-toolbar', '.mdxeditor', {
+    enabled: showToolbar && !isMobile && isFocused,
+  });
 
   // Combined disabled state for save button
   const isSaveDisabled = isSaving || isRateLimited;
@@ -191,9 +201,6 @@ export function NoteEditorMDX({
       setIsFocused(false);
     }
   }, []);
-
-  // Whether to show toolbar (used for CSS class, not for conditional rendering)
-  const showToolbar = !hideToolbar && !readOnly;
 
   // Memoize plugins array to prevent MDXEditor re-initialization
   // Always include toolbar plugin - visibility controlled via CSS

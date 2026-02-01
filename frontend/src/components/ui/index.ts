@@ -46,5 +46,8 @@ export { ToolPageHeader } from './ToolPageHeader';
 export { ToolSettingsModal, type ToolType } from './ToolSettingsModal';
 export { AnimatedEmoji } from './AnimatedEmoji';
 
+// Layout components
+export { HorizontalTabsScroll } from './HorizontalTabsScroll';
+
 // Re-export icons from the centralized icons module for convenience
 export * from '../icons';

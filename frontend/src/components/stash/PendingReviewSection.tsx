@@ -70,7 +70,7 @@ export function PendingReviewSection({
         </div>
         <div className="flex-1 flex items-center gap-2">
           <span className="font-medium" style={{ color: 'var(--monarch-text-dark)' }}>
-            Bookmarks Pending Review
+            New Bookmarks
           </span>
           <span
             className="px-2 py-0.5 text-xs font-semibold rounded-full"

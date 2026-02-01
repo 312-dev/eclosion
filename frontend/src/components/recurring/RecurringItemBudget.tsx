@@ -97,6 +97,7 @@ export function RecurringItemBudget({ item, onAllocate, isAllocating }: Recurrin
           <input
             type="text"
             inputMode="numeric"
+            pattern="[0-9]*"
             value="0"
             disabled
             readOnly
@@ -200,6 +201,7 @@ export function RecurringItemBudget({ item, onAllocate, isAllocating }: Recurrin
         <input
           type="text"
           inputMode="numeric"
+          pattern="[0-9]*"
           value={budgetInput}
           onChange={handleBudgetChange}
           onKeyDown={handleBudgetKeyDown}

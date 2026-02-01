@@ -81,4 +81,6 @@ export const breakpoints = {
   prefersLight: '(prefers-color-scheme: light)',
   /** Prefers reduced motion */
   prefersReducedMotion: '(prefers-reduced-motion: reduce)',
+  /** Touch device (coarse pointer like finger vs fine pointer like mouse) */
+  isTouchDevice: '(pointer: coarse)',
 } as const;

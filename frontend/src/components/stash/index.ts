@@ -22,7 +22,9 @@ export { AvailableFundsBar } from './AvailableFundsBar';
 export { OvercommittedBanner } from './OvercommittedBanner';
 export { ArchivedItemsSection } from './ArchivedItemsSection';
 export { StashVsGoalsModal } from './StashVsGoalsModal';
-export { StashGoalExplainerLink } from './StashGoalExplainerLink';
+
+/** Event to open the Stash vs Monarch Goals modal from the global help menu */
+export const OPEN_STASH_VS_GOALS_EVENT = 'eclosion:open-stash-vs-goals';
 export { BrowserSetupModal } from './BrowserSetupModal';
 export { DebtAccountSelectorModal } from './DebtAccountSelectorModal';
 

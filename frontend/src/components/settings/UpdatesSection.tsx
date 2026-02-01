@@ -154,15 +154,15 @@ export function UpdatesSection({ versionInfo, onShowUpdateModal }: UpdatesSectio
         }}
       >
         <div className="p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start gap-3 min-w-0">
               <div
-                className="p-2.5 rounded-lg"
+                className="p-2.5 rounded-lg shrink-0"
                 style={{ backgroundColor: 'var(--monarch-bg-page)' }}
               >
                 <Download size={20} style={{ color: 'var(--monarch-text-muted)' }} />
               </div>
-              <div>
+              <div className="min-w-0 pt-0.5">
                 <div className="flex items-center gap-2">
                   <span className="font-medium" style={{ color: 'var(--monarch-text-dark)' }}>
                     v{versionInfo?.version || '...'}
@@ -179,21 +179,23 @@ export function UpdatesSection({ versionInfo, onShowUpdateModal }: UpdatesSectio
               </div>
             </div>
 
-            {isDesktop ? (
-              <DesktopUpdateAction />
-            ) : (
-              <button
-                type="button"
-                onClick={onShowUpdateModal}
-                className="px-3 py-1.5 rounded-lg text-sm font-medium hover-bg-page-to-hover"
-                style={{
-                  color: 'var(--monarch-text-dark)',
-                  border: '1px solid var(--monarch-border)',
-                }}
-              >
-                Check for Updates
-              </button>
-            )}
+            <div className="pt-1.5 shrink-0">
+              {isDesktop ? (
+                <DesktopUpdateAction />
+              ) : (
+                <button
+                  type="button"
+                  onClick={onShowUpdateModal}
+                  className="px-3 py-1.5 rounded-lg text-sm font-medium hover-bg-page-to-hover"
+                  style={{
+                    color: 'var(--monarch-text-dark)',
+                    border: '1px solid var(--monarch-border)',
+                  }}
+                >
+                  Check for Updates
+                </button>
+              )}
+            </div>
           </div>
         </div>
 

@@ -130,15 +130,15 @@ export function RemoteAccessSection() {
       }}
     >
       <div className="p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3 min-w-0">
             <div
-              className="w-9 h-9 rounded-lg flex items-center justify-center"
+              className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
               style={{ backgroundColor: 'var(--monarch-bg-page)' }}
             >
               <Globe size={20} style={{ color: 'var(--monarch-orange)' }} />
             </div>
-            <div>
+            <div className="min-w-0 pt-0.5">
               <div className="font-medium" style={{ color: 'var(--monarch-text-dark)' }}>
                 Remote Access
               </div>
@@ -147,19 +147,21 @@ export function RemoteAccessSection() {
               </div>
             </div>
           </div>
-          {loading ? (
-            <div
-              className="w-9 h-5 rounded-full animate-pulse"
-              style={{ backgroundColor: 'var(--monarch-border)' }}
-            />
-          ) : (
-            <ToggleSwitch
-              checked={status?.active ?? false}
-              onChange={handleToggle}
-              disabled={loading || enabling}
-              ariaLabel="Toggle remote access"
-            />
-          )}
+          <div className="pt-2 shrink-0">
+            {loading ? (
+              <div
+                className="w-9 h-5 rounded-full animate-pulse"
+                style={{ backgroundColor: 'var(--monarch-border)' }}
+              />
+            ) : (
+              <ToggleSwitch
+                checked={status?.active ?? false}
+                onChange={handleToggle}
+                disabled={loading || enabling}
+                ariaLabel="Toggle remote access"
+              />
+            )}
+          </div>
         </div>
       </div>
 
@@ -199,14 +201,14 @@ export function RemoteAccessSection() {
                   You&apos;ll need your app passphrase to connect.
                 </p>
                 <div
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg"
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg w-full"
                   style={{
                     backgroundColor: 'var(--monarch-bg-card)',
                     border: '1px solid var(--monarch-border)',
                   }}
                 >
                   <code
-                    className="flex-1 text-xs break-all"
+                    className="flex-1 text-xs break-all min-w-0"
                     style={{ color: 'var(--monarch-text-dark)' }}
                   >
                     {status.url}
@@ -239,7 +241,7 @@ export function RemoteAccessSection() {
               setPassphraseMode('change');
               setShowPassphraseModal(true);
             }}
-            className="mt-3 flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-black/5"
+            className="mt-3 flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-black/5 w-full sm:w-auto"
             style={{
               backgroundColor: 'var(--monarch-bg-page)',
               border: '1px solid var(--monarch-border)',

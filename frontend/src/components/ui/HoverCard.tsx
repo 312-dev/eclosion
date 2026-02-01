@@ -4,16 +4,19 @@
  * Unlike Tooltip, HoverCard is designed for interactive content that
  * users might want to hover into, click on, or scroll through.
  *
+ * On touch devices, the card opens/closes on tap instead of hover.
+ *
  * Usage:
  *   <HoverCard content={<InteractiveContent />}>
  *     <button>Hover me</button>
  *   </HoverCard>
  */
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import * as RadixHoverCard from '@radix-ui/react-hover-card';
 import type { ReactNode } from 'react';
 import { motion, AnimatePresence, TIMING } from '../motion';
+import { useMediaQuery, breakpoints } from '../../hooks/useMediaQuery';
 
 export interface HoverCardProps {
   /** The content to display in the hover card */
@@ -54,15 +57,63 @@ export function HoverCard({
 }: HoverCardProps) {
   const [isOpen, setIsOpen] = useState(false);
   const slideOffset = getSlideOffset(side);
+  const isTouchDevice = useMediaQuery(breakpoints.isTouchDevice);
+  const triggerRef = useRef<HTMLElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  // Handle tap-to-toggle on touch devices via capture phase click
+  useEffect(() => {
+    if (!isTouchDevice) return;
+
+    const trigger = triggerRef.current;
+    if (!trigger) return;
+
+    const handleClick = (e: MouseEvent) => {
+      // Toggle open state on tap
+      setIsOpen((prev) => !prev);
+      // Prevent the click from bubbling to avoid unwanted side effects
+      e.stopPropagation();
+    };
+
+    trigger.addEventListener('click', handleClick);
+    return () => trigger.removeEventListener('click', handleClick);
+  }, [isTouchDevice]);
+
+  // Close on tap outside for touch devices
+  useEffect(() => {
+    if (!isTouchDevice || !isOpen) return;
+
+    const handleClickOutside = (event: PointerEvent) => {
+      const target = event.target as Node;
+      const isOutsideTrigger = triggerRef.current && !triggerRef.current.contains(target);
+      const isOutsideContent = contentRef.current && !contentRef.current.contains(target);
+
+      if (isOutsideTrigger && isOutsideContent) {
+        setIsOpen(false);
+      }
+    };
+
+    // Use pointerdown for immediate response on touch
+    document.addEventListener('pointerdown', handleClickOutside);
+    return () => document.removeEventListener('pointerdown', handleClickOutside);
+  }, [isTouchDevice, isOpen]);
+
+  // On touch devices, use a no-op for onOpenChange to prevent hover from controlling state
+  const handleOpenChange = isTouchDevice ? () => {} : setIsOpen;
 
   return (
     <RadixHoverCard.Root
-      openDelay={openDelay}
-      closeDelay={closeDelay}
+      // On touch devices, disable hover behavior by setting very long delays
+      openDelay={isTouchDevice ? 999999 : openDelay}
+      closeDelay={isTouchDevice ? 999999 : closeDelay}
       open={isOpen}
-      onOpenChange={setIsOpen}
+      onOpenChange={handleOpenChange}
     >
-      <RadixHoverCard.Trigger asChild>{children}</RadixHoverCard.Trigger>
+      <RadixHoverCard.Trigger asChild>
+        <span ref={triggerRef as React.RefObject<HTMLSpanElement>} className="contents">
+          {children}
+        </span>
+      </RadixHoverCard.Trigger>
       <AnimatePresence>
         {isOpen && (
           <RadixHoverCard.Portal forceMount>
@@ -74,6 +125,7 @@ export function HoverCard({
               asChild
             >
               <motion.div
+                ref={contentRef}
                 initial={{ opacity: 0, scale: 0.96, ...slideOffset }}
                 animate={{ opacity: 1, scale: 1, x: 0, y: 0 }}
                 exit={{ opacity: 0, scale: 0.96, ...slideOffset }}

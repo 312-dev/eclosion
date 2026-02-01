@@ -17,13 +17,14 @@ import {
   HelpCircle,
 } from 'lucide-react';
 import { StashIcon } from '../wizards/SetupWizardIcons';
+import { useMediaQuery, breakpoints } from '../../hooks/useMediaQuery';
 
 interface StashVsGoalsModalProps {
   readonly isOpen: boolean;
   readonly onClose: () => void;
 }
 
-interface ComparisonRowProps {
+interface ComparisonItemProps {
   readonly icon: ReactNode;
   readonly aspect: string;
   readonly stash: string;
@@ -31,7 +32,7 @@ interface ComparisonRowProps {
   readonly isEven: boolean;
 }
 
-function ComparisonRow({ icon, aspect, stash, goal, isEven }: ComparisonRowProps) {
+function ComparisonRow({ icon, aspect, stash, goal, isEven }: ComparisonItemProps) {
   return (
     <tr style={isEven ? { backgroundColor: 'var(--monarch-bg-page)' } : undefined}>
       <td className="py-3 px-3 text-sm font-medium" style={{ color: 'var(--monarch-text-dark)' }}>
@@ -50,7 +51,89 @@ function ComparisonRow({ icon, aspect, stash, goal, isEven }: ComparisonRowProps
   );
 }
 
+function ComparisonCard({
+  icon,
+  aspect,
+  stash,
+  goal,
+}: Readonly<Omit<ComparisonItemProps, 'isEven'>>) {
+  return (
+    <div
+      className="rounded-lg p-4"
+      style={{
+        backgroundColor: 'var(--monarch-bg-page)',
+        border: '1px solid var(--monarch-border)',
+      }}
+    >
+      <div
+        className="flex items-center gap-2 mb-3 pb-2"
+        style={{ borderBottom: '1px solid var(--monarch-border)' }}
+      >
+        <span style={{ color: 'var(--monarch-text-muted)' }}>{icon}</span>
+        <span className="text-sm font-medium" style={{ color: 'var(--monarch-text-dark)' }}>
+          {aspect}
+        </span>
+      </div>
+      <div className="space-y-3">
+        <div>
+          <div
+            className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide mb-1"
+            style={{ color: 'var(--monarch-orange)' }}
+          >
+            <StashIcon size={12} />
+            Stashes
+          </div>
+          <p className="text-sm" style={{ color: 'var(--monarch-text-muted)' }}>
+            {stash}
+          </p>
+        </div>
+        <div>
+          <div
+            className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide mb-1"
+            style={{ color: 'var(--monarch-green)' }}
+          >
+            <Target size={12} />
+            Monarch Goals
+          </div>
+          <p className="text-sm" style={{ color: 'var(--monarch-text-muted)' }}>
+            {goal}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const comparisonData = [
+  {
+    icon: <Banknote size={16} />,
+    aspect: 'How you fund it',
+    stash: 'Set aside money in a Monarch category',
+    goal: 'Transfer to a linked account or log contributions',
+  },
+  {
+    icon: <Sparkles size={16} />,
+    aspect: 'Best for',
+    stash: 'Flexible savings goals (from shoes to emergency funds)',
+    goal: 'Dedicated savings accounts, multi-account goals',
+  },
+  {
+    icon: <SlidersHorizontal size={16} />,
+    aspect: 'Flexibility',
+    stash: 'Any category can be a goal',
+    goal: 'Requires account linking or manual entry',
+  },
+  {
+    icon: <Calculator size={16} />,
+    aspect: 'Available funds calculation',
+    stash: 'Calculated from cash minus debts and budgets',
+    goal: 'Based on savings account allocations',
+  },
+];
+
 export function StashVsGoalsModal({ isOpen, onClose }: StashVsGoalsModalProps) {
+  const isMobile = useMediaQuery(breakpoints.sm);
+
   return (
     <Modal
       isOpen={isOpen}
@@ -70,69 +153,52 @@ export function StashVsGoalsModal({ isOpen, onClose }: StashVsGoalsModalProps) {
           cash. Goals are <strong>partitioned money</strong> in dedicated accounts.
         </p>
 
-        {/* Comparison Table */}
-        <div
-          className="rounded-lg overflow-hidden"
-          style={{
-            border: '1px solid var(--monarch-border)',
-          }}
-        >
-          <table className="w-full">
-            <thead>
-              <tr style={{ backgroundColor: 'var(--monarch-bg-page)' }}>
-                <th className="py-2.5 px-3" style={{ width: '30%' }} aria-label="Aspect" />
-                <th
-                  className="py-2.5 px-3 text-left text-xs font-medium uppercase tracking-wide"
-                  style={{ color: 'var(--monarch-orange)', width: '35%' }}
-                >
-                  <div className="flex items-center gap-1.5">
-                    <StashIcon size={14} />
-                    Stashes
-                  </div>
-                </th>
-                <th
-                  className="py-2.5 px-3 text-left text-xs font-medium uppercase tracking-wide"
-                  style={{ color: 'var(--monarch-green)', width: '35%' }}
-                >
-                  <div className="flex items-center gap-1.5">
-                    <Target size={14} />
-                    Monarch Goals
-                  </div>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              <ComparisonRow
-                icon={<Banknote size={16} />}
-                aspect="How you fund it"
-                stash="Set aside money in a Monarch category"
-                goal="Transfer to a linked account or log contributions"
-                isEven={false}
-              />
-              <ComparisonRow
-                icon={<Sparkles size={16} />}
-                aspect="Best for"
-                stash="Flexible savings goals (from shoes to emergency funds)"
-                goal="Dedicated savings accounts, multi-account goals"
-                isEven
-              />
-              <ComparisonRow
-                icon={<SlidersHorizontal size={16} />}
-                aspect="Flexibility"
-                stash="Any category can be a goal"
-                goal="Requires account linking or manual entry"
-                isEven={false}
-              />
-              <ComparisonRow
-                icon={<Calculator size={16} />}
-                aspect="Available funds calculation"
-                stash="Calculated from cash minus debts and budgets"
-                goal="Based on savings account allocations"
-                isEven
-              />
-            </tbody>
-          </table>
-        </div>
+        {/* Comparison - Cards on mobile, Table on desktop */}
+        {isMobile ? (
+          <div className="space-y-3">
+            {comparisonData.map((item) => (
+              <ComparisonCard key={item.aspect} {...item} />
+            ))}
+          </div>
+        ) : (
+          <div
+            className="rounded-lg overflow-hidden"
+            style={{
+              border: '1px solid var(--monarch-border)',
+            }}
+          >
+            <table className="w-full">
+              <thead>
+                <tr style={{ backgroundColor: 'var(--monarch-bg-page)' }}>
+                  <th className="py-2.5 px-3" style={{ width: '30%' }} aria-label="Aspect" />
+                  <th
+                    className="py-2.5 px-3 text-left text-xs font-medium uppercase tracking-wide"
+                    style={{ color: 'var(--monarch-orange)', width: '35%' }}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <StashIcon size={14} />
+                      Stashes
+                    </div>
+                  </th>
+                  <th
+                    className="py-2.5 px-3 text-left text-xs font-medium uppercase tracking-wide"
+                    style={{ color: 'var(--monarch-green)', width: '35%' }}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <Target size={14} />
+                      Monarch Goals
+                    </div>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {comparisonData.map((item, index) => (
+                  <ComparisonRow key={item.aspect} {...item} isEven={index % 2 === 1} />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
 
         {/* Can I use both? */}
         <div

@@ -13,6 +13,7 @@ import { useToast } from '../../context/ToastContext';
 import { useSaveHypothesisMutation } from '../../api/queries/stashQueries';
 import { Tooltip } from '../ui/Tooltip';
 import { SaveNameDialog } from './DistributionModeDialogs';
+import { useMediaQuery, breakpoints } from '../../hooks/useMediaQuery';
 import type { StashItem, SaveHypothesisRequest } from '../../types';
 
 /** Position in a button group for styling borders/corners */
@@ -100,6 +101,7 @@ export function HypothesizeButton({
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
+  const isTouchDevice = useMediaQuery(breakpoints.isTouchDevice);
   const activeStashItems = getActiveStashItems(items);
   const hasNoItems = activeStashItems.length === 0;
   const isInHypothesizeMode = mode === 'hypothesize';
@@ -276,7 +278,7 @@ export function HypothesizeButton({
   const tooltipContent = tooltipMessage ?? getDefaultTooltip();
 
   const buttonWithTooltip = showTooltip ? (
-    <Tooltip content={tooltipContent} side="bottom">
+    <Tooltip content={tooltipContent} side="bottom" disabled={isTouchDevice && !isDisabled}>
       {buttonContent}
     </Tooltip>
   ) : (

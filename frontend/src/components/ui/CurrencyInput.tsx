@@ -104,16 +104,15 @@ export function CurrencyInput({
       </span>
       <input
         ref={inputRef}
-        type="number"
+        type="text"
+        inputMode="numeric"
+        pattern="[0-9]*"
         value={value || ''}
         onChange={handleChange}
         onKeyDown={handleKeyDown}
         onBlur={onBlur}
         disabled={disabled}
         placeholder={placeholder}
-        min={min}
-        max={max}
-        step={step}
         className="w-full py-1.5 pr-2 pl-1 text-sm bg-transparent outline-none"
         style={{
           color: 'var(--monarch-text)',

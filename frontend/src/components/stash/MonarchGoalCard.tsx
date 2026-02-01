@@ -26,6 +26,7 @@ import { useDistributionModeType } from '../../context/DistributionModeContext';
 import { Tooltip } from '../ui/Tooltip';
 import { AnimatedEmoji } from '../ui';
 import { motion, AnimatePresence, TIMING } from '../motion';
+import { useMediaQuery, breakpoints } from '../../hooks/useMediaQuery';
 
 interface MonarchGoalCardProps {
   readonly goal: MonarchGoal;
@@ -211,6 +212,7 @@ export const MonarchGoalCard = memo(function MonarchGoalCard({
   const imageUrl = getMonarchImageUrl(goal.imageStorageProvider, goal.imageStorageProviderId);
   const hasImage = Boolean(imageUrl);
   const distributionMode = useDistributionModeType();
+  const isTouchDevice = useMediaQuery(breakpoints.isTouchDevice);
   const [isCardHovered, setIsCardHovered] = useState(false);
 
   // Get current month abbreviation for label
@@ -314,7 +316,9 @@ export const MonarchGoalCard = memo(function MonarchGoalCard({
           href={`https://app.monarch.com/goals/savings/${goal.id}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="absolute top-2 right-2 p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity icon-btn-hover cursor-pointer"
+          className={`absolute top-2 right-2 p-2 rounded-lg transition-opacity icon-btn-hover cursor-pointer ${
+            isTouchDevice ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+          }`}
           style={{
             backgroundColor: 'var(--card-edit-btn-bg)',
             backdropFilter: 'blur(4px)',

@@ -203,7 +203,7 @@ export const RecurringToolSettings = forwardRef<HTMLDivElement, RecurringToolSet
                 }
               >
                 {/* === GENERAL SECTION === */}
-                <SettingsRow label="Default Category Group" variant={variant}>
+                <SettingsRow label="Default Category Group">
                   <SearchableSelect
                     value={dashboardData?.config.target_group_id || ''}
                     onChange={handleGroupChange}
@@ -217,12 +217,11 @@ export const RecurringToolSettings = forwardRef<HTMLDivElement, RecurringToolSet
                 </SettingsRow>
 
                 {/* === AUTOMATION SECTION === */}
-                <SettingsSectionHeader title="Automation" variant={variant} />
+                <SettingsSectionHeader title="Automation" />
 
                 <SettingsRow
                   label="Auto-add new recurring"
                   description="Automatically track new recurring expenses from Monarch"
-                  variant={variant}
                 >
                   <ToggleSwitch
                     checked={autoSyncEnabled}
@@ -237,7 +236,6 @@ export const RecurringToolSettings = forwardRef<HTMLDivElement, RecurringToolSet
                   <SettingsRow
                     label="Auto-add to rollup threshold"
                     description="Items at or below this amount go to rollup"
-                    variant={variant}
                   >
                     <ThresholdInput
                       defaultValue={dashboardData?.config.auto_track_threshold}
@@ -250,7 +248,6 @@ export const RecurringToolSettings = forwardRef<HTMLDivElement, RecurringToolSet
                 <SettingsRow
                   label="Auto-categorize transactions"
                   description="Categorize new recurring transactions to tracking categories"
-                  variant={variant}
                 >
                   <ToggleSwitch
                     checked={autoCategorizeEnabled}
@@ -263,13 +260,12 @@ export const RecurringToolSettings = forwardRef<HTMLDivElement, RecurringToolSet
                 </SettingsRow>
 
                 {/* === DISPLAY SECTION === */}
-                <SettingsSectionHeader title="Display" variant={variant} />
+                <SettingsSectionHeader title="Display" />
 
                 <SettingsRow
                   label="Show category group"
                   description="Display category group name under each item"
                   isLast
-                  variant={variant}
                 >
                   <ToggleSwitch
                     checked={showCategoryGroupEnabled}

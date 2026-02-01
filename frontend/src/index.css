@@ -1258,7 +1258,6 @@ input[type='radio'] {
 /* Settings Page Layout */
 .settings-page {
   display: block;
-  padding: 0 1.5rem; /* Consistent with other tool tabs (px-6) */
 }
 
 .settings-content {
@@ -1298,6 +1297,11 @@ input[type='radio'] {
 
 /* Mobile: Sidebar becomes bottom nav */
 @media (max-width: 767px) {
+  :root {
+    /* Reduce modal height to not overlap bottom nav (4.5rem nav + buffer) */
+    --modal-max-height: calc(100vh - 7rem);
+  }
+
   .app-layout {
     --footer-height: 0px; /* Footer hidden on mobile */
     padding-bottom: 4.5rem; /* Space for mobile bottom nav instead */
@@ -1321,7 +1325,7 @@ input[type='radio'] {
     bottom: 0;
     left: 0;
     right: 0;
-    z-index: var(--z-index-modal);
+    z-index: var(--z-sticky); /* Below modals so they can cover full screen */
     background-color: var(--monarch-bg-card);
     border-top: 1px solid var(--monarch-border);
     box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.04);
@@ -1380,6 +1384,7 @@ input[type='radio'] {
     padding: 0.5rem 0.75rem;
     border-radius: 0.5rem;
     flex-shrink: 0;
+    scroll-margin-inline: 24px; /* Account for vignette fade on edges */
   }
 
   .sidebar-nav-item:hover {
@@ -1430,6 +1435,12 @@ input[type='radio'] {
     background: linear-gradient(to right, transparent, var(--monarch-bg-card));
     pointer-events: none;
     z-index: 1;
+    opacity: 1;
+    transition: opacity 150ms ease-out;
+  }
+
+  .sidebar-toolkit-wrapper.at-scroll-end::after {
+    opacity: 0;
   }
 
   .sidebar-toolkit-wrapper .sidebar-nav-list {
@@ -1439,7 +1450,6 @@ input[type='radio'] {
     scrollbar-width: none;
     -ms-overflow-style: none;
     -webkit-overflow-scrolling: touch;
-    padding-right: 16px; /* Space for vignette */
   }
 
   .sidebar-toolkit-wrapper .sidebar-nav-list::-webkit-scrollbar {
@@ -2437,6 +2447,104 @@ progress::-moz-progress-bar {
   animation: pageEnter var(--animation-normal) var(--ease-out-smooth) forwards;
 }
 
+/* Horizontal scrollable tabs with fade effect
+   Usage: Wrap tab buttons in <div class="horizontal-tabs-scroll"><div class="horizontal-tabs-inner">...</div></div>
+
+   Features:
+   - Mobile: right fade only, native touch scrolling
+   - Desktop: both edge fades, hover-to-scroll on edges, click-drag to scroll
+*/
+.horizontal-tabs-scroll {
+  position: relative;
+  overflow: hidden;
+}
+
+/* Left fade (::before) - desktop only */
+.horizontal-tabs-scroll::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 32px;
+  background: linear-gradient(to left, transparent, var(--monarch-bg-page));
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0;
+  transition: opacity var(--animation-fast) ease;
+}
+
+/* Right fade (::after) */
+.horizontal-tabs-scroll::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 32px;
+  background: linear-gradient(to right, transparent, var(--monarch-bg-page));
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0;
+  transition: opacity var(--animation-fast) ease;
+}
+
+/* Mobile: show right fade when scrollable, hide when at end */
+@media (max-width: 767px) {
+  .horizontal-tabs-scroll::after {
+    opacity: 1;
+  }
+
+  .horizontal-tabs-scroll.at-scroll-end::after {
+    opacity: 0;
+  }
+}
+
+/* Desktop: show fades based on scroll position */
+@media (min-width: 768px) {
+  .horizontal-tabs-scroll.has-left-fade::before {
+    opacity: 1;
+  }
+
+  .horizontal-tabs-scroll.has-right-fade::after {
+    opacity: 1;
+  }
+
+  /* Highlight edge on hover (subtle brightness increase) */
+  .horizontal-tabs-scroll.hovering-left::before,
+  .horizontal-tabs-scroll.hovering-right::after {
+    opacity: 0.85;
+  }
+
+  /* Drag cursor - only when there's overflow (has either fade) */
+  .horizontal-tabs-scroll.has-left-fade .horizontal-tabs-inner,
+  .horizontal-tabs-scroll.has-right-fade .horizontal-tabs-inner {
+    cursor: grab;
+  }
+
+  .horizontal-tabs-scroll.is-dragging .horizontal-tabs-inner {
+    cursor: grabbing;
+    user-select: none;
+  }
+}
+
+.horizontal-tabs-inner {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
+  padding-right: 24px; /* Space for vignette fade */
+  padding-left: 4px; /* Small left padding for left fade space */
+}
+
+.horizontal-tabs-inner::-webkit-scrollbar {
+  display: none;
+}
+
 /* Section entrance - for cards/sections within a page */
 .section-enter {
   animation: fadeIn var(--animation-normal) var(--ease-out-smooth) forwards;
@@ -2864,6 +2972,50 @@ progress::-moz-progress-bar {
   }
 
   .recurring-cards {
+    display: none;
+  }
+}
+
+/* ============================================================================
+   Rollup Zone Responsive Layout
+   ============================================================================ */
+
+/* Mobile: Show cards, hide table */
+.rollup-table {
+  display: none;
+}
+
+.rollup-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem;
+}
+
+/* Frequency group header for card layout */
+.rollup-cards-group-header {
+  font-size: 0.625rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--monarch-text-muted);
+  padding: 0.25rem 0;
+  margin-top: 0.5rem;
+}
+
+.rollup-cards-group-header:first-child {
+  margin-top: 0;
+}
+
+/* Desktop: Show table, hide cards */
+@media (min-width: 1280px) {
+  .rollup-table {
+    display: table;
+    width: 100%;
+    table-layout: fixed;
+  }
+
+  .rollup-cards {
     display: none;
   }
 }
@@ -3770,29 +3922,93 @@ progress::-moz-progress-bar {
   --accentColorHover: var(--monarch-orange);
 }
 
-/* Toolbar styling - dark mode compatible */
+/* Toolbar wrapper - holds the fade vignette */
+.note-editor-mdx .mdxeditor {
+  position: relative;
+}
+
+/* Fade vignette positioned on wrapper, not toolbar (so it doesn't scroll) */
+.note-editor-mdx.is-focused .mdxeditor::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: 37px; /* Match toolbar height */
+  width: 40px;
+  background: linear-gradient(to right, transparent, var(--monarch-bg-hover));
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Constrain editor width to prevent toolbar overflow */
+.note-editor-mdx {
+  max-width: 100%;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  contain: inline-size; /* CSS containment for width */
+}
+
+.note-editor-mdx .mdxeditor {
+  max-width: 100%;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* Toolbar styling - dark mode compatible with horizontal scroll */
 .note-editor-mdx .mdxeditor-toolbar {
   background: var(--monarch-bg-hover) !important;
   border-bottom: 1px solid var(--monarch-border) !important;
   padding: 6px 8px !important;
-  gap: 4px;
-  flex-wrap: wrap !important;
+  padding-right: 40px !important; /* Space for fade vignette */
+  gap: 4px !important; /* Consistent spacing between groups */
+  flex-wrap: nowrap !important;
   overflow-x: auto !important;
-  scrollbar-width: thin;
+  overflow-y: hidden !important;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+  -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+  cursor: grab;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+}
+
+/* Remove extra margins between MDXEditor component groups */
+.note-editor-mdx .mdxeditor-toolbar > * {
+  margin: 0 !important;
+}
+
+/* Consistent gap within toolbar groups */
+.note-editor-mdx .mdxeditor-toolbar > * > *,
+.note-editor-mdx .mdxeditor-toolbar [class*='toolbarGroup'],
+.note-editor-mdx .mdxeditor-toolbar [class*='_toolbar'] {
+  gap: 4px !important;
+  flex-wrap: nowrap !important;
+}
+
+/* Hide any toolbar separators/dividers */
+.note-editor-mdx .mdxeditor-toolbar [class*='separator'],
+.note-editor-mdx .mdxeditor-toolbar [class*='divider'],
+.note-editor-mdx .mdxeditor-toolbar hr {
+  display: none !important;
+}
+
+/* Hide scrollbar for Chrome/Safari/Opera */
+.note-editor-mdx .mdxeditor-toolbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Desktop drag-to-scroll cursor feedback */
+.note-editor-mdx .mdxeditor-toolbar:active {
+  cursor: grabbing;
 }
 
 /* Hide toolbar when editor is not focused (performance optimization) */
 .note-editor-mdx:not(.is-focused) .mdxeditor-toolbar {
   display: none;
-}
-
-.note-editor-mdx .mdxeditor-toolbar::-webkit-scrollbar {
-  height: 4px;
-}
-
-.note-editor-mdx .mdxeditor-toolbar::-webkit-scrollbar-thumb {
-  background: var(--monarch-border);
-  border-radius: 2px;
 }
 
 .note-editor-mdx .mdxeditor-toolbar button,

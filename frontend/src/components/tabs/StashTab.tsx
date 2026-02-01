@@ -25,7 +25,7 @@ import {
   AvailableFundsBar,
   useReportSettings,
   StashVsGoalsModal,
-  StashGoalExplainerLink,
+  OPEN_STASH_VS_GOALS_EVENT,
   ScenarioSidebarPanel,
   ExitHypothesizeConfirmModal,
   ExitDistributeConfirmModal,
@@ -34,7 +34,7 @@ import {
 import { useDistributionMode } from '../../context/DistributionModeContext';
 import { Icons } from '../icons';
 import { StashIcon } from '../wizards/SetupWizardIcons';
-import { ToolPageHeader, ToolSettingsModal } from '../ui';
+import { ToolPageHeader, ToolSettingsModal, HorizontalTabsScroll } from '../ui';
 import { EXPAND_PENDING_SECTION_EVENT } from '../layout/stashTourSteps';
 import {
   useStashQuery,
@@ -318,6 +318,13 @@ export function StashTab() {
     return () => globalThis.removeEventListener(EXPAND_PENDING_SECTION_EVENT, handler);
   }, []);
 
+  // Listen for help menu event to open Stash vs Goals modal
+  useEffect(() => {
+    const handler = () => setShowExplainerModal(true);
+    globalThis.addEventListener(OPEN_STASH_VS_GOALS_EVENT, handler);
+    return () => globalThis.removeEventListener(OPEN_STASH_VS_GOALS_EVENT, handler);
+  }, []);
+
   const { activeItems, archivedItems } = useMemo(() => {
     if (!stashData) return { activeItems: [], archivedItems: [] };
 
@@ -430,7 +437,7 @@ export function StashTab() {
 
   if (error) {
     return (
-      <div className="tab-content-enter px-6 pb-6">
+      <div className="tab-content-enter pb-6">
         <div
           className="rounded-xl p-8 text-center"
           style={{
@@ -453,55 +460,55 @@ export function StashTab() {
   }
 
   return (
-    <div className="tab-content-enter px-6 pb-48">
+    <div className="tab-content-enter pb-48">
       {/* Header */}
       <ToolPageHeader
         icon={<StashIcon size={40} />}
         title="Stashes"
         description="Save for today's wants and tomorrow's needs."
-        descriptionExtra={<StashGoalExplainerLink onClick={() => setShowExplainerModal(true)} />}
         onSettingsClick={() => setShowSettingsModal(true)}
       />
 
-      {/* Tab navigation */}
-      <div
-        className="flex items-center gap-1 border-b pb-2"
-        style={{ borderColor: 'var(--monarch-border)' }}
-      >
-        <button
-          onClick={() => handleViewChange('stashes')}
-          className="px-4 py-2.5 text-sm font-medium border-b-2 -mb-2 flex items-center gap-1.5 transition-colors"
-          style={{
-            color: activeView === 'stashes' ? 'var(--monarch-orange)' : 'var(--monarch-text-muted)',
-            borderColor: activeView === 'stashes' ? 'var(--monarch-orange)' : 'transparent',
-          }}
-        >
-          <StashIcon size={16} />
-          Stashes
-        </button>
-        <button
-          data-tour="stash-reports-tab"
-          onClick={() => handleViewChange('reports')}
-          className="px-4 py-2.5 text-sm font-medium border-b-2 -mb-2 flex items-center gap-1.5 transition-colors"
-          style={{
-            color: activeView === 'reports' ? 'var(--monarch-orange)' : 'var(--monarch-text-muted)',
-            borderColor: activeView === 'reports' ? 'var(--monarch-orange)' : 'transparent',
-          }}
-        >
-          <Icons.BarChart2 size={16} />
-          Reports
-        </button>
-        <a
-          href="https://app.monarch.com/goals/savings"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="px-4 py-2.5 text-sm font-medium border-b-2 -mb-2 flex items-center gap-1.5 hover-text-muted-to-dark"
-          style={{ borderColor: 'transparent' }}
-        >
-          <Target size={16} />
-          Monarch Goals
-          <ExternalLink size={14} />
-        </a>
+      {/* Tab navigation - horizontally scrollable on mobile with fade effect */}
+      <div className="border-b" style={{ borderColor: 'var(--monarch-border)' }}>
+        <HorizontalTabsScroll innerClassName="pb-2">
+          <button
+            onClick={() => handleViewChange('stashes')}
+            className="px-4 py-2.5 text-sm font-medium border-b-2 -mb-2 flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0"
+            style={{
+              color:
+                activeView === 'stashes' ? 'var(--monarch-orange)' : 'var(--monarch-text-muted)',
+              borderColor: activeView === 'stashes' ? 'var(--monarch-orange)' : 'transparent',
+            }}
+          >
+            <StashIcon size={16} />
+            Stashes
+          </button>
+          <button
+            data-tour="stash-reports-tab"
+            onClick={() => handleViewChange('reports')}
+            className="px-4 py-2.5 text-sm font-medium border-b-2 -mb-2 flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0"
+            style={{
+              color:
+                activeView === 'reports' ? 'var(--monarch-orange)' : 'var(--monarch-text-muted)',
+              borderColor: activeView === 'reports' ? 'var(--monarch-orange)' : 'transparent',
+            }}
+          >
+            <Icons.BarChart2 size={16} />
+            Reports
+          </button>
+          <a
+            href="https://app.monarch.com/goals/savings"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-4 py-2.5 text-sm font-medium border-b-2 -mb-2 flex items-center gap-1.5 hover-text-muted-to-dark whitespace-nowrap shrink-0"
+            style={{ borderColor: 'transparent' }}
+          >
+            <Target size={16} />
+            Monarch Goals
+            <ExternalLink size={14} />
+          </a>
+        </HorizontalTabsScroll>
       </div>
 
       {/* Available Funds Bar with Distribute Button - floats at bottom */}

@@ -28,6 +28,7 @@ import type { StashItem } from '../../types';
 import { StashCard } from './StashCard';
 import { Icons } from '../icons';
 import { useIsInDistributionMode } from '../../context/DistributionModeContext';
+import { useMediaQuery, breakpoints } from '../../hooks/useMediaQuery';
 
 /**
  * Check if the event target is within the drag handle (image area).
@@ -221,8 +222,9 @@ export const StashCardGrid = memo(function StashCardGrid({
   emptyMessage = 'No jars, no envelopes, no guesswork. Build your first stash.',
 }: StashCardGridProps) {
   const isInDistributionMode = useIsInDistributionMode();
+  const isTouchDevice = useMediaQuery(breakpoints.isTouchDevice);
 
-  // Disable drag sensors in distribution/hypothesize mode
+  // Disable drag sensors in distribution/hypothesize mode or on touch devices
   const activeSensors = useSensors(
     useSensor(StashPointerSensor, {
       activationConstraint: {
@@ -234,7 +236,7 @@ export const StashCardGrid = memo(function StashCardGrid({
     })
   );
   const disabledSensors = useSensors();
-  const sensors = isInDistributionMode ? disabledSensors : activeSensors;
+  const sensors = isInDistributionMode || isTouchDevice ? disabledSensors : activeSensors;
 
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {

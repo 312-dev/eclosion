@@ -5,7 +5,7 @@
  * Converts to bottom navigation on mobile screens.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
   Settings,
@@ -28,7 +28,7 @@ import {
 import { RecurringIcon, NotesIcon, StashIcon } from '../wizards/WizardComponents';
 import { ToolSettingsModal, type ToolType } from '../ui/ToolSettingsModal';
 import { useDemo } from '../../context/DemoContext';
-import { useMediaQuery } from '../../hooks';
+import { useMediaQuery, useScrollEnd } from '../../hooks';
 import { isDesktopMode } from '../../utils/apiBase';
 
 interface SettingsSection {
@@ -145,6 +145,8 @@ export function SidebarNavigation({ onLock }: Readonly<SidebarNavigationProps>) 
   const [settingsModalTool, setSettingsModalTool] = useState<ToolType | null>(null);
   const { dashboardItem, toolkitItems, otherItems } = getNavItems(isDemo);
   const prefix = isDemo ? '/demo' : '';
+  const toolkitListRef = useRef<HTMLUListElement>(null);
+  const isScrolledToEnd = useScrollEnd(toolkitListRef, isMobile);
 
   // In desktop mode, only show lock button if biometric is required
   useEffect(() => {
@@ -154,6 +156,16 @@ export function SidebarNavigation({ onLock }: Readonly<SidebarNavigationProps>) 
       });
     }
   }, [isDesktop]);
+
+  // Auto-scroll mobile nav to reveal active tab
+  useEffect(() => {
+    if (!isMobile || !toolkitListRef.current) return;
+
+    const activeItem = toolkitListRef.current.querySelector('.sidebar-nav-item-active');
+    if (activeItem) {
+      activeItem.scrollIntoView({ behavior: 'smooth', inline: 'nearest', block: 'nearest' });
+    }
+  }, [isMobile, location.pathname]);
 
   // Check if we're on the settings page
   const isSettingsPage = location.pathname === `${prefix}/settings`;
@@ -221,8 +233,12 @@ export function SidebarNavigation({ onLock }: Readonly<SidebarNavigationProps>) 
               </a>
             </div>
             {/* All nav items - scrollable on mobile */}
-            <div className="sidebar-toolkit-wrapper">
-              <ul className="sidebar-nav-list" aria-labelledby="toolkit-heading">
+            <div className={`sidebar-toolkit-wrapper ${isScrolledToEnd ? 'at-scroll-end' : ''}`}>
+              <ul
+                ref={toolkitListRef}
+                className="sidebar-nav-list"
+                aria-labelledby="toolkit-heading"
+              >
                 {/* Dashboard in scrollable list - mobile only */}
                 <li className="sidebar-mobile-only">
                   <NavItemLink item={dashboardItem} />
