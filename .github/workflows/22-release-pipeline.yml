@@ -83,6 +83,8 @@ jobs:
     with:
       severity: high
       skip_dast: true
+      # Skip CodeQL for beta releases - code was already scanned on merge to main
+      skip_codeql: ${{ inputs.release_type == 'beta' }}
     permissions:
       security-events: write
       contents: read

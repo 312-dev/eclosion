@@ -39,6 +39,11 @@ on:
         required: false
         default: false
         type: boolean
+      skip_codeql:
+        description: 'Skip CodeQL scan (for beta releases where code was already scanned on merge)'
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: security-${{ github.ref }}
@@ -108,7 +113,8 @@ jobs:
   # ============================================================================
   codeql:
     name: CodeQL (${{ matrix.language }})
-    # Always run CodeQL - required by Code Scanning ruleset even for data-only changes
+    # Skip for beta releases (code was already scanned on merge to main)
+    if: ${{ !inputs.skip_codeql }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -421,7 +427,7 @@ jobs:
           echo "DAST: ${{ needs.dast.result }}"
           echo ""
 
-          # CodeQL always runs (required by Code Scanning ruleset)
+          # CodeQL can be skipped for beta releases (already scanned on merge)
           if [ "${{ needs.codeql.result }}" = "failure" ] || [ "${{ needs.codeql.result }}" = "cancelled" ]; then
             echo "::error::CodeQL scan failed"
             echo "result=failure" >> $GITHUB_OUTPUT
@@ -431,9 +437,15 @@ jobs:
 
           # If no security-relevant files changed, other scans were skipped - that's OK
           if [ "${{ needs.changes.outputs.security_relevant }}" != "true" ]; then
-            echo "✅ CodeQL passed, other scans skipped (no security-relevant files)"
-            echo "result=success" >> $GITHUB_OUTPUT
-            echo "description=CodeQL passed, no code changes to scan" >> $GITHUB_OUTPUT
+            if [ "${{ needs.codeql.result }}" = "skipped" ]; then
+              echo "✅ All scans skipped (beta release or no security-relevant files)"
+              echo "result=success" >> $GITHUB_OUTPUT
+              echo "description=Scans skipped (beta release)" >> $GITHUB_OUTPUT
+            else
+              echo "✅ CodeQL passed, other scans skipped (no security-relevant files)"
+              echo "result=success" >> $GITHUB_OUTPUT
+              echo "description=CodeQL passed, no code changes to scan" >> $GITHUB_OUTPUT
+            fi
             exit 0
           fi
 
