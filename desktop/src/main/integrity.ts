@@ -45,19 +45,27 @@ function getBackendPath(): string {
 }
 
 /**
- * Critical directories that must exist in _internal/ for the backend to function.
- * These are Python packages that are essential for the Flask app.
+ * Critical packages that must exist in _internal/ for the backend to function.
+ * PyInstaller bundles packages differently based on their type:
+ * - Packages with C extensions: created as directories (e.g., sqlalchemy/)
+ * - Pure Python packages: bundled into the binary, with only .dist-info metadata
+ *
+ * We check for .dist-info directories which exist for all properly installed packages.
  */
-const CRITICAL_INTERNAL_DIRS = [
+const CRITICAL_PACKAGES = [
   'flask',
   'werkzeug',
-  'sqlalchemy',  // Database ORM - missing this breaks the app
-  'monarchmoney',
+  'sqlalchemy',
 ];
 
 /**
- * Check if the backend's _internal directory has critical files.
+ * Check if the backend's _internal directory has critical package metadata.
  * This catches partial updates where the main binary works but dependencies are missing.
+ *
+ * We check for .dist-info directories (e.g., flask-3.1.2.dist-info) because:
+ * 1. They always exist for properly bundled packages
+ * 2. Pure Python packages may not have separate directories (they're compiled into binary)
+ * 3. The version in .dist-info can help debug version mismatches
  */
 function checkInternalIntegrity(backendDir: string): { ok: boolean; missing: string[] } {
   const internalDir = path.join(backendDir, '_internal');
@@ -67,16 +75,31 @@ function checkInternalIntegrity(backendDir: string): { ok: boolean; missing: str
     return { ok: false, missing: ['_internal'] };
   }
 
+  // List all items in _internal to find .dist-info directories
+  let internalContents: string[];
+  try {
+    internalContents = fs.readdirSync(internalDir);
+  } catch {
+    debugLog(`CORRUPTED: Cannot read _internal directory`);
+    return { ok: false, missing: ['_internal'] };
+  }
+
   const missing: string[] = [];
-  for (const dir of CRITICAL_INTERNAL_DIRS) {
-    const dirPath = path.join(internalDir, dir);
-    if (!fs.existsSync(dirPath)) {
-      missing.push(dir);
+  for (const pkg of CRITICAL_PACKAGES) {
+    // Look for {package}-{version}.dist-info pattern
+    const hasDistInfo = internalContents.some(
+      (item) => item.startsWith(`${pkg}-`) && item.endsWith('.dist-info')
+    );
+    // Also check for package directory (for packages with C extensions like sqlalchemy)
+    const hasDir = internalContents.includes(pkg);
+
+    if (!hasDistInfo && !hasDir) {
+      missing.push(pkg);
     }
   }
 
   if (missing.length > 0) {
-    debugLog(`CORRUPTED: Missing critical directories in _internal: ${missing.join(', ')}`);
+    debugLog(`CORRUPTED: Missing critical packages in _internal: ${missing.join(', ')}`);
     return { ok: false, missing };
   }
 
