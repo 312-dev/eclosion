@@ -81,8 +81,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Lint
-        run: npm run lint
+      - name: Lint (strict - zero warnings)
+        run: npm run lint:strict
 
       - name: Type check
         run: npm run type-check
@@ -320,13 +320,27 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "All desktop build components verified." >> $GITHUB_STEP_SUMMARY
 
+  # Integration tests (runs against real Monarch API)
+  # Only runs on push to main, not on PRs (security: credentials not exposed to forks)
+  integration-tests:
+    name: Integration Tests
+    # Only run on push to main (not PRs or workflow_dispatch)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      statuses: read
+    uses: ./.github/workflows/30-test-integration.yml
+    with:
+      sha: ${{ github.sha }}
+    secrets:
+      INTEGRATION_DISPATCH_TOKEN: ${{ secrets.INTEGRATION_DISPATCH_TOKEN }}
+
   # Final status check - always runs and reports aggregate result
   # Configure branch protection to require only this check
   ci:
     name: CI Status
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [frontend, backend, desktop, desktop-build, e2e]
+    needs: [frontend, backend, desktop, desktop-build, e2e, integration-tests]
     if: always()
     permissions:
       statuses: write
@@ -334,7 +348,7 @@ jobs:
       - name: Check CI results
         id: check
         run: |
-          results="${{ needs.frontend.result }} ${{ needs.backend.result }} ${{ needs.desktop.result }} ${{ needs.desktop-build.result }} ${{ needs.e2e.result }}"
+          results="${{ needs.frontend.result }} ${{ needs.backend.result }} ${{ needs.desktop.result }} ${{ needs.desktop-build.result }} ${{ needs.e2e.result }} ${{ needs.integration-tests.result }}"
           echo "Job results: $results"
           if echo "$results" | grep -qE '(failure|cancelled)'; then
             echo "::error::One or more CI jobs failed or were cancelled"
