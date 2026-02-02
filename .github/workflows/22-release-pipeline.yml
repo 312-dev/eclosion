@@ -76,7 +76,7 @@ jobs:
   # Build frontend once - shared by Docker and Cloudflare
   build-frontend:
     name: "Stage 1: Build Frontend"
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && 'namespace-profile-ubuntu-22.04-x64-4x16' || 'ubuntu-latest' }}
     timeout-minutes: 10
     outputs:
       artifact_name: frontend-dist-${{ github.run_id }}
@@ -114,7 +114,7 @@ jobs:
     name: "Stage 1: Generate Screenshots"
     needs: [build-frontend]
     if: ${{ !inputs.skip_screenshots && needs.build-frontend.result == 'success' }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && 'namespace-profile-ubuntu-22.04-x64-4x16' || 'ubuntu-latest' }}
     timeout-minutes: 15
     steps:
       - name: Checkout
@@ -184,7 +184,7 @@ jobs:
     name: "Stage 1: Build Docker Image"
     needs: [build-frontend]
     if: ${{ !inputs.skip_docker && needs.build-frontend.result == 'success' }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && 'namespace-profile-ubuntu-22.04-x64-4x16' || 'ubuntu-latest' }}
     timeout-minutes: 30
     outputs:
       image_digest: ${{ steps.build.outputs.digest }}
@@ -263,7 +263,7 @@ jobs:
     needs: [build-frontend, build-desktop, build-docker, generate-screenshots]
     # Always run this job so we can validate which builds succeeded/were skipped
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && 'namespace-profile-ubuntu-22.04-x64-4x16' || 'ubuntu-latest' }}
     timeout-minutes: 5
     steps:
       - name: Check build results
@@ -310,7 +310,7 @@ jobs:
     name: "Stage 3: Publish Docker"
     needs: [validate-builds, build-docker]
     if: needs.build-docker.result == 'success'
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && 'namespace-profile-ubuntu-22.04-x64-4x16' || 'ubuntu-latest' }}
     timeout-minutes: 10
     permissions:
       packages: write
@@ -360,7 +360,7 @@ jobs:
     needs: [validate-builds]
     # Run if validate-builds succeeded (even if upstream jobs were skipped)
     if: always() && needs.validate-builds.result == 'success'
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && 'namespace-profile-ubuntu-22.04-x64-4x16' || 'ubuntu-latest' }}
     timeout-minutes: 15
     permissions:
       contents: write
@@ -558,7 +558,7 @@ jobs:
     name: "Stage 3: Create Docs Version"
     needs: [validate-builds]
     if: inputs.release_type == 'production'
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && 'namespace-profile-ubuntu-22.04-x64-4x16' || 'ubuntu-latest' }}
     timeout-minutes: 10
     permissions:
       contents: write
@@ -608,7 +608,7 @@ jobs:
     name: "Stage 3: Deploy Cloudflare"
     needs: [validate-builds, build-frontend, publish-docker, publish-desktop, create-docs-version]
     if: always() && needs.validate-builds.result == 'success' && needs.build-frontend.result == 'success' && (needs.publish-docker.result == 'success' || needs.publish-docker.result == 'skipped') && needs.publish-desktop.result == 'success' && (needs.create-docs-version.result == 'success' || needs.create-docs-version.result == 'skipped')
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && 'namespace-profile-ubuntu-22.04-x64-4x16' || 'ubuntu-latest' }}
     timeout-minutes: 15
     environment: ${{ inputs.release_type == 'production' && 'production' || '' }}
     permissions:
@@ -688,7 +688,7 @@ jobs:
     name: "Stage 4: Finalize Release"
     needs: [publish-docker, publish-desktop, deploy-cloudflare, create-docs-version]
     if: always() && (needs.publish-docker.result == 'success' || needs.publish-docker.result == 'skipped') && needs.publish-desktop.result == 'success' && needs.deploy-cloudflare.result == 'success' && (needs.create-docs-version.result == 'success' || needs.create-docs-version.result == 'skipped')
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && 'namespace-profile-ubuntu-22.04-x64-4x16' || 'ubuntu-latest' }}
     timeout-minutes: 5
     steps:
       - name: Release Summary

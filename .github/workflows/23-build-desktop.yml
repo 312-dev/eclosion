@@ -44,7 +44,7 @@ jobs:
   # Build Frontend Once (shared by all packaging jobs)
   # =========================================================================
   build-frontend:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && 'namespace-profile-ubuntu-22.04-x64-4x16' || 'ubuntu-latest' }}
     timeout-minutes: 10
     steps:
       - name: Checkout
@@ -83,11 +83,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - runner: macos-15
-            arch: arm64
-          - runner: macos-15-intel
-            arch: x64
-    runs-on: ${{ matrix.runner }}
+          - arch: arm64
+            github_runner: macos-15
+            namespace_runner: namespace-profile-macos-sonoma-arm64
+          - arch: x64
+            github_runner: macos-13-xlarge
+            namespace_runner: namespace-profile-macos-sonoma-x64
+    runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && matrix.namespace_runner || matrix.github_runner }}
     timeout-minutes: 20
     steps:
       - name: Checkout
@@ -123,7 +125,7 @@ jobs:
   # Build Python Backend for Windows
   # =========================================================================
   build-backend-win:
-    runs-on: windows-latest
+    runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && 'namespace-profile-windows-2022-x64-4x16' || 'windows-latest' }}
     timeout-minutes: 20
     steps:
       - name: Checkout
@@ -163,11 +165,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - runner: ubuntu-latest
-            arch: x64
-          - runner: ubuntu-24.04-arm
-            arch: arm64
-    runs-on: ${{ matrix.runner }}
+          - arch: x64
+            github_runner: ubuntu-latest
+            namespace_runner: namespace-profile-ubuntu-22.04-x64-4x16
+          - arch: arm64
+            github_runner: ubuntu-24.04-arm
+            namespace_runner: namespace-profile-ubuntu-24.04-arm64-4x16
+    runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && matrix.namespace_runner || matrix.github_runner }}
     timeout-minutes: 20
     steps:
       - name: Checkout
@@ -208,13 +212,15 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - runner: macos-15
-            arch: arm64
+          - arch: arm64
             backend_artifact: backend-mac-arm64
-          - runner: macos-15-intel
-            arch: x64
+            github_runner: macos-15
+            namespace_runner: namespace-profile-macos-sonoma-arm64
+          - arch: x64
             backend_artifact: backend-mac-x64
-    runs-on: ${{ matrix.runner }}
+            github_runner: macos-13-xlarge
+            namespace_runner: namespace-profile-macos-sonoma-x64
+    runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && matrix.namespace_runner || matrix.github_runner }}
     # Notarization alone can take 15-30 minutes waiting for Apple's servers
     timeout-minutes: 60
     steps:
@@ -429,7 +435,7 @@ jobs:
   # =========================================================================
   package-win:
     needs: [build-frontend, build-backend-win]
-    runs-on: windows-latest
+    runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && 'namespace-profile-windows-2022-x64-4x16' || 'windows-latest' }}
     timeout-minutes: 30
     steps:
       - name: Checkout
@@ -582,13 +588,15 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - runner: ubuntu-latest
-            arch: x64
+          - arch: x64
             backend_artifact: backend-linux-x64
-          - runner: ubuntu-24.04-arm
-            arch: arm64
+            github_runner: ubuntu-latest
+            namespace_runner: namespace-profile-ubuntu-22.04-x64-4x16
+          - arch: arm64
             backend_artifact: backend-linux-arm64
-    runs-on: ${{ matrix.runner }}
+            github_runner: ubuntu-24.04-arm
+            namespace_runner: namespace-profile-ubuntu-24.04-arm64-4x16
+    runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && matrix.namespace_runner || matrix.github_runner }}
     timeout-minutes: 30
     steps:
       - name: Checkout
@@ -760,7 +768,7 @@ jobs:
   upload-release:
     if: inputs.upload_to_release
     needs: [package-mac, package-win, package-linux]
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && 'namespace-profile-ubuntu-22.04-x64-4x16' || 'ubuntu-latest' }}
     timeout-minutes: 10
     steps:
       - name: Download all artifacts
@@ -910,7 +918,7 @@ jobs:
   summary:
     needs: [package-mac, package-win, package-linux]
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && 'namespace-profile-ubuntu-22.04-x64-4x16' || 'ubuntu-latest' }}
     timeout-minutes: 5
     steps:
       - name: Build Summary

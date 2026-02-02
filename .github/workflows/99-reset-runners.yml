@@ -1,0 +1,65 @@
+# Reset Runner Provider
+#
+# Automatically resets RUNNER_PROVIDER to 'github' every night at midnight.
+# This ensures we don't accidentally leave workflows using paid runners
+# (Namespace) or self-hosted runners after a manual switch.
+#
+# The RUNNER_PROVIDER variable controls which runner infrastructure is used:
+#   - github: GitHub-hosted runners (default, free for public repos)
+#   - namespace: Namespace.so runners (paid, faster)
+#   - self-hosted: Self-hosted runner (your own machine)
+
+name: "99 Reset: Runner Provider"
+
+on:
+  schedule:
+    # Run at midnight UTC every day
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+    inputs:
+      provider:
+        description: 'Runner provider to set'
+        required: true
+        type: choice
+        options:
+          - github
+          - namespace
+        default: github
+
+permissions:
+  actions: write
+
+jobs:
+  reset:
+    name: Reset Runner Provider
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Set runner provider
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PROVIDER="${{ inputs.provider || 'github' }}"
+
+          echo "Setting RUNNER_PROVIDER to: $PROVIDER"
+
+          # Update the repository variable
+          # Note: This requires the variable to already exist. Create it first in:
+          # Settings → Secrets and variables → Actions → Variables
+          gh api \
+            --method PATCH \
+            -H "Accept: application/vnd.github+json" \
+            /repos/${{ github.repository }}/actions/variables/RUNNER_PROVIDER \
+            -f value="$PROVIDER" \
+            || gh api \
+              --method POST \
+              -H "Accept: application/vnd.github+json" \
+              /repos/${{ github.repository }}/actions/variables \
+              -f name="RUNNER_PROVIDER" \
+              -f value="$PROVIDER"
+
+          echo "### Runner Provider Reset" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**RUNNER_PROVIDER** has been set to \`$PROVIDER\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "All workflows will now use $PROVIDER runners." >> $GITHUB_STEP_SUMMARY

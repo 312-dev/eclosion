@@ -55,7 +55,7 @@ jobs:
   # ===========================================================================
   check-branch:
     name: Validate Branch
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && 'namespace-profile-ubuntu-22.04-x64-4x16' || 'ubuntu-latest' }}
     timeout-minutes: 5
     permissions: {}
     steps:
@@ -78,7 +78,7 @@ jobs:
 
   verify-ci:
     name: Verify CI Passed
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && 'namespace-profile-ubuntu-22.04-x64-4x16' || 'ubuntu-latest' }}
     timeout-minutes: 15
     permissions:
       actions: read
@@ -146,7 +146,7 @@ jobs:
   calculate-version:
     name: Calculate Version
     needs: [check-branch, verify-ci]
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && 'namespace-profile-ubuntu-22.04-x64-4x16' || 'ubuntu-latest' }}
     timeout-minutes: 5
     permissions:
       contents: read
@@ -202,7 +202,7 @@ jobs:
   update-versions:
     name: Update Version Files
     needs: calculate-version
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && 'namespace-profile-ubuntu-22.04-x64-4x16' || 'ubuntu-latest' }}
     timeout-minutes: 10
     permissions:
       contents: write
@@ -255,7 +255,7 @@ jobs:
   create-draft-release:
     name: Create Draft Release
     needs: [calculate-version, update-versions]
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && 'namespace-profile-ubuntu-22.04-x64-4x16' || 'ubuntu-latest' }}
     timeout-minutes: 10
     permissions:
       contents: write
@@ -388,7 +388,7 @@ jobs:
   add-ai-summary:
     name: Add AI Summary
     needs: [calculate-version, release-pipeline]
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && 'namespace-profile-ubuntu-22.04-x64-4x16' || 'ubuntu-latest' }}
     timeout-minutes: 5
     permissions:
       contents: write
@@ -430,7 +430,7 @@ jobs:
   publish-release:
     name: Publish Release
     needs: [calculate-version, add-ai-summary]
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && 'namespace-profile-ubuntu-22.04-x64-4x16' || 'ubuntu-latest' }}
     timeout-minutes: 5
     permissions:
       contents: write
@@ -462,7 +462,7 @@ jobs:
     name: Cleanup Failed Release
     needs: [calculate-version, release-pipeline]
     if: failure()
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && 'namespace-profile-ubuntu-22.04-x64-4x16' || 'ubuntu-latest' }}
     timeout-minutes: 5
     permissions:
       contents: write
