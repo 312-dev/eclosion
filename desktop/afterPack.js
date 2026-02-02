@@ -339,19 +339,35 @@ exports.default = async function (context) {
   const backendSingle = path.join(resourcesDir, 'backend');
 
   // electron-builder Arch enum: 0 = ia32, 1 = x64, 2 = armv7l, 3 = arm64, 4 = universal
-  // When building universal, electron-builder first builds x64, then arm64, then merges.
-  //
-  // Strategy: Keep BOTH backend directories in BOTH arch builds. This way both builds
-  // have identical file structures, and @electron/universal can merge them without issues.
-  // At runtime, backend.ts selects the correct directory based on process.arch.
-  //
-  // NOTE: singleArchFiles only works for ASAR files, not extraResources like our backends.
-  // So we MUST have identical files in both builds for the merge to succeed.
+  // For separate arch builds (not universal), we:
+  // 1. Remove the wrong-arch backend
+  // 2. Rename the correct backend to "backend" (unified name for all platforms)
+  // This gives each arch a clean "backend" directory with only its native binaries.
   const archName = arch === 3 ? 'arm64' : arch === 1 ? 'x64' : null;
 
   if (archName) {
     console.log(`Architecture: ${archName} (arch=${arch})`);
-    console.log('  Keeping both backend directories for universal merge compatibility');
+
+    // Remove the wrong backend and rename the correct one to "backend"
+    if (archName === 'arm64') {
+      if (fs.existsSync(backendX64)) {
+        console.log('  Removing backend-x64 (wrong arch)');
+        fs.rmSync(backendX64, { recursive: true, force: true });
+      }
+      if (fs.existsSync(backendArm64) && !fs.existsSync(backendSingle)) {
+        console.log('  Renaming backend-arm64 -> backend');
+        fs.renameSync(backendArm64, backendSingle);
+      }
+    } else if (archName === 'x64') {
+      if (fs.existsSync(backendArm64)) {
+        console.log('  Removing backend-arm64 (wrong arch)');
+        fs.rmSync(backendArm64, { recursive: true, force: true });
+      }
+      if (fs.existsSync(backendX64) && !fs.existsSync(backendSingle)) {
+        console.log('  Renaming backend-x64 -> backend');
+        fs.renameSync(backendX64, backendSingle);
+      }
+    }
   }
 
   const backendDirs = [];

@@ -62,16 +62,22 @@ protocols:
 afterPack: afterPack.js
 
 # macOS configuration
-# Universal binary with architecture-specific Python backends.
-# Both backend-arm64 and backend-x64 are included in the universal app.
-# At runtime, backend.ts selects the correct directory based on process.arch.
+# Separate arm64 and x64 builds instead of universal. This is required because:
+# 1. PyInstaller backends have different files per-architecture
+# 2. @electron/universal's singleArchFiles only works for ASAR, not extraResources
+# Each arch build includes only its matching backend (afterPack.js removes the other).
+# At runtime, backend.ts uses the single "backend" directory.
 mac:
   category: public.app-category.finance
   target:
     - target: dmg
-      arch: universal
+      arch:
+        - arm64
+        - x64
     - target: zip
-      arch: universal
+      arch:
+        - arm64
+        - x64
   icon: assets/icon-beta.icns
   hardenedRuntime: true
   gatekeeperAssess: false

@@ -33,26 +33,18 @@ function debugLog(msg: string): void {
 }
 
 /**
- * Get the path to the backend executable based on platform and architecture.
+ * Get the path to the backend executable based on platform.
  *
- * On macOS, the app is a universal binary containing backends for both ARM64 and x64.
- * We select the appropriate backend at runtime based on process.arch.
+ * All platforms use the same "backend" directory structure.
+ * On macOS, afterPack.js renames the arch-specific backend to "backend"
+ * so each build has the correct native binaries in a unified location.
  *
- * Directory structure:
- * - macOS: resources/backend-arm64/ and resources/backend-x64/
- * - Windows/Linux: resources/backend/
+ * Directory structure (all platforms): resources/backend/
  */
 function getBackendPath(): string {
   const resourcesPath = process.resourcesPath || app.getAppPath();
-
-  if (process.platform === 'darwin') {
-    // macOS universal binary: select architecture-specific backend
-    const archDir = process.arch === 'arm64' ? 'backend-arm64' : 'backend-x64';
-    return path.join(resourcesPath, archDir, 'eclosion-backend');
-  }
-
-  // Windows and Linux: single architecture backend
   const backendDir = path.join(resourcesPath, 'backend');
+
   if (process.platform === 'win32') {
     return path.join(backendDir, 'eclosion-backend.exe');
   }
