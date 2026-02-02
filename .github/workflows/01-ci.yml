@@ -32,7 +32,7 @@ permissions: read-all
 jobs:
   # Detect which files changed
   changes:
-    runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && 'namespace-profile-ubuntu-2204-x64-4x16' || 'ubuntu-latest' }}
+    runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && 'ubuntu-2204-x64-4x16' || 'ubuntu-latest' }}
     timeout-minutes: 5
     outputs:
       frontend: ${{ steps.filter.outputs.frontend }}
@@ -63,7 +63,7 @@ jobs:
     name: Frontend
     needs: changes
     if: needs.changes.outputs.frontend == 'true'
-    runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && 'namespace-profile-ubuntu-2204-x64-4x16' || 'ubuntu-latest' }}
+    runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && 'ubuntu-2204-x64-4x16' || 'ubuntu-latest' }}
     timeout-minutes: 10
     defaults:
       run:
@@ -110,7 +110,7 @@ jobs:
     name: Backend
     needs: changes
     if: needs.changes.outputs.backend == 'true'
-    runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && 'namespace-profile-ubuntu-2204-x64-4x16' || 'ubuntu-latest' }}
+    runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && 'ubuntu-2204-x64-4x16' || 'ubuntu-latest' }}
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
@@ -159,7 +159,7 @@ jobs:
     name: Desktop
     needs: changes
     if: needs.changes.outputs.desktop == 'true'
-    runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && 'namespace-profile-ubuntu-2204-x64-4x16' || 'ubuntu-latest' }}
+    runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && 'ubuntu-2204-x64-4x16' || 'ubuntu-latest' }}
     timeout-minutes: 15
     defaults:
       run:
@@ -191,7 +191,7 @@ jobs:
     name: E2E Tests
     needs: changes
     if: needs.changes.outputs.frontend == 'true' || needs.changes.outputs.desktop == 'true'
-    runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && 'namespace-profile-ubuntu-2204-x64-4x16' || 'ubuntu-latest' }}
+    runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && 'ubuntu-2204-x64-4x16' || 'ubuntu-latest' }}
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
@@ -243,7 +243,7 @@ jobs:
     name: Desktop Build
     needs: changes
     if: needs.changes.outputs.desktop == 'true' || needs.changes.outputs.frontend == 'true'
-    runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && 'namespace-profile-macos-sonoma-arm64' || 'macos-15' }}
+    runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && 'macos-sonoma-arm64' || 'macos-15' }}
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
@@ -340,7 +340,7 @@ jobs:
   # Configure branch protection to require only this check
   ci:
     name: CI Status
-    runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && 'namespace-profile-ubuntu-2204-x64-4x16' || 'ubuntu-latest' }}
+    runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && 'ubuntu-2204-x64-4x16' || 'ubuntu-latest' }}
     timeout-minutes: 5
     needs: [frontend, backend, desktop, desktop-build, e2e, integration-tests]
     if: always()

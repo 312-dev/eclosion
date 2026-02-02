@@ -34,7 +34,7 @@ jobs:
   # Build Frontend (always needed)
   # =========================================================================
   build-frontend:
-    runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && 'namespace-profile-ubuntu-2204-x64-4x16' || 'ubuntu-latest' }}
+    runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && 'ubuntu-2204-x64-4x16' || 'ubuntu-latest' }}
     timeout-minutes: 10
     steps:
       - name: Checkout
@@ -106,7 +106,7 @@ jobs:
   # =========================================================================
   build-backend-mac:
     if: inputs.platform == 'macos-arm64' || inputs.platform == 'macos-x64'
-    runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && (inputs.platform == 'macos-arm64' && 'namespace-profile-macos-sonoma-arm64' || 'namespace-profile-macos-sonoma-arm64') || (inputs.platform == 'macos-arm64' && 'macos-15' || 'macos-13-xlarge') }}
+    runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && (inputs.platform == 'macos-arm64' && 'macos-sonoma-arm64' || 'macos-sonoma-arm64') || (inputs.platform == 'macos-arm64' && 'macos-15' || 'macos-13-xlarge') }}
     timeout-minutes: 20
     steps:
       - name: Checkout
@@ -140,7 +140,7 @@ jobs:
   # =========================================================================
   build-backend-linux:
     if: inputs.platform == 'linux-x64' || inputs.platform == 'linux-arm64'
-    runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && (inputs.platform == 'linux-arm64' && 'namespace-profile-ubuntu-2404-arm64-4x16' || 'namespace-profile-ubuntu-2204-x64-4x16') || (inputs.platform == 'linux-arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest') }}
+    runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && (inputs.platform == 'linux-arm64' && 'ubuntu-2404-arm64-4x16' || 'ubuntu-2204-x64-4x16') || (inputs.platform == 'linux-arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest') }}
     timeout-minutes: 20
     steps:
       - name: Checkout
@@ -251,7 +251,7 @@ jobs:
   package-mac:
     if: inputs.platform == 'macos-arm64' || inputs.platform == 'macos-x64'
     needs: [build-frontend, build-backend-mac]
-    runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && (inputs.platform == 'macos-arm64' && 'namespace-profile-macos-sonoma-arm64' || 'namespace-profile-macos-sonoma-arm64') || (inputs.platform == 'macos-arm64' && 'macos-15' || 'macos-13-xlarge') }}
+    runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && (inputs.platform == 'macos-arm64' && 'macos-sonoma-arm64' || 'macos-sonoma-arm64') || (inputs.platform == 'macos-arm64' && 'macos-15' || 'macos-13-xlarge') }}
     timeout-minutes: 30
     steps:
       - name: Checkout
@@ -328,7 +328,7 @@ jobs:
   package-linux:
     if: inputs.platform == 'linux-x64' || inputs.platform == 'linux-arm64'
     needs: [build-frontend, build-backend-linux]
-    runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && (inputs.platform == 'linux-arm64' && 'namespace-profile-ubuntu-2404-arm64-4x16' || 'namespace-profile-ubuntu-2204-x64-4x16') || (inputs.platform == 'linux-arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest') }}
+    runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && (inputs.platform == 'linux-arm64' && 'ubuntu-2404-arm64-4x16' || 'ubuntu-2204-x64-4x16') || (inputs.platform == 'linux-arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest') }}
     timeout-minutes: 30
     steps:
       - name: Checkout
