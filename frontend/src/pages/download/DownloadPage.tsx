@@ -40,7 +40,7 @@ import {
 
 /** Platform architecture labels */
 const PLATFORM_ARCHITECTURES: Record<Exclude<Platform, 'unknown'>, string> = {
-  macos: 'Universal',
+  macos: 'Apple Silicon',
   windows: 'x64',
   linux: 'x64',
 };

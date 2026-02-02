@@ -24,7 +24,17 @@ function MacOSInstructions({ hideHeader }: { hideHeader?: boolean }) {
         <h3 className="font-semibold text-lg text-(--monarch-text-dark) mb-3">macOS</h3>
       )}
       <p className="text-(--monarch-text) mb-4">
-        Universal binary - works on both Intel and Apple Silicon Macs.
+        Separate builds for Intel and Apple Silicon Macs. The download button serves Apple Silicon
+        by default &mdash; Intel users can find their build on the{' '}
+        <a
+          href="https://github.com/312-dev/eclosion/releases/latest"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-(--monarch-orange) hover:underline"
+        >
+          GitHub releases page
+        </a>
+        .
       </p>
       <ol className="text-(--monarch-text) space-y-3 list-decimal list-inside">
         <li>Open the downloaded .dmg file</li>
