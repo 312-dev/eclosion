@@ -206,7 +206,7 @@ export function HypothesizeButton({
 
   const tooltipMessage = getTooltipMessage();
   const isCell = compact && groupPosition !== 'standalone';
-  const sizeClasses = iconOnly ? 'px-2.5 flex-1' : getSizeClasses(isCell, compact);
+  const sizeClasses = iconOnly ? 'px-2.5 py-2 flex-1' : getSizeClasses(isCell, compact);
   const radiusClasses = isCell ? '' : getGroupRadiusClasses(groupPosition);
 
   // Purple color for hypothesize mode

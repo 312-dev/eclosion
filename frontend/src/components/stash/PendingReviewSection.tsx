@@ -65,7 +65,10 @@ export function PendingReviewSection({
         aria-label={`${isExpanded ? 'Collapse' : 'Expand'} pending review section`}
         data-tour="stash-pending-bookmarks"
       >
-        <div className="p-2 rounded-lg" style={{ backgroundColor: 'var(--monarch-orange-light)' }}>
+        <div
+          className="p-2 rounded-lg aspect-square flex items-center justify-center"
+          style={{ backgroundColor: 'var(--monarch-orange-light)' }}
+        >
           <BookmarkIcon ref={bookmarkRef} size={18} style={{ color: 'var(--monarch-orange)' }} />
         </div>
         <div className="flex-1 flex items-center gap-2">
