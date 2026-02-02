@@ -1,36 +1,26 @@
 /**
  * afterPack Hook - macOS Code Signing for PyInstaller Backend
  *
- * This hook runs AFTER electron-builder packs the app but BEFORE signing.
- * It handles two critical tasks for macOS universal binary builds:
+ * Signs PyInstaller backend binaries BEFORE electron-builder signs the app.
+ * This is necessary because PyInstaller creates a non-standard Python.framework
+ * that requires special handling for Apple notarization.
  *
- * ## Task 1: Architecture-Specific Backend Isolation
+ * ## The Problem
  *
- * When building universal binaries, electron-builder:
- * 1. Builds arm64 app (with both backend-arm64 and backend-x64 from extraResources)
- * 2. Builds x64 app (with both backend-arm64 and backend-x64 from extraResources)
- * 3. Merges using lipo
- *
- * The problem: lipo tries to merge identical files from both builds, causing
- * "same architectures" errors. Solution: remove the non-matching backend from
- * each single-arch build. The universal merge then just copies each directory.
- *
- * - arm64 build: remove backend-x64 (will come from x64 build during merge)
- * - x64 build: remove backend-arm64 (will come from arm64 build during merge)
- *
- * ## Task 2: PyInstaller Code Signing
- *
- * PyInstaller creates Python.framework with issues for notarization:
+ * PyInstaller creates Python.framework with:
  * 1. COPIES instead of symlinks (breaks standard framework structure)
  * 2. Pre-existing signatures WITHOUT secure timestamps (Apple rejects these)
  * 3. An "ambiguous bundle format" that confuses codesign
  *
- * Solution:
+ * ## The Solution
+ *
  * 1. Sign all .so and .dylib files in _internal (excluding Python.framework)
  * 2. For Python.framework:
  *    a. Remove _CodeSignature directory (stale metadata without timestamps)
  *    b. Sign the real binary at Versions/X.Y/Python with --no-strict
- *    c. Replace copies with proper symlinks
+ *    c. Replace copies with proper symlinks:
+ *       - Python.framework/Python -> Versions/Current/Python
+ *       - Python.framework/Versions/Current -> X.Y (e.g., 3.12)
  *    d. Skip bundle signing (codesign can't handle PyInstaller's format)
  * 3. Sign the main eclosion-backend executable
  *
@@ -41,15 +31,9 @@
  * @see https://developer.apple.com/documentation/security/notarizing_macos_software_before_distribution
  */
 
-const { execSync, execFile } = require('node:child_process');
-const { promisify } = require('node:util');
-const path = require('node:path');
-const fs = require('node:fs');
-
-const execFileAsync = promisify(execFile);
-
-// Number of parallel codesign processes (tuned for GitHub Actions macOS runners)
-const PARALLEL_SIGN_LIMIT = 8;
+const { execSync } = require('child_process');
+const path = require('path');
+const fs = require('fs');
 
 /**
  * Recursively find all files matching a predicate
@@ -129,198 +113,8 @@ function signFile(filePath, identity, entitlementsPath, useNoStrict = false, use
   execSync(cmd, { stdio: 'inherit' });
 }
 
-/**
- * Sign a single file asynchronously (for parallel signing)
- * @param {string} filePath - Path to file
- * @param {string} identity - Signing identity
- * @param {string} entitlementsPath - Path to entitlements plist
- * @param {boolean} useNoStrict - Whether to use --no-strict flag
- * @returns {Promise<{success: boolean, path: string, error?: string}>}
- */
-async function signFileAsync(filePath, identity, entitlementsPath, useNoStrict = false) {
-  const args = [
-    '--sign', identity,
-    '--force',
-    '--timestamp',
-    '--options', 'runtime',
-  ];
-
-  if (useNoStrict) {
-    args.push('--no-strict');
-  }
-
-  if (entitlementsPath) {
-    args.push('--entitlements', entitlementsPath);
-  }
-
-  args.push(filePath);
-
-  try {
-    await execFileAsync('codesign', args);
-    return { success: true, path: filePath };
-  } catch (e) {
-    return { success: false, path: filePath, error: e.message };
-  }
-}
-
-/**
- * Run async tasks in parallel with concurrency limit
- * @param {Array<() => Promise<T>>} tasks - Array of task functions
- * @param {number} limit - Max concurrent tasks
- * @returns {Promise<T[]>}
- */
-async function runParallel(tasks, limit) {
-  const results = [];
-  const executing = new Set();
-
-  for (const task of tasks) {
-    const promise = task().then((result) => {
-      executing.delete(promise);
-      return result;
-    });
-    executing.add(promise);
-    results.push(promise);
-
-    if (executing.size >= limit) {
-      await Promise.race(executing);
-    }
-  }
-
-  return Promise.all(results);
-}
-
-/**
- * Sign a single backend directory (handles both arm64 and x64 backends)
- */
-async function signBackendDirectory(backendDir, identity, entitlementsPath) {
-  console.log(`  Signing backend: ${path.basename(backendDir)}`);
-
-  // Step 1: Find all .so and .dylib files in _internal (excluding Python.framework)
-  const internalDir = path.join(backendDir, '_internal');
-  const pythonFrameworkPath = path.join(internalDir, 'Python.framework');
-
-  const binaries = findFiles(internalDir, (name, fullPath) => {
-    // Skip anything inside Python.framework - we'll sign it as a bundle
-    if (fullPath.includes('Python.framework')) return false;
-
-    if (name.endsWith('.dylib') || name.endsWith('.so')) return true;
-    // Check executables (no extension but are Mach-O)
-    if (!name.includes('.') && isMachO(fullPath)) return true;
-    return false;
-  });
-
-  console.log(`    Found ${binaries.length} binaries to sign in _internal`);
-  console.log(`    Signing in parallel (max ${PARALLEL_SIGN_LIMIT} concurrent)...`);
-
-  // Sign binaries in parallel for faster builds
-  const signTasks = binaries.map((binary) => () =>
-    signFileAsync(binary, identity, entitlementsPath, true)
-  );
-
-  const startTime = Date.now();
-  const results = await runParallel(signTasks, PARALLEL_SIGN_LIMIT);
-  const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-
-  // Report results
-  const failures = results.filter((r) => !r.success);
-  console.log(`    Signed ${results.length - failures.length}/${results.length} binaries in ${elapsed}s`);
-
-  for (const failure of failures) {
-    const relativePath = path.relative(backendDir, failure.path);
-    console.log(`      Warning: Failed to sign ${relativePath}: ${failure.error}`);
-  }
-
-  // Step 2: Sign Python.framework
-  if (fs.existsSync(pythonFrameworkPath)) {
-    console.log('    Signing Python.framework...');
-
-    // Remove the framework's _CodeSignature directory
-    const codeSignatureDir = path.join(pythonFrameworkPath, '_CodeSignature');
-    if (fs.existsSync(codeSignatureDir)) {
-      console.log('      Removing _CodeSignature directory');
-      fs.rmSync(codeSignatureDir, { recursive: true, force: true });
-    }
-
-    // Fix framework structure and sign Python binary
-    const versionsDir = path.join(pythonFrameworkPath, 'Versions');
-    const topLevelPython = path.join(pythonFrameworkPath, 'Python');
-
-    // Find the actual version directory (e.g., "3.12")
-    let actualVersion = null;
-    if (fs.existsSync(versionsDir)) {
-      const entries = fs.readdirSync(versionsDir);
-      for (const entry of entries) {
-        if (/^\d+\.\d+$/.test(entry)) {
-          actualVersion = entry;
-          break;
-        }
-      }
-    }
-
-    if (actualVersion) {
-      const versionedPython = path.join(versionsDir, actualVersion, 'Python');
-      const currentDir = path.join(versionsDir, 'Current');
-
-      // Sign the actual binary first
-      if (fs.existsSync(versionedPython)) {
-        console.log(`      Removing signature from Versions/${actualVersion}/Python`);
-        removeSignature(versionedPython);
-
-        console.log(`      Signing Versions/${actualVersion}/Python`);
-        signFile(versionedPython, identity, entitlementsPath, true);
-
-        const result = verifySignature(versionedPython);
-        console.log(`      Verify Versions/${actualVersion}/Python: ${result.valid ? 'VALID' : 'INVALID'}`);
-      }
-
-      // Replace Versions/Current with a symlink to the version directory
-      if (fs.existsSync(currentDir)) {
-        const currentStat = fs.lstatSync(currentDir);
-        if (!currentStat.isSymbolicLink()) {
-          console.log('      Replacing Versions/Current directory with symlink');
-          fs.rmSync(currentDir, { recursive: true, force: true });
-          fs.symlinkSync(actualVersion, currentDir);
-        }
-      } else {
-        console.log('      Creating Versions/Current symlink');
-        fs.symlinkSync(actualVersion, currentDir);
-      }
-
-      // Replace top-level Python with a symlink
-      if (fs.existsSync(topLevelPython)) {
-        const topStat = fs.lstatSync(topLevelPython);
-        if (!topStat.isSymbolicLink()) {
-          console.log('      Replacing top-level Python with symlink');
-          fs.unlinkSync(topLevelPython);
-          fs.symlinkSync('Versions/Current/Python', topLevelPython);
-        }
-      } else {
-        console.log('      Creating top-level Python symlink');
-        fs.symlinkSync('Versions/Current/Python', topLevelPython);
-      }
-
-      console.log('      Framework structure fixed with proper symlinks');
-    } else {
-      console.log('      Warning: Could not find versioned Python directory');
-    }
-
-    console.log('      Skipping bundle signing (ambiguous format - not supported by codesign)');
-  }
-
-  // Step 3: Sign the main backend executable
-  const mainExecutable = path.join(backendDir, 'eclosion-backend');
-  if (fs.existsSync(mainExecutable)) {
-    console.log('    Signing main executable: eclosion-backend');
-    try {
-      signFile(mainExecutable, identity, entitlementsPath, true);
-    } catch (e) {
-      console.log(`      Warning: Failed to sign eclosion-backend: ${e.message}`);
-    }
-  }
-}
-
 exports.default = async function (context) {
-  const { electronPlatformName, appOutDir, arch } = context;
+  const { electronPlatformName, appOutDir } = context;
 
   // Only needed for macOS
   if (electronPlatformName !== 'darwin') {
@@ -329,53 +123,10 @@ exports.default = async function (context) {
 
   const appName = context.packager.appInfo.productFilename;
   const appDir = path.join(appOutDir, `${appName}.app`);
-  const resourcesDir = path.join(appDir, 'Contents', 'Resources');
+  const backendDir = path.join(appDir, 'Contents', 'Resources', 'backend');
   const entitlementsPath = path.join(__dirname, 'entitlements.mac.plist');
 
-  // For universal binaries, we have backend-arm64 and backend-x64 directories
-  // For single-arch builds (Windows/Linux), we have a single backend directory
-  const backendArm64 = path.join(resourcesDir, 'backend-arm64');
-  const backendX64 = path.join(resourcesDir, 'backend-x64');
-  const backendSingle = path.join(resourcesDir, 'backend');
-
-  // electron-builder Arch enum: 0 = ia32, 1 = x64, 2 = armv7l, 3 = arm64, 4 = universal
-  // For separate arch builds (not universal), we:
-  // 1. Remove the wrong-arch backend
-  // 2. Rename the correct backend to "backend" (unified name for all platforms)
-  // This gives each arch a clean "backend" directory with only its native binaries.
-  const archName = arch === 3 ? 'arm64' : arch === 1 ? 'x64' : null;
-
-  if (archName) {
-    console.log(`Architecture: ${archName} (arch=${arch})`);
-
-    // Remove the wrong backend and rename the correct one to "backend"
-    if (archName === 'arm64') {
-      if (fs.existsSync(backendX64)) {
-        console.log('  Removing backend-x64 (wrong arch)');
-        fs.rmSync(backendX64, { recursive: true, force: true });
-      }
-      if (fs.existsSync(backendArm64) && !fs.existsSync(backendSingle)) {
-        console.log('  Renaming backend-arm64 -> backend');
-        fs.renameSync(backendArm64, backendSingle);
-      }
-    } else if (archName === 'x64') {
-      if (fs.existsSync(backendArm64)) {
-        console.log('  Removing backend-arm64 (wrong arch)');
-        fs.rmSync(backendArm64, { recursive: true, force: true });
-      }
-      if (fs.existsSync(backendX64) && !fs.existsSync(backendSingle)) {
-        console.log('  Renaming backend-x64 -> backend');
-        fs.renameSync(backendX64, backendSingle);
-      }
-    }
-  }
-
-  const backendDirs = [];
-  if (fs.existsSync(backendArm64)) backendDirs.push(backendArm64);
-  if (fs.existsSync(backendX64)) backendDirs.push(backendX64);
-  if (fs.existsSync(backendSingle)) backendDirs.push(backendSingle);
-
-  if (backendDirs.length === 0) {
+  if (!fs.existsSync(backendDir)) {
     console.log('No backend directory found, skipping pre-sign');
     return;
   }
@@ -404,13 +155,140 @@ exports.default = async function (context) {
 
   console.log('Pre-signing PyInstaller backend binaries...');
   console.log(`  Identity: ${identity}`);
-  console.log(`  Backend directories: ${backendDirs.map(d => path.basename(d)).join(', ')}`);
+  console.log(`  Backend: ${backendDir}`);
   console.log(`  Entitlements: ${entitlementsPath}`);
 
   try {
-    // Sign each backend directory (for universal builds, we have arm64 and x64)
-    for (const backendDir of backendDirs) {
-      await signBackendDirectory(backendDir, identity, entitlementsPath);
+    // Step 1: Find all .so and .dylib files in _internal (excluding Python.framework)
+    const internalDir = path.join(backendDir, '_internal');
+    const pythonFrameworkPath = path.join(internalDir, 'Python.framework');
+
+    const binaries = findFiles(internalDir, (name, fullPath) => {
+      // Skip anything inside Python.framework - we'll sign it as a bundle
+      if (fullPath.includes('Python.framework')) return false;
+
+      if (name.endsWith('.dylib') || name.endsWith('.so')) return true;
+      // Check executables (no extension but are Mach-O)
+      if (!name.includes('.') && isMachO(fullPath)) return true;
+      return false;
+    });
+
+    console.log(`  Found ${binaries.length} binaries to sign in _internal`);
+
+    // Sign binaries (deepest first by sorting by path depth)
+    binaries.sort((a, b) => b.split('/').length - a.split('/').length);
+
+    for (const binary of binaries) {
+      const relativePath = path.relative(backendDir, binary);
+      console.log(`  Signing: ${relativePath}`);
+      try {
+        signFile(binary, identity, entitlementsPath, true); // --no-strict for PyInstaller binaries
+      } catch (e) {
+        console.log(`    Warning: Failed to sign ${relativePath}: ${e.message}`);
+      }
+    }
+
+    // Step 2: Sign Python.framework
+    // PyInstaller's Python.framework has an "ambiguous bundle format" that codesign
+    // can't properly sign as a bundle. We must sign ONLY the binary directly.
+    if (fs.existsSync(pythonFrameworkPath)) {
+      console.log('  Signing Python.framework...');
+
+      // Step 2a: Remove the framework's _CodeSignature directory
+      // It contains stale metadata without timestamps that causes validation failures
+      const codeSignatureDir = path.join(pythonFrameworkPath, '_CodeSignature');
+      if (fs.existsSync(codeSignatureDir)) {
+        console.log('    Removing _CodeSignature directory');
+        fs.rmSync(codeSignatureDir, { recursive: true, force: true });
+      }
+
+      // Step 2b: Fix framework structure and sign Python binary
+      // PyInstaller creates COPIES instead of symlinks, which breaks code signing.
+      // A proper framework structure should be:
+      //   - Python.framework/Python -> Versions/Current/Python (symlink)
+      //   - Python.framework/Versions/Current -> 3.12 (symlink)
+      //   - Python.framework/Versions/3.12/Python (actual binary)
+      //
+      // We'll replace the copies with proper symlinks before signing.
+
+      const versionsDir = path.join(pythonFrameworkPath, 'Versions');
+      const topLevelPython = path.join(pythonFrameworkPath, 'Python');
+
+      // Find the actual version directory (e.g., "3.12")
+      let actualVersion = null;
+      if (fs.existsSync(versionsDir)) {
+        const entries = fs.readdirSync(versionsDir);
+        for (const entry of entries) {
+          if (/^\d+\.\d+$/.test(entry)) {
+            actualVersion = entry;
+            break;
+          }
+        }
+      }
+
+      if (actualVersion) {
+        const versionedPython = path.join(versionsDir, actualVersion, 'Python');
+        const currentDir = path.join(versionsDir, 'Current');
+
+        // Step 1: Sign the actual binary first
+        if (fs.existsSync(versionedPython)) {
+          console.log(`    Removing signature from Versions/${actualVersion}/Python`);
+          removeSignature(versionedPython);
+
+          console.log(`    Signing Versions/${actualVersion}/Python`);
+          signFile(versionedPython, identity, entitlementsPath, true);
+
+          const result = verifySignature(versionedPython);
+          console.log(`    Verify Versions/${actualVersion}/Python: ${result.valid ? 'VALID' : 'INVALID'}`);
+        }
+
+        // Step 2: Replace Versions/Current with a symlink to the version directory
+        if (fs.existsSync(currentDir)) {
+          const currentStat = fs.lstatSync(currentDir);
+          if (!currentStat.isSymbolicLink()) {
+            console.log('    Replacing Versions/Current directory with symlink');
+            fs.rmSync(currentDir, { recursive: true, force: true });
+            fs.symlinkSync(actualVersion, currentDir);
+          }
+        } else {
+          console.log('    Creating Versions/Current symlink');
+          fs.symlinkSync(actualVersion, currentDir);
+        }
+
+        // Step 3: Replace top-level Python with a symlink
+        if (fs.existsSync(topLevelPython)) {
+          const topStat = fs.lstatSync(topLevelPython);
+          if (!topStat.isSymbolicLink()) {
+            console.log('    Replacing top-level Python with symlink');
+            fs.unlinkSync(topLevelPython);
+            fs.symlinkSync('Versions/Current/Python', topLevelPython);
+          }
+        } else {
+          console.log('    Creating top-level Python symlink');
+          fs.symlinkSync('Versions/Current/Python', topLevelPython);
+        }
+
+        console.log('    Framework structure fixed with proper symlinks');
+      } else {
+        console.log('    Warning: Could not find versioned Python directory');
+      }
+
+      // NOTE: We intentionally do NOT sign Python.framework as a bundle.
+      // PyInstaller's framework has an "ambiguous bundle format" (could be app or framework)
+      // that codesign cannot properly handle. The signIgnore patterns in electron-builder.yml
+      // prevent electron-builder from signing it either.
+      console.log('    Skipping bundle signing (ambiguous format - not supported by codesign)');
+    }
+
+    // Step 3: Sign the main backend executable
+    const mainExecutable = path.join(backendDir, 'eclosion-backend');
+    if (fs.existsSync(mainExecutable)) {
+      console.log('  Signing main executable: eclosion-backend');
+      try {
+        signFile(mainExecutable, identity, entitlementsPath, true);
+      } catch (e) {
+        console.log(`    Warning: Failed to sign eclosion-backend: ${e.message}`);
+      }
     }
 
     console.log('Pre-signing complete');

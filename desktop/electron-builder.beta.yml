@@ -23,15 +23,13 @@ files:
   - "!node_modules/**/*"
 
 # Extra resources (not in asar)
-# Note: macOS uses architecture-specific backend directories (set up by CI)
-# Windows/Linux use a single 'backend' directory
 extraResources:
   # Frontend build
   - from: ../frontend/dist
     to: frontend
     filter:
       - "**/*"
-  # Python backend executable (Windows/Linux only - macOS uses arch-specific dirs)
+  # Python backend executable
   - from: pyinstaller/dist/eclosion-backend
     to: backend
     filter:
@@ -62,22 +60,11 @@ protocols:
 afterPack: afterPack.js
 
 # macOS configuration
-# Separate arm64 and x64 builds instead of universal. This is required because:
-# 1. PyInstaller backends have different files per-architecture
-# 2. @electron/universal's singleArchFiles only works for ASAR, not extraResources
-# Each arch build includes only its matching backend (afterPack.js removes the other).
-# At runtime, backend.ts uses the single "backend" directory.
 mac:
   category: public.app-category.finance
   target:
-    - target: dmg
-      arch:
-        - arm64
-        - x64
-    - target: zip
-      arch:
-        - arm64
-        - x64
+    - dmg
+    - zip
   icon: assets/icon-beta.icns
   hardenedRuntime: true
   gatekeeperAssess: false
@@ -90,23 +77,6 @@ mac:
   signIgnore:
     - ".*backend.*"
     - ".*Python\\.framework.*"
-  extraResources:
-    - from: ../frontend/dist
-      to: frontend
-      filter:
-        - "**/*"
-    - from: pyinstaller/dist/backend-arm64
-      to: backend-arm64
-      filter:
-        - "**/*"
-    - from: pyinstaller/dist/backend-x64
-      to: backend-x64
-      filter:
-        - "**/*"
-    - from: assets/tray
-      to: assets/tray
-      filter:
-        - "**/*"
 
 # macOS code signing
 afterSign: notarize.js
