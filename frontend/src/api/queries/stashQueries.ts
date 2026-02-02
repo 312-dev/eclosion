@@ -26,6 +26,7 @@ import {
   calculateMonthsRemaining,
   calculateProgressPercent,
   calculateShortfall,
+  calculateStashStatus,
 } from '../../utils/savingsCalculations';
 import { decodeHtmlEntities } from '../../utils';
 
@@ -37,15 +38,9 @@ function computeStashItem(item: StashItem): StashItem {
   const progressPercent = calculateProgressPercent(item.current_balance, item.amount);
   const shortfall = calculateShortfall(item.current_balance, item.amount);
 
-  // Determine status
-  let status: StashItem['status'];
-  if (item.current_balance >= item.amount) {
-    status = 'funded';
-  } else if (item.planned_budget >= monthlyTarget) {
-    status = item.planned_budget > monthlyTarget ? 'ahead' : 'on_track';
-  } else {
-    status = 'behind';
-  }
+  // Determine status based on balance vs expected balance for timeline
+  // (not budget vs monthly target - that's the old approach)
+  const status = calculateStashStatus(item.current_balance, item.amount, item.target_date);
 
   return {
     ...item,
@@ -70,10 +65,10 @@ function transformStashData(data: StashData): StashData {
   const items = data.items.map(computeStashItem);
   const archivedItems = data.archived_items.map(computeStashItem);
 
-  // Compute totals from active items only
-  const totalTarget = items.reduce((sum, item) => sum + item.amount, 0);
+  // Compute totals from active items only (skip null amounts/targets for open-ended goals)
+  const totalTarget = items.reduce((sum, item) => sum + (item.amount ?? 0), 0);
   const totalSaved = items.reduce((sum, item) => sum + item.current_balance, 0);
-  const totalMonthlyTarget = items.reduce((sum, item) => sum + item.monthly_target, 0);
+  const totalMonthlyTarget = items.reduce((sum, item) => sum + (item.monthly_target ?? 0), 0);
 
   return {
     items,
@@ -105,8 +100,15 @@ export function useCreateStashMutation() {
   const isDemo = useDemo();
   const smartInvalidate = useSmartInvalidate();
   return useMutation({
-    mutationFn: (request: CreateStashItemRequest) =>
-      isDemo ? demoApi.createStashItem(request) : api.createStashItem(request),
+    mutationFn: async (
+      request: CreateStashItemRequest
+    ): Promise<{
+      success: boolean;
+      id: string;
+      category_id: string;
+      monthly_target: number | null; // null for open-ended goals
+      linked_existing?: boolean;
+    }> => (isDemo ? demoApi.createStashItem(request) : api.createStashItem(request)),
     onSuccess: () => {
       smartInvalidate('createStash');
     },
@@ -476,13 +478,40 @@ export function useAllocateStashMutation() {
 
       // Optimistically update stash cache
       if (previousStash) {
+        // Find the item to determine if balance should change
+        const targetItem = previousStash.items.find((i) => i.id === id);
+        const isOneTime = targetItem?.goal_type !== 'savings_buffer';
+        // For one-time goals, balance changes with budget; update total_saved accordingly
+        const balanceDelta = isOneTime ? budgetDelta : 0;
+
         queryClient.setQueryData<StashData>(stashKey, (old) => {
           if (!old) return old;
           return {
             ...old,
-            items: old.items.map((item) =>
-              item.id === id ? computeStashItem({ ...item, planned_budget: amount }) : item
-            ),
+            // Update total_saved to reflect the balance change
+            total_saved: old.total_saved + balanceDelta,
+            items: old.items.map((item) => {
+              if (item.id !== id) return item;
+              // For one-time purchases, current_balance represents total contributions
+              // (rollover + budget + credits), so it changes with budget
+              // For savings_buffer, current_balance is remaining balance (not affected by budget changes)
+              const newBalance = isOneTime
+                ? item.current_balance + budgetDelta
+                : item.current_balance;
+              // available_to_spend also changes for one-time goals
+              const newAvailable =
+                isOneTime && item.available_to_spend !== undefined
+                  ? item.available_to_spend + budgetDelta
+                  : item.available_to_spend;
+              return computeStashItem({
+                ...item,
+                planned_budget: amount,
+                current_balance: Math.max(0, newBalance),
+                ...(newAvailable !== undefined && {
+                  available_to_spend: Math.max(0, newAvailable),
+                }),
+              });
+            }),
           };
         });
       }
@@ -568,15 +597,44 @@ export function useAllocateStashBatchMutation() {
       // Optimistically update stash cache
       if (previousStash) {
         const budgetMap = new Map(allocations.map((a) => [a.id, a.budget]));
+        // Calculate total balance delta for one-time goals
+        let totalBalanceDelta = 0;
+        for (const item of previousStash.items) {
+          if (budgetMap.has(item.id) && item.goal_type !== 'savings_buffer') {
+            const oldBudget = item.planned_budget;
+            const newBudget = budgetMap.get(item.id)!;
+            totalBalanceDelta += newBudget - oldBudget;
+          }
+        }
+
         queryClient.setQueryData<StashData>(stashKey, (old) => {
           if (!old) return old;
           return {
             ...old,
-            items: old.items.map((item) =>
-              budgetMap.has(item.id)
-                ? computeStashItem({ ...item, planned_budget: budgetMap.get(item.id)! })
-                : item
-            ),
+            // Update total_saved to reflect balance changes for one-time goals
+            total_saved: old.total_saved + totalBalanceDelta,
+            items: old.items.map((item) => {
+              if (!budgetMap.has(item.id)) return item;
+              const newBudgetAmount = budgetMap.get(item.id)!;
+              const budgetDelta = newBudgetAmount - item.planned_budget;
+              // For one-time purchases, current_balance changes with budget
+              const isOneTime = item.goal_type !== 'savings_buffer';
+              const newBalance = isOneTime
+                ? item.current_balance + budgetDelta
+                : item.current_balance;
+              const newAvailable =
+                isOneTime && item.available_to_spend !== undefined
+                  ? item.available_to_spend + budgetDelta
+                  : item.available_to_spend;
+              return computeStashItem({
+                ...item,
+                planned_budget: newBudgetAmount,
+                current_balance: Math.max(0, newBalance),
+                ...(newAvailable !== undefined && {
+                  available_to_spend: Math.max(0, newAvailable),
+                }),
+              });
+            }),
           };
         });
       }
@@ -779,10 +837,16 @@ export function useUpdateCategoryRolloverMutation() {
   const availableKey = getQueryKey(queryKeys.availableToStash, isDemo);
 
   return useMutation({
-    mutationFn: ({ categoryId, amount }: { categoryId: string; amount: number }) =>
-      isDemo
-        ? demoApi.updateCategoryRolloverBalance(categoryId, amount)
-        : api.updateCategoryRolloverBalance(categoryId, amount),
+    mutationFn: async ({ categoryId, amount }: { categoryId: string; amount: number }) => {
+      const result = isDemo
+        ? await demoApi.updateCategoryRolloverBalance(categoryId, amount)
+        : await api.updateCategoryRolloverBalance(categoryId, amount);
+      // Verify success - API should return success: true
+      if (!result.success) {
+        throw new Error('Failed to update starting balance');
+      }
+      return result;
+    },
 
     onMutate: async ({ categoryId, amount }) => {
       // Cancel any outgoing refetches
@@ -831,7 +895,10 @@ export function useUpdateCategoryRolloverMutation() {
       return { previousStash, previousAvailable };
     },
 
-    onError: (_err, _variables, context) => {
+    onError: (err, _variables, context) => {
+      // Log error for debugging
+
+      console.error('[useUpdateCategoryRolloverMutation] Error:', err);
       // Rollback on error
       if (context?.previousStash) {
         queryClient.setQueryData(stashKey, context.previousStash);
@@ -841,13 +908,8 @@ export function useUpdateCategoryRolloverMutation() {
       }
     },
 
-    onSettled: () => {
-      // NOTE: We intentionally do NOT invalidate/refetch here.
-      // Monarch has eventual consistency - a refetch immediately after write
-      // may return stale data, overwriting our correct optimistic updates.
-      // The optimistic updates in onMutate are correct (the mutation was confirmed).
-      // Let the normal staleTime (30s) handle eventual sync with Monarch.
-    },
+    // No onSettled - we don't invalidate to prevent Monarch eventual consistency issues
+    // from overwriting correct optimistic updates on success, and rollback handles errors
   });
 }
 
@@ -859,10 +921,16 @@ export function useUpdateGroupRolloverMutation() {
   const availableKey = getQueryKey(queryKeys.availableToStash, isDemo);
 
   return useMutation({
-    mutationFn: ({ groupId, amount }: { groupId: string; amount: number }) =>
-      isDemo
-        ? demoApi.updateGroupRolloverBalance(groupId, amount)
-        : api.updateGroupRolloverBalance(groupId, amount),
+    mutationFn: async ({ groupId, amount }: { groupId: string; amount: number }) => {
+      const result = isDemo
+        ? await demoApi.updateGroupRolloverBalance(groupId, amount)
+        : await api.updateGroupRolloverBalance(groupId, amount);
+      // Verify success - API should return success: true
+      if (!result.success) {
+        throw new Error('Failed to update starting balance');
+      }
+      return result;
+    },
 
     onMutate: async ({ groupId, amount }) => {
       // Cancel any outgoing refetches
@@ -912,7 +980,10 @@ export function useUpdateGroupRolloverMutation() {
       return { previousStash, previousAvailable };
     },
 
-    onError: (_err, _variables, context) => {
+    onError: (err, _variables, context) => {
+      // Log error for debugging
+
+      console.error('[useUpdateGroupRolloverMutation] Error:', err);
       // Rollback on error
       if (context?.previousStash) {
         queryClient.setQueryData(stashKey, context.previousStash);
@@ -922,13 +993,8 @@ export function useUpdateGroupRolloverMutation() {
       }
     },
 
-    onSettled: () => {
-      // NOTE: We intentionally do NOT invalidate/refetch here.
-      // Monarch has eventual consistency - a refetch immediately after write
-      // may return stale data, overwriting our correct optimistic updates.
-      // The optimistic updates in onMutate are correct (the mutation was confirmed).
-      // Let the normal staleTime (30s) handle eventual sync with Monarch.
-    },
+    // No onSettled - we don't invalidate to prevent Monarch eventual consistency issues
+    // from overwriting correct optimistic updates on success, and rollback handles errors
   });
 }
 
@@ -983,6 +1049,33 @@ export function useDeleteHypothesisMutation() {
     onSuccess: () => {
       smartInvalidate('deleteHypothesis');
     },
+  });
+}
+
+// ---- Category Balance Query ----
+
+/**
+ * Fetch the current rollover balance of an existing Monarch category.
+ *
+ * Used when selecting an existing category in the New Stash form to
+ * determine if it already has a starting balance.
+ *
+ * @param categoryId - The Monarch category ID (null to disable query)
+ * @returns Query result with balance data
+ */
+export function useCategoryBalanceQuery(categoryId: string | null) {
+  const isDemo = useDemo();
+  return useQuery({
+    queryKey: getQueryKey([...queryKeys.categoryBalance, categoryId ?? ''], isDemo),
+    queryFn: async () => {
+      if (!categoryId) throw new Error('No category ID');
+      const result = isDemo
+        ? await demoApi.getCategoryBalance(categoryId)
+        : await api.getCategoryBalance(categoryId);
+      return result.balance;
+    },
+    enabled: Boolean(categoryId),
+    staleTime: 30 * 1000, // 30 seconds
   });
 }
 

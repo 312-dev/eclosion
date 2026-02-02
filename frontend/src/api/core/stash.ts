@@ -358,6 +358,20 @@ export async function clearUnconvertedBookmarks(): Promise<{
   });
 }
 
+/**
+ * Batch update favicons for pending bookmarks.
+ * Called after fetching favicons client-side to persist them to the database.
+ * This ensures favicons survive page reloads and cache invalidations.
+ */
+export async function updateBookmarkFavicons(
+  updates: Array<{ id: string; logo_url: string }>
+): Promise<{ success: boolean; updated: number }> {
+  return fetchApi<{ success: boolean; updated: number }>('/stash/pending/favicons', {
+    method: 'PUT',
+    body: JSON.stringify({ updates }),
+  });
+}
+
 // === Stash History (Reports) ===
 
 /**
@@ -369,6 +383,21 @@ export async function clearUnconvertedBookmarks(): Promise<{
  */
 export async function getStashHistory(months = 12): Promise<StashHistoryResponse> {
   return fetchApi<StashHistoryResponse>(`/stash/history?months=${months}`);
+}
+
+// === Category Balance Lookup ===
+
+/**
+ * Get the current rollover balance of an existing Monarch category.
+ *
+ * Used when selecting an existing category in the New Stash form to
+ * determine if it already has a starting balance.
+ *
+ * @param categoryId - The Monarch category ID
+ * @returns The current "remaining" balance (includes rollover)
+ */
+export async function getCategoryBalance(categoryId: string): Promise<{ balance: number }> {
+  return fetchApi<{ balance: number }>(`/stash/category-balance/${categoryId}`);
 }
 
 // === Category Rollover Balance ===

@@ -247,11 +247,14 @@ export const StashCard = memo(function StashCard({
   // Get distribution mode context for tracking allocations
   const {
     totalStashedAllocated,
+    totalMonthlyAllocated,
     startingStashTotal,
     stashedAllocations,
     setStashedAllocation,
     monthlyAllocations,
     setMonthlyAllocation,
+    customAvailableFunds,
+    customLeftToBudget,
   } = useDistributionMode();
 
   // Get available to stash data for deposit calculation
@@ -270,21 +273,37 @@ export const StashCard = memo(function StashCard({
   const allocateStash = useAllocateStashMutation();
 
   // Calculate withdraw available (rollover + budget = total balance available to take)
+  // In hypothesis mode, include any hypothetically stashed amount (user should be able to "take it back")
   const rolloverAmount = item.rollover_amount ?? 0;
   const budgetAmount = item.planned_budget ?? 0;
-  const withdrawAvailable = rolloverAmount + budgetAmount;
+  const baseWithdrawAvailable = rolloverAmount + budgetAmount;
+
+  // In hypothesis mode, add any hypothetical stash delta to withdraw available
+  // This allows users to take back money they've hypothetically stashed
+  const hypotheticalStashIncrease = isHypothesizeMode
+    ? Math.max(0, (stashedAllocations[item.id] ?? item.current_balance) - item.current_balance)
+    : 0;
+  const withdrawAvailable = baseWithdrawAvailable + hypotheticalStashIncrease;
 
   // Calculate deposit available (Available to Stash pool minus already allocated in this session)
   // Only subtract delta when in distribution mode (matches AvailableFundsBar logic)
-  const baseAvailable = availableData?.available ?? 0;
+  // In hypothesize mode, use custom values from context if user has edited them
+  const actualAvailable = availableData?.available ?? 0;
+  const baseAvailable = customAvailableFunds ?? actualAvailable;
   const stashAllocationDelta = totalStashedAllocated - startingStashTotal;
   const depositAvailable = isInDistributionMode
     ? Math.max(0, baseAvailable - stashAllocationDelta)
-    : baseAvailable;
+    : actualAvailable;
 
   // Left to Budget allows stashing beyond Cash to Stash
   // Use dashboard data (same source as AvailableFundsBar) for accurate real-time value
-  const leftToBudget = dashboardData?.ready_to_assign?.ready_to_assign ?? 0;
+  // In hypothesize mode, use custom values from context if user has edited them
+  // Subtract monthly allocations made during this distribution session
+  const actualLeftToBudget = dashboardData?.ready_to_assign?.ready_to_assign ?? 0;
+  const baseLeftToBudget = customLeftToBudget ?? actualLeftToBudget;
+  const leftToBudget = isInDistributionMode
+    ? baseLeftToBudget - totalMonthlyAllocated
+    : actualLeftToBudget;
 
   // Helper to get fresh stash item values from React Query cache
   // This prevents stale closure issues during rapid operations
@@ -625,17 +644,22 @@ export const StashCard = memo(function StashCard({
   const displayBalance = projectedItem.current_balance;
 
   // Calculate progress percent based on mode and item type
-  const getProgressPercent = (): number => {
+  // Returns null for open-ended goals (no target amount)
+  const getProgressPercent = (): number | null => {
+    // Open-ended goals have no progress percentage
+    if (item.amount === null) {
+      return null;
+    }
     // In hypothesize mode with active projection, use projected progress
     if (isHypothesizeMode && projectedItem.isProjected) {
-      return projectedItem.progress_percent;
+      return projectedItem.progress_percent ?? null;
     }
     // For flex categories, calculate from total contributions
     if (item.is_flexible_group) {
       return Math.min(100, item.amount > 0 ? (totalContributions / item.amount) * 100 : 0);
     }
     // Default: use item's progress percent
-    return Math.min(item.progress_percent, 100);
+    return item.progress_percent === null ? null : Math.min(item.progress_percent, 100);
   };
   const progressPercent = getProgressPercent();
 
@@ -681,6 +705,7 @@ export const StashCard = memo(function StashCard({
           emoji={item.emoji}
           alt={item.name}
           className={hasImage ? 'w-full h-full object-cover' : 'opacity-50'}
+          isAnimating={isCardHovered}
         />
 
         {/* Withdraw/Deposit overlay (hover mode or distribution mode) */}
@@ -895,23 +920,47 @@ export const StashCard = memo(function StashCard({
             </div>
             {/* Goal strategy - varies by goal type */}
             {(() => {
-              const formattedAmount = formatCurrency(item.amount, { maximumFractionDigits: 0 });
+              const formattedAmount =
+                item.amount === null
+                  ? null
+                  : formatCurrency(item.amount, { maximumFractionDigits: 0 });
               const goalType = item.goal_type ?? 'one_time';
 
-              // savings_buffer: "Maintain $X" (ongoing fund, no date)
-              // debt: "Pay off $X by [date]"
-              // one_time: "Save $X by [date]"
+              // Handle various combinations of amount and date
+              // savings_buffer: "Maintain $X" or "Maintain regularly" (ongoing fund, no date)
+              // debt: "Pay off $X by [date]" or "Pay off regularly"
+              // one_time: "Save $X by [date]" or "Save regularly"
               const getDescription = () => {
                 if (goalType === 'savings_buffer') {
-                  return {
-                    text: `Maintain ${formattedAmount}`,
-                    title: `Maintain ${formattedAmount}`,
-                  };
+                  const text = formattedAmount
+                    ? `Maintain ${formattedAmount}`
+                    : 'Maintain regularly';
+                  return { text, title: text };
                 }
                 const verb = goalType === 'debt' ? 'Pay off' : 'Save';
+
+                // Build description based on what's defined
+                if (formattedAmount && dateDisplay) {
+                  return {
+                    text: `${verb} ${formattedAmount} by ${dateDisplay}`,
+                    title: `${verb} ${formattedAmount} by ${dateDisplay}`,
+                  };
+                }
+                if (formattedAmount) {
+                  return {
+                    text: `${verb} ${formattedAmount}`,
+                    title: `${verb} ${formattedAmount}`,
+                  };
+                }
+                if (dateDisplay) {
+                  return {
+                    text: `${verb} by ${dateDisplay}`,
+                    title: `${verb} by ${dateDisplay}`,
+                  };
+                }
                 return {
-                  text: `${verb} ${formattedAmount} by ${dateDisplay}`,
-                  title: `${verb} ${formattedAmount} by ${dateDisplay}`,
+                  text: `${verb} regularly`,
+                  title: `${verb} regularly`,
                 };
               };
               const { text, title } = getDescription();

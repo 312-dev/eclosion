@@ -10,7 +10,7 @@ import { useBlocker } from 'react-router-dom';
 import { ExternalLink, Target } from 'lucide-react';
 import { usePageTitle, useBookmarks, useStashSync, useLocalStorage } from '../../hooks';
 import { STASH_INTRO_STATE_KEY } from '../../hooks/useStashTour';
-import { PageLoadingSpinner } from '../ui/LoadingSpinner';
+import { SkeletonToolHeader, SkeletonTabs, SkeletonStashGrid } from '../ui/SkeletonLayouts';
 import { FolderSyncIcon, type FolderSyncIconHandle } from '../ui/FolderSyncIcon';
 import {
   NewStashModal,
@@ -454,8 +454,12 @@ export function StashTab() {
 
   if (configLoading || isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <PageLoadingSpinner />
+      <div className="tab-content-enter pb-48">
+        <SkeletonToolHeader />
+        <SkeletonTabs count={3} />
+        <div className="mt-6 mb-6">
+          <SkeletonStashGrid count={4} />
+        </div>
       </div>
     );
   }

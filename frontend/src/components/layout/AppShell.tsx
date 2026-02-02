@@ -20,7 +20,7 @@ import { SecurityInfo } from '../SecurityInfo';
 import { WhatsNewModal } from '../WhatsNewModal';
 import { NoticeBanner } from '../ui/NoticeBanner';
 import { SecurityAlertBanner } from '../SecurityAlertBanner';
-import { PageLoadingSpinner } from '../ui/LoadingSpinner';
+import { SkeletonAppShell } from '../ui/SkeletonLayouts';
 import {
   useDashboardQuery,
   useStashQuery,
@@ -119,16 +119,9 @@ export function AppShell() {
     }
   };
 
-  // Loading state
+  // Loading state - show skeleton layout
   if (isLoading || !data) {
-    return (
-      <div
-        className="min-h-screen flex items-center justify-center"
-        style={{ backgroundColor: 'var(--monarch-bg-page)' }}
-      >
-        <PageLoadingSpinner />
-      </div>
-    );
+    return <SkeletonAppShell />;
   }
 
   // Error state (no cached data)

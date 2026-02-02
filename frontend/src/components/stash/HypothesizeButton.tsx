@@ -10,9 +10,10 @@ import { useState, useCallback } from 'react';
 import { Icons } from '../icons';
 import { useDistributionMode } from '../../context/DistributionModeContext';
 import { useToast } from '../../context/ToastContext';
-import { useSaveHypothesisMutation } from '../../api/queries/stashQueries';
+import { useSaveHypothesisMutation, useHypothesesQuery } from '../../api/queries/stashQueries';
 import { Tooltip } from '../ui/Tooltip';
 import { SaveNameDialog } from './DistributionModeDialogs';
+import { OverwriteConfirmDialog } from './OverwriteConfirmDialog';
 import { useMediaQuery, breakpoints } from '../../hooks/useMediaQuery';
 import type { StashItem, SaveHypothesisRequest } from '../../types';
 
@@ -98,8 +99,10 @@ export function HypothesizeButton({
   } = useDistributionMode();
   const toast = useToast();
   const saveMutation = useSaveHypothesisMutation();
+  const { data: scenarios = [] } = useHypothesesQuery();
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [pendingOverwriteName, setPendingOverwriteName] = useState<string | null>(null);
 
   const isTouchDevice = useMediaQuery(breakpoints.isTouchDevice);
   const activeStashItems = getActiveStashItems(items);
@@ -170,9 +173,13 @@ export function HypothesizeButton({
           setIsSaving(true);
           const request = buildSaveRequest(loadedScenarioName);
           saveMutation.mutate(request, {
-            onSuccess: () => {
-              toast.success(`Saved "${loadedScenarioName}"`);
-              exitMode();
+            onSuccess: (response) => {
+              if (response.success) {
+                toast.success(`Saved "${loadedScenarioName}"`);
+                exitMode();
+              } else {
+                toast.error(response.error ?? 'Failed to save scenario');
+              }
             },
             onError: () => toast.error('Failed to save scenario'),
             onSettled: () => setIsSaving(false),
@@ -191,17 +198,49 @@ export function HypothesizeButton({
 
   // Handle saving with a name (for new scenarios)
   const handleSaveWithName = (name: string) => {
+    // Check if name conflicts with existing scenario
+    const existingScenario = scenarios.find((s) => s.name.toLowerCase() === name.toLowerCase());
+    if (existingScenario) {
+      // Show overwrite confirmation
+      setPendingOverwriteName(name);
+      setShowSaveDialog(false);
+      return;
+    }
+
+    doSaveWithName(name);
+  };
+
+  // Actually perform the save (after any confirmation)
+  const doSaveWithName = (name: string) => {
     setIsSaving(true);
     const request = buildSaveRequest(name);
     saveMutation.mutate(request, {
-      onSuccess: () => {
-        toast.success(`Saved "${name}"`);
-        setShowSaveDialog(false);
-        exitMode();
+      onSuccess: (response) => {
+        if (response.success) {
+          toast.success(`Saved "${name}"`);
+          setShowSaveDialog(false);
+          setPendingOverwriteName(null);
+          exitMode();
+        } else {
+          toast.error(response.error ?? 'Failed to save scenario');
+        }
       },
       onError: () => toast.error('Failed to save scenario'),
       onSettled: () => setIsSaving(false),
     });
+  };
+
+  // Handle confirmed overwrite
+  const handleConfirmOverwrite = () => {
+    if (pendingOverwriteName) {
+      doSaveWithName(pendingOverwriteName);
+    }
+  };
+
+  // Handle cancel overwrite
+  const handleCancelOverwrite = () => {
+    setPendingOverwriteName(null);
+    setShowSaveDialog(true); // Re-open save dialog
   };
 
   const tooltipMessage = getTooltipMessage();
@@ -292,6 +331,13 @@ export function HypothesizeButton({
         isOpen={showSaveDialog}
         onSave={handleSaveWithName}
         onCancel={() => setShowSaveDialog(false)}
+      />
+      <OverwriteConfirmDialog
+        isOpen={!!pendingOverwriteName}
+        scenarioName={pendingOverwriteName ?? ''}
+        onConfirm={handleConfirmOverwrite}
+        onCancel={handleCancelOverwrite}
+        isSaving={isSaving}
       />
     </>
   );

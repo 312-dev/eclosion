@@ -143,6 +143,7 @@ function buildStashExport(state: DemoState): StashExport {
       auto_archive_on_bookmark_delete: state.stashConfig.autoArchiveOnBookmarkDelete ?? true,
       auto_archive_on_goal_met: state.stashConfig.autoArchiveOnGoalMet ?? true,
       include_expected_income: state.stashConfig.includeExpectedIncome ?? false,
+      show_monarch_goals: state.stashConfig.showMonarchGoals ?? true,
     },
     items: allStashItems.map((item) => ({
       id: item.id,
@@ -182,6 +183,9 @@ function buildStashExport(state: DemoState): StashExport {
       monthly_allocations: h.monthlyAllocations,
       monthly_total: h.monthlyTotal,
       events: h.events,
+      custom_available_funds: h.customAvailableFunds ?? null,
+      custom_left_to_budget: h.customLeftToBudget ?? null,
+      item_apys: h.itemApys ?? {},
       created_at: h.createdAt,
       updated_at: h.updatedAt,
     })),

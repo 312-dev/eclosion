@@ -65,9 +65,9 @@ function ApyEditor({ currentApy, onSave, onCancel }: ApyEditorProps) {
 
   const handleSave = useCallback(() => {
     const parsed = Number.parseFloat(value);
-    if (!Number.isNaN(parsed)) {
-      onSave(parsed / 100);
-    }
+    // Treat empty/invalid input as 0
+    const apyValue = Number.isNaN(parsed) ? 0 : parsed;
+    onSave(apyValue / 100);
     onCancel();
   }, [value, onSave, onCancel]);
 

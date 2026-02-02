@@ -146,7 +146,7 @@ export function InlineCategorySelector({
               : { color: 'var(--monarch-text-muted)' }
           }
         >
-          Create New
+          Create Under...
         </button>
         <button
           type="button"

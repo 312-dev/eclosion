@@ -135,7 +135,23 @@ export function HiddenCategoriesModal({
 
             {/* Category List */}
             {loading && (
-              <div className="text-center py-8 text-monarch-text-muted">Loading categories...</div>
+              <div className="space-y-2">
+                {[1, 2, 3, 4].map((groupIdx) => (
+                  <div
+                    key={groupIdx}
+                    className="rounded-lg overflow-hidden border border-monarch-border"
+                  >
+                    <div
+                      className="flex items-center gap-2 px-3 py-2"
+                      style={{ backgroundColor: 'var(--monarch-bg-hover)' }}
+                    >
+                      <div className="w-4 h-4 rounded skeleton" />
+                      <div className="h-4 rounded skeleton flex-1" style={{ maxWidth: '120px' }} />
+                      <div className="h-5 w-12 rounded-full skeleton" />
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
             {!loading && filteredGroups.length === 0 && (
               <div className="text-center py-8 text-monarch-text-muted">

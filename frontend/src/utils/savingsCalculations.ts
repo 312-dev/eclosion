@@ -71,18 +71,23 @@ export function monthsBetween(fromDateStr: string, toDateStr: string): number {
  * - If target date is in future: spread shortfall over remaining months
  * - Formula: shortfall / (monthsRemaining + 1) where +1 includes current month
  *
- * @param amount - The target amount to save
+ * @param amount - The target amount to save (null for open-ended goals)
  * @param currentBalance - Amount already saved
- * @param targetDate - When the goal should be reached (ISO string)
+ * @param targetDate - When the goal should be reached (ISO string, null for no deadline)
  * @param currentMonth - Current month start date (ISO string, defaults to now)
- * @returns Monthly target in whole dollars (rounded, minimum $1 for non-zero)
+ * @returns Monthly target in whole dollars (rounded, minimum $1 for non-zero), or null if amount/date is null
  */
 export function calculateStashMonthlyTarget(
-  amount: number,
+  amount: number | null,
   currentBalance: number,
-  targetDate: string,
+  targetDate: string | null,
   currentMonth?: string
-): number {
+): number | null {
+  // Return null for open-ended goals (no amount or no deadline)
+  if (amount === null || targetDate === null) {
+    return null;
+  }
+
   const shortfall = Math.max(0, amount - currentBalance);
 
   // Already funded
@@ -116,11 +121,18 @@ export function calculateStashMonthlyTarget(
 /**
  * Calculate months remaining until a target date.
  *
- * @param targetDate - The goal date (ISO string)
+ * @param targetDate - The goal date (ISO string, null for no deadline)
  * @param currentMonth - Current month start (ISO string, optional)
- * @returns Number of months remaining (0 if this month or past)
+ * @returns Number of months remaining (0 if this month or past), or null if no target date
  */
-export function calculateMonthsRemaining(targetDate: string, currentMonth?: string): number {
+export function calculateMonthsRemaining(
+  targetDate: string | null,
+  currentMonth?: string
+): number | null {
+  if (targetDate === null) {
+    return null;
+  }
+
   const now = new Date();
   const currentMonthStart = currentMonth
     ? getMonthStart(currentMonth)
@@ -134,10 +146,14 @@ export function calculateMonthsRemaining(targetDate: string, currentMonth?: stri
  * Calculate progress percentage.
  *
  * @param currentBalance - Amount saved
- * @param amount - Target amount
- * @returns Percentage (0-100+, can exceed 100 if overfunded)
+ * @param amount - Target amount (null for open-ended goals)
+ * @returns Percentage (0-100+, can exceed 100 if overfunded), or null if no target amount
  */
-export function calculateProgressPercent(currentBalance: number, amount: number): number {
+export function calculateProgressPercent(
+  currentBalance: number,
+  amount: number | null
+): number | null {
+  if (amount === null) return null;
   if (amount <= 0) return 100;
   return Math.round((currentBalance / amount) * 100);
 }
@@ -146,10 +162,11 @@ export function calculateProgressPercent(currentBalance: number, amount: number)
  * Calculate shortfall (amount still needed).
  *
  * @param currentBalance - Amount saved
- * @param amount - Target amount
- * @returns Shortfall (0 if fully funded)
+ * @param amount - Target amount (null for open-ended goals)
+ * @returns Shortfall (0 if fully funded), or null if no target amount
  */
-export function calculateShortfall(currentBalance: number, amount: number): number {
+export function calculateShortfall(currentBalance: number, amount: number | null): number | null {
+  if (amount === null) return null;
   return Math.max(0, amount - currentBalance);
 }
 
@@ -177,6 +194,11 @@ export function calculateExpectedProgress(
   // Calculate months remaining (same logic as calculateStashMonthlyTarget)
   const monthsRemaining = calculateMonthsRemaining(targetDate, currentDate);
 
+  // If no target date or calculation failed, cannot determine expected progress
+  if (monthsRemaining === null) {
+    return null;
+  }
+
   // If target is this month or past, expected is 100%
   if (monthsRemaining <= 0) {
     return 100;
@@ -191,12 +213,111 @@ export function calculateExpectedProgress(
 }
 
 /**
+ * Calculate the expected balance at this point in time based on a linear savings plan.
+ *
+ * This determines where the balance "should be" if saving evenly from start to target date.
+ * Used for status calculation - comparing actual balance vs expected balance.
+ *
+ * Logic:
+ * - If no target date or amount, return null
+ * - If target date is this month or past, expected = full amount
+ * - Otherwise, calculate based on time elapsed in the savings period
+ *
+ * Note: This assumes savings started when the stash was created. For a more accurate
+ * calculation, we'd need a start_date field on stash items.
+ *
+ * @param amount - Target amount (null for open-ended goals)
+ * @param targetDate - When the goal should be reached (ISO string, null for no deadline)
+ * @param currentDate - Current date (optional - defaults to today)
+ * @returns Expected balance at this point, or null if cannot be calculated
+ */
+export function calculateExpectedBalance(
+  amount: number | null,
+  targetDate: string | null,
+  currentDate?: string
+): number | null {
+  if (amount === null || targetDate === null) {
+    return null;
+  }
+
+  const expectedProgressPercent = calculateExpectedProgress(targetDate, currentDate);
+  if (expectedProgressPercent === null) {
+    return null;
+  }
+
+  // Expected balance = percentage of the way through * total amount
+  // Note: expectedProgressPercent shows progress AFTER this month,
+  // so we use it directly to determine expected balance
+  return Math.round((expectedProgressPercent / 100) * amount);
+}
+
+/**
+ * Calculate stash item status based on balance vs expected balance.
+ *
+ * This determines if a user is "on track" for their savings goal based on
+ * where their balance should be at this point in time, NOT based on monthly budget.
+ *
+ * Status logic (priority order):
+ * 1. Funded: balance >= target amount (goal complete)
+ * 2. Ahead: balance > expected balance (saving faster than needed)
+ * 3. On Track: balance >= expected balance (on schedule)
+ * 4. Behind: balance < expected balance (need to catch up)
+ *
+ * For open-ended goals (no amount or date), returns 'on_track' as default.
+ *
+ * @param currentBalance - Current saved amount
+ * @param amount - Target amount (null for open-ended)
+ * @param targetDate - Target date (null for no deadline)
+ * @returns Status string
+ */
+export function calculateStashStatus(
+  currentBalance: number,
+  amount: number | null,
+  targetDate: string | null
+): 'funded' | 'ahead' | 'on_track' | 'behind' {
+  // Open-ended goals default to on_track
+  if (amount === null) {
+    return 'on_track';
+  }
+
+  // Funded if balance meets or exceeds target
+  if (currentBalance >= amount) {
+    return 'funded';
+  }
+
+  // No target date = can't determine if ahead/behind, default to on_track
+  if (targetDate === null) {
+    return 'on_track';
+  }
+
+  const expectedBalance = calculateExpectedBalance(amount, targetDate);
+  if (expectedBalance === null) {
+    return 'on_track';
+  }
+
+  // Compare actual balance to expected balance
+  // Use a small buffer (5% of expected) to avoid flickering between states
+  const buffer = Math.max(1, expectedBalance * 0.05);
+
+  if (currentBalance > expectedBalance + buffer) {
+    return 'ahead';
+  }
+  if (currentBalance >= expectedBalance - buffer) {
+    return 'on_track';
+  }
+  return 'behind';
+}
+
+/**
  * Format months remaining as a human-readable string.
  *
- * @param monthsRemaining - Number of months
- * @returns Formatted string like "1 year 2 months", "2 months", "1 month", "This month"
+ * @param monthsRemaining - Number of months (null for no deadline)
+ * @returns Formatted string like "1 year 2 months", "2 months", "1 month", "This month", or "No deadline"
  */
-export function formatMonthsRemaining(monthsRemaining: number): string {
+export function formatMonthsRemaining(monthsRemaining: number | null): string {
+  if (monthsRemaining === null) {
+    return 'No deadline';
+  }
   if (monthsRemaining <= 0) {
     return 'This month';
   }

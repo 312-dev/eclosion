@@ -24,8 +24,8 @@ export interface StashHistoryItem {
   id: string;
   /** Stash item name */
   name: string;
-  /** Target amount for the stash goal */
-  target_amount: number;
+  /** Target amount for the stash goal (null for open-ended goals) */
+  target_amount: number | null;
   /** Monthly history data */
   months: StashMonthData[];
 }

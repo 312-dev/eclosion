@@ -297,6 +297,7 @@ class SettingsExportService:
                 "items_count": len(active_items),
                 "archived_items_count": len(archived_items),
                 "pending_bookmarks_count": len(stash.get("pending_bookmarks", [])),
+                "hypotheses_count": len(stash.get("hypotheses", [])),
             }
 
         return preview
@@ -692,6 +693,8 @@ class SettingsExportService:
             "selected_folder_names": json.loads(config.selected_folder_names or "[]"),
             "auto_archive_on_bookmark_delete": config.auto_archive_on_bookmark_delete,
             "auto_archive_on_goal_met": config.auto_archive_on_goal_met,
+            "include_expected_income": config.include_expected_income,
+            "show_monarch_goals": config.show_monarch_goals,
         }
 
         # Get all items (active + archived)
@@ -760,6 +763,9 @@ class SettingsExportService:
             "monthly_allocations": json.loads(h.monthly_allocations),
             "monthly_total": h.monthly_total,
             "events": json.loads(h.events),
+            "custom_available_funds": h.custom_available_funds,
+            "custom_left_to_budget": h.custom_left_to_budget,
+            "item_apys": json.loads(h.item_apys) if h.item_apys else {},
             "created_at": h.created_at.isoformat() if h.created_at else None,
             "updated_at": h.updated_at.isoformat() if h.updated_at else None,
         }
@@ -798,6 +804,8 @@ class SettingsExportService:
                 selected_folder_names=json.dumps(config.get("selected_folder_names", [])),
                 auto_archive_on_bookmark_delete=config.get("auto_archive_on_bookmark_delete", True),
                 auto_archive_on_goal_met=config.get("auto_archive_on_goal_met", True),
+                include_expected_income=config.get("include_expected_income", True),
+                show_monarch_goals=config.get("show_monarch_goals", True),
             )
 
         # Import items (unlinked - user must re-link to Monarch categories)
@@ -862,6 +870,9 @@ class SettingsExportService:
                     monthly_allocations=json.dumps(hyp.get("monthly_allocations", {})),
                     monthly_total=hyp.get("monthly_total", 0),
                     events=json.dumps(hyp.get("events", {})),
+                    custom_available_funds=hyp.get("custom_available_funds"),
+                    custom_left_to_budget=hyp.get("custom_left_to_budget"),
+                    item_apys=json.dumps(hyp.get("item_apys", {})),
                 )
                 imported["hypotheses"] += 1
             except Exception as e:

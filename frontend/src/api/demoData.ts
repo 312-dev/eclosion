@@ -1809,6 +1809,72 @@ const DEMO_STASH_ITEMS: StashItem[] = [
     goal_type: 'one_time',
     created_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days ago
   },
+  // Open-ended savings - no target amount (save regularly)
+  // Has a deadline but no specific dollar target
+  {
+    type: 'stash',
+    id: 'stash-travel-fund',
+    name: 'Travel Fund',
+    amount: null, // Open-ended: no specific target amount
+    current_balance: 1250,
+    planned_budget: 200,
+    last_month_planned_budget: 200,
+    rollover_amount: 1050,
+    credits_this_month: 0,
+    category_id: 'cat-stash-travel',
+    category_name: 'Travel Fund',
+    category_group_id: 'group-stash',
+    category_group_name: 'Stashes',
+    is_enabled: true,
+    status: 'on_track',
+    progress_percent: null, // No progress when no target amount
+    emoji: '✈️',
+    target_date: getTargetDate(12), // Planning to travel in a year
+    months_remaining: 12,
+    monthly_target: null, // No monthly target when no amount
+    shortfall: null, // No shortfall when no amount
+    is_archived: false,
+    sort_order: 3,
+    grid_x: 0,
+    grid_y: 1,
+    col_span: 1,
+    row_span: 1,
+    goal_type: 'savings_buffer',
+    created_at: new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString(), // 6 months ago
+  },
+  // No deadline savings - has amount but no target date
+  // Save towards a specific goal without a deadline
+  {
+    type: 'stash',
+    id: 'stash-new-car',
+    name: 'New Car Down Payment',
+    amount: 15000, // Target amount is set
+    current_balance: 3200,
+    planned_budget: 400,
+    last_month_planned_budget: 400,
+    rollover_amount: 2800,
+    credits_this_month: 0,
+    category_id: 'cat-stash-car',
+    category_name: 'New Car Down Payment',
+    category_group_id: 'group-stash',
+    category_group_name: 'Stashes',
+    is_enabled: true,
+    status: 'on_track',
+    progress_percent: 21.3,
+    emoji: '🚗',
+    target_date: null, // No deadline: save when you can
+    months_remaining: null, // No months remaining when no deadline
+    monthly_target: null, // No monthly target when no deadline
+    shortfall: 11800, // Still have a shortfall (amount - balance)
+    is_archived: false,
+    sort_order: 4,
+    grid_x: 1,
+    grid_y: 1,
+    col_span: 1,
+    row_span: 1,
+    goal_type: 'one_time',
+    created_at: new Date(Date.now() - 240 * 24 * 60 * 60 * 1000).toISOString(), // 8 months ago
+  },
 ];
 
 const DEMO_ARCHIVED_STASH: StashItem[] = [
@@ -1856,9 +1922,10 @@ export function createInitialStashData(): StashData {
   return {
     items,
     archived_items: archivedItems,
-    total_target: items.reduce((sum, item) => sum + item.amount, 0),
+    // Skip null amounts/targets when summing (open-ended goals don't count toward totals)
+    total_target: items.reduce((sum, item) => sum + (item.amount ?? 0), 0),
     total_saved: items.reduce((sum, item) => sum + item.current_balance, 0),
-    total_monthly_target: items.reduce((sum, item) => sum + item.monthly_target, 0),
+    total_monthly_target: items.reduce((sum, item) => sum + (item.monthly_target ?? 0), 0),
   };
 }
 

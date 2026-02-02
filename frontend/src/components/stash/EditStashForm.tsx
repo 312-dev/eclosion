@@ -13,7 +13,7 @@ import { useStashConfigQuery, useAvailableToStash } from '../../api/queries';
 import { StashCategoryModal, type CategorySelection } from './StashCategoryModal';
 import { useToast } from '../../context/ToastContext';
 import { useIsRateLimited } from '../../context/RateLimitContext';
-import { calculateStashMonthlyTarget } from '../../utils/savingsCalculations';
+import { calculateStashMonthlyTarget, getQuickPickDates } from '../../utils/savingsCalculations';
 import { getLocalDateString } from '../../utils/dateRangeUtils';
 import { StashImageUpload } from './StashImageUpload';
 import { EditStashProgress } from './EditStashProgress';
@@ -32,16 +32,24 @@ import { useEditStashHandlers } from './useEditStashHandlers';
 import type { StashItem, StashGoalType } from '../../types';
 
 /** Validate form and return first error message or null if valid */
-function getFormValidationError(name: string, amount: string, targetDate: string): string | null {
+function getFormValidationError(
+  name: string,
+  amount: string,
+  isAmountCleared: boolean
+): string | null {
   if (!name.trim()) return 'Please enter a name';
-  const amountNum = Number.parseFloat(amount);
-  if (!amountNum || amountNum <= 0) return 'Please enter a valid amount';
-  if (!targetDate) return 'Please select a target date';
+  // Amount is required unless explicitly cleared (open-ended goals)
+  if (!isAmountCleared) {
+    const amountNum = Number.parseFloat(amount);
+    if (!amount || amountNum <= 0) return 'Please enter a valid amount';
+  }
+  // Target date is optional (no deadline goals)
   return null;
 }
 
 /** Get the target date, adjusting for archived items with past dates */
 function getInitialTargetDate(item: StashItem): string {
+  if (!item.target_date) return ''; // No deadline
   const today = getLocalDateString();
   return item.is_archived && item.target_date < today ? today : item.target_date;
 }
@@ -82,7 +90,7 @@ export function EditStashForm({
   useEffect(() => {
     onNameChange?.(name);
   }, [name, onNameChange]);
-  const [amount, setAmount] = useState(item.amount.toString());
+  const [amount, setAmount] = useState(item.amount?.toString() ?? '');
   const [targetDate, setTargetDate] = useState(getInitialTargetDate(item));
   const [emoji, setEmoji] = useState(item.emoji || '');
   const [customImagePath, setCustomImagePath] = useState<string | null>(
@@ -98,6 +106,12 @@ export function EditStashForm({
   const [isNameFocused, setIsNameFocused] = useState(false);
   const [isUrlModalOpen, setIsUrlModalOpen] = useState(false);
   const [isDebtSelectorOpen, setIsDebtSelectorOpen] = useState(false);
+  // Track if user explicitly cleared amount/date (makes them optional)
+  // Initialize based on whether item already has null values
+  const [isAmountCleared, setIsAmountCleared] = useState(item.amount === null);
+  const [isDateCleared, setIsDateCleared] = useState(item.target_date === null);
+  // Track if user has attempted to submit (for showing validation errors)
+  const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
 
   // Starting balance - pre-populate with existing rollover amount
   const initialStartingBalance = item.rollover_amount ?? 0;
@@ -116,13 +130,14 @@ export function EditStashForm({
   const startingBalanceDelta = startingBalanceNum - initialStartingBalance;
   const availableAmount = availableData?.available;
 
+  // Monthly target is only calculated when both amount and date are defined
   const monthlyTarget = useMemo(() => {
     const amountNum = Number.parseFloat(amount) || 0;
-    const isValid = amountNum > 0 && targetDate;
+    if (amountNum <= 0 || !targetDate) return null;
     // Use current_balance minus planned_budget so inflows reduce target but budget doesn't
     // Also account for starting balance changes (delta from original)
     const effectiveBalance = item.current_balance - item.planned_budget + startingBalanceDelta;
-    return isValid ? calculateStashMonthlyTarget(amountNum, effectiveBalance, targetDate) : 0;
+    return calculateStashMonthlyTarget(amountNum, effectiveBalance, targetDate);
   }, [amount, targetDate, item.current_balance, item.planned_budget, startingBalanceDelta]);
 
   const handleImageUploaded = useCallback((imagePath: string) => setCustomImagePath(imagePath), []);
@@ -145,19 +160,23 @@ export function EditStashForm({
   );
 
   const validateForm = useCallback((): boolean => {
-    const error = getFormValidationError(name, amount, targetDate);
+    // Mark that user has attempted to submit (triggers inline validation display)
+    setHasAttemptedSubmit(true);
+
+    const error = getFormValidationError(name, amount, isAmountCleared);
     if (error) {
       toast.error(error);
       return false;
     }
     return true;
-  }, [name, amount, targetDate, toast]);
+  }, [name, amount, isAmountCleared, toast]);
 
-  const buildUpdates = useCallback(
-    () => ({
+  const buildUpdates = useCallback(() => {
+    const amountNum = Number.parseFloat(amount) || 0;
+    return {
       name: name.trim(),
-      amount: Number.parseFloat(amount),
-      target_date: targetDate,
+      amount: isAmountCleared ? null : amountNum, // null for open-ended goals
+      target_date: isDateCleared ? null : targetDate || null, // null for no deadline
       emoji: emoji || '💰',
       source_url: url.trim() || null,
       custom_image_path: customImagePath || null,
@@ -165,19 +184,20 @@ export function EditStashForm({
       goal_type: goalType,
       // Starting balance change (delta from original) - handled separately via rollover API
       starting_balance_delta: startingBalanceDelta,
-    }),
-    [
-      name,
-      amount,
-      targetDate,
-      emoji,
-      url,
-      customImagePath,
-      imageAttribution,
-      goalType,
-      startingBalanceDelta,
-    ]
-  );
+    };
+  }, [
+    name,
+    amount,
+    isAmountCleared,
+    isDateCleared,
+    targetDate,
+    emoji,
+    url,
+    customImagePath,
+    imageAttribution,
+    goalType,
+    startingBalanceDelta,
+  ]);
 
   const {
     handleSubmit,
@@ -213,6 +233,7 @@ export function EditStashForm({
   const isDisabled = isSubmitting || isRateLimited || isStartingBalanceOverAvailable;
 
   const today = useMemo(() => getLocalDateString(), []);
+  const quickPicks = useMemo(() => getQuickPickDates(), []);
   const amountNum = Number.parseFloat(amount) || 0;
 
   const onCategoryConfirm = (selection: CategorySelection) =>
@@ -248,6 +269,7 @@ export function EditStashForm({
             emoji={emoji}
             onEmojiChange={setEmoji}
             onFocusChange={setIsNameFocused}
+            error={hasAttemptedSubmit && !name.trim()}
           />
           {/* Aligned with text input (after emoji picker w-12 + gap-2) */}
           <div
@@ -284,7 +306,24 @@ export function EditStashForm({
               hideLabel
               showSearchButton={goalType === 'debt'}
               onSearchClick={() => setIsDebtSelectorOpen(true)}
+              allowNull
+              isCleared={isAmountCleared}
+              onClear={() => {
+                setAmount('');
+                setIsAmountCleared(true);
+              }}
+              onRestore={() => setIsAmountCleared(false)}
+              error={hasAttemptedSubmit && !isAmountCleared && amountNum <= 0}
             />
+            {/* Show "regularly" when amount is cleared (open-ended) */}
+            {isAmountCleared && (
+              <span
+                className="h-10 inline-flex items-center"
+                style={{ color: 'var(--monarch-text-muted)' }}
+              >
+                regularly
+              </span>
+            )}
             <span
               className="h-10 inline-flex items-center"
               style={{ color: 'var(--monarch-text-muted)' }}
@@ -292,21 +331,53 @@ export function EditStashForm({
               {goalType === 'one_time' ? 'for a' : goalType === 'debt' ? 'towards a' : 'as a'}
             </span>
             <div className="basis-full h-0" />
-            <GoalTypeSelector value={goalType} onChange={setGoalType} hideLabel />
-            <span
-              className="h-10 inline-flex items-center"
-              style={{ color: 'var(--monarch-text-muted)' }}
-            >
-              by
-            </span>
-            <TargetDateInput
-              id="edit-stash-date"
-              value={targetDate}
-              onChange={setTargetDate}
-              minDate={today}
-              quickPickOptions={[]}
+            <GoalTypeSelector
+              value={goalType}
+              onChange={setGoalType}
               hideLabel
+              suffix={
+                isDateCleared ? (
+                  <span style={{ color: 'var(--monarch-text-muted)' }}>.</span>
+                ) : undefined
+              }
             />
+            {/* Conditionally show "by [date]." or "+ add deadline" link */}
+            {isDateCleared ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setTargetDate(quickPicks.threeMonths);
+                  setIsDateCleared(false);
+                }}
+                className="h-10 inline-flex items-center px-2 text-sm hover:underline"
+                style={{ color: 'var(--monarch-orange)' }}
+              >
+                + add deadline
+              </button>
+            ) : (
+              <>
+                <span
+                  className="h-10 inline-flex items-center"
+                  style={{ color: 'var(--monarch-text-muted)' }}
+                >
+                  by
+                </span>
+                <TargetDateInput
+                  id="edit-stash-date"
+                  value={targetDate}
+                  onChange={setTargetDate}
+                  minDate={today}
+                  quickPickOptions={[]}
+                  hideLabel
+                  allowNull
+                  onClear={() => {
+                    setTargetDate('');
+                    setIsDateCleared(true);
+                  }}
+                  suffix={<span style={{ color: 'var(--monarch-text-muted)' }}>.</span>}
+                />
+              </>
+            )}
             <div className="basis-full h-0" />
             <span
               className="h-10 inline-flex items-center self-start"
@@ -331,8 +402,8 @@ export function EditStashForm({
             </span>
           </div>
 
-          {/* Progress section - edit-specific */}
-          {amount && amountNum > 0 && targetDate && (
+          {/* Progress section - only shows when both amount and date are defined */}
+          {amount && amountNum > 0 && targetDate && monthlyTarget !== null && (
             <>
               <div className="border-t" style={{ borderColor: 'var(--monarch-border)' }} />
               <EditStashProgress

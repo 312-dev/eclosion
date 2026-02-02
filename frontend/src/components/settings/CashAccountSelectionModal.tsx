@@ -173,7 +173,47 @@ export function CashAccountSelectionModal({
             )}
 
             {isLoading && (
-              <div className="text-center py-8 text-monarch-text-muted">Loading accounts...</div>
+              <div className="space-y-3">
+                {/* Cash accounts skeleton */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="h-3 w-24 rounded skeleton" />
+                    <div className="h-4 w-28 rounded-full skeleton" />
+                  </div>
+                  <div className="space-y-1">
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <div key={i} className="flex items-center gap-3 px-3 py-2">
+                        <div className="w-5 h-5 rounded skeleton shrink-0" />
+                        <div
+                          className="h-4 rounded skeleton flex-1"
+                          style={{ maxWidth: '160px' }}
+                        />
+                        <div className="h-4 w-16 rounded skeleton" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                {/* Credit cards skeleton */}
+                <div>
+                  <div className="h-3 w-40 rounded skeleton mb-2" />
+                  <div className="space-y-1">
+                    {[1, 2].map((i) => (
+                      <div
+                        key={i}
+                        className="flex items-center gap-3 px-3 py-2 rounded-lg"
+                        style={{ backgroundColor: 'var(--monarch-bg-hover)' }}
+                      >
+                        <div className="w-4.5 h-4.5 rounded skeleton shrink-0" />
+                        <div
+                          className="h-4 rounded skeleton flex-1"
+                          style={{ maxWidth: '140px' }}
+                        />
+                        <div className="h-4 w-16 rounded skeleton" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
             )}
 
             {!isLoading && (

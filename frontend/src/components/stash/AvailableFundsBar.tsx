@@ -568,7 +568,7 @@ export function AvailableFundsBar({ leftToBudget, items }: Readonly<AvailableFun
             <div className="flex flex-col self-stretch">
               {isLoading ? (
                 <div
-                  className="flex items-center justify-center flex-1 px-2.5 rounded-t-md animate-pulse"
+                  className="flex items-center justify-center flex-1 px-2.5 animate-pulse"
                   style={{ backgroundColor: 'var(--monarch-bg-hover)' }}
                   data-tour="stash-distribute-mode"
                 >

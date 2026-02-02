@@ -7,6 +7,7 @@
 
 import { ChevronRight, ExternalLink, Plus } from 'lucide-react';
 import type { PendingBookmark } from '../../types';
+import { decodeHtmlEntities } from '../../utils/decodeHtmlEntities';
 
 interface IgnoredBookmarkRowProps {
   item: PendingBookmark;
@@ -16,6 +17,8 @@ interface IgnoredBookmarkRowProps {
 }
 
 function IgnoredBookmarkRow({ item, onCreateTarget, animationIndex = 0 }: IgnoredBookmarkRowProps) {
+  const displayName = decodeHtmlEntities(item.name);
+
   // Extract hostname from URL for display
   let hostname = '';
   try {
@@ -30,7 +33,7 @@ function IgnoredBookmarkRow({ item, onCreateTarget, animationIndex = 0 }: Ignore
 
   return (
     <div
-      className="list-item-enter flex items-center gap-3 py-2.5 hover:bg-(--monarch-bg-hover) transition-colors"
+      className="list-item-enter flex items-center gap-3 px-2 py-2.5 rounded-md hover:bg-(--monarch-bg-hover) transition-colors"
       style={{
         borderBottom: '1px solid var(--monarch-border-light, rgba(0,0,0,0.06))',
         ...animationStyle,
@@ -65,9 +68,9 @@ function IgnoredBookmarkRow({ item, onCreateTarget, animationIndex = 0 }: Ignore
         <span
           className="text-sm truncate"
           style={{ color: 'var(--monarch-text-muted)' }}
-          title={item.name}
+          title={displayName}
         >
-          {item.name}
+          {displayName}
         </span>
         <span
           className="text-xs truncate shrink-0"
@@ -98,7 +101,7 @@ function IgnoredBookmarkRow({ item, onCreateTarget, animationIndex = 0 }: Ignore
           color: 'var(--monarch-orange)',
           border: '1px solid var(--monarch-border)',
         }}
-        aria-label={`Create stash from ${item.name}`}
+        aria-label={`Create stash from ${displayName}`}
       >
         <Plus size={12} />
         Create Stash
@@ -145,12 +148,9 @@ export function IgnoredBookmarksSection({
         <span className="font-medium">Ignored Bookmarks ({items.length})</span>
       </button>
 
-      {/* Content - subtle list with light top border */}
+      {/* Content - subtle list */}
       {isExpanded && (
-        <div
-          className="animate-expand ml-6 mt-1"
-          style={{ borderTop: '1px solid var(--monarch-border-light, rgba(0,0,0,0.06))' }}
-        >
+        <div className="animate-expand ml-6 mt-1">
           {items.map((item, index) => (
             <IgnoredBookmarkRow
               key={item.id}

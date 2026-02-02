@@ -103,9 +103,15 @@ export const StashRow = memo(function StashRow({
   // For flex categories, progress bar should be based on total contributions (saved),
   // not remaining balance. This matches purchase goal behavior where progress is immune to spending.
   const totalContributions = rolloverAmount + budgetedThisMonth + creditsThisMonth;
-  const progressPercent = item.is_flexible_group
-    ? Math.min(100, item.amount > 0 ? (totalContributions / item.amount) * 100 : 0)
-    : Math.min(item.progress_percent, 100);
+  // Progress percent is null for open-ended goals (no target amount)
+  const progressPercent: number | null =
+    item.amount === null
+      ? null
+      : item.is_flexible_group
+        ? Math.min(100, item.amount > 0 ? (totalContributions / item.amount) * 100 : 0)
+        : item.progress_percent === null
+          ? null
+          : Math.min(item.progress_percent, 100);
 
   const handleChangeGroup = useCallback(
     async (groupId: string, groupName: string) => {
@@ -163,20 +169,26 @@ export const StashRow = memo(function StashRow({
     }
   };
 
-  // Format target date for display
-  const targetDate = new Date(item.target_date);
-  const dateDisplay = targetDate.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: targetDate.getFullYear() === new Date().getFullYear() ? undefined : 'numeric',
-  });
+  // Format target date for display (null for no-deadline goals)
+  const dateDisplay = item.target_date
+    ? (() => {
+        const targetDate = new Date(item.target_date);
+        return targetDate.toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: targetDate.getFullYear() === new Date().getFullYear() ? undefined : 'numeric',
+        });
+      })()
+    : null;
 
   // Create a compatible item for RecurringItemBudget
+  // For open-ended goals (null monthly_target), use 0 as fallback
+  const effectiveMonthlyTarget = item.monthly_target ?? 0;
   const budgetItem = {
     ...item,
-    frozen_monthly_target: item.monthly_target,
-    ideal_monthly_rate: item.monthly_target,
-    amount_needed_now: Math.max(0, item.monthly_target - item.planned_budget),
+    frozen_monthly_target: effectiveMonthlyTarget,
+    ideal_monthly_rate: effectiveMonthlyTarget,
+    amount_needed_now: Math.max(0, effectiveMonthlyTarget - item.planned_budget),
     is_enabled: true,
     category_missing: false,
     contributed_this_month: item.planned_budget,
@@ -332,7 +344,7 @@ export const StashRow = memo(function StashRow({
 
       {/* Target Date Column */}
       <td className={`py-4 px-4 ${COLUMN_WIDTHS.date}`}>
-        <div className="text-monarch-text-dark">{dateDisplay}</div>
+        <div className="text-monarch-text-dark">{dateDisplay ?? 'No deadline'}</div>
         <div className="text-sm text-monarch-text-light">
           {formatMonthsRemaining(item.months_remaining)}
         </div>
@@ -354,7 +366,8 @@ export const StashRow = memo(function StashRow({
             item={budgetItem as unknown as RecurringItem}
             displayStatus={displayStatus}
             onAllocate={async () => {
-              if (item.shortfall > 0) {
+              // Only allocate if there's a shortfall and monthly target defined
+              if (item.shortfall !== null && item.shortfall > 0 && item.monthly_target !== null) {
                 const diff = item.monthly_target - item.planned_budget;
                 if (diff > 0) {
                   await handleAllocate(diff, item.planned_budget + diff);

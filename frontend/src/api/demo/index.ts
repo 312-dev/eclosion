@@ -130,6 +130,8 @@ export {
   updateStashConfig,
   // Available Funds
   getAvailableToStashData,
+  // Category balance lookup
+  getCategoryBalance,
   // Category rollover balance
   updateCategoryRolloverBalance,
   // Group rollover balance (for flexible groups)

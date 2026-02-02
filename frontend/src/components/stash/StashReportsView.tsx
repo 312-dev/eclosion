@@ -13,7 +13,8 @@ import { useStashHistoryQuery } from '../../api/queries';
 import { useReportSettings } from './useReportSettings';
 import { StashProgressChart } from './StashProgressChart';
 import { StashSummaryCards } from './StashSummaryCards';
-import { PageLoadingSpinner } from '../ui/LoadingSpinner';
+import { SkeletonSummaryCards, SkeletonChart } from '../ui/SkeletonLayouts';
+import { SkeletonCard } from '../ui/Skeleton';
 import { Icons } from '../icons';
 import { formatCurrency } from '../../utils/formatters';
 import type { StashReportTimeRange } from '../../types';
@@ -29,63 +30,23 @@ const TIME_RANGE_OPTIONS: { value: StashReportTimeRange; label: string }[] = [
 const currencyOpts = { maximumFractionDigits: 0 };
 
 /**
- * Skeleton placeholder for summary cards (4-card grid).
- * Matches StashSummaryCards layout: label at top, large value at bottom.
+ * Skeleton placeholder for the controls bar.
  */
-function CardsSkeleton() {
+function ControlsBarSkeleton() {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      {[1, 2, 3, 4].map((i) => (
-        <div
-          key={i}
-          className="rounded-lg p-6 flex flex-col animate-pulse"
-          style={{
-            backgroundColor: 'var(--monarch-bg-card)',
-            border: '1px solid var(--monarch-border)',
-          }}
-        >
-          {/* Label row with optional percentage placeholder */}
-          <div className="flex items-center justify-between mb-8">
-            <div
-              className="h-3.5 w-20 rounded"
-              style={{ backgroundColor: 'var(--monarch-bg-hover)' }}
-            />
-            {/* Show percentage placeholder on some cards */}
-            {i % 2 === 1 && (
-              <div
-                className="h-3.5 w-12 rounded"
-                style={{ backgroundColor: 'var(--monarch-bg-hover)' }}
-              />
-            )}
-          </div>
-          {/* Large value at bottom */}
-          <div
-            className="h-9 w-28 rounded"
-            style={{ backgroundColor: 'var(--monarch-bg-hover)' }}
-          />
+    <SkeletonCard>
+      <div className="flex flex-wrap items-center gap-4">
+        <div className="flex items-center gap-2">
+          <div className="h-4 w-12 rounded skeleton" />
+          <div className="h-8 w-32 rounded-md skeleton" />
         </div>
-      ))}
-    </div>
-  );
-}
-
-/**
- * Skeleton placeholder for the chart area.
- */
-function ChartSkeleton() {
-  return (
-    <div
-      className="rounded-lg p-4"
-      style={{
-        backgroundColor: 'var(--monarch-bg-card)',
-        border: '1px solid var(--monarch-border)',
-      }}
-    >
-      <div
-        className="h-87.5 w-full rounded animate-pulse"
-        style={{ backgroundColor: 'var(--monarch-bg-hover)' }}
-      />
-    </div>
+        <div className="w-px h-6 skeleton" />
+        <div className="flex items-center gap-2">
+          <div className="h-4 w-10 rounded skeleton" />
+          <div className="h-8 w-40 rounded-md skeleton" />
+        </div>
+      </div>
+    </SkeletonCard>
   );
 }
 
@@ -117,13 +78,15 @@ export function StashReportsView() {
     return items.find((item) => item.id === settings.filteredStashId);
   }, [settings.filteredStashId, items]);
 
-  // Show full spinner only on initial load (no data yet)
+  // Show skeleton layout on initial load (no data yet)
   const isInitialLoad = isLoading && !data;
 
   if (isInitialLoad) {
     return (
-      <div className="flex items-center justify-center min-h-75">
-        <PageLoadingSpinner />
+      <div className="space-y-4">
+        <ControlsBarSkeleton />
+        <SkeletonSummaryCards />
+        <SkeletonChart height="h-87.5" />
       </div>
     );
   }
@@ -284,8 +247,8 @@ export function StashReportsView() {
       {/* Content area - show skeletons while loading, cards and chart when loaded */}
       {isLoading ? (
         <>
-          <CardsSkeleton />
-          <ChartSkeleton />
+          <SkeletonSummaryCards />
+          <SkeletonChart height="h-87.5" />
         </>
       ) : (
         <>

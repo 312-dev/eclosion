@@ -37,9 +37,9 @@ function generateItemHistory(
   item: {
     id: string;
     name: string;
-    amount: number;
+    amount: number | null; // null for open-ended goals
     current_balance: number;
-    monthly_target: number;
+    monthly_target: number | null; // null for open-ended goals
     created_at?: string | null | undefined;
   },
   months: string[]

@@ -59,8 +59,8 @@ function calculateMetrics(data: StashHistoryResponse, visibleStashIds: string[])
   const totalStashedChange =
     prevTotalStashed > 0 ? ((totalStashed - prevTotalStashed) / prevTotalStashed) * 100 : null;
 
-  // Total targets: sum of all target amounts (targets don't change month to month, so no percentage)
-  const totalTargets = visibleItems.reduce((sum, item) => sum + item.target_amount, 0);
+  // Total targets: sum of all target amounts (skip null for open-ended goals)
+  const totalTargets = visibleItems.reduce((sum, item) => sum + (item.target_amount ?? 0), 0);
 
   // This month: sum of contributions for the current month
   const thisMonth = visibleItems.reduce((sum, item) => {

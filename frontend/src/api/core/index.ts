@@ -178,10 +178,13 @@ export {
   convertPendingBookmark,
   importBookmarks,
   clearUnconvertedBookmarks,
+  updateBookmarkFavicons,
   // Favicon fetching
   fetchFavicon,
   // Stash history (reports)
   getStashHistory,
+  // Category balance lookup
+  getCategoryBalance,
   // Category rollover balance
   updateCategoryRolloverBalance,
   // Group rollover balance (for flexible groups)

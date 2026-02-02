@@ -47,8 +47,8 @@ export function buildStashItem(
     planned_budget: 0,
     rollover_amount: 0,
     credits_this_month: 0,
-    monthly_target: isArchived ? 0 : Math.ceil(item.amount / 12),
-    shortfall: item.amount,
+    monthly_target: isArchived || item.amount === null ? null : Math.ceil(item.amount / 12),
+    shortfall: item.amount, // Can be null for open-ended goals
     sort_order: baseOrder + index,
     grid_x: item.grid_x,
     grid_y: item.grid_y,

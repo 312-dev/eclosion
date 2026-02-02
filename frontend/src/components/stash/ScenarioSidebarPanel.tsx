@@ -155,8 +155,10 @@ export function ScenarioSidebarPanel() {
     itemApys,
     totalStashedAllocated,
     totalMonthlyAllocated,
-    // Scenario loading
+    // Scenario loading/saving
     loadScenarioState,
+    loadedScenarioId,
+    markScenarioAsSaved,
   } = useDistributionMode();
 
   // React Query hooks for persistence
@@ -211,15 +213,24 @@ export function ScenarioSidebarPanel() {
   };
 
   const handleSave = async (name: string) => {
-    // Check if name already exists and we haven't confirmed overwrite
+    // Check if name already exists
     const existingScenario = scenarios.find((s) => s.name.toLowerCase() === name.toLowerCase());
-    if (existingScenario && confirmOverwrite !== name) {
+    // Only show overwrite warning if:
+    // 1. There's an existing scenario with this name
+    // 2. We haven't already confirmed overwrite
+    // 3. This is NOT the scenario we loaded (it's fine to save over your own loaded scenario)
+    const isOverwritingOwnScenario = existingScenario?.id === loadedScenarioId;
+    if (existingScenario && confirmOverwrite !== name && !isOverwritingOwnScenario) {
       setConfirmOverwrite(name);
       return;
     }
 
     const request = buildSaveRequest(name);
-    await saveMutation.mutateAsync(request);
+    const result = await saveMutation.mutateAsync(request);
+    // Update context to reflect saved state
+    if (result.success && result.id) {
+      markScenarioAsSaved(result.id, name);
+    }
     setShowSaveInput(false);
     setConfirmOverwrite(null);
   };
@@ -366,9 +377,24 @@ export function ScenarioSidebarPanel() {
               )}
 
               {isLoading && (
-                <div className="text-center py-8" style={{ color: 'var(--monarch-text-muted)' }}>
-                  <Icons.Spinner size={32} className="mx-auto mb-2 opacity-50" />
-                  <p className="text-sm">Loading scenarios...</p>
+                <div className="space-y-2 p-2">
+                  {[1, 2, 3].map((i) => (
+                    <div
+                      key={i}
+                      className="rounded-lg p-3"
+                      style={{
+                        backgroundColor: 'var(--monarch-bg-page)',
+                        border: '1px solid var(--monarch-border)',
+                      }}
+                    >
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div className="h-4 w-32 rounded skeleton" />
+                        <div className="h-6 w-6 rounded skeleton shrink-0" />
+                      </div>
+                      <div className="h-3 w-24 rounded skeleton mb-2" />
+                      <div className="h-7 w-full rounded skeleton" />
+                    </div>
+                  ))}
                 </div>
               )}
 

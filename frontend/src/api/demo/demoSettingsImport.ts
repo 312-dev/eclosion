@@ -213,6 +213,7 @@ function importStashTool(
         autoArchiveOnBookmarkDelete: stashData.config.auto_archive_on_bookmark_delete,
         autoArchiveOnGoalMet: stashData.config.auto_archive_on_goal_met,
         includeExpectedIncome: stashData.config.include_expected_income ?? false,
+        showMonarchGoals: stashData.config.show_monarch_goals ?? true,
       },
       stashHypotheses: [...existingHypotheses, ...newHypotheses],
     };

@@ -118,6 +118,8 @@ interface DistributionModeContextValue extends DistributionModeState {
   setEditingEvent: (context: EditingEventContext | null) => void;
   /** Toggle timeline panel expansion */
   setTimelineExpanded: (expanded: boolean) => void;
+  /** Mark current state as saved to a scenario (updates loaded scenario info and clears hasChanges) */
+  markScenarioAsSaved: (id: string, name: string) => void;
 }
 
 // ============================================================================
@@ -422,6 +424,15 @@ export function DistributionModeProvider({ children }: Readonly<{ children: Reac
     }));
   }, []);
 
+  const markScenarioAsSaved = useCallback((id: string, name: string) => {
+    setState((prev) => ({
+      ...prev,
+      loadedScenarioId: id,
+      loadedScenarioName: name,
+      hasChanges: false,
+    }));
+  }, []);
+
   // Calculate total stashed allocated (draws from Cash to Stash)
   const totalStashedAllocated = useMemo(() => {
     return Object.values(state.stashedAllocations).reduce((sum, amount) => sum + amount, 0);
@@ -485,6 +496,7 @@ export function DistributionModeProvider({ children }: Readonly<{ children: Reac
       setTimelineZoom,
       setEditingEvent,
       setTimelineExpanded,
+      markScenarioAsSaved,
     }),
     [
       state,
@@ -510,6 +522,7 @@ export function DistributionModeProvider({ children }: Readonly<{ children: Reac
       setTimelineZoom,
       setEditingEvent,
       setTimelineExpanded,
+      markScenarioAsSaved,
     ]
   );
 
@@ -575,6 +588,7 @@ const defaultContext: DistributionModeContextValue = {
   setTimelineZoom: () => {},
   setEditingEvent: () => {},
   setTimelineExpanded: () => {},
+  markScenarioAsSaved: () => {},
 };
 
 /**

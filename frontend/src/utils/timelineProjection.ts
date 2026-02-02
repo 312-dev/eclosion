@@ -112,10 +112,20 @@ function projectSingleItem(
     currentMonth = now.getMonth();
 
   for (let i = 0; i < numPeriods; i++) {
-    const monthKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
-    const updated = applyEvents(itemEvents.get(monthKey), balance, monthlyRate);
-    balance = updated.balance;
-    monthlyRate = updated.monthlyRate;
+    // For yearly resolution, check all 12 months for events in this year
+    if (resolution === 'yearly') {
+      for (let month = 0; month < 12; month++) {
+        const monthKey = `${currentYear}-${String(month + 1).padStart(2, '0')}`;
+        const updated = applyEvents(itemEvents.get(monthKey), balance, monthlyRate);
+        balance = updated.balance;
+        monthlyRate = updated.monthlyRate;
+      }
+    } else {
+      const monthKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
+      const updated = applyEvents(itemEvents.get(monthKey), balance, monthlyRate);
+      balance = updated.balance;
+      monthlyRate = updated.monthlyRate;
+    }
 
     balance += getContribution(monthlyRate, resolution);
     const interest = balance * getInterestRate(item.apy, resolution);
@@ -184,7 +194,9 @@ function calculateCursorProjections(
     const projection = itemProjections.get(item.itemId);
     if (!projection?.[effectiveIndex]) continue;
     const { balance, interestEarned } = projection[effectiveIndex];
-    const progressPercent = item.targetAmount > 0 ? (balance / item.targetAmount) * 100 : 0;
+    // Open-ended goals (null targetAmount) have 0 progress percent
+    const progressPercent =
+      item.targetAmount !== null && item.targetAmount > 0 ? (balance / item.targetAmount) * 100 : 0;
     result[item.itemId] = {
       itemId: item.itemId,
       projectedBalance: balance,
@@ -198,7 +210,13 @@ function calculateCursorProjections(
   return result;
 }
 
-function calculateStatus(balance: number, targetAmount: number, monthlyRate: number): ItemStatus {
+function calculateStatus(
+  balance: number,
+  targetAmount: number | null,
+  monthlyRate: number
+): ItemStatus {
+  // Open-ended goals (null targetAmount) default to on_track
+  if (targetAmount === null) return monthlyRate > 0 ? 'on_track' : 'behind';
   if (balance >= targetAmount) return 'funded';
   if (monthlyRate > 0) return 'on_track';
   return 'behind';

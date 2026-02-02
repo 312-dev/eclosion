@@ -36,6 +36,8 @@ export function ExitHypothesizeConfirmModal({
     itemApys,
     totalStashedAllocated,
     totalMonthlyAllocated,
+    loadedScenarioId,
+    loadedScenarioName,
   } = useDistributionMode();
   const saveMutation = useSaveHypothesisMutation();
   const toast = useToast();
@@ -108,6 +110,32 @@ export function ExitHypothesizeConfirmModal({
   );
 
   const handleSaveAndExit = () => {
+    // If we have a loaded scenario, save directly to it without prompting for name
+    if (loadedScenarioId && loadedScenarioName) {
+      setIsSaving(true);
+      const request = buildSaveRequest(loadedScenarioName);
+      saveMutation.mutate(request, {
+        onSuccess: (response) => {
+          if (response.success) {
+            toast.success(`Saved "${loadedScenarioName}"`);
+            exitMode();
+            onClose();
+            onConfirmExit?.();
+          } else {
+            toast.error(response.error ?? 'Failed to save scenario');
+          }
+        },
+        onError: () => {
+          toast.error('Failed to save scenario');
+        },
+        onSettled: () => {
+          setIsSaving(false);
+        },
+      });
+      return;
+    }
+
+    // No loaded scenario - prompt for name
     if (!showNameInput) {
       setShowNameInput(true);
       return;
@@ -117,11 +145,15 @@ export function ExitHypothesizeConfirmModal({
       setIsSaving(true);
       const request = buildSaveRequest(scenarioName.trim());
       saveMutation.mutate(request, {
-        onSuccess: () => {
-          toast.success(`Saved "${scenarioName.trim()}"`);
-          exitMode();
-          onClose();
-          onConfirmExit?.();
+        onSuccess: (response) => {
+          if (response.success) {
+            toast.success(`Saved "${scenarioName.trim()}"`);
+            exitMode();
+            onClose();
+            onConfirmExit?.();
+          } else {
+            toast.error(response.error ?? 'Failed to save scenario');
+          }
         },
         onError: () => {
           toast.error('Failed to save scenario');
@@ -170,8 +202,8 @@ export function ExitHypothesizeConfirmModal({
             icon={<Icons.Save size={16} />}
           >
             {isSaving && 'Saving...'}
-            {!isSaving && showNameInput && 'Save & Exit'}
-            {!isSaving && !showNameInput && 'Save Scenario'}
+            {!isSaving && (showNameInput || loadedScenarioName) && 'Save & Exit'}
+            {!isSaving && !showNameInput && !loadedScenarioName && 'Save Scenario'}
           </PrimaryButton>
         </div>
       </div>
@@ -194,8 +226,14 @@ export function ExitHypothesizeConfirmModal({
               You have unsaved allocations
             </p>
             <p className="text-sm mt-1" style={{ color: 'var(--monarch-text-muted)' }}>
-              Would you like to save this scenario before exiting? You can load it later to continue
-              where you left off.
+              {loadedScenarioName ? (
+                <>Would you like to save your changes to "{loadedScenarioName}" before exiting?</>
+              ) : (
+                <>
+                  Would you like to save this scenario before exiting? You can load it later to
+                  continue where you left off.
+                </>
+              )}
             </p>
           </div>
         </div>

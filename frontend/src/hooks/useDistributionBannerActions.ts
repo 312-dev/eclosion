@@ -170,7 +170,13 @@ export function useDistributionBannerActions() {
       setIsSaving(true);
       const request = buildSaveRequest(loadedScenarioName);
       saveMutation.mutate(request, {
-        onSuccess: () => toast.success(`Saved "${loadedScenarioName}"`),
+        onSuccess: (response) => {
+          if (response.success) {
+            toast.success(`Saved "${loadedScenarioName}"`);
+          } else {
+            toast.error(response.error ?? 'Failed to save scenario');
+          }
+        },
         onError: () => toast.error('Failed to save scenario'),
         onSettled: () => setIsSaving(false),
       });
@@ -185,9 +191,13 @@ export function useDistributionBannerActions() {
       setIsSaving(true);
       const request = buildSaveRequest(loadedScenarioName);
       saveMutation.mutate(request, {
-        onSuccess: () => {
-          toast.success(`Saved "${loadedScenarioName}"`);
-          exitMode();
+        onSuccess: (response) => {
+          if (response.success) {
+            toast.success(`Saved "${loadedScenarioName}"`);
+            exitMode();
+          } else {
+            toast.error(response.error ?? 'Failed to save scenario');
+          }
         },
         onError: () => toast.error('Failed to save scenario'),
         onSettled: () => setIsSaving(false),
@@ -204,12 +214,17 @@ export function useDistributionBannerActions() {
       setIsSaving(true);
       const request = buildSaveRequest(name);
       saveMutation.mutate(request, {
-        onSuccess: () => {
-          toast.success(`Saved "${name}"`);
-          setShowSaveNameDialog(false);
-          if (exitAfterSave) {
+        onSuccess: (response) => {
+          if (response.success) {
+            toast.success(`Saved "${name}"`);
+            setShowSaveNameDialog(false);
+            if (exitAfterSave) {
+              setExitAfterSave(false);
+              exitMode();
+            }
+          } else {
+            toast.error(response.error ?? 'Failed to save scenario');
             setExitAfterSave(false);
-            exitMode();
           }
         },
         onError: () => {

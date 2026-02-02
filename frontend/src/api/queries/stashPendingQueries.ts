@@ -83,8 +83,39 @@ async function fetchMissingFavicons(
 }
 
 /**
+ * Persist fetched favicons to the backend database.
+ * This ensures favicons survive page reloads and React Query cache invalidations.
+ */
+async function persistFaviconsToBackend(
+  bookmarks: PendingBookmark[],
+  faviconResults: Map<string, string | null>,
+  isDemo: boolean
+): Promise<void> {
+  // Don't persist in demo mode (no backend)
+  if (isDemo) return;
+
+  // Build list of updates for bookmarks that got favicons
+  const updates: Array<{ id: string; logo_url: string }> = [];
+  for (const bm of bookmarks) {
+    if (bm.logo_url) continue; // Already had favicon
+    const favicon = faviconResults.get(bm.url);
+    if (favicon) {
+      updates.push({ id: bm.id, logo_url: favicon });
+    }
+  }
+
+  if (updates.length === 0) return;
+
+  // Fire and forget - don't block UI for persistence
+  api.updateBookmarkFavicons(updates).catch(() => {
+    // Silently ignore errors - favicons are still in cache
+  });
+}
+
+/**
  * Hook to fetch missing favicons and update cache.
  * Runs once when bookmarks load with missing favicons.
+ * Also persists fetched favicons to the backend for durability.
  */
 function useFaviconMigration(
   bookmarks: PendingBookmark[] | undefined,
@@ -115,7 +146,10 @@ function useFaviconMigration(
 
     // Fetch favicons asynchronously (don't block render)
     fetchMissingFavicons(bookmarks, isDemo).then((results) => {
+      // Update React Query cache for immediate UI update
       applyFaviconsToCache(queryClient, isDemo, results);
+      // Persist to backend so favicons survive cache invalidations
+      persistFaviconsToBackend(bookmarks, results, isDemo);
     });
   }, [bookmarks, isDemo, queryClient]);
 }
@@ -271,28 +305,19 @@ export function useConvertPendingMutation() {
 
 /**
  * Import bookmarks mutation.
- * Fetches favicons for imported bookmarks that don't have them.
+ * Favicons are fetched automatically by useFaviconMigration when the
+ * pending bookmarks query refetches after import.
  */
 export function useImportBookmarksMutation() {
   const isDemo = useDemo();
-  const queryClient = useQueryClient();
   const smartInvalidate = useSmartInvalidate();
 
   return useMutation({
     mutationFn: (bookmarks: ImportBookmark[]) =>
       isDemo ? demoApi.importBookmarks(bookmarks) : api.importBookmarks(bookmarks),
-    onSuccess: async (_result, variables) => {
+    onSuccess: () => {
+      // Invalidate triggers refetch → useFaviconMigration handles favicon fetching
       smartInvalidate('importBookmarks');
-
-      // Fetch favicons for imported bookmarks that don't have them
-      const urlsWithoutFavicons = variables.filter((bm) => !bm.logo_url).map((bm) => bm.url);
-
-      if (urlsWithoutFavicons.length === 0) return;
-
-      // Fetch favicons in background (don't await - let UI update first)
-      batchFetchFavicons(urlsWithoutFavicons, isDemo).then((results) => {
-        applyFaviconsToCache(queryClient, isDemo, results);
-      });
     },
   });
 }

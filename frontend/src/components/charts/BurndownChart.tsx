@@ -175,7 +175,7 @@ export function BurndownChart({ data, formatCurrency }: BurndownChartProps) {
       }}
     >
       <div style={{ width: needsScroll ? `${minChartWidth}px` : '100%', height: '100%' }}>
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height="100%" minWidth={0}>
           <LineChart data={data} margin={{ top: 10, right: 20, left: 0, bottom: 20 }}>
             <defs>
               <linearGradient id="burndownGradient" x1="0" y1="0" x2="0" y2="1">

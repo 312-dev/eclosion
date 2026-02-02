@@ -22,11 +22,13 @@ import type { CategorySelection } from './StashCategoryModal';
 
 interface StashUpdates {
   name: string;
-  amount: number;
-  target_date: string;
+  amount: number | null; // null for open-ended goals
+  target_date: string | null; // null for no-deadline goals
   emoji: string;
   source_url: string | null;
   custom_image_path: string | null;
+  image_attribution: string | null;
+  goal_type: import('../../types').StashGoalType;
   /** Change in starting balance (delta from original) */
   starting_balance_delta?: number;
 }
@@ -79,10 +81,11 @@ export function useEditStashHandlers({
       const updates = buildUpdates();
       const { starting_balance_delta, ...stashUpdates } = updates;
 
-      // Update the stash item
-      await updateMutation.mutateAsync({ id: itemId, updates: stashUpdates });
-
-      // If starting balance changed, update the rollover balance
+      // IMPORTANT: Update rollover FIRST, then stash metadata
+      // The stash metadata update invalidates and refetches the stash query.
+      // If we updated rollover second, the refetch would race with and overwrite
+      // the rollover mutation's optimistic update. By updating rollover first,
+      // the subsequent refetch will fetch data with the rollover already committed.
       if (starting_balance_delta && starting_balance_delta !== 0) {
         if (flexibleGroupId) {
           // Group-level rollover for flexible groups
@@ -98,6 +101,9 @@ export function useEditStashHandlers({
           });
         }
       }
+
+      // Update the stash item metadata (this invalidates and refetches)
+      await updateMutation.mutateAsync({ id: itemId, updates: stashUpdates });
 
       toast.success('Stash updated');
       onSuccess?.();
@@ -136,9 +142,7 @@ export function useEditStashHandlers({
       const updates = buildUpdates();
       const { starting_balance_delta, ...stashUpdates } = updates;
 
-      await updateMutation.mutateAsync({ id: itemId, updates: stashUpdates });
-
-      // If starting balance changed, update the rollover balance
+      // Update rollover first to avoid race condition (see handleSubmit comment)
       if (starting_balance_delta && starting_balance_delta !== 0) {
         if (flexibleGroupId) {
           await updateGroupRolloverMutation.mutateAsync({
@@ -152,6 +156,8 @@ export function useEditStashHandlers({
           });
         }
       }
+
+      await updateMutation.mutateAsync({ id: itemId, updates: stashUpdates });
 
       const success = await handleUnarchiveItem();
       if (!success) return;
@@ -218,9 +224,7 @@ export function useEditStashHandlers({
       if (!itemId) return;
       try {
         await deleteMutation.mutateAsync({ id: itemId, deleteCategory });
-        toast.success(
-          deleteCategory ? 'Stash and category deleted' : 'Stash deleted'
-        );
+        toast.success(deleteCategory ? 'Stash and category deleted' : 'Stash deleted');
         onSuccess?.();
         onClose();
       } catch (err) {

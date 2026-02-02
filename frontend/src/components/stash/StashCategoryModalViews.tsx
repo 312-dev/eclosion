@@ -169,8 +169,27 @@ export function UseExistingCategoryView({
           style={{ backgroundColor: 'var(--monarch-bg-card)' }}
         >
           {categoriesLoading && (
-            <div className="text-center py-8" style={{ color: 'var(--monarch-text-muted)' }}>
-              Loading categories...
+            <div className="space-y-3 p-2">
+              {[1, 2, 3].map((groupIdx) => (
+                <div key={groupIdx}>
+                  <div className="h-3 w-20 rounded skeleton mb-1 mx-1" />
+                  <div className="space-y-1">
+                    {[1, 2].map((catIdx) => (
+                      <div
+                        key={catIdx}
+                        className="px-3 py-2.5 rounded-lg flex items-center gap-2"
+                        style={{ backgroundColor: 'var(--monarch-bg-page)' }}
+                      >
+                        <div className="w-5 h-5 rounded-full skeleton shrink-0" />
+                        <div
+                          className="h-4 rounded skeleton"
+                          style={{ width: `${70 + catIdx * 25}px` }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
           {!categoriesLoading &&

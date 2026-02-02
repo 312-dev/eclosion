@@ -124,7 +124,10 @@ export function RevisionHistoryModal({
           {/* Header */}
           <div
             className="flex items-center justify-between px-4 py-3 border-b shrink-0 rounded-t-xl"
-            style={{ borderColor: 'var(--monarch-border)', backgroundColor: 'var(--monarch-bg-page)' }}
+            style={{
+              borderColor: 'var(--monarch-border)',
+              backgroundColor: 'var(--monarch-bg-page)',
+            }}
           >
             <div>
               <h2
@@ -154,8 +157,31 @@ export function RevisionHistoryModal({
           {/* Content */}
           <div className="flex-1 overflow-y-auto p-4">
             {isLoading && (
-              <div className="text-center py-8" style={{ color: 'var(--monarch-text-muted)' }}>
-                Loading history...
+              <div className="space-y-4">
+                {[1, 2].map((sectionIdx) => (
+                  <div key={sectionIdx}>
+                    <div className="h-3 w-28 rounded skeleton mb-2" />
+                    <div className="space-y-2">
+                      {[1, 2].map((itemIdx) => (
+                        <div
+                          key={itemIdx}
+                          className="rounded-lg p-3"
+                          style={{
+                            backgroundColor: 'var(--monarch-bg-page)',
+                            border: '1px solid var(--monarch-border)',
+                          }}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="h-4 w-24 rounded skeleton" />
+                            <div className="h-5 w-16 rounded-full skeleton" />
+                          </div>
+                          <div className="h-3 w-full rounded skeleton mb-1" />
+                          <div className="h-3 w-3/4 rounded skeleton" />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
             {showError && (

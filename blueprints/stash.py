@@ -94,6 +94,29 @@ async def get_available_to_stash():
     return await service.get_available_to_stash_data()
 
 
+@stash_bp.route("/category-balance/<category_id>", methods=["GET"])
+@api_handler(handle_mfa=True)
+async def get_category_balance(category_id: str):
+    """
+    Get the current rollover balance of an existing Monarch category.
+
+    Used when selecting an existing category in the New Stash form to
+    determine if it already has a starting balance.
+
+    Returns:
+    - balance: Current "remaining" amount for the category (includes rollover)
+    - category_id: The requested category ID
+    """
+    category_id = sanitize_id(category_id)  # type: ignore[assignment]
+
+    if not category_id:
+        raise ValidationError("Invalid category ID")
+
+    service = get_stash_service()
+    balance = await service.get_category_balance(category_id)
+    return {"category_id": category_id, "balance": balance}
+
+
 @stash_bp.route("/fetch-og-image", methods=["GET"])
 @api_handler(handle_mfa=False)
 async def fetch_og_image_endpoint():
@@ -250,18 +273,18 @@ async def create_item():
     data = request.get_json()
 
     name = sanitize_name(data.get("name"))
-    amount = data.get("amount")
-    target_date = data.get("target_date")
+    amount = data.get("amount")  # Can be null for open-ended goals
+    target_date = data.get("target_date")  # Can be null for no-deadline goals
     category_group_id = sanitize_id(data.get("category_group_id"))
     existing_category_id = sanitize_id(data.get("existing_category_id"))
     flexible_group_id = sanitize_id(data.get("flexible_group_id"))
 
     if not name:
         raise ValidationError("Missing 'name'")
-    if amount is None or amount <= 0:
-        raise ValidationError("Missing or invalid 'amount'")
-    if not target_date:
-        raise ValidationError("Missing 'target_date'")
+    # Amount is optional (null = open-ended/regular savings)
+    if amount is not None and amount <= 0:
+        raise ValidationError("'amount' must be positive if provided")
+    # Target date is optional (null = no deadline)
 
     # Exactly one category option must be provided
     options_provided = sum(
@@ -307,8 +330,8 @@ async def create_item():
 
     result = await service.create_item(
         name=name,
-        amount=float(amount),
-        target_date=target_date,
+        amount=float(amount) if amount is not None else None,
+        target_date=target_date,  # Can be None for no-deadline goals
         category_group_id=category_group_id,
         existing_category_id=existing_category_id,
         flexible_group_id=flexible_group_id,
@@ -353,9 +376,11 @@ async def update_item(item_id: str):
     if "name" in data:
         updates["name"] = sanitize_name(data["name"])
     if "amount" in data:
-        updates["amount"] = float(data["amount"])
+        # Allow null for open-ended goals
+        updates["amount"] = float(data["amount"]) if data["amount"] is not None else None
     if "target_date" in data:
-        updates["target_date"] = data["target_date"]
+        # Allow null for no-deadline goals
+        updates["target_date"] = data["target_date"]  # Can be None
     if "emoji" in data:
         updates["emoji"] = sanitize_emoji(data["emoji"])
     if "source_url" in data:
@@ -378,7 +403,7 @@ async def update_item(item_id: str):
         raise ValidationError("No valid fields to update")
 
     result = await service.update_item(item_id, **updates)
-    return jsonify(sanitize_response(result))
+    return sanitize_response(result)
 
 
 @stash_bp.route("/<item_id>", methods=["DELETE"])
@@ -581,14 +606,27 @@ async def update_rollover_balance():
         safe_cat_id,
         amount_int,
     )
-    result = await update_category_rollover_balance(category_id, amount_int)
-    logger.info("[Rollover API] Result received")
+
+    try:
+        result = await update_category_rollover_balance(category_id, amount_int)
+        logger.info("[Rollover API] Result received: %s", result)
+    except Exception as e:
+        # Log full traceback for debugging
+        import traceback
+
+        logger.error(
+            "[Rollover API] Exception calling update_category_rollover_balance: %s\n%s",
+            e,
+            traceback.format_exc(),
+        )
+        raise
 
     # Check for errors in the response
     update_result = result.get("updateCategory", {})
     errors = update_result.get("errors")
     if errors:
         error_msg = errors.get("message", "Failed to update rollover balance")
+        logger.error("[Rollover API] Monarch returned error: %s", errors)
         raise ValidationError(error_msg)
 
     return {
@@ -631,9 +669,22 @@ async def update_group_rollover_balance():
 
     service = get_stash_service()
     try:
+        logger.info("[Group Rollover API] Calling update_group_rollover_balance(%s, %d)", group_id, amount_int)
         result = await service.category_manager.update_group_rollover_balance(group_id, amount_int)
+        logger.info("[Group Rollover API] Result received: %s", result)
     except ValueError as e:
+        logger.warning("[Group Rollover API] Validation error: %s", e)
         raise ValidationError(str(e))
+    except Exception as e:
+        # Log full traceback for debugging
+        import traceback
+
+        logger.error(
+            "[Group Rollover API] Exception: %s\n%s",
+            e,
+            traceback.format_exc(),
+        )
+        raise
 
     return {
         "success": True,
@@ -943,6 +994,33 @@ async def clear_unconverted_bookmarks():
     return result
 
 
+@stash_bp.route("/pending/favicons", methods=["PUT"])
+@api_handler(handle_mfa=False)
+async def update_bookmark_favicons():
+    """
+    Batch update favicons for pending bookmarks.
+
+    Called by the frontend after fetching favicons client-side.
+    Persists the fetched favicon data URLs to the database.
+
+    Request body:
+    - updates: Array of objects with:
+        - id: Bookmark ID
+        - logo_url: Base64 data URL of the favicon
+
+    Returns count of updated bookmarks.
+    """
+    service = get_stash_service()
+    data = request.get_json()
+
+    updates = data.get("updates", [])
+    if not isinstance(updates, list):
+        raise ValidationError("'updates' must be an array")
+
+    result = await service.update_bookmark_favicons(updates)
+    return result
+
+
 # ---- HYPOTHESIS ENDPOINTS ----
 
 
@@ -957,7 +1035,7 @@ async def get_hypotheses():
     """
     service = get_stash_service()
     result = service.get_hypotheses()
-    return jsonify(sanitize_response(result))
+    return sanitize_response(result)
 
 
 @stash_bp.route("/hypotheses", methods=["POST"])
@@ -1001,7 +1079,7 @@ async def save_hypothesis():
         custom_left_to_budget=data.get("custom_left_to_budget"),
         item_apys=data.get("item_apys", {}),
     )
-    return jsonify(sanitize_response(result))
+    return sanitize_response(result)
 
 
 @stash_bp.route("/hypotheses/<hypothesis_id>", methods=["DELETE"])
@@ -1017,7 +1095,7 @@ async def delete_hypothesis(hypothesis_id: str):
         raise ValidationError("Invalid hypothesis ID")
 
     result = service.delete_hypothesis(sanitized_id)
-    return jsonify(sanitize_response(result))
+    return sanitize_response(result)
 
 
 # ---- LOCAL IMAGE SERVING (for remote/tunnel access) ----

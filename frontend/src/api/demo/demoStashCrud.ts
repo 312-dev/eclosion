@@ -18,7 +18,7 @@ export async function createStashItem(request: CreateStashItemRequest): Promise<
   success: boolean;
   id: string;
   category_id: string;
-  monthly_target: number;
+  monthly_target: number | null; // null for open-ended goals
   linked_existing?: boolean;
 }> {
   await simulateDelay();
@@ -89,11 +89,11 @@ export async function createStashItem(request: CreateStashItemRequest): Promise<
     category_group_id: categoryGroupId,
     category_group_name: categoryGroupName ?? 'Stash',
     is_enabled: true,
-    status: 'behind',
-    progress_percent: 0,
+    status: 'on_track', // Will be recomputed by recomputeItem
+    progress_percent: null, // Will be computed by recomputeItem (null for open-ended)
     ...(request.emoji !== undefined && { emoji: request.emoji }),
-    target_date: request.target_date,
-    months_remaining: 0,
+    target_date: request.target_date, // Can be null for no-deadline goals
+    months_remaining: null, // Will be computed by recomputeItem (null if no deadline)
     ...(request.source_url !== undefined && { source_url: request.source_url }),
     ...(request.source_bookmark_id !== undefined && {
       source_bookmark_id: request.source_bookmark_id,
@@ -106,8 +106,8 @@ export async function createStashItem(request: CreateStashItemRequest): Promise<
       tracking_start_date: request.tracking_start_date,
     }),
     created_at: new Date().toISOString(),
-    monthly_target: 0,
-    shortfall: request.amount,
+    monthly_target: null, // Will be computed by recomputeItem
+    shortfall: request.amount, // Can be null for open-ended goals
     is_archived: false,
     sort_order: maxSortOrder + 1,
     grid_x: 0,

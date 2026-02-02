@@ -33,7 +33,7 @@ export interface StashItem {
   type: 'stash';
   id: string;
   name: string;
-  amount: number; // Target amount to save
+  amount: number | null; // Target amount to save (null = open-ended/regular savings)
   current_balance: number; // Total saved so far
   planned_budget: number; // Budget allocated this month
   last_month_planned_budget?: number; // Budget allocated last month (for Distribute wizard ratio fallback)
@@ -43,12 +43,12 @@ export interface StashItem {
   category_group_name: string | null;
   is_enabled: boolean;
   status: ItemStatus;
-  progress_percent: number; // current_balance / amount * 100
+  progress_percent: number | null; // current_balance / amount * 100 (null when amount is null)
   emoji?: string;
 
   // Stash-specific fields
-  target_date: string; // User-specified goal date (ISO format)
-  months_remaining: number; // Computed from target_date
+  target_date: string | null; // User-specified goal date (ISO format, null = no deadline)
+  months_remaining: number | null; // Computed from target_date (null when no deadline)
   source_url?: string; // Original bookmark URL
   source_bookmark_id?: string; // For tracking sync
   logo_url?: string; // Favicon from URL
@@ -56,8 +56,8 @@ export interface StashItem {
   image_attribution?: string; // Attribution text for Openverse images
 
   // Computed values (frontend single source of truth)
-  monthly_target: number; // What to save this month
-  shortfall: number; // amount - current_balance
+  monthly_target: number | null; // What to save this month (null when amount or target_date is null)
+  shortfall: number | null; // amount - current_balance (null when amount is null)
 
   // Archive state
   is_archived: boolean;
@@ -124,7 +124,7 @@ export interface StashItem {
 
 /**
  * Data needed to create a new stash item.
- * Amount and target_date are required, others have defaults.
+ * Amount and target_date are optional for open-ended goals, others have defaults.
  *
  * Category selection (mutually exclusive):
  * - category_group_id: Creates a new category in this group
@@ -133,8 +133,8 @@ export interface StashItem {
  */
 export interface CreateStashItemRequest {
   name: string;
-  amount: number;
-  target_date: string;
+  amount: number | null; // null = open-ended/regular savings
+  target_date: string | null; // null = no deadline
   /** Creates a new category in this group (mutually exclusive with existing_category_id/flexible_group_id) */
   category_group_id?: string;
   /** Links to an existing category (mutually exclusive with category_group_id/flexible_group_id) */
@@ -160,8 +160,8 @@ export interface CreateStashItemRequest {
  */
 export interface UpdateStashItemRequest {
   name?: string;
-  amount?: number;
-  target_date?: string;
+  amount?: number | null; // null = open-ended/regular savings
+  target_date?: string | null; // null = no deadline
   emoji?: string;
   is_enabled?: boolean;
   custom_image_path?: string | null;

@@ -286,6 +286,11 @@ export const queryConfig: Record<QueryKeyName, QueryConfig> = {
     staleTime: 5 * 60 * 1000, // 5 minutes
     pollable: false,
   },
+  categoryBalance: {
+    dependsOn: [],
+    staleTime: 30 * 1000, // 30 seconds (needs to be fresh for form usage)
+    pollable: false,
+  },
 
   // External APIs
   openverseSearch: {

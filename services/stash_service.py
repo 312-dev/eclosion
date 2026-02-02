@@ -37,8 +37,8 @@ class StashItemDict(TypedDict):
 
     id: str
     name: str
-    amount: float
-    target_date: str
+    amount: float | None  # None = open-ended/regular savings
+    target_date: str | None  # None = no deadline
     emoji: str | None
     monarch_category_id: str | None
     category_group_id: str | None
@@ -99,19 +99,26 @@ def months_between(start_date: str, end_date: str) -> int:
 
 
 def calculate_stash_monthly_target(
-    amount: float,
+    amount: float | None,
     current_balance: float,
-    target_date: str,
+    target_date: str | None,
     current_month: str | None = None,
-) -> int:
+) -> int | None:
     """
     Calculate monthly savings target for a stash item.
 
+    Returns None for open-ended goals (no amount or no deadline).
+
     Logic:
+    - If amount or target_date is None, return None (open-ended goal)
     - If already funded (balance >= amount), return 0
     - If target is this month, return full shortfall
     - Otherwise spread over remaining months + 1 (includes this month)
     """
+    # Open-ended goals have no monthly target
+    if amount is None or target_date is None:
+        return None
+
     shortfall = max(0, amount - current_balance)
     if shortfall <= 0:
         return 0
@@ -135,19 +142,25 @@ def calculate_stash_monthly_target(
 
 def get_item_status(
     current_balance: float,
-    amount: float,
+    amount: float | None,
     planned_budget: int,
-    monthly_target: int,
+    monthly_target: int | None,
 ) -> str:
     """
     Calculate display status for a stash item.
 
+    For open-ended goals (null amount or null monthly_target), returns 'on_track'.
+
     Priority:
-    1. Funded if balance >= amount
-    2. Ahead if budget > target
-    3. On track if budget >= target
+    1. Funded if balance >= amount (only if amount is defined)
+    2. Ahead if budget > target (only if target is defined)
+    3. On track if budget >= target or if open-ended
     4. Behind otherwise
     """
+    # Open-ended goals default to on_track
+    if amount is None or monthly_target is None:
+        return "on_track"
+
     if current_balance >= amount:
         return "funded"
     if planned_budget > monthly_target:
@@ -274,6 +287,22 @@ class StashService:
 
     def __init__(self):
         self.category_manager = CategoryManager()
+
+    async def get_category_balance(self, category_id: str) -> float:
+        """
+        Get the current rollover balance of a Monarch category.
+
+        Used when selecting an existing category in the New Stash form to
+        determine if it already has a starting balance.
+
+        Args:
+            category_id: Monarch category ID
+
+        Returns:
+            Current "remaining" balance (includes rollover) or 0.0 if not found
+        """
+        budget_data = await self.category_manager.get_all_category_budget_data()
+        return budget_data.get(category_id, {}).get("remaining", 0.0)
 
     async def get_dashboard_data(self) -> dict[str, Any]:
         """
@@ -514,6 +543,7 @@ class StashService:
             # This way:
             # - Transaction inflows (credits, refunds) reduce the target
             # - Budget allocations don't affect the target (only status)
+            # Returns None for open-ended goals (no amount or no deadline)
             effective_balance_for_target = current_balance - planned_budget
             monthly_target = calculate_stash_monthly_target(
                 amount=item["amount"],
@@ -522,16 +552,20 @@ class StashService:
                 current_month=current_month,
             )
 
-            # Calculate progress
-            progress_percent = 0.0
-            if item["amount"] > 0:
+            # Calculate progress (None for open-ended goals)
+            progress_percent: float | None = None
+            if item["amount"] is not None and item["amount"] > 0:
                 progress_percent = min(100.0, (current_balance / item["amount"]) * 100)
 
-            # Calculate shortfall
-            shortfall = max(0, monthly_target - planned_budget)
+            # Calculate shortfall (None for open-ended goals)
+            shortfall: int | None = None
+            if monthly_target is not None:
+                shortfall = max(0, monthly_target - planned_budget)
 
-            # Calculate months remaining
-            months_remaining = months_between(current_month, item["target_date"])
+            # Calculate months remaining (None for no-deadline goals)
+            months_remaining: int | None = None
+            if item["target_date"] is not None:
+                months_remaining = months_between(current_month, item["target_date"])
 
             # Calculate status
             status = get_item_status(
@@ -603,8 +637,11 @@ class StashService:
                 archived_items.append(result_item)
             else:
                 active_items.append(result_item)
-                total_monthly_target += monthly_target
-                total_target += item["amount"]
+                # Only accumulate if values are defined (skip open-ended goals)
+                if monthly_target is not None:
+                    total_monthly_target += monthly_target
+                if item["amount"] is not None:
+                    total_target += item["amount"]
                 total_saved += current_balance
 
         return {
@@ -618,8 +655,8 @@ class StashService:
     async def create_item(
         self,
         name: str,
-        amount: float,
-        target_date: str,
+        amount: float | None,
+        target_date: str | None,
         category_group_id: str | None = None,
         existing_category_id: str | None = None,
         flexible_group_id: str | None = None,
@@ -714,9 +751,10 @@ class StashService:
             current_month=current_month,
         )
 
-        # Set initial budget only for existing categories
+        # Set initial budget only for existing categories with defined monthly target
         # New categories start with $0 budgeted so users can decide when to fund
-        if existing_category_id and monthly_target > 0:
+        # Open-ended goals (null monthly_target) don't get auto-budgeted
+        if existing_category_id and monthly_target is not None and monthly_target > 0:
             await self.category_manager.set_category_budget(category_id, monthly_target)
 
         # Store in database
@@ -742,16 +780,25 @@ class StashService:
 
         # Set initial rollover starting balance if provided
         if starting_balance and starting_balance > 0:
-            if flexible_group_id:
-                # Group-level rollover for flexible groups
-                await self.category_manager.update_group_rollover_balance(
-                    flexible_group_id, starting_balance
-                )
-            else:
-                # Category-level rollover
-                from monarch_utils import update_category_rollover_balance
+            try:
+                if flexible_group_id:
+                    # Group-level rollover for flexible groups
+                    await self.category_manager.update_group_rollover_balance(
+                        flexible_group_id, starting_balance
+                    )
+                else:
+                    # Category-level rollover
+                    from monarch_utils import update_category_rollover_balance
 
-                await update_category_rollover_balance(category_id, starting_balance)
+                    await update_category_rollover_balance(category_id, starting_balance)
+            except Exception as e:
+                # Log but don't fail the entire creation - item is already created
+                logger.error(
+                    f"[Stash] Failed to set starting balance for {item_id}: {e}. "
+                    f"Item created but starting balance not set."
+                )
+                # Re-raise to inform the caller
+                raise
 
         return {
             "success": True,
@@ -1456,8 +1503,11 @@ class StashService:
 
         This pulls the latest balance and budget data for all stash categories.
         """
-        # Get fresh budget data
+        # Get fresh data - clear all relevant caches
         clear_cache("budget")
+        clear_cache("full_goals")
+        clear_cache("goal_balances")
+        clear_cache("savings_goals")
         budget_data = await self.category_manager.get_all_category_budget_data()
 
         with db_session() as session:
@@ -1677,6 +1727,25 @@ class StashService:
                     for bm in skipped
                 ]
             }
+
+    async def update_bookmark_favicons(self, updates: list[dict]) -> dict[str, Any]:
+        """
+        Batch update favicons for pending bookmarks.
+
+        Called by the frontend after fetching favicons client-side.
+        Persists the favicon data URLs to the database so they survive
+        page reloads and cache invalidations.
+
+        Args:
+            updates: List of dicts with 'id' and 'logo_url' keys
+
+        Returns:
+            Success status and count of updated bookmarks
+        """
+        with db_session() as session:
+            repo = TrackerRepository(session)
+            updated_count = repo.update_bookmark_favicons(updates)
+            return {"success": True, "updated": updated_count}
 
     async def get_available_to_stash_data(self) -> dict[str, Any]:
         """

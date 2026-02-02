@@ -9,6 +9,7 @@
 
 import { useState, useEffect } from 'react';
 import { useDemo } from '../../context/DemoContext';
+import { AnimatedEmoji } from '../ui';
 
 interface StashItemImageProps {
   readonly customImagePath?: string | null | undefined;
@@ -16,6 +17,8 @@ interface StashItemImageProps {
   readonly emoji?: string | undefined;
   readonly alt: string;
   readonly className?: string;
+  /** Whether the emoji should be animating (for hover effects) */
+  readonly isAnimating?: boolean;
 }
 
 /** Load image URL from desktop file path via Electron IPC */
@@ -55,6 +58,7 @@ export function StashItemImage({
   emoji = '🎯',
   alt,
   className = '',
+  isAnimating = false,
 }: StashItemImageProps) {
   const isDemo = useDemo();
   const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -78,10 +82,10 @@ export function StashItemImage({
   if (!imageUrl || hasError) {
     return (
       <div
-        className="flex items-center justify-center opacity-50"
+        className="flex items-center justify-center"
         style={{ fontSize: 'min(50cqh, 96px)', lineHeight: 1 }}
       >
-        {emoji}
+        <AnimatedEmoji emoji={emoji} isAnimating={isAnimating} size={96} className="opacity-50" />
       </div>
     );
   }

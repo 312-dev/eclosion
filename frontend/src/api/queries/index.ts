@@ -202,6 +202,8 @@ export {
   useHypothesesQuery,
   useSaveHypothesisMutation,
   useDeleteHypothesisMutation,
+  // Category balance lookup
+  useCategoryBalanceQuery,
 } from './stashQueries';
 
 // Available to Stash queries

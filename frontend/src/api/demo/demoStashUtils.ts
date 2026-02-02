@@ -28,9 +28,11 @@ export function recomputeItem(item: StashItem): StashItem {
   const progressPercent = calculateProgressPercent(item.current_balance, item.amount);
   const shortfall = calculateShortfall(item.current_balance, item.amount);
 
-  // Determine status
+  // Determine status (open-ended goals default to on_track)
   let status: StashItem['status'];
-  if (item.current_balance >= item.amount) {
+  if (item.amount === null || monthlyTarget === null) {
+    status = 'on_track'; // Open-ended goals
+  } else if (item.current_balance >= item.amount) {
     status = 'funded';
   } else if (item.planned_budget >= monthlyTarget) {
     status = item.planned_budget > monthlyTarget ? 'ahead' : 'on_track';
@@ -73,8 +75,9 @@ export function recomputeTotals(data: {
   return {
     items,
     archived_items: archivedItems,
-    total_target: items.reduce((sum, item) => sum + item.amount, 0),
+    // Skip null amounts/targets when summing (open-ended goals don't count toward totals)
+    total_target: items.reduce((sum, item) => sum + (item.amount ?? 0), 0),
     total_saved: items.reduce((sum, item) => sum + item.current_balance, 0),
-    total_monthly_target: items.reduce((sum, item) => sum + item.monthly_target, 0),
+    total_monthly_target: items.reduce((sum, item) => sum + (item.monthly_target ?? 0), 0),
   };
 }

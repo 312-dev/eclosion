@@ -2,6 +2,7 @@ import { useState, useRef, useLayoutEffect, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { EmojiPicker as FrimoussePicker } from 'frimousse';
 import { RefreshIcon, Icons } from './icons';
+import { AnimatedEmoji } from './ui/AnimatedEmoji';
 import { useIsRateLimited } from '../context/RateLimitContext';
 import { Z_INDEX } from '../constants';
 
@@ -11,9 +12,17 @@ interface EmojiPickerProps {
   readonly disabled?: boolean;
   /** Show a dropdown chevron next to the emoji */
   readonly showChevron?: boolean;
+  /** Play the animated version of the emoji (if available) */
+  readonly animate?: boolean;
 }
 
-export function EmojiPicker({ currentEmoji, onSelect, disabled, showChevron }: EmojiPickerProps) {
+export function EmojiPicker({
+  currentEmoji,
+  onSelect,
+  disabled,
+  showChevron,
+  animate,
+}: EmojiPickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
@@ -201,7 +210,7 @@ export function EmojiPicker({ currentEmoji, onSelect, disabled, showChevron }: E
         {isUpdating ? (
           <RefreshIcon size={14} className="animate-spin" aria-hidden="true" />
         ) : (
-          <span aria-hidden="true">{currentEmoji}</span>
+          <AnimatedEmoji emoji={currentEmoji} isAnimating={animate ?? false} size={20} />
         )}
         {showChevron && (
           <Icons.ChevronDown

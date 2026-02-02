@@ -9,6 +9,7 @@ import { useMemo, useCallback, useState, useRef, useEffect, useLayoutEffect } fr
 import { createPortal } from 'react-dom';
 import { Icons } from '../icons';
 import { EmojiPicker } from '../EmojiPicker';
+import { Tooltip } from '../ui/Tooltip';
 import { getSafeHref } from '../../utils';
 import { getQuickPickDates } from '../../utils/savingsCalculations';
 import { Z_INDEX } from '../../constants';
@@ -52,6 +53,8 @@ interface NameInputProps {
   onEmojiChange: (emoji: string) => void;
   placeholder?: string;
   onFocusChange?: (isFocused: boolean) => void;
+  /** Show error state (red border) when validation fails */
+  error?: boolean;
 }
 
 export function NameInputWithEmoji({
@@ -62,10 +65,15 @@ export function NameInputWithEmoji({
   onEmojiChange,
   placeholder = 'What are you saving for?',
   onFocusChange,
+  error = false,
 }: NameInputProps) {
+  const [animateEmoji, setAnimateEmoji] = useState(false);
+
   const handleEmojiSelect = useCallback(
     async (selectedEmoji: string) => {
       onEmojiChange(selectedEmoji);
+      // Start animation after selection - plays while modal remains open
+      setAnimateEmoji(true);
     },
     [onEmojiChange]
   );
@@ -82,15 +90,20 @@ export function NameInputWithEmoji({
       <div className="flex items-stretch">
         {/* Emoji picker prefix - joined to input */}
         <div
-          className="flex items-center justify-center text-lg rounded-l-md shrink-0 pl-3 pr-2"
+          className={`flex items-center justify-center text-lg rounded-l-md shrink-0 pl-3 pr-2 ${error ? 'animate-error-shake' : ''}`}
           style={{
-            backgroundColor: 'var(--monarch-bg-page)',
-            borderTop: '1px solid var(--monarch-border)',
-            borderBottom: '1px solid var(--monarch-border)',
-            borderLeft: '1px solid var(--monarch-border)',
+            backgroundColor: error ? 'rgba(239, 68, 68, 0.1)' : 'var(--monarch-bg-page)',
+            borderTop: `1px solid ${error ? 'var(--monarch-error)' : 'var(--monarch-border)'}`,
+            borderBottom: `1px solid ${error ? 'var(--monarch-error)' : 'var(--monarch-border)'}`,
+            borderLeft: `1px solid ${error ? 'var(--monarch-error)' : 'var(--monarch-border)'}`,
           }}
         >
-          <EmojiPicker currentEmoji={emoji || '💰'} onSelect={handleEmojiSelect} showChevron />
+          <EmojiPicker
+            currentEmoji={emoji || '💰'}
+            onSelect={handleEmojiSelect}
+            showChevron
+            animate={animateEmoji}
+          />
         </div>
         <input
           id={id}
@@ -100,12 +113,13 @@ export function NameInputWithEmoji({
           onFocus={() => onFocusChange?.(true)}
           onBlur={() => onFocusChange?.(false)}
           placeholder={placeholder}
-          className="flex-1 px-3 py-2 rounded-l-none rounded-r-md"
+          className={`flex-1 px-3 py-2 rounded-l-none rounded-r-md ${error ? 'animate-error-shake' : ''}`}
           style={{
-            backgroundColor: 'var(--monarch-bg-page)',
-            border: '1px solid var(--monarch-border)',
+            backgroundColor: error ? 'rgba(239, 68, 68, 0.1)' : 'var(--monarch-bg-page)',
+            border: `1px solid ${error ? 'var(--monarch-error)' : 'var(--monarch-border)'}`,
             color: 'var(--monarch-text)',
           }}
+          aria-invalid={error}
         />
       </div>
     </div>
@@ -425,6 +439,16 @@ interface AmountInputProps {
   showSearchButton?: boolean;
   /** Callback when search button is clicked */
   onSearchClick?: () => void;
+  /** Allow null/empty values (shows × button to clear, then "[+ add target amount]" link) */
+  allowNull?: boolean;
+  /** Whether the user has explicitly cleared the value (shows "[+ add target amount]" link) */
+  isCleared?: boolean;
+  /** Callback when clear button is clicked - should set isCleared=true */
+  onClear?: () => void;
+  /** Callback when "[+ add target amount]" is clicked - should set isCleared=false */
+  onRestore?: () => void;
+  /** Show error state (red border) when validation fails */
+  error?: boolean;
 }
 
 export function AmountInput({
@@ -435,6 +459,11 @@ export function AmountInput({
   hideLabel = false,
   showSearchButton = false,
   onSearchClick,
+  allowNull = false,
+  isCleared = false,
+  onClear,
+  onRestore,
+  error = false,
 }: AmountInputProps) {
   const handleChange = (inputValue: string) => {
     const cleaned = inputValue.replaceAll(/\D/g, '');
@@ -454,6 +483,23 @@ export function AmountInput({
   // Auto-size: min 3ch, grows with formatted content (including commas)
   const inputWidth = Math.max(3, displayValue.length + 1);
 
+  // When allowNull is true and user has explicitly cleared, show the add link
+  if (hideLabel && allowNull && isCleared) {
+    return (
+      <button
+        type="button"
+        onClick={onRestore}
+        className="text-sm hover:underline"
+        style={{ color: 'var(--monarch-orange)' }}
+      >
+        + add target amount
+      </button>
+    );
+  }
+
+  // Show clear button inside input when allowNull is enabled (always visible for discoverability)
+  const showClearButton = hideLabel && allowNull && !isCleared && onClear;
+
   return (
     <div className={hideLabel ? 'inline-flex' : ''}>
       {!hideLabel && (
@@ -465,48 +511,83 @@ export function AmountInput({
           {label}
         </label>
       )}
-      <div className="relative inline-flex">
-        <span
-          className="absolute left-3 top-1/2 -translate-y-1/2"
-          style={{ color: 'var(--monarch-text-muted)' }}
-        >
-          $
-        </span>
-        <input
-          id={id}
-          type="text"
-          inputMode="numeric"
-          value={displayValue}
-          onChange={(e) => handleChange(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="0"
-          className={`pl-7 py-2 tabular-nums ${showSearchButton ? 'pr-0.5' : 'pr-3'}`}
-          style={{
-            width: hideLabel ? `${inputWidth + 3}ch` : '100%',
-            minWidth: hideLabel ? '5ch' : undefined,
-            backgroundColor: 'var(--monarch-bg-page)',
-            border: '1px solid var(--monarch-border)',
-            borderRight: showSearchButton ? 'none' : '1px solid var(--monarch-border)',
-            borderRadius: showSearchButton ? '0.375rem 0 0 0.375rem' : '0.375rem',
-            color: 'var(--monarch-text)',
-          }}
-        />
-        {showSearchButton && (
-          <button
-            type="button"
-            onClick={onSearchClick}
-            className="pl-0.5 pr-1.5 py-2 rounded-r-md transition-colors hover:bg-(--monarch-bg-card)"
-            style={{
-              backgroundColor: 'var(--monarch-bg-page)',
-              border: '1px solid var(--monarch-border)',
-              borderLeft: 'none',
-              color: 'var(--monarch-text-muted)',
-            }}
-            aria-label="Search debt accounts"
+      <div className="relative inline-flex items-center">
+        <div className="relative inline-flex">
+          <span
+            className="absolute left-3 top-1/2 -translate-y-1/2"
+            style={{ color: 'var(--monarch-text-muted)' }}
           >
-            <Icons.Search size={16} />
-          </button>
-        )}
+            $
+          </span>
+          {(() => {
+            // Compute padding class
+            let paddingRight = 'pr-3';
+            if (showClearButton) paddingRight = 'pr-7';
+            else if (showSearchButton) paddingRight = 'pr-0.5';
+
+            // Compute width values
+            let computedWidth = '100%';
+            let computedMinWidth: string | undefined;
+            if (hideLabel) {
+              computedWidth = `${inputWidth + (showClearButton ? 5 : 3)}ch`;
+              computedMinWidth = showClearButton ? '7ch' : '5ch';
+            }
+
+            const borderColor = error ? 'var(--monarch-error)' : 'var(--monarch-border)';
+            const borderRightStyle = showSearchButton ? 'none' : `1px solid ${borderColor}`;
+
+            return (
+              <input
+                id={id}
+                type="text"
+                inputMode="numeric"
+                value={displayValue}
+                onChange={(e) => handleChange(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="0"
+                className={`pl-7 py-2 tabular-nums ${paddingRight} ${error ? 'animate-error-shake' : ''}`}
+                style={{
+                  width: computedWidth,
+                  minWidth: computedMinWidth,
+                  backgroundColor: error ? 'rgba(239, 68, 68, 0.1)' : 'var(--monarch-bg-page)',
+                  border: `1px solid ${borderColor}`,
+                  borderRight: borderRightStyle,
+                  borderRadius: showSearchButton ? '0.375rem 0 0 0.375rem' : '0.375rem',
+                  color: 'var(--monarch-text)',
+                }}
+                aria-invalid={error}
+              />
+            );
+          })()}
+          {/* Clear button inside input */}
+          {showClearButton && (
+            <button
+              type="button"
+              onClick={onClear}
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 rounded hover:bg-(--monarch-bg-card) transition-colors"
+              style={{ color: 'var(--monarch-text-muted)' }}
+              aria-label="Clear amount"
+            >
+              <Icons.CircleX className="w-3.5 h-3.5" />
+            </button>
+          )}
+          {showSearchButton && (
+            <button
+              type="button"
+              onClick={onSearchClick}
+              className="pl-0.5 pr-1.5 py-2 rounded-r-md transition-colors hover:bg-(--monarch-bg-card)"
+              style={{
+                backgroundColor: 'var(--monarch-bg-page)',
+                border: '1px solid var(--monarch-border)',
+                borderLeft: 'none',
+                color: 'var(--monarch-text-muted)',
+              }}
+              aria-label="Search debt accounts"
+            >
+              <Icons.Search size={16} />
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -521,6 +602,14 @@ interface TargetDateInputProps {
   quickPickOptions?: Array<{ label: string; date: string }> | undefined;
   /** Hide the label for inline/sentence layouts */
   hideLabel?: boolean;
+  /** Allow clearing the date (shows × button when value is set) */
+  allowNull?: boolean;
+  /** Callback when clear button is clicked */
+  onClear?: () => void;
+  /** Show error state (red border) when validation fails */
+  error?: boolean;
+  /** Content to render after the input but before the clear button (e.g., punctuation) */
+  suffix?: React.ReactNode;
 }
 
 /** Max date: 85 years from now */
@@ -534,6 +623,10 @@ export function TargetDateInput({
   maxDate,
   quickPickOptions,
   hideLabel = false,
+  allowNull = false,
+  onClear,
+  error = false,
+  suffix,
 }: TargetDateInputProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const quickPicks = useMemo(() => getQuickPickDates(), []);
@@ -577,21 +670,42 @@ export function TargetDateInput({
         </label>
       )}
       {hideLabel ? (
-        <div className="inline-flex h-10 items-center">
-          <input
-            id={id}
-            type="date"
-            value={value}
-            min={minDate}
-            max={effectiveMaxDate}
-            onChange={(e) => onChange(e.target.value)}
-            className="px-3 py-2 rounded-md leading-normal"
-            style={{
-              backgroundColor: 'var(--monarch-bg-page)',
-              border: '1px solid var(--monarch-border)',
-              color: value ? 'var(--monarch-text)' : 'var(--monarch-text-muted)',
-            }}
-          />
+        <div className="inline-flex h-10 items-center gap-1">
+          <div className="relative inline-flex items-center">
+            {/* Calendar icon on left side */}
+            <Icons.Calendar
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none"
+              style={{ color: 'var(--monarch-text-muted)' }}
+            />
+            <input
+              id={id}
+              type="date"
+              value={value}
+              min={minDate}
+              max={effectiveMaxDate}
+              onChange={(e) => onChange(e.target.value)}
+              className={`pl-8 py-2 rounded-md leading-normal date-input-no-icon ${allowNull && value ? 'pr-7' : 'pr-3'} ${error ? 'animate-error-shake' : ''}`}
+              style={{
+                backgroundColor: error ? 'rgba(239, 68, 68, 0.1)' : 'var(--monarch-bg-page)',
+                border: `1px solid ${error ? 'var(--monarch-error)' : 'var(--monarch-border)'}`,
+                color: value ? 'var(--monarch-text)' : 'var(--monarch-text-muted)',
+              }}
+              aria-invalid={error}
+            />
+            {/* Clear button inside input on right */}
+            {allowNull && value && onClear && (
+              <button
+                type="button"
+                onClick={onClear}
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 rounded hover:bg-(--monarch-bg-card) transition-colors"
+                style={{ color: 'var(--monarch-text-muted)' }}
+                aria-label="Clear date"
+              >
+                <Icons.CircleX className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+          {suffix && <span className="-ml-1">{suffix}</span>}
         </div>
       ) : (
         <div className="relative">
@@ -659,6 +773,17 @@ interface StartingBalanceInputProps {
    * This allows keeping existing committed funds without showing an error.
    */
   readonly initialValue?: number;
+  /**
+   * When true, the input is disabled and shows a tooltip with the disabledTooltip text.
+   * Used when selecting an existing category that already has a balance.
+   */
+  readonly disabled?: boolean;
+  /**
+   * Tooltip text to show when the input is disabled.
+   */
+  readonly disabledTooltip?: string;
+  /** Content to render after the input (e.g., punctuation) */
+  readonly suffix?: React.ReactNode;
 }
 
 /**
@@ -674,6 +799,9 @@ export function StartingBalanceInput({
   isFocused,
   onFocusChange,
   initialValue = 0,
+  disabled = false,
+  disabledTooltip,
+  suffix,
 }: StartingBalanceInputProps) {
   const handleChange = (inputValue: string) => {
     const cleaned = inputValue.replaceAll(/\D/g, '');
@@ -736,52 +864,68 @@ export function StartingBalanceInput({
     };
   }, [isLoading, availableAmount, delta, initialValue]);
 
+  const inputElement = (
+    <div className="relative inline-flex h-10 items-center">
+      <span
+        className="absolute left-2.5 top-1/2 -translate-y-1/2"
+        style={{ color: 'var(--monarch-text-muted)' }}
+      >
+        $
+      </span>
+      <input
+        type="text"
+        inputMode="numeric"
+        value={displayValue}
+        onChange={(e) => handleChange(e.target.value)}
+        onKeyDown={handleKeyDown}
+        onFocus={() => onFocusChange(true)}
+        onBlur={() => onFocusChange(false)}
+        placeholder="0"
+        disabled={disabled}
+        className={`pl-7 pr-3 py-2 rounded-md tabular-nums ${disabled ? 'cursor-not-allowed' : ''}`}
+        style={{
+          width: `${inputWidth + 3}ch`,
+          minWidth: '5ch',
+          backgroundColor: disabled ? 'var(--monarch-bg-muted)' : 'var(--monarch-bg-page)',
+          border: `1px solid ${isOverAvailable ? 'var(--monarch-error)' : 'var(--monarch-border)'}`,
+          color: disabled ? 'var(--monarch-text-muted)' : 'var(--monarch-text)',
+          opacity: disabled ? 0.8 : 1,
+        }}
+        aria-label="Starting balance"
+        aria-invalid={isOverAvailable}
+        aria-disabled={disabled}
+      />
+      {suffix}
+    </div>
+  );
+
   return (
     <div
       className={`inline-flex flex-col self-start relative transition-[margin-bottom] duration-200 ${
-        showAvailable ? 'mb-5' : 'mb-0'
+        showAvailable && !disabled ? 'mb-5' : 'mb-0'
       }`}
     >
-      <div className="relative inline-flex h-10 items-center">
-        <span
-          className="absolute left-2.5 top-1/2 -translate-y-1/2"
-          style={{ color: 'var(--monarch-text-muted)' }}
-        >
-          $
-        </span>
-        <input
-          type="text"
-          inputMode="numeric"
-          value={displayValue}
-          onChange={(e) => handleChange(e.target.value)}
-          onKeyDown={handleKeyDown}
-          onFocus={() => onFocusChange(true)}
-          onBlur={() => onFocusChange(false)}
-          placeholder="0"
-          className="pl-7 pr-3 py-2 rounded-md tabular-nums"
-          style={{
-            width: `${inputWidth + 3}ch`,
-            minWidth: '5ch',
-            backgroundColor: 'var(--monarch-bg-page)',
-            border: `1px solid ${isOverAvailable ? 'var(--monarch-error)' : 'var(--monarch-border)'}`,
-            color: 'var(--monarch-text)',
-          }}
-          aria-label="Starting balance"
-          aria-invalid={isOverAvailable}
-        />
-      </div>
+      {disabled && disabledTooltip ? (
+        <Tooltip content={disabledTooltip} side="bottom">
+          {inputElement}
+        </Tooltip>
+      ) : (
+        inputElement
+      )}
       {/* Available amount indicator - absolutely positioned to not affect inline layout */}
-      <div
-        className={`absolute top-full mt-1 left-1/2 text-xs whitespace-nowrap transition-all duration-200 ${
-          showAvailable ? 'opacity-100' : 'opacity-0 pointer-events-none'
-        }`}
-        style={{
-          color: availableColor,
-          transform: `translateX(-50%) translateY(${showAvailable ? '0' : '-0.25rem'})`,
-        }}
-      >
-        {availableMessage}
-      </div>
+      {!disabled && (
+        <div
+          className={`absolute top-full mt-1 left-1/2 text-xs whitespace-nowrap transition-all duration-200 ${
+            showAvailable ? 'opacity-100' : 'opacity-0 pointer-events-none'
+          }`}
+          style={{
+            color: availableColor,
+            transform: `translateX(-50%) translateY(${showAvailable ? '0' : '-0.25rem'})`,
+          }}
+        >
+          {availableMessage}
+        </div>
+      )}
     </div>
   );
 }
@@ -791,6 +935,8 @@ interface GoalTypeSelectorProps {
   readonly onChange: (value: StashGoalType) => void;
   /** Hide the label for inline/sentence layouts */
   readonly hideLabel?: boolean;
+  /** Content to render after the selector (e.g., punctuation) */
+  readonly suffix?: React.ReactNode;
 }
 
 const GOAL_TYPE_OPTIONS: Array<{
@@ -827,7 +973,12 @@ const GOAL_TYPE_OPTIONS: Array<{
  * Goal type selector dropdown for stash items.
  * Allows choosing between purchase and savings buffer goals.
  */
-export function GoalTypeSelector({ value, onChange, hideLabel = false }: GoalTypeSelectorProps) {
+export function GoalTypeSelector({
+  value,
+  onChange,
+  hideLabel = false,
+  suffix,
+}: GoalTypeSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -998,6 +1149,7 @@ export function GoalTypeSelector({ value, onChange, hideLabel = false }: GoalTyp
           />
         </button>
       </div>
+      {suffix}
       {dropdownMenu}
     </div>
   );

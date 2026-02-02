@@ -231,7 +231,9 @@ export function calculateAvailableToStash(
   const creditCardDebt = creditCardsDetail.reduce((sum, item) => sum + item.amount, 0);
   const unspentBudgets = unspentCategoriesDetail.reduce((sum, item) => sum + item.amount, 0);
   const goalBalances = goalsDetail.reduce((sum, item) => sum + item.amount, 0);
-  const stashBalances = stashItemsDetail.reduce((sum, item) => sum + item.amount, 0);
+  // Use data.stashBalances directly - it's authoritative and supports optimistic updates
+  // stashItemsDetail is only used for detailed breakdown display
+  const stashBalances = data.stashBalances;
   const bufferAmount = options.bufferAmount ?? 0;
   const leftToBudget = data.leftToBudget ?? 0;
 

@@ -76,8 +76,8 @@ export interface TimelineItemConfig {
   startingBalance: number;
   /** Monthly contribution rate */
   monthlyRate: number;
-  /** Target amount to save */
-  targetAmount: number;
+  /** Target amount to save (null for open-ended goals) */
+  targetAmount: number | null;
   /** Target date for finite goals (ISO string) or null for ongoing */
   targetDate: string | null;
   /** Goal type affects completion behavior */

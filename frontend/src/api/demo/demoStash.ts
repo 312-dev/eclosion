@@ -62,14 +62,51 @@ export async function getStash(): Promise<StashData> {
 }
 
 /**
+ * Get the current rollover balance of an existing Monarch category.
+ *
+ * Used when selecting an existing category in the New Stash form to
+ * determine if it already has a starting balance.
+ *
+ * In demo mode, we simulate realistic category balances:
+ * - Most unmapped categories have $0 balance
+ * - Some have existing balances to demonstrate the disabled starting balance feature
+ */
+export async function getCategoryBalance(categoryId: string): Promise<{ balance: number }> {
+  await simulateDelay();
+
+  const state = getDemoState();
+
+  // Check if this category is already linked to a stash item
+  const stashItem = state.stash.items.find((item) => item.category_id === categoryId);
+  if (stashItem) {
+    return { balance: stashItem.current_balance };
+  }
+
+  // For unmapped categories, simulate some with existing balances
+  // Categories starting with 'existing-' have simulated balances
+  if (categoryId.includes('existing-') || categoryId.includes('rollover-')) {
+    // Simulate a balance based on the category ID for consistency
+    const hash = categoryId.split('').reduce((a, c) => a + (c.codePointAt(0) ?? 0), 0);
+    const balance = (hash % 5) * 100; // 0, 100, 200, 300, or 400
+    return { balance };
+  }
+
+  // Default: unmapped categories have no balance
+  return { balance: 0 };
+}
+
+/**
  * Calculate status based on balance, budget, target amount, and monthly target.
+ * Returns 'on_track' for open-ended goals (null amount or null monthly target).
  */
 function calculateBudgetStatus(
   balance: number,
   budget: number,
-  targetAmount: number,
-  monthlyTarget: number
+  targetAmount: number | null,
+  monthlyTarget: number | null
 ): StashItem['status'] {
+  // Open-ended goals (no target) default to on_track
+  if (targetAmount === null || monthlyTarget === null) return 'on_track';
   if (balance >= targetAmount) return 'funded';
   if (budget > monthlyTarget) return 'ahead';
   if (budget >= monthlyTarget) return 'on_track';

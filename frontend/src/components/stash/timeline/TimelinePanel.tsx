@@ -73,8 +73,13 @@ export function TimelinePanel({ items, formatCurrency }: TimelinePanelProps) {
     const projections: Record<string, ProjectedCardState> = {};
     for (const config of itemConfigs) {
       const balance = dataPoint.balances[config.itemId] ?? 0;
-      const status = balance >= config.targetAmount ? 'funded' : 'on_track';
-      const progress = config.targetAmount > 0 ? (balance / config.targetAmount) * 100 : 0;
+      // Open-ended goals (null targetAmount) default to on_track
+      const status =
+        config.targetAmount !== null && balance >= config.targetAmount ? 'funded' : 'on_track';
+      const progress =
+        config.targetAmount !== null && config.targetAmount > 0
+          ? (balance / config.targetAmount) * 100
+          : 0;
       projections[config.itemId] = {
         itemId: config.itemId,
         projectedBalance: balance,
@@ -274,21 +279,20 @@ export function TimelinePanel({ items, formatCurrency }: TimelinePanelProps) {
             Add Event
           </button>
 
-          {(showEventPopover || editingEvent) && (
-            <TimelineEditPopover
-              event={editingEvent}
-              initialDate={
-                editingEvent?.date ??
-                doubleClickDate ??
-                (cursorDate ? normalizeToMonth(cursorDate) : currentMonth)
-              }
-              itemConfigs={itemConfigs}
-              onSave={handleSaveEvent}
-              onClose={handleClosePopover}
-              onDelete={handleDeleteEvent}
-              {...(clickPosition ? { clickPosition } : { anchorRef: addEventButtonRef })}
-            />
-          )}
+          <TimelineEditPopover
+            isOpen={showEventPopover || editingEvent !== null}
+            event={editingEvent}
+            initialDate={
+              editingEvent?.date ??
+              doubleClickDate ??
+              (cursorDate ? normalizeToMonth(cursorDate) : currentMonth)
+            }
+            itemConfigs={itemConfigs}
+            onSave={handleSaveEvent}
+            onClose={handleClosePopover}
+            onDelete={handleDeleteEvent}
+            {...(clickPosition ? { clickPosition } : { anchorRef: addEventButtonRef })}
+          />
         </div>
       </div>
 

@@ -32,7 +32,7 @@ function parseFormatted(value: string): number {
 interface StashBudgetInputProps {
   readonly itemId: string;
   readonly plannedBudget: number;
-  readonly monthlyTarget: number;
+  readonly monthlyTarget: number | null; // null for open-ended goals
   readonly onAllocate: (newAmount: number) => Promise<void>;
   readonly isAllocating: boolean;
   /** Whether the Take overlay is currently active */
@@ -166,8 +166,9 @@ export function StashBudgetInput({
     e.target.select();
   };
 
-  const target = Math.round(monthlyTarget);
-  const targetFormatted = target.toLocaleString('en-US');
+  // For open-ended goals (null monthlyTarget), show ∞ instead of a number
+  const target = monthlyTarget === null ? null : Math.round(monthlyTarget);
+  const targetFormatted = target === null ? '∞' : target.toLocaleString('en-US');
 
   // Display value: show projected budget when adding from Left to Budget
   const displayValue = isAddingFromLeftToBudget ? formatWithCommas(projectedBudget) : budgetInput;

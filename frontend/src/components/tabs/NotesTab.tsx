@@ -11,7 +11,7 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { Download } from 'lucide-react';
 import { CategoryTree, GeneralMonthNotes, MonthYearSelector, ExportNotesModal } from '../notes';
-import { ContentLoadingSpinner } from '../ui/LoadingSpinner';
+import { SkeletonToolHeader, SkeletonMonthSelector, SkeletonNotesTab } from '../ui/SkeletonLayouts';
 import { EXPAND_FIRST_GROUP_EVENT } from '../layout/notesTourSteps';
 import { useAllNotesQuery, useMonthNotesQuery } from '../../api/queries';
 import { useCategoriesByGroup } from '../../api/queries/categoryStoreQueries';
@@ -232,9 +232,15 @@ export function NotesTab() {
     setShowExportModal(true);
   }, [hasNotes, toast]);
 
-  // Loading state
+  // Loading state - show skeleton layout
   if (isLoading) {
-    return <ContentLoadingSpinner message="Loading notes..." fullHeight />;
+    return (
+      <div className="max-w-7xl mx-auto tab-content-enter">
+        <SkeletonToolHeader />
+        <SkeletonMonthSelector />
+        <SkeletonNotesTab />
+      </div>
+    );
   }
 
   return (

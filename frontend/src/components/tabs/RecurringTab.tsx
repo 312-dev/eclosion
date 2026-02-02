@@ -22,7 +22,13 @@ import {
 } from '../../api/queries';
 import { useToast } from '../../context/ToastContext';
 import { usePageTitle } from '../../hooks';
-import { PageLoadingSpinner } from '../ui/LoadingSpinner';
+import {
+  SkeletonToolHeader,
+  SkeletonTabs,
+  SkeletonRollupZone,
+  SkeletonRecurringList,
+  SkeletonReadyToAssign,
+} from '../ui/SkeletonLayouts';
 import { ToolPageHeader, ToolSettingsModal, HorizontalTabsScroll } from '../ui';
 import { RecurringIcon } from '../wizards/SetupWizardIcons';
 import type { SyncResult } from '../../types';
@@ -109,11 +115,19 @@ export function RecurringTab() {
     refetch();
   };
 
-  // Show loading state while checking configuration
+  // Show skeleton loading state while checking configuration
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <PageLoadingSpinner />
+      <div className="recurring-tab-layout tab-content-enter">
+        <div className="recurring-tab-content">
+          <SkeletonToolHeader />
+          <SkeletonTabs count={3} />
+          <SkeletonRollupZone />
+          <SkeletonRecurringList count={6} />
+        </div>
+        <aside className="stats-sidebar hidden lg:block">
+          <SkeletonReadyToAssign />
+        </aside>
       </div>
     );
   }

@@ -60,6 +60,10 @@ function addMissingProperties(state: DemoState): boolean {
     state.pendingBookmarks = createInitialPendingBookmarks();
     added = true;
   }
+  if (!state.stashHypotheses) {
+    state.stashHypotheses = [];
+    added = true;
+  }
   return added;
 }
 

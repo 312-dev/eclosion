@@ -153,8 +153,8 @@ export interface StashExportConfig {
 export interface StashExportItem {
   id: string;
   name: string;
-  amount: number;
-  target_date: string;
+  amount: number | null; // null for open-ended goals
+  target_date: string | null; // null for no-deadline goals
   emoji: string;
   monarch_category_id: string | null;
   category_group_id: string | null;

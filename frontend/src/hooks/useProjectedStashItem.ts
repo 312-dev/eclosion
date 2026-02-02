@@ -17,6 +17,7 @@ import { useMemo } from 'react';
 import type { StashItem, ItemStatus } from '../types';
 import type { ProjectedCardState } from '../types/timeline';
 import { useDistributionMode, useDistributionModeType } from '../context/DistributionModeContext';
+import { calculateStashStatus } from '../utils/savingsCalculations';
 
 export interface ProjectedStashItem extends StashItem {
   /** Whether this item has projected values applied */
@@ -27,8 +28,8 @@ export interface ProjectedStashItem extends StashItem {
   monthlyAllocationAmount: number;
   /** Original balance before projection */
   originalBalance: number;
-  /** Original progress percent before projection */
-  originalProgressPercent: number;
+  /** Original progress percent before projection (null for open-ended goals) */
+  originalProgressPercent: number | null;
   /** Original planned budget before projection */
   originalPlannedBudget: number;
   /** Whether this is a cursor-based (future) projection */
@@ -40,28 +41,30 @@ export interface ProjectedStashItem extends StashItem {
 }
 
 /**
- * Calculate projected status based on new balance and target amount.
+ * Calculate projected status based on balance vs expected balance for timeline.
+ *
+ * This wraps calculateStashStatus to handle the ItemStatus type conversion
+ * and provide the target_date from the item.
  */
 function calculateProjectedStatus(
   projectedBalance: number,
-  targetAmount: number,
-  currentBudget: number,
-  monthlyTarget: number
+  targetAmount: number | null,
+  targetDate: string | null
 ): ItemStatus {
-  // Funded if balance meets or exceeds target
-  if (projectedBalance >= targetAmount) {
-    return 'funded';
-  }
+  return calculateStashStatus(projectedBalance, targetAmount, targetDate);
+}
 
-  // Check budget vs target for on-track status
-  if (currentBudget > monthlyTarget) {
-    return 'ahead';
-  }
-  if (currentBudget >= monthlyTarget) {
-    return 'on_track';
-  }
-
-  return 'behind';
+/**
+ * Calculate progress percent for a projected balance against a target amount.
+ * Returns null for open-ended goals (no target amount).
+ */
+function calculateProjectedProgressPercent(
+  projectedBalance: number,
+  targetAmount: number | null
+): number | null {
+  if (targetAmount === null) return null;
+  if (targetAmount <= 0) return 0;
+  return Math.min(100, (projectedBalance / targetAmount) * 100);
 }
 
 /**
@@ -151,13 +154,15 @@ export function useProjectedStashItem(
     const projectedBalance = hasStashedAllocation ? stashedAllocation : item.current_balance;
     const projectedBudget = hasMonthlyAllocation ? monthlyAllocation : item.planned_budget;
 
-    const projectedProgressPercent =
-      item.amount > 0 ? Math.min(100, (projectedBalance / item.amount) * 100) : 0;
+    // Progress percent is null for open-ended goals (no target amount)
+    const projectedProgressPercent = calculateProjectedProgressPercent(
+      projectedBalance,
+      item.amount
+    );
     const projectedStatus = calculateProjectedStatus(
       projectedBalance,
       item.amount,
-      projectedBudget,
-      item.monthly_target
+      item.target_date
     );
 
     return {
@@ -254,13 +259,15 @@ export function useProjectedStashItems(
       const projectedBalance = hasStashedAllocation ? stashedAllocation : item.current_balance;
       const projectedBudget = hasMonthlyAllocation ? monthlyAllocation : item.planned_budget;
 
-      const projectedProgressPercent =
-        item.amount > 0 ? Math.min(100, (projectedBalance / item.amount) * 100) : 0;
+      // Progress is null for open-ended goals
+      const projectedProgressPercent = calculateProjectedProgressPercent(
+        projectedBalance,
+        item.amount
+      );
       const projectedStatus = calculateProjectedStatus(
         projectedBalance,
         item.amount,
-        projectedBudget,
-        item.monthly_target
+        item.target_date
       );
 
       return {

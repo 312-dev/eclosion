@@ -200,7 +200,28 @@ export function LinkCategoryModal({
 
             {/* Category List */}
             {loading && (
-              <div className="text-center py-8 text-monarch-text-muted">Loading categories...</div>
+              <div className="space-y-4">
+                {[1, 2, 3].map((groupIdx) => (
+                  <div key={groupIdx}>
+                    <div className="h-3 w-24 rounded skeleton mb-2" />
+                    <div className="space-y-1">
+                      {[1, 2, 3].map((catIdx) => (
+                        <div
+                          key={catIdx}
+                          className="px-3 py-2.5 rounded-lg flex items-center gap-2"
+                          style={{ backgroundColor: 'var(--monarch-bg-page)' }}
+                        >
+                          <div className="w-5 h-5 rounded skeleton shrink-0" />
+                          <div
+                            className="h-4 rounded skeleton"
+                            style={{ width: `${80 + catIdx * 20}px` }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
             {!loading && filteredGroups.length === 0 && (
               <div className="text-center py-8 text-monarch-text-muted">

@@ -42,6 +42,8 @@ export const queryKeys = {
   stashHistory: ['stashHistory'] as const,
   // Stash Hypotheses
   stashHypotheses: ['stashHypotheses'] as const,
+  // Category Balance (for existing category selection)
+  categoryBalance: ['categoryBalance'] as const,
   // Openverse (image search)
   openverseSearch: ['openverseSearch'] as const,
 };

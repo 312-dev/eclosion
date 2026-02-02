@@ -80,11 +80,7 @@ function NotesPreviewDetails({ info }: { info: NonNullable<ImportPreview['tools'
 }
 
 /** Render preview details for the stash tool */
-function StashPreviewDetails({
-  info,
-}: {
-  info: NonNullable<ImportPreview['tools']['stash']>;
-}) {
+function StashPreviewDetails({ info }: { info: NonNullable<ImportPreview['tools']['stash']> }) {
   return (
     <>
       {info.has_config && (
@@ -107,6 +103,12 @@ function StashPreviewDetails({
         <div className="flex items-center gap-1">
           <Check size={12} /> {info.pending_bookmarks_count} pending bookmark
           {info.pending_bookmarks_count === 1 ? '' : 's'}
+        </div>
+      )}
+      {info.hypotheses_count > 0 && (
+        <div className="flex items-center gap-1">
+          <Check size={12} /> {info.hypotheses_count} saved scenario
+          {info.hypotheses_count === 1 ? '' : 's'}
         </div>
       )}
     </>
