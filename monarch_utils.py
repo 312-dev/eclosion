@@ -1,5 +1,6 @@
 import asyncio
 import contextlib
+import logging
 import os
 import platform
 import re
@@ -15,6 +16,8 @@ from core import config
 from core.error_detection import is_rate_limit_error
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 
 # =============================================================================
@@ -132,6 +135,15 @@ _category_cache: TTLCache = TTLCache(maxsize=10, ttl=_CACHE_TTL)
 # Cache category groups
 _category_groups_cache: TTLCache = TTLCache(maxsize=10, ttl=_CACHE_TTL)
 
+# Cache savings goals data
+_savings_goals_cache: TTLCache = TTLCache(maxsize=10, ttl=_CACHE_TTL)
+
+# Cache goal balances
+_goal_balances_cache: TTLCache = TTLCache(maxsize=10, ttl=_CACHE_TTL)
+
+# Cache full goals data (for Stash grid display)
+_full_goals_cache: TTLCache = TTLCache(maxsize=10, ttl=_CACHE_TTL)
+
 
 def get_cache(cache_name: str) -> TTLCache:
     """Get a cache by name for external access."""
@@ -140,6 +152,9 @@ def get_cache(cache_name: str) -> TTLCache:
         "budget": _budget_cache,
         "category": _category_cache,
         "category_groups": _category_groups_cache,
+        "savings_goals": _savings_goals_cache,
+        "goal_balances": _goal_balances_cache,
+        "full_goals": _full_goals_cache,
     }
     cache = caches.get(cache_name)
     if cache is None:
@@ -153,6 +168,9 @@ def clear_all_caches():
     _budget_cache.clear()
     _category_cache.clear()
     _category_groups_cache.clear()
+    _savings_goals_cache.clear()
+    _goal_balances_cache.clear()
+    _full_goals_cache.clear()
 
 
 def clear_cache(cache_name: str):
@@ -449,10 +467,6 @@ async def get_mm_with_code(email: str, password: str, mfa_code: str):
     return mm
 
 
-# Cache for savings goals
-_savings_goals_cache: TTLCache = TTLCache(maxsize=10, ttl=_CACHE_TTL)
-
-
 async def get_savings_goals(mm, start_month: str, end_month: str) -> list[Any]:
     """
     Fetch savings goals monthly budget amounts from Monarch.
@@ -479,10 +493,6 @@ async def get_savings_goals(mm, start_month: str, end_month: str) -> list[Any]:
     goals: list[Any] = result.get("savingsGoalMonthlyBudgetAmounts", [])
     _savings_goals_cache[cache_key] = goals
     return goals
-
-
-# Cache for goal balances (from savingsGoals query)
-_goal_balances_cache: TTLCache = TTLCache(maxsize=10, ttl=_CACHE_TTL)
 
 
 async def get_goal_balances(mm) -> list[dict[str, Any]]:
@@ -521,10 +531,6 @@ async def get_goal_balances(mm) -> list[dict[str, Any]]:
 
     _goal_balances_cache[cache_key] = balances
     return balances
-
-
-# Cache for full goals data
-_full_goals_cache: TTLCache = TTLCache(maxsize=10, ttl=_CACHE_TTL)
 
 
 async def get_savings_goals_full(mm) -> list[dict[str, Any]]:
@@ -776,8 +782,8 @@ async def update_category_rollover_balance(
     mm = await get_mm()
 
     # First, get the current category to check existing rollover settings
-    # Use library method
     current = await mm.get_category_rollover(category_id)
+    print(f"[DEBUG Rollover] get_category_rollover response: {current}")
 
     category_data = current.get("category", {})
     rollover_period = category_data.get("rolloverPeriod")
@@ -789,27 +795,49 @@ async def update_category_rollover_balance(
 
     new_balance = current_balance + amount_to_add
 
-    # Use current month as start month if enabling rollover for first time
-    current_month = datetime.now().replace(day=1)
+    print(
+        f"[DEBUG Rollover] category_id={category_id} current_balance={current_balance} "
+        f"amount_to_add={amount_to_add} new_balance={new_balance} has_rollover={rollover_period is not None}"
+    )
 
-    if not rollover_period:
-        # Enable rollover for the first time using library method
-        result = await retry_with_backoff(
-            lambda: mm.enable_category_rollover(
-                category_id=category_id,
-                rollover_start_month=current_month,
-                rollover_starting_balance=new_balance,
-                rollover_frequency="monthly",
-            )
+    # Get existing rollover settings or use defaults
+    # The Monarch API requires ALL rollover fields to be sent together
+    if rollover_period:
+        # Preserve existing settings
+        start_month_str = rollover_period.get("startMonth")
+        start_month = (
+            datetime.strptime(start_month_str, "%Y-%m-%d")
+            if start_month_str
+            else datetime.now().replace(day=1)
         )
+        frequency = rollover_period.get("frequency", "monthly")
+        rollover_type = rollover_period.get("type", "monthly")
     else:
-        # Update existing rollover using library method
-        result = await retry_with_backoff(
-            lambda: mm.update_category_rollover(
-                category_id=category_id,
-                starting_balance=new_balance,
-            )
+        # Use defaults for first-time enable
+        start_month = datetime.now().replace(day=1)
+        frequency = "monthly"
+        rollover_type = "monthly"
+
+    # ALWAYS use enable_category_rollover - it includes ALL required fields
+    # (rolloverEnabled, rolloverStartMonth, rolloverFrequency, rolloverType)
+    # The update_category_rollover method only sends rolloverStartingBalance alone,
+    # which Monarch's API silently ignores without all the other fields.
+    print(
+        f"[DEBUG Rollover] Calling enable_category_rollover with balance={new_balance}, "
+        f"start_month={start_month}, frequency={frequency}, type={rollover_type}"
+    )
+    result = await retry_with_backoff(
+        lambda: mm.enable_category_rollover(
+            category_id=category_id,
+            rollover_start_month=start_month,
+            rollover_starting_balance=new_balance,
+            rollover_frequency=frequency,
+            rollover_type=rollover_type,
         )
+    )
+
+    # Log the result from Monarch
+    print(f"[DEBUG Rollover] Monarch result: {result}")
 
     # Clear caches after mutation
     clear_cache("category")

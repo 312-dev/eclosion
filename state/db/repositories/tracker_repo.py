@@ -904,6 +904,27 @@ class TrackerRepository:
         )
         return result
 
+    def update_bookmark_favicons(self, updates: list[dict]) -> int:
+        """
+        Batch update favicons for pending bookmarks.
+
+        Each update dict should have: id, logo_url
+        Returns count of updated bookmarks.
+        """
+        updated = 0
+        for update in updates:
+            bookmark_id = update.get("id")
+            logo_url = update.get("logo_url")
+            if not bookmark_id or not logo_url:
+                continue
+
+            pending = self.get_pending_bookmark_by_id(bookmark_id)
+            if pending and not pending.logo_url:
+                pending.logo_url = logo_url
+                updated += 1
+
+        return updated
+
     # === Stash Hypotheses ===
 
     def get_all_hypotheses(self) -> list[StashHypothesis]:
