@@ -44,7 +44,7 @@ permissions: read-all
 
 jobs:
   build:
-    runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && 'namespace-profile-ubuntu-22.04-x64-4x16' || 'ubuntu-latest' }}
+    runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && 'namespace-profile-ubuntu-2204-x64-4x16' || 'ubuntu-latest' }}
     timeout-minutes: 30
     permissions:
       contents: read

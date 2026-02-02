@@ -44,7 +44,7 @@ jobs:
   # Build Frontend Once (shared by all packaging jobs)
   # =========================================================================
   build-frontend:
-    runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && 'namespace-profile-ubuntu-22.04-x64-4x16' || 'ubuntu-latest' }}
+    runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && 'namespace-profile-ubuntu-2204-x64-4x16' || 'ubuntu-latest' }}
     timeout-minutes: 10
     steps:
       - name: Checkout
@@ -167,10 +167,10 @@ jobs:
         include:
           - arch: x64
             github_runner: ubuntu-latest
-            namespace_runner: namespace-profile-ubuntu-22.04-x64-4x16
+            namespace_runner: namespace-profile-ubuntu-2204-x64-4x16
           - arch: arm64
             github_runner: ubuntu-24.04-arm
-            namespace_runner: namespace-profile-ubuntu-24.04-arm64-4x16
+            namespace_runner: namespace-profile-ubuntu-2404-arm64-4x16
     runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && matrix.namespace_runner || matrix.github_runner }}
     timeout-minutes: 20
     steps:
@@ -591,11 +591,11 @@ jobs:
           - arch: x64
             backend_artifact: backend-linux-x64
             github_runner: ubuntu-latest
-            namespace_runner: namespace-profile-ubuntu-22.04-x64-4x16
+            namespace_runner: namespace-profile-ubuntu-2204-x64-4x16
           - arch: arm64
             backend_artifact: backend-linux-arm64
             github_runner: ubuntu-24.04-arm
-            namespace_runner: namespace-profile-ubuntu-24.04-arm64-4x16
+            namespace_runner: namespace-profile-ubuntu-2404-arm64-4x16
     runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && matrix.namespace_runner || matrix.github_runner }}
     timeout-minutes: 30
     steps:
@@ -768,7 +768,7 @@ jobs:
   upload-release:
     if: inputs.upload_to_release
     needs: [package-mac, package-win, package-linux]
-    runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && 'namespace-profile-ubuntu-22.04-x64-4x16' || 'ubuntu-latest' }}
+    runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && 'namespace-profile-ubuntu-2204-x64-4x16' || 'ubuntu-latest' }}
     timeout-minutes: 10
     steps:
       - name: Download all artifacts
@@ -918,7 +918,7 @@ jobs:
   summary:
     needs: [package-mac, package-win, package-linux]
     if: always()
-    runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && 'namespace-profile-ubuntu-22.04-x64-4x16' || 'ubuntu-latest' }}
+    runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && 'namespace-profile-ubuntu-2204-x64-4x16' || 'ubuntu-latest' }}
     timeout-minutes: 5
     steps:
       - name: Build Summary
