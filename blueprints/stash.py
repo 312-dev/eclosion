@@ -669,7 +669,11 @@ async def update_group_rollover_balance():
 
     service = get_stash_service()
     try:
-        logger.info("[Group Rollover API] Calling update_group_rollover_balance(%s, %d)", group_id, amount_int)
+        logger.info(
+            "[Group Rollover API] Calling update_group_rollover_balance(%s, %d)",
+            group_id,
+            amount_int,
+        )
         result = await service.category_manager.update_group_rollover_balance(group_id, amount_int)
         logger.info("[Group Rollover API] Result received: %s", result)
     except ValueError as e:
