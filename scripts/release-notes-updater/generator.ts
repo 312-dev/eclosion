@@ -6,7 +6,8 @@
  * - Beta releases: technical, matter-of-fact tone
  */
 
-const GITHUB_MODELS_ENDPOINT = 'https://models.inference.ai.azure.com/chat/completions';
+import { normalizeCommitMessage, callGitHubModelsApi } from './utils.js';
+
 const MODEL = 'gpt-4o'; // Using GPT-4o for release notes summarization
 
 /**
@@ -22,15 +23,256 @@ const SUPERSEDE_PATTERNS = [
 ];
 
 /**
- * Extract the subject/topic from a commit message for comparison
+ * Topic patterns for detecting related/iterative commits
+ * Each pattern returns a topic key if matched, null otherwise
  */
-function extractSubject(message: string): string {
-  // Remove conventional commit prefix
-  const withoutPrefix = message.replace(/^(feat|fix|refactor|chore|docs|style|perf|test|ci|build)(\([^)]*\))?: ?/i, '');
-  // Remove PR links
-  const withoutLinks = withoutPrefix.replace(/ in \[#\d+\]\([^)]+\)$/, '');
-  // Normalize whitespace and case
-  return withoutLinks.toLowerCase().trim();
+const TOPIC_EXTRACTORS: Array<{ pattern: RegExp; topic: string }> = [
+  // macOS build/runner configuration
+  { pattern: /\b(macos|mac).*?(runner|build|agent|x64|intel|arm64?|xlarge|namespace|profile)\b/i, topic: 'macos-build-config' },
+  { pattern: /\b(intel|x64).*?(build|runner|agent)\b/i, topic: 'macos-build-config' },
+  { pattern: /\bnamespace.*?(runner|profile|label|availability)\b/i, topic: 'macos-build-config' },
+  // Universal/architecture builds
+  { pattern: /\b(universal|arch|architecture).*?(build|binary|merge)\b/i, topic: 'universal-build' },
+  { pattern: /\b(arm64|x64).*?(separately|instead|universal)\b/i, topic: 'universal-build' },
+  { pattern: /\blipo\s+merge\b/i, topic: 'universal-build' },
+  { pattern: /\bsingleArchFiles\b/i, topic: 'universal-build' },
+  { pattern: /\bmatrix.*?parallel.*?build\b/i, topic: 'universal-build' },
+  // Backend merge/directory
+  { pattern: /\bbackend.*?(director|merge|separate|universal)\b/i, topic: 'universal-build' },
+  // Notarization
+  { pattern: /\b(notari|codesign|sign).*?(single|universal|build)\b/i, topic: 'notarization-config' },
+  // Windows build
+  { pattern: /\b(windows|win).*?(runner|build|agent)\b/i, topic: 'windows-build-config' },
+  // Linux build
+  { pattern: /\b(linux).*?(runner|build|agent)\b/i, topic: 'linux-build-config' },
+];
+
+/**
+ * Verbs that indicate iterative/adjustment commits (trying different approaches)
+ */
+const ITERATIVE_VERBS = /^(use|try|switch\s+to|change\s+to|update|revert\s+to|restore|adjust|correct|ensure|keep)\s+/i;
+
+/**
+ * Extract the subject/topic from a commit message for comparison.
+ * Alias for normalizeCommitMessage from utils.
+ */
+const extractSubject = normalizeCommitMessage;
+
+/**
+ * Extract a topic key from a commit message for grouping related commits
+ */
+function extractTopicKey(message: string): string | null {
+  const subject = extractSubject(message);
+
+  for (const { pattern, topic } of TOPIC_EXTRACTORS) {
+    if (pattern.test(subject)) {
+      return topic;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Check if a commit message indicates an iterative change (trying different approaches)
+ */
+function isIterativeCommit(message: string): boolean {
+  const subject = extractSubject(message);
+  return ITERATIVE_VERBS.test(subject);
+}
+
+/**
+ * Group bullet points by their topic key
+ */
+function groupByTopic(
+  bulletPoints: { index: number; content: string }[]
+): Map<string, { index: number; content: string; isIterative: boolean }[]> {
+  const topicGroups = new Map<string, { index: number; content: string; isIterative: boolean }[]>();
+
+  for (const bp of bulletPoints) {
+    const topic = extractTopicKey(bp.content);
+    if (topic) {
+      const group = topicGroups.get(topic) ?? [];
+      if (!topicGroups.has(topic)) {
+        topicGroups.set(topic, group);
+      }
+      group.push({
+        index: bp.index,
+        content: bp.content,
+        isIterative: isIterativeCommit(bp.content),
+      });
+    }
+  }
+
+  return topicGroups;
+}
+
+/**
+ * Process a single topic group and determine what to remove/consolidate
+ */
+function processTopicGroup(
+  topic: string,
+  commits: { index: number; content: string; isIterative: boolean }[],
+  indicesToRemove: Set<number>,
+  consolidatedMessages: Map<number, string>
+): void {
+  if (commits.length <= 1) return;
+
+  // Check if this is a series of iterative commits (most have iterative verbs)
+  const iterativeCount = commits.filter((c) => c.isIterative).length;
+  const isIterativeSeries = iterativeCount >= commits.length * 0.5;
+
+  if (!isIterativeSeries) return;
+
+  // For iterative series, keep the first (most recent) and remove the rest
+  const mostRecent = commits[0];
+
+  // Mark all but the first for removal
+  for (let i = 1; i < commits.length; i++) {
+    indicesToRemove.add(commits[i].index);
+  }
+
+  // Generate a consolidated message based on the topic
+  const consolidatedMsg = generateConsolidatedMessage(topic);
+  if (consolidatedMsg && consolidatedMsg !== mostRecent.content) {
+    consolidatedMessages.set(mostRecent.index, consolidatedMsg);
+  }
+}
+
+/**
+ * Group commits by topic and consolidate iterative changes
+ * Returns a map of line indices to remove, and consolidated replacement messages
+ */
+function consolidateIterativeCommits(
+  bulletPoints: { index: number; content: string }[]
+): { indicesToRemove: Set<number>; consolidatedMessages: Map<number, string> } {
+  const indicesToRemove = new Set<number>();
+  const consolidatedMessages = new Map<number, string>();
+
+  const topicGroups = groupByTopic(bulletPoints);
+
+  for (const [topic, commits] of topicGroups) {
+    processTopicGroup(topic, commits, indicesToRemove, consolidatedMessages);
+  }
+
+  return { indicesToRemove, consolidatedMessages };
+}
+
+/**
+ * Generate a consolidated message for a group of related commits
+ */
+function generateConsolidatedMessage(topic: string): string | null {
+  // Map topic keys to user-friendly consolidated messages
+  const topicMessages: Record<string, string> = {
+    'macos-build-config': 'Update macOS build runner configuration',
+    'universal-build': 'Update build process for multi-architecture support',
+    'notarization-config': 'Update code signing and notarization configuration',
+    'windows-build-config': 'Update Windows build configuration',
+    'linux-build-config': 'Update Linux build configuration',
+  };
+
+  return topicMessages[topic] || null;
+}
+
+/**
+ * Patterns that indicate CI/build content even without conventional commit prefixes
+ */
+const CI_BUILD_PATTERNS = [
+  /\b(runner|agent)\s*(label|profile|config)/i,
+  /\bnamespace\s*(availability|profile|runner)/i,
+  /\b(xlarge|large)\s*(runner|for)\b/i,
+  /\bmacos-\d+(-\w+)?\s*(runner|for|build)/i,
+  /\b(pre-namespace|namespace)\s*config/i,
+  /\bretired\s*macos/i,
+  /\bpyinstaller\b/i,
+  /\bnsis\s*installer\b/i,
+  /\belectron-builder\b/i,
+  /\bgithub\s*actions?\b/i,
+  /\bworkflow\s*(dispatch|run|trigger)/i,
+];
+
+/**
+ * Check if a commit message is CI/build related (even without conventional prefix)
+ */
+function isCiBuildContent(message: string): boolean {
+  const subject = extractSubject(message);
+  return CI_BUILD_PATTERNS.some((pattern) => pattern.test(subject));
+}
+
+/**
+ * Filter out CI/build commits that don't add user value
+ * These are commits that slipped through without conventional commit prefixes
+ */
+function filterCiBuildNoise(
+  bulletPoints: { index: number; content: string }[]
+): Set<number> {
+  const indicesToRemove = new Set<number>();
+
+  for (const bp of bulletPoints) {
+    // Check if this is CI/build content without user-facing value
+    if (isCiBuildContent(bp.content)) {
+      // Check if it's part of a topic group - if so, the consolidation will handle it
+      const topic = extractTopicKey(bp.content);
+      if (!topic) {
+        // Not part of a recognized topic group, but still CI/build noise - remove it
+        indicesToRemove.add(bp.index);
+      }
+    }
+  }
+
+  return indicesToRemove;
+}
+
+/**
+ * Check if topics are similar enough to be considered the same
+ */
+function topicsMatch(topic1: string, topic2: string): boolean {
+  return topic1 === topic2 || topic1.includes(topic2) || topic2.includes(topic1);
+}
+
+/**
+ * Check if one message adds and another removes the same thing
+ */
+function checkAddRemovePair(
+  subj1: string,
+  subj2: string,
+  pattern: { add: RegExp; remove: RegExp }
+): boolean {
+  const match1Add = pattern.add.exec(subj1);
+  const match2Remove = pattern.remove.exec(subj2);
+
+  if (match1Add && match2Remove) {
+    const topic1 = subj1.replace(pattern.add, '').trim();
+    const topic2 = subj2.replace(pattern.remove, '').trim();
+    return topicsMatch(topic1, topic2);
+  }
+
+  const match1Remove = pattern.remove.exec(subj1);
+  const match2Add = pattern.add.exec(subj2);
+
+  if (match1Remove && match2Add) {
+    const topic1 = subj1.replace(pattern.remove, '').trim();
+    const topic2 = subj2.replace(pattern.add, '').trim();
+    return topicsMatch(topic1, topic2);
+  }
+
+  return false;
+}
+
+/**
+ * Check if one message is a revert of the other
+ */
+function checkRevertPair(subj1: string, subj2: string): boolean {
+  const revertPattern = /^revert\s*"?/i;
+  const cleanRevert = (s: string) => s.replace(revertPattern, '').replace(/"?\s*$/, '');
+
+  if (subj1.startsWith('revert') && subj2.includes(cleanRevert(subj1))) {
+    return true;
+  }
+  if (subj2.startsWith('revert') && subj1.includes(cleanRevert(subj2))) {
+    return true;
+  }
+  return false;
 }
 
 /**
@@ -40,88 +282,106 @@ function areSupersedingMessages(msg1: string, msg2: string): boolean {
   const subj1 = extractSubject(msg1);
   const subj2 = extractSubject(msg2);
 
+  // Check for add/remove pairs
   for (const pattern of SUPERSEDE_PATTERNS) {
-    // Check if msg1 adds and msg2 removes (or vice versa)
-    const match1Add = subj1.match(pattern.add);
-    const match2Remove = subj2.match(pattern.remove);
-    const match1Remove = subj1.match(pattern.remove);
-    const match2Add = subj2.match(pattern.add);
-
-    if (match1Add && match2Remove) {
-      // Compare subjects after removing the action verb
-      const topic1 = subj1.replace(pattern.add, '').trim();
-      const topic2 = subj2.replace(pattern.remove, '').trim();
-      if (topic1 === topic2 || topic1.includes(topic2) || topic2.includes(topic1)) {
-        return true;
-      }
-    }
-    if (match1Remove && match2Add) {
-      const topic1 = subj1.replace(pattern.remove, '').trim();
-      const topic2 = subj2.replace(pattern.add, '').trim();
-      if (topic1 === topic2 || topic1.includes(topic2) || topic2.includes(topic1)) {
-        return true;
-      }
+    if (checkAddRemovePair(subj1, subj2, pattern)) {
+      return true;
     }
   }
 
-  // Check for explicit "revert" of the same thing
-  if (subj1.startsWith('revert') && subj2.includes(subj1.replace(/^revert\s*"?/i, '').replace(/"?\s*$/, ''))) {
-    return true;
-  }
-  if (subj2.startsWith('revert') && subj1.includes(subj2.replace(/^revert\s*"?/i, '').replace(/"?\s*$/, ''))) {
-    return true;
-  }
-
-  return false;
+  // Check for explicit reverts
+  return checkRevertPair(subj1, subj2);
 }
 
 /**
- * Scrub superseded changes from release notes
- * Returns the cleaned notes with contradictory changes removed
+ * Extract bullet points from release notes
  */
-export function scrubSupersededChanges(technicalNotes: string): string {
-  const lines = technicalNotes.split('\n');
+function extractBulletPoints(lines: string[]): { index: number; content: string }[] {
   const bulletPoints: { index: number; content: string }[] = [];
-
-  // Extract all bullet points
   lines.forEach((line, index) => {
     if (line.startsWith('* ')) {
       bulletPoints.push({ index, content: line.slice(2) });
     }
   });
+  return bulletPoints;
+}
 
-  // Find pairs of superseding changes
-  const indicesToRemove = new Set<number>();
-
+/**
+ * Find indices of directly superseding message pairs (add/remove)
+ */
+function findDirectSupersededIndices(bulletPoints: { index: number; content: string }[]): Set<number> {
+  const indices = new Set<number>();
   for (let i = 0; i < bulletPoints.length; i++) {
     for (let j = i + 1; j < bulletPoints.length; j++) {
       if (areSupersedingMessages(bulletPoints[i].content, bulletPoints[j].content)) {
-        // Both changes cancel each other out - remove both
-        indicesToRemove.add(bulletPoints[i].index);
-        indicesToRemove.add(bulletPoints[j].index);
+        indices.add(bulletPoints[i].index);
+        indices.add(bulletPoints[j].index);
       }
     }
   }
+  return indices;
+}
 
-  if (indicesToRemove.size === 0) {
-    return technicalNotes;
-  }
+/**
+ * Apply removals and consolidations to lines
+ */
+function applyChangesToLines(
+  lines: string[],
+  indicesToRemove: Set<number>,
+  consolidatedMessages: Map<number, string>
+): string[] {
+  return lines
+    .map((line, index) => {
+      if (indicesToRemove.has(index)) return null;
+      if (consolidatedMessages.has(index)) return `* ${consolidatedMessages.get(index)}`;
+      return line;
+    })
+    .filter((line): line is string => line !== null);
+}
 
-  // Rebuild notes without superseded items
-  const cleanedLines = lines.filter((_, index) => !indicesToRemove.has(index));
-
-  // Remove empty sections (header followed by another header or end)
+/**
+ * Remove empty section headers from cleaned lines
+ */
+function removeEmptySections(cleanedLines: string[]): string[] {
   const result: string[] = [];
   for (let i = 0; i < cleanedLines.length; i++) {
     const line = cleanedLines[i];
     const nextLine = cleanedLines[i + 1];
-
-    // Skip section headers that are now empty
-    if (line.startsWith('### ') && (!nextLine || nextLine.startsWith('###') || nextLine.startsWith('---') || nextLine === '')) {
-      continue;
+    const isEmptySection =
+      line.startsWith('### ') && (!nextLine || nextLine.startsWith('###') || nextLine.startsWith('---') || nextLine === '');
+    if (!isEmptySection) {
+      result.push(line);
     }
-    result.push(line);
   }
+  return result;
+}
+
+/**
+ * Scrub superseded changes from release notes
+ * Returns the cleaned notes with contradictory and iterative changes consolidated
+ */
+export function scrubSupersededChanges(technicalNotes: string): string {
+  const lines = technicalNotes.split('\n');
+  const bulletPoints = extractBulletPoints(lines);
+
+  // Step 1: Find pairs of directly superseding changes (add/remove pairs)
+  const directSupersededIndices = findDirectSupersededIndices(bulletPoints);
+
+  // Step 2: Consolidate iterative commits (multiple attempts at same thing)
+  const { indicesToRemove: iterativeIndices, consolidatedMessages } = consolidateIterativeCommits(bulletPoints);
+
+  // Step 3: Filter out CI/build noise without conventional prefixes
+  const ciBuildNoiseIndices = filterCiBuildNoise(bulletPoints);
+
+  // Combine all indices to remove
+  const allIndicesToRemove = new Set([...directSupersededIndices, ...iterativeIndices, ...ciBuildNoiseIndices]);
+
+  if (allIndicesToRemove.size === 0 && consolidatedMessages.size === 0) {
+    return technicalNotes;
+  }
+
+  const cleanedLines = applyChangesToLines(lines, allIndicesToRemove, consolidatedMessages);
+  const result = removeEmptySections(cleanedLines);
 
   return result.join('\n');
 }
@@ -176,10 +436,13 @@ export function scrubSupersededStructuredChanges(changeSummary: string): string 
   // Remove cancelled items from the summary
   let result = changeSummary;
   for (const item of cancelledItems) {
+    // Escape special regex characters in item name
+    // eslint-disable-next-line prefer-regex-literals
+    const escaped = item.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     // Remove from comma-separated lists
-    result = result.replace(new RegExp(`${item},\\s*`, 'g'), '');
-    result = result.replace(new RegExp(`,\\s*${item}`, 'g'), '');
-    result = result.replace(new RegExp(`^${item}$`, 'gm'), '');
+    result = result.replace(new RegExp(`${escaped},\\s*`, 'g'), '');
+    result = result.replace(new RegExp(`,\\s*${escaped}`, 'g'), '');
+    result = result.replace(new RegExp(`^${escaped}$`, 'gm'), '');
   }
 
   return result;
@@ -316,6 +579,15 @@ ${toneGuidelines}
 - Developer tooling, test changes
 - Don't list every single bug fix - summarize them briefly
 
+**IMPORTANT - Iterative Commits:**
+If you see multiple commits about the SAME topic (e.g., several commits about "macOS runners" or "build configuration"), these represent multiple attempts to solve one problem. Only describe the FINAL result, not the journey. For example:
+- BAD: "Updated macOS runner config, then tried different runners, then reverted..."
+- GOOD: (just omit entirely - it's internal build config)
+- Or if user-facing: describe only the end state achieved
+
+**IMPORTANT - Duplicate/Redundant Fixes:**
+If multiple commits fix the same thing in slightly different ways (e.g., "center icon with flex" and "vertically center icon on mobile"), treat them as ONE fix. Don't mention both - just describe the end result once.
+
 ${formatGuidelines}
 
 ${examples}
@@ -324,42 +596,16 @@ Generate ONLY the paragraph. No headers, no bullets, no sign-off.`;
 }
 
 /**
- * Call Azure OpenAI API to generate the summary
+ * Call the AI model to generate the summary.
+ * Delegates to the shared callGitHubModelsApi helper.
  */
 async function callAzureOpenAI(prompt: string): Promise<string> {
-  // MODELS_TOKEN is preferred, fall back to GH_TOKEN for backwards compatibility
-  const token = process.env.MODELS_TOKEN || process.env.GH_TOKEN;
-  if (!token) {
-    throw new Error('MODELS_TOKEN environment variable is required');
-  }
-
-  const response = await fetch(GITHUB_MODELS_ENDPOINT, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      messages: [{ role: 'user', content: prompt }],
-      max_tokens: 1000,
-      temperature: 0.5, // Lower temperature for more consistent output
-    }),
+  return callGitHubModelsApi({
+    model: MODEL,
+    prompt,
+    temperature: 0.5,
+    throwOnError: true,
   });
-
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`GitHub Models API error: ${response.status} - ${error}`);
-  }
-
-  const data = await response.json();
-  const content = data.choices?.[0]?.message?.content;
-
-  if (!content) {
-    throw new Error('No content in API response');
-  }
-
-  return content.trim();
 }
 
 /**
