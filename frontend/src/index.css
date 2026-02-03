@@ -2955,6 +2955,22 @@ progress::-moz-progress-bar {
   animation: tooltipEnter var(--animation-fast) var(--ease-out-smooth) forwards;
 }
 
+/* Carousel slide animation - directional slide with fade */
+@keyframes carouselSlideEnter {
+  from {
+    opacity: 0;
+    transform: translateX(calc(var(--slide-direction, -1) * 16px));
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.carousel-slide-enter {
+  animation: carouselSlideEnter var(--animation-normal) var(--ease-out-smooth) forwards;
+}
+
 /* ============================================================================
    Recurring List Responsive Layout
    ============================================================================ */

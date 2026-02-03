@@ -135,6 +135,8 @@ import {
   CircleFadingPlus,
   MapPinCheckInside,
   MapPinXInside,
+  Megaphone,
+  BookCheck,
 } from 'lucide-react';
 import type { SVGProps } from 'react';
 
@@ -256,6 +258,7 @@ export const SmileIcon = Smile;
 export const TargetIcon = Target;
 export const MapPinCheckInsideIcon = MapPinCheckInside;
 export const MapPinXInsideIcon = MapPinXInside;
+export const MegaphoneIcon = Megaphone;
 export const SplitIcon = Split;
 export const AwardIcon = Award;
 export const PiggyBankIcon = PiggyBank;
@@ -277,6 +280,7 @@ export const SparklesIcon = Sparkles;
 export const BadgeDollarSignIcon = BadgeDollarSign;
 export const HandCoinsIcon = HandCoins;
 export const CircleFadingPlusIcon = CircleFadingPlus;
+export const BookCheckIcon = BookCheck;
 
 // =============================================================================
 // Custom Icons (not available in Lucide)
@@ -726,6 +730,12 @@ export const Icons = {
   BadgeDollarSign: BadgeDollarSignIcon,
   HandCoins: HandCoinsIcon,
   CircleFadingPlus: CircleFadingPlusIcon,
+
+  // Communication
+  Megaphone: MegaphoneIcon,
+
+  // Reading
+  BookCheck: BookCheckIcon,
 };
 
 export {
@@ -734,3 +744,6 @@ export {
   ArrowUpFromLine as ArrowUpFromLineIcon,
   CircleDollarSign as CircleDollarSignIcon,
 } from 'lucide-react';
+
+// Brand icons from react-icons
+export { FaRedditAlien as RedditIcon } from 'react-icons/fa';

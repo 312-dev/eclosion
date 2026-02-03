@@ -27,7 +27,9 @@ import {
 } from 'lucide-react';
 import { RecurringIcon, NotesIcon, StashIcon } from '../wizards/WizardComponents';
 import { ToolSettingsModal, type ToolType } from '../ui/ToolSettingsModal';
+import { NavItemLink, type NavItem } from './NavItemLink';
 import { useDemo } from '../../context/DemoContext';
+import { useUpdatesState } from '../../hooks/useUpdatesState';
 import { useMediaQuery, useScrollEnd } from '../../hooks';
 import { isDesktopMode } from '../../utils/apiBase';
 
@@ -57,13 +59,6 @@ const SETTINGS_SECTIONS: SettingsSection[] = [
 
 interface SidebarNavigationProps {
   onLock: () => void;
-}
-
-interface NavItem {
-  path: string;
-  label: string;
-  icon: React.ReactNode;
-  settingsHash?: string;
 }
 
 function getNavItems(isDemo: boolean): {
@@ -102,40 +97,6 @@ function getNavItems(isDemo: boolean): {
   };
 }
 
-function NavItemLink({
-  item,
-  onSettingsClick,
-}: Readonly<{ item: NavItem; onSettingsClick?: (hash: string) => void }>) {
-  const settingsHash = item.settingsHash;
-  return (
-    <NavLink
-      to={item.path}
-      className={({ isActive }: { isActive: boolean }) =>
-        `sidebar-nav-item sidebar-nav-item-with-settings ${isActive ? 'sidebar-nav-item-active' : ''}`
-      }
-    >
-      <span className="sidebar-nav-icon" aria-hidden="true">
-        {item.icon}
-      </span>
-      <span className="sidebar-nav-label">{item.label}</span>
-      {settingsHash !== undefined && onSettingsClick && (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            onSettingsClick(settingsHash);
-          }}
-          className="sidebar-settings-cog"
-          aria-label={`${item.label} settings`}
-        >
-          <Settings size={14} aria-hidden="true" />
-        </button>
-      )}
-    </NavLink>
-  );
-}
-
 export function SidebarNavigation({ onLock }: Readonly<SidebarNavigationProps>) {
   const location = useLocation();
   const isDemo = useDemo();
@@ -144,6 +105,8 @@ export function SidebarNavigation({ onLock }: Readonly<SidebarNavigationProps>) 
   const [showLockButton, setShowLockButton] = useState(!isDesktop);
   const [settingsModalTool, setSettingsModalTool] = useState<ToolType | null>(null);
   const { dashboardItem, toolkitItems, otherItems } = getNavItems(isDemo);
+  const { unreadCount } = useUpdatesState();
+  const dashboardItemWithBadge = { ...dashboardItem, badge: unreadCount };
   const prefix = isDemo ? '/demo' : '';
   const toolkitListRef = useRef<HTMLUListElement>(null);
   const isScrolledToEnd = useScrollEnd(toolkitListRef, isMobile);
@@ -210,7 +173,7 @@ export function SidebarNavigation({ onLock }: Readonly<SidebarNavigationProps>) 
           <div className="sidebar-nav-section sidebar-desktop-only">
             <ul className="sidebar-nav-list">
               <li>
-                <NavItemLink item={dashboardItem} />
+                <NavItemLink item={dashboardItemWithBadge} />
               </li>
             </ul>
           </div>
@@ -241,7 +204,7 @@ export function SidebarNavigation({ onLock }: Readonly<SidebarNavigationProps>) 
               >
                 {/* Dashboard in scrollable list - mobile only */}
                 <li className="sidebar-mobile-only">
-                  <NavItemLink item={dashboardItem} />
+                  <NavItemLink item={dashboardItemWithBadge} />
                 </li>
                 {toolkitItems.map((item) => (
                   <li key={item.path}>

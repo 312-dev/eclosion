@@ -46,6 +46,8 @@ export const queryKeys = {
   categoryBalance: ['categoryBalance'] as const,
   // Openverse (image search)
   openverseSearch: ['openverseSearch'] as const,
+  // Reddit updates feed
+  updates: ['updates'] as const,
 };
 
 /**

@@ -13,6 +13,7 @@ import { useDashboardQuery } from '../../api/queries';
 import { usePageTitle } from '../../hooks';
 import { useDemo } from '../../context/DemoContext';
 import { getComingSoonFeatures } from '../../data/features';
+import { UpdatesCarousel } from '../updates';
 
 function getTools(isDemo: boolean) {
   const prefix = isDemo ? '/demo' : '';
@@ -52,6 +53,9 @@ export function DashboardTab() {
 
   return (
     <div className="max-w-200 tab-content-enter" data-testid="dashboard-content">
+      {/* Updates Carousel - component handles its own spacing */}
+      <UpdatesCarousel />
+
       {/* Welcome Section */}
       <div className="mb-8">
         <h1 className="text-2xl font-semibold mb-2" style={{ color: 'var(--monarch-text-dark)' }}>

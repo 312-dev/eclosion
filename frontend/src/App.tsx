@@ -177,20 +177,17 @@ function RootLayout() {
     <>
       <MacOSDragRegion />
       <ScrollToTop />
-      <RateLimitProvider>
-        <RateLimitToastBridge />
-        <DemoProvider>
-          <MonthTransitionProvider>
-            <UpdateProvider>
-              <DistributionModeProvider>
-                <BootCompleteAndUpdateModal>
-                  <Outlet />
-                </BootCompleteAndUpdateModal>
-              </DistributionModeProvider>
-            </UpdateProvider>
-          </MonthTransitionProvider>
-        </DemoProvider>
-      </RateLimitProvider>
+      <DemoProvider>
+        <MonthTransitionProvider>
+          <UpdateProvider>
+            <DistributionModeProvider>
+              <BootCompleteAndUpdateModal>
+                <Outlet />
+              </BootCompleteAndUpdateModal>
+            </DistributionModeProvider>
+          </UpdateProvider>
+        </MonthTransitionProvider>
+      </DemoProvider>
     </>
   );
 }
@@ -205,22 +202,19 @@ function ProductionRootLayout() {
     <>
       <MacOSDragRegion />
       <ScrollToTop />
-      <RateLimitProvider>
-        <RateLimitToastBridge />
-        <DemoProvider>
-          <MonthTransitionProvider>
-            <UpdateProvider>
-              <DistributionModeProvider>
-                <BootCompleteAndUpdateModal>
-                  <AuthProvider>
-                    <ProductionAuthWrapper />
-                  </AuthProvider>
-                </BootCompleteAndUpdateModal>
-              </DistributionModeProvider>
-            </UpdateProvider>
-          </MonthTransitionProvider>
-        </DemoProvider>
-      </RateLimitProvider>
+      <DemoProvider>
+        <MonthTransitionProvider>
+          <UpdateProvider>
+            <DistributionModeProvider>
+              <BootCompleteAndUpdateModal>
+                <AuthProvider>
+                  <ProductionAuthWrapper />
+                </AuthProvider>
+              </BootCompleteAndUpdateModal>
+            </DistributionModeProvider>
+          </UpdateProvider>
+        </MonthTransitionProvider>
+      </DemoProvider>
     </>
   );
 }
@@ -367,13 +361,11 @@ const appShellChildren: RouteObject[] = [
  */
 function RemoteUnlockLayout() {
   return (
-    <RateLimitProvider>
-      <DemoProvider>
-        <AuthProvider>
-          <Outlet />
-        </AuthProvider>
-      </DemoProvider>
-    </RateLimitProvider>
+    <DemoProvider>
+      <AuthProvider>
+        <Outlet />
+      </AuthProvider>
+    </DemoProvider>
   );
 }
 
@@ -544,7 +536,10 @@ export default function App() {
       <QueryClientProvider client={queryClient}>
         <ToastProvider>
           <TooltipProvider>
-            <RouterProvider router={router} />
+            <RateLimitProvider>
+              <RateLimitToastBridge />
+              <RouterProvider router={router} />
+            </RateLimitProvider>
           </TooltipProvider>
         </ToastProvider>
       </QueryClientProvider>

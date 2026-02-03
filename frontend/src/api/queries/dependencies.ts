@@ -298,6 +298,11 @@ export const queryConfig: Record<QueryKeyName, QueryConfig> = {
     staleTime: 60 * 60 * 1000, // 1 hour
     pollable: false,
   },
+  updates: {
+    dependsOn: [],
+    staleTime: 5 * 60 * 1000, // 5 minutes (match Cloudflare Worker cache)
+    pollable: false,
+  },
 };
 
 // ============================================================================

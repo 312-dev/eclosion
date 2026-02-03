@@ -1,0 +1,7 @@
+name = "eclosion-updates"
+main = "updates-proxy.ts"
+compatibility_date = "2024-01-01"
+
+routes = [
+  { pattern = "eclosion.app/api/updates", zone_name = "eclosion.app" }
+]

@@ -221,3 +221,6 @@ export { useMonarchGoalsQuery, useUpdateMonarchGoalLayoutsMutation } from './mon
 
 // Openverse (image search) queries
 export { useOpenverseSearch, generateOpenverseAttribution } from './openverseQueries';
+
+// Reddit updates queries
+export { useUpdatesQuery, type UpdateEntry } from './updatesQueries';

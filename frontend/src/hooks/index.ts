@@ -139,3 +139,6 @@ export {
   type UseEdgeScrollReturn,
 } from './useEdgeScroll';
 export { useToolbarScroll } from './useToolbarScroll';
+
+// Updates state (Reddit feed unread tracking)
+export { useUpdatesState, type UseUpdatesStateReturn } from './useUpdatesState';
