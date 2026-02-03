@@ -476,7 +476,7 @@ class StashService:
                 # Calculate current_balance based on goal_type
                 if is_completed:
                     # Completed one-time goals: lock at 100% (goal amount)
-                    current_balance = item["amount"]
+                    current_balance = item["amount"] or 0.0
                     available_to_spend = remaining_balance
                 elif goal_type == "savings_buffer":
                     # Savings buffer: progress = remaining (spending reduces progress)
