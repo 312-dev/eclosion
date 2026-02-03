@@ -212,7 +212,7 @@ describe('calculateBurndownData', () => {
       expect(result.stabilization.hasCatchUp).toBe(true);
     });
 
-    it('returns no catch-up when all items are at ideal rate', () => {
+    it('returns flat-line points when all items are at ideal rate', () => {
       const item1 = createItem({
         id: 'item-1',
         is_enabled: true,
@@ -235,7 +235,18 @@ describe('calculateBurndownData', () => {
 
       expect(result.stabilization.hasCatchUp).toBe(false);
       expect(result.stabilization.monthsUntilStable).toBe(0);
-      expect(result.points).toHaveLength(0);
+      // Should generate 6 flat-line points at the stable rate
+      expect(result.points).toHaveLength(6);
+      expect(result.points[0]?.amount).toBe(120); // 80 + 40
+      expect(result.points[5]?.amount).toBe(120);
+      // All points should have the same amount (flat line)
+      for (const point of result.points) {
+        expect(point.amount).toBe(120);
+        expect(point.isStabilizationPoint).toBe(false);
+        expect(point.hasChange).toBe(false);
+      }
+      // Rollup amount should be included
+      expect(result.points[0]?.rollupAmount).toBe(40);
     });
 
     it('excludes disabled items that are not in rollup', () => {

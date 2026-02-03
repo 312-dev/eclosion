@@ -159,8 +159,8 @@ export function calculateBurndownData(
     (i) => (i.frozen_monthly_target || 0) > (i.ideal_monthly_rate || 0)
   );
 
-  // If no items or no catch-up, return early with current month as stabilization
-  if (allTrackedItems.length === 0 || itemsWithCatchUp.length === 0) {
+  // If no items at all, return early with no chart data
+  if (allTrackedItems.length === 0) {
     const monthLabel = currentMonth.toLocaleDateString('en-US', { month: 'short' });
     const yearLabel = currentMonth.getFullYear().toString().slice(-2);
     return {
@@ -171,6 +171,39 @@ export function calculateBurndownData(
         hasCatchUp: false,
       },
       points: [],
+    };
+  }
+
+  // If items exist but no catch-up, generate flat-line points at the stable rate
+  if (itemsWithCatchUp.length === 0) {
+    const monthLabel = currentMonth.toLocaleDateString('en-US', { month: 'short' });
+    const yearLabel = currentMonth.getFullYear().toString().slice(-2);
+    const flatPoints: BurndownPoint[] = [];
+    for (let i = 0; i < 6; i++) {
+      const m = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + i, 1);
+      const mLabel = m.toLocaleDateString('en-US', { month: 'short' });
+      const mYear = m.getFullYear().toString().slice(-2);
+      const rollupAmount = Math.round(
+        rollupItems.reduce((sum, item) => sum + (item.ideal_monthly_rate || 0), 0)
+      );
+      flatPoints.push({
+        month: mLabel,
+        fullLabel: `${mLabel} '${mYear}`,
+        amount: stableMonthlyRate,
+        rollupAmount,
+        hasChange: false,
+        completingItems: [],
+        isStabilizationPoint: false,
+      });
+    }
+    return {
+      stabilization: {
+        stableMonthlyRate,
+        monthsUntilStable: 0,
+        stabilizationDate: `${monthLabel} '${yearLabel}`,
+        hasCatchUp: false,
+      },
+      points: flatPoints,
     };
   }
 

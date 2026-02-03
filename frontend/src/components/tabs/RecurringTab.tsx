@@ -62,7 +62,7 @@ export function RecurringTab() {
     const rollupTotal = rollupItems.reduce((sum, item) => sum + item.frozen_monthly_target, 0);
     return itemsTotal + rollupTotal;
   }, [data]);
-  const { points: burndownPoints } = useMemo(
+  const { stabilization: burndownStabilization, points: burndownPoints } = useMemo(
     () =>
       data
         ? calculateBurndownData(data.items, currentMonthlyCost)
@@ -250,7 +250,9 @@ export function RecurringTab() {
                 Monthly Savings Goal
               </h3>
               <p className="text-sm" style={{ color: 'var(--monarch-text-muted)' }}>
-                Your monthly contribution will decrease as catch-up payments complete
+                {burndownStabilization?.hasCatchUp
+                  ? 'Your monthly contribution will decrease as catch-up payments complete'
+                  : 'Your projected monthly recurring contribution'}
               </p>
               <BurndownChart data={burndownPoints} formatCurrency={formatCurrency} />
             </div>
