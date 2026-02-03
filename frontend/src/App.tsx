@@ -74,7 +74,8 @@ function isMarketingSiteHostname(): boolean {
 }
 
 /**
- * Scrolls to top on route changes, unless there's a hash anchor
+ * Scrolls to top on route changes, unless there's a hash anchor.
+ * Targets the .app-scroll-area container which is the actual scrollable element.
  */
 function ScrollToTop() {
   const { pathname, hash } = useLocation();
@@ -87,7 +88,14 @@ function ScrollToTop() {
       }
       return;
     }
-    window.scrollTo(0, 0);
+    // Scroll the app's scroll container, not the window
+    const scrollArea = document.querySelector('.app-scroll-area');
+    if (scrollArea) {
+      scrollArea.scrollTo(0, 0);
+    } else {
+      // Fallback to window for pages without app layout (marketing, login)
+      window.scrollTo(0, 0);
+    }
   }, [pathname, hash]);
 
   return null;
