@@ -64,6 +64,8 @@ export function AppHeader({
             style={{
               position: 'absolute',
               left: '1rem',
+              top: '50%',
+              transform: 'translateY(-50%)',
             }}
           >
             <RemoteAccessIndicator />
