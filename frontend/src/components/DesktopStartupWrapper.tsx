@@ -119,7 +119,11 @@ export function DesktopStartupWrapper({ children }: DesktopStartupWrapperProps) 
         // Detect if running beta build
         await initializeDesktopBetaDetection();
 
-        // Small delay for smooth transition
+        // Expand window to full size before rendering the main app
+        // This prevents the app from briefly appearing in a compact/loader-sized window
+        await globalThis.electron?.windowMode?.setMode('full').catch(() => {});
+
+        // Small delay for smooth transition after resize
         await new Promise((resolve) => setTimeout(resolve, 300));
 
         setIsReady(true);
