@@ -1,0 +1,111 @@
+# Deploy Cloudflare Workers
+#
+# Deploys Cloudflare Workers when their source files change on main.
+# Each worker runs as an independent job — only changed workers deploy.
+#
+# Workers:
+#   - eclosion-updates (workers/) — Reddit updates feed for eclosion.app
+#   - eclosion-tunnel-provisioner (workers/tunnel-provisioner/) — Named tunnel provisioning for eclosion.me
+#
+# Triggers:
+#   - Push to main when worker files change
+#   - Manual dispatch (deploys all workers)
+
+name: "27 Deploy: Workers"
+
+on:
+  push:
+    branches: [main]
+    paths: ['workers/**']
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-workers-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions: read-all
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      updates-proxy: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.updates-proxy }}
+      tunnel-provisioner: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.tunnel-provisioner }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+
+      - name: Detect changed workers
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3
+        id: filter
+        if: github.event_name == 'push'
+        with:
+          filters: |
+            updates-proxy:
+              - 'workers/wrangler.toml'
+              - 'workers/updates-proxy.ts'
+            tunnel-provisioner:
+              - 'workers/tunnel-provisioner/**'
+
+  deploy-updates-proxy:
+    needs: changes
+    if: needs.changes.outputs.updates-proxy == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+
+      - name: Deploy
+        uses: cloudflare/wrangler-action@da0e0dfe58b7a431659754fdf3f186c529afbe65 # v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: workers
+          command: deploy
+
+      - name: Summary
+        run: |
+          echo "### Updates Proxy Deployed" >> $GITHUB_STEP_SUMMARY
+          echo "- **Worker:** eclosion-updates" >> $GITHUB_STEP_SUMMARY
+          echo "- **Route:** eclosion.app/api/updates" >> $GITHUB_STEP_SUMMARY
+
+  deploy-tunnel-provisioner:
+    needs: changes
+    if: needs.changes.outputs.tunnel-provisioner == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        working-directory: workers/tunnel-provisioner
+        run: npm ci
+
+      - name: Run tests
+        working-directory: workers/tunnel-provisioner
+        run: npx vitest run
+
+      - name: Deploy
+        uses: cloudflare/wrangler-action@da0e0dfe58b7a431659754fdf3f186c529afbe65 # v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: workers/tunnel-provisioner
+          command: deploy
+
+      - name: Summary
+        run: |
+          echo "### Tunnel Provisioner Deployed" >> $GITHUB_STEP_SUMMARY
+          echo "- **Worker:** eclosion-tunnel-provisioner" >> $GITHUB_STEP_SUMMARY
+          echo "- **Domain:** tunnel-api.eclosion.me" >> $GITHUB_STEP_SUMMARY
