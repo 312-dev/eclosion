@@ -1,0 +1,111 @@
+# AI Release Notes Updater
+#
+# Adds an AI-generated user-friendly summary to an existing GitHub release.
+# Can be run standalone or called from other workflows.
+#
+# Usage:
+#   - Manually trigger with a tag to update
+#   - Call from release workflows via workflow_call
+
+name: "26 AI: Release Notes"
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to update (e.g., v1.0.33)"
+        required: true
+        type: string
+      release_context:
+        description: "Optional context to guide AI summary (e.g., 'Focus on the new Windows experience')"
+        required: false
+        type: string
+      compare_from:
+        description: "SHA or tag to compare from (defaults to previous stable release)"
+        required: false
+        type: string
+      force:
+        description: "Force regeneration even if summary exists"
+        required: false
+        type: boolean
+        default: false
+
+  workflow_call:
+    inputs:
+      tag:
+        description: "Release tag to update"
+        required: true
+        type: string
+      release_context:
+        description: "Optional context to guide AI summary"
+        required: false
+        type: string
+      compare_from:
+        description: "SHA or tag to compare from"
+        required: false
+        type: string
+      force:
+        description: "Force regeneration"
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      MODELS_TOKEN:
+        required: true
+
+permissions: {}
+
+jobs:
+  add-ai-summary:
+    name: Add AI Summary
+    runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && 'ubuntu-2204-x64-4x16' || 'ubuntu-latest' }}
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+        with:
+          fetch-depth: 0  # Need full history for git diff comparison
+
+      - name: Setup Node.js
+        uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: scripts/release-notes-updater/package-lock.json
+
+      - name: Install dependencies
+        working-directory: scripts/release-notes-updater
+        run: npm ci
+
+      - name: Add AI summary to release
+        working-directory: scripts/release-notes-updater
+        env:
+          MODELS_TOKEN: ${{ secrets.MODELS_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ inputs.tag }}"
+
+          # Build command with optional flags
+          CMD="npx tsx index.ts --tag \"$TAG\""
+
+          if [ -n "${{ inputs.release_context }}" ]; then
+            CMD="$CMD --context \"${{ inputs.release_context }}\""
+          fi
+
+          if [ -n "${{ inputs.compare_from }}" ]; then
+            CMD="$CMD --compare-from \"${{ inputs.compare_from }}\""
+          fi
+
+          if [ "${{ inputs.force }}" = "true" ]; then
+            CMD="$CMD --force"
+          fi
+
+          echo "Running: $CMD"
+          eval $CMD
+
+          echo "### AI Summary Added" >> $GITHUB_STEP_SUMMARY
+          echo "Added user-friendly summary to release **$TAG**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "[View Release](https://github.com/${{ github.repository }}/releases/tag/$TAG)" >> $GITHUB_STEP_SUMMARY

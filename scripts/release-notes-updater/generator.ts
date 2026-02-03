@@ -10,6 +10,182 @@ const GITHUB_MODELS_ENDPOINT = 'https://models.inference.ai.azure.com/chat/compl
 const MODEL = 'gpt-4o'; // Using GPT-4o for release notes summarization
 
 /**
+ * Patterns that indicate a change was superseded
+ */
+const SUPERSEDE_PATTERNS = [
+  // Add then remove/revert
+  { add: /^(add|implement|create|introduce)\s+/i, remove: /^(remove|delete|revert|drop)\s+/i },
+  // Enable then disable
+  { add: /^enable\s+/i, remove: /^disable\s+/i },
+  // Show then hide
+  { add: /^(show|display)\s+/i, remove: /^hide\s+/i },
+];
+
+/**
+ * Extract the subject/topic from a commit message for comparison
+ */
+function extractSubject(message: string): string {
+  // Remove conventional commit prefix
+  const withoutPrefix = message.replace(/^(feat|fix|refactor|chore|docs|style|perf|test|ci|build)(\([^)]*\))?: ?/i, '');
+  // Remove PR links
+  const withoutLinks = withoutPrefix.replace(/ in \[#\d+\]\([^)]+\)$/, '');
+  // Normalize whitespace and case
+  return withoutLinks.toLowerCase().trim();
+}
+
+/**
+ * Check if two messages describe the same subject with opposite actions
+ */
+function areSupersedingMessages(msg1: string, msg2: string): boolean {
+  const subj1 = extractSubject(msg1);
+  const subj2 = extractSubject(msg2);
+
+  for (const pattern of SUPERSEDE_PATTERNS) {
+    // Check if msg1 adds and msg2 removes (or vice versa)
+    const match1Add = subj1.match(pattern.add);
+    const match2Remove = subj2.match(pattern.remove);
+    const match1Remove = subj1.match(pattern.remove);
+    const match2Add = subj2.match(pattern.add);
+
+    if (match1Add && match2Remove) {
+      // Compare subjects after removing the action verb
+      const topic1 = subj1.replace(pattern.add, '').trim();
+      const topic2 = subj2.replace(pattern.remove, '').trim();
+      if (topic1 === topic2 || topic1.includes(topic2) || topic2.includes(topic1)) {
+        return true;
+      }
+    }
+    if (match1Remove && match2Add) {
+      const topic1 = subj1.replace(pattern.remove, '').trim();
+      const topic2 = subj2.replace(pattern.add, '').trim();
+      if (topic1 === topic2 || topic1.includes(topic2) || topic2.includes(topic1)) {
+        return true;
+      }
+    }
+  }
+
+  // Check for explicit "revert" of the same thing
+  if (subj1.startsWith('revert') && subj2.includes(subj1.replace(/^revert\s*"?/i, '').replace(/"?\s*$/, ''))) {
+    return true;
+  }
+  if (subj2.startsWith('revert') && subj1.includes(subj2.replace(/^revert\s*"?/i, '').replace(/"?\s*$/, ''))) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Scrub superseded changes from release notes
+ * Returns the cleaned notes with contradictory changes removed
+ */
+export function scrubSupersededChanges(technicalNotes: string): string {
+  const lines = technicalNotes.split('\n');
+  const bulletPoints: { index: number; content: string }[] = [];
+
+  // Extract all bullet points
+  lines.forEach((line, index) => {
+    if (line.startsWith('* ')) {
+      bulletPoints.push({ index, content: line.slice(2) });
+    }
+  });
+
+  // Find pairs of superseding changes
+  const indicesToRemove = new Set<number>();
+
+  for (let i = 0; i < bulletPoints.length; i++) {
+    for (let j = i + 1; j < bulletPoints.length; j++) {
+      if (areSupersedingMessages(bulletPoints[i].content, bulletPoints[j].content)) {
+        // Both changes cancel each other out - remove both
+        indicesToRemove.add(bulletPoints[i].index);
+        indicesToRemove.add(bulletPoints[j].index);
+      }
+    }
+  }
+
+  if (indicesToRemove.size === 0) {
+    return technicalNotes;
+  }
+
+  // Rebuild notes without superseded items
+  const cleanedLines = lines.filter((_, index) => !indicesToRemove.has(index));
+
+  // Remove empty sections (header followed by another header or end)
+  const result: string[] = [];
+  for (let i = 0; i < cleanedLines.length; i++) {
+    const line = cleanedLines[i];
+    const nextLine = cleanedLines[i + 1];
+
+    // Skip section headers that are now empty
+    if (line.startsWith('### ') && (!nextLine || nextLine.startsWith('###') || nextLine.startsWith('---') || nextLine === '')) {
+      continue;
+    }
+    result.push(line);
+  }
+
+  return result.join('\n');
+}
+
+/**
+ * Scrub superseded items from structured change summary
+ * Items that appear in both NEW and DELETED cancel out
+ */
+export function scrubSupersededStructuredChanges(changeSummary: string): string {
+  const lines = changeSummary.split('\n');
+
+  // Extract items from NEW and DELETED sections
+  let inNew = false;
+  let inDeleted = false;
+  const newItems = new Set<string>();
+  const deletedItems = new Set<string>();
+
+  for (const line of lines) {
+    if (line.includes('### NEW')) {
+      inNew = true;
+      inDeleted = false;
+    } else if (line.includes('### REMOVED') || line.includes('### DELETED')) {
+      inNew = false;
+      inDeleted = true;
+    } else if (line.startsWith('### ')) {
+      inNew = false;
+      inDeleted = false;
+    }
+
+    if (inNew && (line.startsWith('Components:') || line.startsWith('Hooks:') || line.startsWith('API') || line.startsWith('Utilities:'))) {
+      const items = line.split(':')[1]?.split(',').map((s) => s.trim()) || [];
+      items.forEach((item) => newItems.add(item));
+    }
+    if (inDeleted) {
+      const items = line.split(',').map((s) => s.trim()).filter((s) => s && !s.startsWith('#'));
+      items.forEach((item) => deletedItems.add(item));
+    }
+  }
+
+  // Find items that cancel out
+  const cancelledItems = new Set<string>();
+  for (const item of newItems) {
+    if (deletedItems.has(item)) {
+      cancelledItems.add(item);
+    }
+  }
+
+  if (cancelledItems.size === 0) {
+    return changeSummary;
+  }
+
+  // Remove cancelled items from the summary
+  let result = changeSummary;
+  for (const item of cancelledItems) {
+    // Remove from comma-separated lists
+    result = result.replace(new RegExp(`${item},\\s*`, 'g'), '');
+    result = result.replace(new RegExp(`,\\s*${item}`, 'g'), '');
+    result = result.replace(new RegExp(`^${item}$`, 'gm'), '');
+  }
+
+  return result;
+}
+
+/**
  * Build the prompt for generating user-friendly release notes
  */
 function buildPrompt(
@@ -197,11 +373,22 @@ export async function generateSummary(
   diffContent?: string
 ): Promise<string> {
   console.log(`Generating user-friendly summary for ${version}...`);
-  if (diffContent) {
-    console.log(`Including ${diffContent.length} chars of diff content for analysis`);
+
+  // Scrub superseded changes from both notes and diff content
+  console.log('Scrubbing superseded changes...');
+  const scrubbedNotes = scrubSupersededChanges(technicalNotes);
+  const scrubbedDiff = diffContent ? scrubSupersededStructuredChanges(diffContent) : undefined;
+
+  const notesRemoved = technicalNotes.length - scrubbedNotes.length;
+  if (notesRemoved > 0) {
+    console.log(`Removed ${notesRemoved} chars of superseded content from notes`);
   }
 
-  const prompt = buildPrompt(technicalNotes, version, isPrerelease, context, diffContent);
+  if (scrubbedDiff) {
+    console.log(`Including ${scrubbedDiff.length} chars of diff content for analysis`);
+  }
+
+  const prompt = buildPrompt(scrubbedNotes, version, isPrerelease, context, scrubbedDiff);
   const summary = await callAzureOpenAI(prompt);
 
   return summary;

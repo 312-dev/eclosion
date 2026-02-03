@@ -227,15 +227,18 @@ async function main(): Promise<void> {
   const force = args.includes('--force');
   const contextIndex = args.indexOf('--context');
   const context = contextIndex !== -1 ? args[contextIndex + 1] : undefined;
+  const compareFromIndex = args.indexOf('--compare-from');
+  const compareFrom = compareFromIndex !== -1 ? args[compareFromIndex + 1] : undefined;
 
   if (!tag) {
-    console.error('Usage: npx tsx index.ts --tag <tag> [--dry-run] [--force] [--context "..."]');
+    console.error('Usage: npx tsx index.ts --tag <tag> [--dry-run] [--force] [--context "..."] [--compare-from <ref>]');
     console.error('');
     console.error('Options:');
-    console.error('  --tag <tag>       Release tag to update (required)');
-    console.error('  --dry-run         Print the updated notes without saving');
-    console.error('  --force           Regenerate even if summary already exists');
-    console.error('  --context "..."   Optional context to guide AI summary');
+    console.error('  --tag <tag>           Release tag to update (required)');
+    console.error('  --dry-run             Print the updated notes without saving');
+    console.error('  --force               Regenerate even if summary already exists');
+    console.error('  --context "..."       Optional context to guide AI summary');
+    console.error('  --compare-from <ref>  SHA or tag to compare from (defaults to previous stable release)');
     process.exit(1);
   }
 
@@ -246,6 +249,7 @@ async function main(): Promise<void> {
   console.log(`Dry run: ${dryRun}`);
   console.log(`Force: ${force}`);
   if (context) console.log(`Context: ${context}`);
+  if (compareFrom) console.log(`Compare from: ${compareFrom}`);
   console.log('');
 
   // Fetch the release
@@ -284,11 +288,11 @@ async function main(): Promise<void> {
 
   // Get structured change summary for AI analysis
   let changeSummary: string | undefined;
-  const previousTag = getPreviousTag(tag);
-  if (previousTag) {
-    console.log(`Analyzing changes from ${previousTag} to ${tag}...`);
+  const baseRef = compareFrom || getPreviousTag(tag);
+  if (baseRef) {
+    console.log(`Analyzing changes from ${baseRef} to ${tag}...`);
     try {
-      changeSummary = getStructuredChangeSummary(previousTag, tag);
+      changeSummary = getStructuredChangeSummary(baseRef, tag);
       console.log(`Got structured summary (${changeSummary.length} chars)`);
     } catch (error) {
       console.log(`Could not get change summary: ${error}`);

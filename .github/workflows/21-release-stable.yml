@@ -388,44 +388,15 @@ jobs:
   add-ai-summary:
     name: Add AI Summary
     needs: [calculate-version, release-pipeline]
-    runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && 'ubuntu-2204-x64-4x16' || 'ubuntu-latest' }}
-    timeout-minutes: 5
     permissions:
       contents: write
-    steps:
-      - name: Checkout
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
-
-      - name: Setup Node.js
-        uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6
-        with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: scripts/release-notes-updater/package-lock.json
-
-      - name: Install dependencies
-        working-directory: scripts/release-notes-updater
-        run: npm ci
-
-      - name: Add AI summary to release
-        working-directory: scripts/release-notes-updater
-        env:
-          MODELS_TOKEN: ${{ secrets.MODELS_TOKEN }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          TAG="${{ needs.calculate-version.outputs.tag }}"
-          CONTEXT_FLAG=""
-          if [ -n "${{ inputs.release_context }}" ]; then
-            CONTEXT_FLAG="--context \"${{ inputs.release_context }}\""
-          fi
-
-          echo "Adding AI summary to draft release $TAG..."
-          npx tsx index.ts --tag "$TAG" $CONTEXT_FLAG
-
-          echo "### AI Summary Added" >> $GITHUB_STEP_SUMMARY
-          echo "Added user-friendly summary to draft release **$TAG**" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "[Review Draft Release](https://github.com/${{ github.repository }}/releases/tag/$TAG)" >> $GITHUB_STEP_SUMMARY
+    uses: ./.github/workflows/26-ai-release-notes.yml
+    with:
+      tag: ${{ needs.calculate-version.outputs.tag }}
+      release_context: ${{ inputs.release_context }}
+      compare_from: ${{ inputs.compare_from }}
+    secrets:
+      MODELS_TOKEN: ${{ secrets.MODELS_TOKEN }}
 
   publish-release:
     name: Publish Release
