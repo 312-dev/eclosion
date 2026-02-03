@@ -176,16 +176,18 @@ export function RollupZone({
           }
         }}
       >
-        <Tooltip content="A shared bucket for smaller recurring expenses not worth a dedicated category">
-          <button
-            type="button"
-            onClick={(e) => e.stopPropagation()}
-            className="absolute top-2 right-2 p-0.5 rounded hover:bg-black/5 transition-colors cursor-help flex items-center justify-center"
-            aria-label="Rollup category info"
-          >
-            <HelpIcon size={14} color="var(--monarch-text-muted)" aria-hidden="true" />
-          </button>
-        </Tooltip>
+        <div className="absolute top-2 right-2">
+          <Tooltip content="A shared bucket for smaller recurring expenses not worth a dedicated category">
+            <button
+              type="button"
+              onClick={(e) => e.stopPropagation()}
+              className="p-0.5 rounded hover:bg-black/5 transition-colors cursor-help flex items-center justify-center"
+              aria-label="Rollup category info"
+            >
+              <HelpIcon size={14} color="var(--monarch-text-muted)" aria-hidden="true" />
+            </button>
+          </Tooltip>
+        </div>
         <div className="flex items-center gap-2 min-w-0">
           <button
             type="button"
