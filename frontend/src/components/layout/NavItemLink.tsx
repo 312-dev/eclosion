@@ -31,19 +31,11 @@ export function NavItemLink({ item, onSettingsClick }: Readonly<NavItemLinkProps
     >
       <span className="sidebar-nav-icon" aria-hidden="true">
         {item.icon}
+        {item.badge !== undefined && item.badge > 0 && (
+          <span className="sidebar-nav-badge">{item.badge}</span>
+        )}
       </span>
       <span className="sidebar-nav-label">{item.label}</span>
-      {item.badge !== undefined && item.badge > 0 && (
-        <span
-          className="ml-auto flex items-center justify-center w-5 h-5 text-xs rounded-full font-medium"
-          style={{
-            backgroundColor: 'var(--monarch-orange)',
-            color: 'white',
-          }}
-        >
-          {item.badge}
-        </span>
-      )}
       {settingsHash !== undefined && onSettingsClick && (
         <button
           type="button"

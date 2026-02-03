@@ -1176,6 +1176,24 @@ input[type='radio'] {
   justify-content: center;
   width: 20px;
   height: 20px;
+  position: relative;
+}
+
+.sidebar-nav-badge {
+  position: absolute;
+  top: -6px;
+  right: -8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: white;
+  background-color: var(--monarch-orange);
+  border-radius: 9999px;
 }
 
 .sidebar-nav-label {
@@ -1327,7 +1345,10 @@ input[type='radio'] {
 
   .app-layout {
     --footer-height: 0px; /* Footer hidden on mobile */
-    padding-bottom: 4.5rem; /* Space for mobile bottom nav instead */
+  }
+
+  .app-scroll-area {
+    padding-bottom: 5.5rem; /* Space for mobile bottom nav + buffer */
   }
 
   .app-body {
