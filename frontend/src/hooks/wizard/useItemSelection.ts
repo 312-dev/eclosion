@@ -7,6 +7,7 @@ import type { RecurringItem } from '../../types';
 import type { PendingLink } from '../../components/LinkCategoryModal';
 import { getErrorMessage } from '../../utils';
 import { getDashboard, triggerSync } from '../../api/client';
+import { transformDashboardData } from '../../utils/itemCalculations';
 import { UI } from '../../constants';
 
 export interface UseItemSelectionResult {
@@ -53,7 +54,8 @@ export function useItemSelection(): UseItemSelectionResult {
     setLoadingItems(true);
     setItemsError(null);
     try {
-      const data = await getDashboard();
+      const raw = await getDashboard();
+      const data = transformDashboardData(raw);
       const availableItems = data.items.filter((item) => !item.is_enabled);
       setItems(availableItems);
       setItemsFetched(true);
@@ -70,7 +72,8 @@ export function useItemSelection(): UseItemSelectionResult {
     setItemsFetched(false);
     try {
       await triggerSync();
-      const data = await getDashboard();
+      const raw = await getDashboard();
+      const data = transformDashboardData(raw);
       const availableItems = data.items.filter((item) => !item.is_enabled);
       setItems(availableItems);
       setItemsFetched(true);
@@ -81,37 +84,40 @@ export function useItemSelection(): UseItemSelectionResult {
     }
   }, []);
 
-  const handleToggleItem = useCallback((id: string) => {
-    const item = items.find(i => i.id === id);
+  const handleToggleItem = useCallback(
+    (id: string) => {
+      const item = items.find((i) => i.id === id);
 
-    setSelectedItemIds((prev) => {
-      const next = new Set(prev);
-      const wasEmpty = prev.size === 0;
+      setSelectedItemIds((prev) => {
+        const next = new Set(prev);
+        const wasEmpty = prev.size === 0;
 
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
+        if (next.has(id)) {
+          next.delete(id);
+        } else {
+          next.add(id);
 
-        if (wasEmpty && !linkTourShown) {
-          setTimeout(() => {
-            setShowLinkTour(true);
-            setLinkTourShown(true);
-          }, UI.ANIMATION.NORMAL);
+          if (wasEmpty && !linkTourShown) {
+            setTimeout(() => {
+              setShowLinkTour(true);
+              setLinkTourShown(true);
+            }, UI.ANIMATION.NORMAL);
+          }
+
+          if (item && item.amount < 60 && !rollupTipShown) {
+            setRollupTipShown(true);
+            setShowRollupTip(true);
+          }
         }
-
-        if (item && item.amount < 60 && !rollupTipShown) {
-          setRollupTipShown(true);
-          setShowRollupTip(true);
-        }
-      }
-      return next;
-    });
-  }, [items, linkTourShown, rollupTipShown]);
+        return next;
+      });
+    },
+    [items, linkTourShown, rollupTipShown]
+  );
 
   const handleSelectAll = useCallback(() => {
     setSelectedItemIds(new Set(items.map((item) => item.id)));
-    if (!rollupTipShown && items.some(item => item.amount < 60)) {
+    if (!rollupTipShown && items.some((item) => item.amount < 60)) {
       setRollupTipShown(true);
       setShowRollupTip(true);
     }
@@ -136,16 +142,19 @@ export function useItemSelection(): UseItemSelectionResult {
     setLinkModalItem(item);
   }, []);
 
-  const handleLinkSuccess = useCallback((link?: PendingLink) => {
-    if (link && linkModalItem) {
-      setPendingLinks((prev) => {
-        const next = new Map(prev);
-        next.set(linkModalItem.id, link);
-        return next;
-      });
-    }
-    setLinkModalItem(null);
-  }, [linkModalItem]);
+  const handleLinkSuccess = useCallback(
+    (link?: PendingLink) => {
+      if (link && linkModalItem) {
+        setPendingLinks((prev) => {
+          const next = new Map(prev);
+          next.set(linkModalItem.id, link);
+          return next;
+        });
+      }
+      setLinkModalItem(null);
+    },
+    [linkModalItem]
+  );
 
   const handleUnlink = useCallback((itemId: string) => {
     setPendingLinks((prev) => {
