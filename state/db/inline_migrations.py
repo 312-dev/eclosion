@@ -20,7 +20,7 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 # Current schema version - bump when adding migrations
-SCHEMA_VERSION = 13
+SCHEMA_VERSION = 14
 
 
 def column_exists(conn: sqlite3.Connection, table: str, column: str) -> bool:
@@ -304,6 +304,86 @@ def migrate_v13_wishlist_config_folder_names(conn: sqlite3.Connection) -> None:
         conn.commit()
 
 
+def migrate_v14_wishlist_nullable_amount_date(conn: sqlite3.Connection) -> None:
+    """
+    Migration v14: Make amount and target_date nullable in wishlist_items.
+
+    Supports open-ended goals (no target amount) and no-deadline goals (no target date).
+    These were already allowed by the API but the database schema wasn't updated.
+
+    SQLite doesn't support ALTER COLUMN, so we recreate the table with the new schema.
+    """
+    cursor = conn.cursor()
+
+    # Check current table structure - if columns are already nullable, skip
+    cursor.execute("PRAGMA table_info(wishlist_items)")
+    columns = {row[1]: row for row in cursor.fetchall()}
+
+    # Column info: (cid, name, type, notnull, default, pk)
+    # notnull=1 means NOT NULL, notnull=0 means nullable
+    amount_notnull = columns.get("amount", (None, None, None, 1))[3]
+    target_date_notnull = columns.get("target_date", (None, None, None, 1))[3]
+
+    if amount_notnull == 0 and target_date_notnull == 0:
+        # Already nullable, skip migration
+        return
+
+    # Get all column names for the table
+    col_names = [col[1] for col in columns.values()]
+
+    # Create new table with nullable columns
+    cursor.execute("""
+        CREATE TABLE wishlist_items_new (
+            id VARCHAR(36) PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            amount FLOAT,
+            target_date VARCHAR(20),
+            emoji VARCHAR(10) DEFAULT '🎯',
+            monarch_category_id VARCHAR(100),
+            category_group_id VARCHAR(100),
+            category_group_name VARCHAR(255),
+            source_url TEXT,
+            source_bookmark_id VARCHAR(100),
+            logo_url TEXT,
+            custom_image_path TEXT,
+            image_attribution TEXT,
+            is_archived BOOLEAN DEFAULT 0,
+            archived_at DATETIME,
+            created_at DATETIME NOT NULL,
+            updated_at DATETIME,
+            grid_x INTEGER NOT NULL DEFAULT 0,
+            grid_y INTEGER NOT NULL DEFAULT 0,
+            col_span INTEGER NOT NULL DEFAULT 1,
+            row_span INTEGER NOT NULL DEFAULT 1,
+            sort_order INTEGER NOT NULL DEFAULT 0,
+            goal_type VARCHAR(20) NOT NULL DEFAULT 'one_time',
+            completed_at DATETIME,
+            tracking_start_date DATE
+        )
+    """)
+
+    # Copy data from old table
+    # Build column list dynamically to handle any missing columns
+    copy_cols = [c for c in col_names if c in [
+        "id", "name", "amount", "target_date", "emoji",
+        "monarch_category_id", "category_group_id", "category_group_name",
+        "source_url", "source_bookmark_id", "logo_url",
+        "custom_image_path", "image_attribution",
+        "is_archived", "archived_at", "created_at", "updated_at",
+        "grid_x", "grid_y", "col_span", "row_span", "sort_order",
+        "goal_type", "completed_at", "tracking_start_date"
+    ]]
+    cols_str = ", ".join(copy_cols)
+
+    cursor.execute(f"INSERT INTO wishlist_items_new ({cols_str}) SELECT {cols_str} FROM wishlist_items")
+
+    # Drop old table and rename new one
+    cursor.execute("DROP TABLE wishlist_items")
+    cursor.execute("ALTER TABLE wishlist_items_new RENAME TO wishlist_items")
+
+    conn.commit()
+
+
 # Migration definitions
 # Each migration runs only if current DB version < migration version
 # "sql" can be a string (executed as script) or a callable (called with conn)
@@ -421,6 +501,13 @@ MIGRATIONS = [
         "version": 13,
         "description": "Add selected_folder_names to wishlist_config",
         "sql": migrate_v13_wishlist_config_folder_names,
+    },
+    # Version 14: Make amount and target_date nullable in wishlist_items
+    # Supports open-ended goals (no target amount) and no-deadline goals
+    {
+        "version": 14,
+        "description": "Make amount and target_date nullable for open-ended goals",
+        "sql": migrate_v14_wishlist_nullable_amount_date,
     },
 ]
 

@@ -187,8 +187,8 @@ class WishlistItem(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)  # UUID
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    amount: Mapped[float] = mapped_column(Float, nullable=False)  # Target amount
-    target_date: Mapped[str] = mapped_column(String(20), nullable=False)  # YYYY-MM-DD
+    amount: Mapped[float | None] = mapped_column(Float, nullable=True)  # Target amount (null = open-ended)
+    target_date: Mapped[str | None] = mapped_column(String(20), nullable=True)  # YYYY-MM-DD (null = no deadline)
     emoji: Mapped[str] = mapped_column(String(10), default="🎯")
 
     # Monarch integration
