@@ -615,7 +615,7 @@ export const StashWidgetGrid = memo(function StashWidgetGrid({
         margin={MARGIN}
         containerPadding={[0, 0]}
         useCSSTransforms={true}
-        compactType="vertical"
+        compactType={null}
         preventCollision={false}
       >
         {sortedItems.map((item, index) => {
