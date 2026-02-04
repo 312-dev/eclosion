@@ -927,15 +927,31 @@ export const StashCard = memo(function StashCard({
               const goalType = item.goal_type ?? 'one_time';
 
               // Handle various combinations of amount and date
-              // savings_buffer: "Maintain $X" or "Maintain regularly" (ongoing fund, no date)
+              // savings_buffer: "Maintain $X by [date]" or "Maintain $X" or "Maintain regularly"
               // debt: "Pay off $X by [date]" or "Pay off regularly"
               // one_time: "Save $X by [date]" or "Save regularly"
               const getDescription = () => {
                 if (goalType === 'savings_buffer') {
-                  const text = formattedAmount
-                    ? `Maintain ${formattedAmount}`
-                    : 'Maintain regularly';
-                  return { text, title: text };
+                  // Savings funds can have target dates - show them when set
+                  if (formattedAmount && item.target_date) {
+                    return {
+                      text: `Maintain ${formattedAmount} by ${dateDisplay}`,
+                      title: `Maintain ${formattedAmount} by ${dateDisplay}`,
+                    };
+                  }
+                  if (formattedAmount) {
+                    return {
+                      text: `Maintain ${formattedAmount}`,
+                      title: `Maintain ${formattedAmount}`,
+                    };
+                  }
+                  if (item.target_date) {
+                    return {
+                      text: `Maintain by ${dateDisplay}`,
+                      title: `Maintain by ${dateDisplay}`,
+                    };
+                  }
+                  return { text: 'Maintain regularly', title: 'Maintain regularly' };
                 }
                 const verb = goalType === 'debt' ? 'Pay off' : 'Save';
 
