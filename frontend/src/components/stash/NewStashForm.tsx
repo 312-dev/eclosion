@@ -215,7 +215,9 @@ export function NewStashForm({
         // Store Openverse attribution if using an Openverse image
         ...(openverseImage?.attribution && { image_attribution: openverseImage.attribution }),
         // Starting balance - set initial rollover balance
-        ...(startingBalanceNum > 0 && { starting_balance: startingBalanceNum }),
+        // Only send for new categories - existing categories already have their balance in Monarch
+        ...(startingBalanceNum > 0 &&
+          !isExistingCategoryWithBalance && { starting_balance: startingBalanceNum }),
       };
 
       let request;
@@ -263,6 +265,7 @@ export function NewStashForm({
     startingBalanceNum,
     isAmountCleared,
     isDateCleared,
+    isExistingCategoryWithBalance,
   ]);
 
   const isSubmitting = createMutation.isPending || isUploading;
