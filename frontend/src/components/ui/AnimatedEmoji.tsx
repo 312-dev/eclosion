@@ -84,6 +84,8 @@ export const AnimatedEmoji = memo(function AnimatedEmoji({
           style={{
             width: size,
             height: size,
+            // Shift animated image up slightly to align with static emoji baseline
+            transform: 'translateY(-2px)',
           }}
           onLoad={() => setImageLoaded(true)}
           onError={() => setImageError(true)}
