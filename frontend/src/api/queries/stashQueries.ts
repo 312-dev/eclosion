@@ -26,15 +26,22 @@ import {
   calculateMonthsRemaining,
   calculateProgressPercent,
   calculateShortfall,
+  calculateStashMonthlyTarget,
   calculateStashStatus,
 } from '../../utils/savingsCalculations';
 import { decodeHtmlEntities } from '../../utils';
 
-/** Compute derived values for a stash item (uses backend's monthly_target). */
+/** Compute derived values for a stash item (recalculates monthly_target from current balance). */
 function computeStashItem(item: StashItem): StashItem {
   const monthsRemaining = calculateMonthsRemaining(item.target_date);
-  // Use backend's monthly_target (calculated from rollover, not current balance)
-  const monthlyTarget = item.monthly_target;
+  // Recalculate monthly_target using effective balance (excludes planned_budget allocations)
+  // This ensures optimistic updates properly reflect balance changes
+  const effectiveBalance = item.current_balance - (item.planned_budget ?? 0);
+  const monthlyTarget = calculateStashMonthlyTarget(
+    item.amount,
+    effectiveBalance,
+    item.target_date
+  );
   const progressPercent = calculateProgressPercent(item.current_balance, item.amount);
   const shortfall = calculateShortfall(item.current_balance, item.amount);
 
