@@ -103,12 +103,11 @@ export function RecurringSetupWizard({ onComplete }: RecurringSetupWizardProps) 
       scrollSmooth
     >
       <TourController isOpen={wizard.showLinkTour} onClose={() => wizard.setShowLinkTour(false)} />
-      <div className="flex items-center justify-center p-4">
+      <div className="flex items-center justify-center md:p-4">
         <div
-          className="rounded-xl shadow-lg w-full max-w-lg p-6"
+          className="w-full md:max-w-lg md:p-6 md:rounded-xl md:shadow-lg md:border md:border-(--monarch-border)"
           style={{
             backgroundColor: 'var(--monarch-bg-card)',
-            border: '1px solid var(--monarch-border)',
           }}
         >
           <StepIndicator steps={STEPS} currentStep={wizard.currentStep} />
