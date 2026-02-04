@@ -364,18 +364,43 @@ def migrate_v14_wishlist_nullable_amount_date(conn: sqlite3.Connection) -> None:
 
     # Copy data from old table
     # Build column list dynamically to handle any missing columns
-    copy_cols = [c for c in col_names if c in [
-        "id", "name", "amount", "target_date", "emoji",
-        "monarch_category_id", "category_group_id", "category_group_name",
-        "source_url", "source_bookmark_id", "logo_url",
-        "custom_image_path", "image_attribution",
-        "is_archived", "archived_at", "created_at", "updated_at",
-        "grid_x", "grid_y", "col_span", "row_span", "sort_order",
-        "goal_type", "completed_at", "tracking_start_date"
-    ]]
+    copy_cols = [
+        c
+        for c in col_names
+        if c
+        in [
+            "id",
+            "name",
+            "amount",
+            "target_date",
+            "emoji",
+            "monarch_category_id",
+            "category_group_id",
+            "category_group_name",
+            "source_url",
+            "source_bookmark_id",
+            "logo_url",
+            "custom_image_path",
+            "image_attribution",
+            "is_archived",
+            "archived_at",
+            "created_at",
+            "updated_at",
+            "grid_x",
+            "grid_y",
+            "col_span",
+            "row_span",
+            "sort_order",
+            "goal_type",
+            "completed_at",
+            "tracking_start_date",
+        ]
+    ]
     cols_str = ", ".join(copy_cols)
 
-    cursor.execute(f"INSERT INTO wishlist_items_new ({cols_str}) SELECT {cols_str} FROM wishlist_items")
+    cursor.execute(
+        f"INSERT INTO wishlist_items_new ({cols_str}) SELECT {cols_str} FROM wishlist_items"
+    )
 
     # Drop old table and rename new one
     cursor.execute("DROP TABLE wishlist_items")
