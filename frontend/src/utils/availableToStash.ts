@@ -203,10 +203,10 @@ export function calculateAvailableToStash(
 ): AvailableToStashResult {
   // Get detailed breakdowns with account filtering
   const selectedAccountIds = options.selectedCashAccountIds ?? null;
-  const cashAccountsDetail = getCashAccountsDetail(data.accounts, selectedAccountIds);
-  const creditCardsDetail = getCreditCardsDetail(data.accounts);
-  const unspentCategoriesDetail = getUnspentCategoriesDetail(data.categoryBudgets);
-  const goalsDetail: BreakdownLineItem[] = data.goals
+  const cashAccountsDetail = getCashAccountsDetail(data.accounts ?? [], selectedAccountIds);
+  const creditCardsDetail = getCreditCardsDetail(data.accounts ?? []);
+  const unspentCategoriesDetail = getUnspentCategoriesDetail(data.categoryBudgets ?? []);
+  const goalsDetail: BreakdownLineItem[] = (data.goals ?? [])
     .filter((goal) => goal.balance > 0)
     .map((goal) => ({
       id: goal.id,
