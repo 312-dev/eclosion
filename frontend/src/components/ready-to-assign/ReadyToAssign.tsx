@@ -15,7 +15,6 @@ import type {
   RollupData,
 } from '../../types';
 import { formatCurrency } from '../../utils';
-import { Tooltip } from '../ui/Tooltip';
 import { calculateBurndownData } from '../charts';
 import { TargetIcon } from '../icons';
 import { LeftToBudgetBadge } from '../LeftToBudgetBadge';
@@ -132,41 +131,6 @@ export function ReadyToAssign({
         className={`rounded-xl px-4 pt-4 text-center relative ${isMonthlyFunded ? 'bg-(--monarch-success-bg)' : 'bg-monarch-orange-light'} ${stabilization.hasCatchUp ? 'pb-4 rounded-b-none border-x border-t border-monarch-border' : 'pb-6'}`}
         data-tour="current-monthly"
       >
-        {/* Warning icon in top right corner when untracked categories exist */}
-        {untrackedCategories.total > 0 && (
-          <Tooltip
-            content={
-              <>
-                <div className="font-medium">Excludes Untracked</div>
-                <div className="text-monarch-text-muted text-xs mt-1">
-                  {formatCurrency(untrackedCategories.total, { maximumFractionDigits: 0 })} in
-                  categories not linked to recurring items
-                </div>
-              </>
-            }
-          >
-            <span
-              className="absolute top-3 right-3 cursor-help text-monarch-text-dark"
-              data-tour="untracked-warning"
-            >
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-                <line x1="12" y1="9" x2="12" y2="13"></line>
-                <line x1="12" y1="17" x2="12.01" y2="17"></line>
-              </svg>
-            </span>
-          </Tooltip>
-        )}
         {/* Centered target icon at top */}
         <div className="flex justify-center mb-2">
           <TargetIcon
@@ -178,7 +142,14 @@ export function ReadyToAssign({
         <div
           className={`text-2xl font-bold mb-1 ${isMonthlyFunded ? 'text-(--monarch-success)' : 'text-monarch-orange'}`}
         >
-          <span>{formatCurrency(monthlyTargets.totalTargets, { maximumFractionDigits: 0 })}</span>
+          <span>
+            {formatCurrency(monthlyTargets.totalTargets, { maximumFractionDigits: 0 })}
+            {untrackedCategories.total > 0 && (
+              <sup className="text-xs font-normal ml-0.5" aria-hidden="true">
+                &dagger;
+              </sup>
+            )}
+          </span>
         </div>
         <div className="text-sm text-monarch-text-dark">
           <span>Needed for {new Date().toLocaleDateString('en-US', { month: 'long' })}</span>
@@ -225,6 +196,15 @@ export function ReadyToAssign({
         itemsBehindCount={itemsBehind.length}
         currentMonthlyCost={currentMonthlyCost}
       />
+
+      {/* Footnotes */}
+      {untrackedCategories.total > 0 && (
+        <p className="text-[10px] text-monarch-text-muted mt-3 px-1 leading-relaxed">
+          <span aria-hidden="true">&dagger;</span> Excludes{' '}
+          {formatCurrency(untrackedCategories.total, { maximumFractionDigits: 0 })} in categories
+          not linked to recurring items
+        </p>
+      )}
     </div>
   );
 }

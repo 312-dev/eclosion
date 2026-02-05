@@ -104,34 +104,34 @@ function SidebarBadge({
   displayValue,
   isPositive,
   shouldShake,
-  monthLabel,
 }: {
   displayValue: number;
   isPositive: boolean;
   shouldShake: boolean;
-  monthLabel: string;
 }) {
   const statusColor = getStatusColor(isPositive);
 
   return (
-    <Tooltip content={tooltipContent}>
+    <Tooltip content={tooltipContent} triggerClassName="!block">
       <a
         href="https://app.monarch.com/plan"
         target="_blank"
         rel="noopener noreferrer"
-        className={`block rounded-xl px-4 py-4 text-center hover:opacity-80 transition-opacity mb-3 ${shouldShake ? 'animate-error-shake' : ''}`}
+        className={`group relative block rounded-xl px-4 py-4 text-center hover:opacity-80 transition-opacity mb-3 ${shouldShake ? 'animate-error-shake' : ''}`}
         style={{ backgroundColor: getBgColor(isPositive) }}
         data-tour="left-to-budget"
       >
+        <ExternalLinkIcon
+          size={12}
+          strokeWidth={2.5}
+          className="absolute top-2.5 right-2.5 opacity-0 group-hover:opacity-100 transition-opacity"
+          style={{ color: statusColor }}
+        />
         <div className="text-2xl font-bold mb-1" style={{ color: statusColor }}>
           {formatCurrency(displayValue, { maximumFractionDigits: 0 })}
         </div>
-        <div
-          className="text-sm flex items-center justify-center gap-1"
-          style={{ color: statusColor, opacity: 0.85 }}
-        >
-          Left to budget in {monthLabel}
-          <ExternalLinkIcon size={12} strokeWidth={2.5} />
+        <div className="text-sm" style={{ color: statusColor, opacity: 0.85 }}>
+          Left to Budget
         </div>
       </a>
     </Tooltip>
@@ -232,12 +232,7 @@ export function LeftToBudgetBadge({ data, variant = 'compact' }: LeftToBudgetBad
 
   if (variant === 'sidebar') {
     return (
-      <SidebarBadge
-        displayValue={displayValue}
-        isPositive={isPositive}
-        shouldShake={shouldShake}
-        monthLabel={monthLabel}
-      />
+      <SidebarBadge displayValue={displayValue} isPositive={isPositive} shouldShake={shouldShake} />
     );
   }
 
