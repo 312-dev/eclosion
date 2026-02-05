@@ -340,7 +340,6 @@ describe('Specific Mutation Configurations', () => {
       'toggleItem',
       'allocateFunds',
       'recreateCategory',
-      'refreshItem',
       'linkCategory',
       'updateCategoryGroup',
     ];

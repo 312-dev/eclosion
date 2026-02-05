@@ -29,7 +29,6 @@ export {
   toggleItemTracking,
   allocateFunds,
   recreateCategory,
-  refreshItem,
   changeCategoryGroup,
 } from './demoItems';
 

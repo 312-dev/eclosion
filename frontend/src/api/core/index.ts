@@ -57,13 +57,7 @@ export {
 } from './categories';
 
 // Items
-export {
-  toggleItemTracking,
-  allocateFunds,
-  recreateCategory,
-  refreshItem,
-  changeCategoryGroup,
-} from './items';
+export { toggleItemTracking, allocateFunds, recreateCategory, changeCategoryGroup } from './items';
 
 // Rollup
 export {

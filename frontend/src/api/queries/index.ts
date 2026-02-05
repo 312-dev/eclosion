@@ -53,7 +53,6 @@ export {
   useToggleItemMutation,
   useAllocateFundsMutation,
   useRecreateCategoryMutation,
-  useRefreshItemMutation,
   useChangeCategoryGroupMutation,
 } from './itemMutations';
 

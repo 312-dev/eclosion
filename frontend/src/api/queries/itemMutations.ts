@@ -1,7 +1,7 @@
 /**
  * Item Mutations
  *
- * Mutations for recurring item operations: toggle, allocate, recreate, refresh, change group.
+ * Mutations for recurring item operations: toggle, allocate, recreate, change group.
  * Uses smart invalidation from the dependency registry for consistent cache management.
  */
 
@@ -136,21 +136,6 @@ export function useRecreateCategoryMutation() {
       isDemo ? demoApi.recreateCategory(recurringId) : api.recreateCategory(recurringId),
     onSuccess: () => {
       smartInvalidate('recreateCategory');
-    },
-  });
-}
-
-/**
- * Refresh/recalculate item target
- */
-export function useRefreshItemMutation() {
-  const isDemo = useDemo();
-  const smartInvalidate = useSmartInvalidate();
-  return useMutation({
-    mutationFn: (recurringId: string) =>
-      isDemo ? demoApi.refreshItem(recurringId) : api.refreshItem(recurringId),
-    onSuccess: () => {
-      smartInvalidate('refreshItem');
     },
   });
 }

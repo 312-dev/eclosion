@@ -38,13 +38,6 @@ export async function recreateCategory(
   });
 }
 
-export async function refreshItem(recurringId: string): Promise<{ success: boolean }> {
-  return fetchApi('/recurring/refresh-item', {
-    method: 'POST',
-    body: JSON.stringify({ recurring_id: recurringId }),
-  });
-}
-
 export async function changeCategoryGroup(
   recurringId: string,
   groupId: string,

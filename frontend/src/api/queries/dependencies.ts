@@ -36,7 +36,6 @@ export type MutationType =
   | 'updateRollupEmoji'
   | 'updateRollupName'
   | 'recreateCategory'
-  | 'refreshItem'
   | 'linkCategory'
   | 'updateCategoryGroup'
   | 'updateCategoryEmoji'
@@ -351,10 +350,6 @@ export const mutationEffects: Record<MutationType, MutationEffect> = {
   recreateCategory: {
     invalidate: ['dashboard'],
     markStale: ['categoryStore', 'categoryGroups'],
-  },
-  refreshItem: {
-    invalidate: ['dashboard'],
-    markStale: [],
   },
   linkCategory: {
     invalidate: ['dashboard'],

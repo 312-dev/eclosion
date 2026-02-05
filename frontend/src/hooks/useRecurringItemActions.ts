@@ -139,19 +139,6 @@ export function useRecurringItemActions(onRefresh: () => void) {
     [client, onRefresh, queryClient, isDemo, toast]
   );
 
-  const handleRefreshItem = useCallback(
-    async (id: string) => {
-      try {
-        await client.refreshItem(id);
-        onRefresh();
-        toast.success('Target recalculated');
-      } catch (err) {
-        toast.error(handleApiError(err, 'Failed to recalculate target'));
-      }
-    },
-    [client, onRefresh, toast]
-  );
-
   const handleNameChangeItem = useCallback(
     async (id: string, name: string) => {
       try {
@@ -188,7 +175,6 @@ export function useRecurringItemActions(onRefresh: () => void) {
     handleChangeGroupItem,
     handleAddToRollupItem,
     handleEmojiChangeItem,
-    handleRefreshItem,
     handleNameChangeItem,
     handleLinkCategory,
     handleLinkSuccess,

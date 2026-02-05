@@ -155,14 +155,6 @@ export async function recreateCategory(
 }
 
 /**
- * Refresh a recurring item from Monarch.
- */
-export async function refreshItem(_recurringId: string): Promise<{ success: boolean }> {
-  await simulateDelay(150);
-  return { success: true };
-}
-
-/**
  * Change the category group for a recurring item.
  */
 export async function changeCategoryGroup(

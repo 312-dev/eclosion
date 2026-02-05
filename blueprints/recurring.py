@@ -392,21 +392,6 @@ def dismiss_notice(notice_id):
 # ---- ITEM MANAGEMENT ENDPOINTS ----
 
 
-@recurring_bp.route("/refresh-item", methods=["POST"])
-@api_handler(handle_mfa=False)
-def refresh_item():
-    """Clear frozen target for an item to force recalculation."""
-    services = get_services()
-    data = request.get_json()
-    recurring_id = data.get("recurring_id")
-
-    if not recurring_id:
-        raise ValidationError("Missing 'recurring_id'")
-
-    result = services.sync_service.state_manager.clear_frozen_target(recurring_id)
-    return {"success": result}
-
-
 @recurring_bp.route("/ready-to-assign", methods=["GET"])
 @api_handler(handle_mfa=True)
 async def get_ready_to_assign():
