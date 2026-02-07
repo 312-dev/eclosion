@@ -92,7 +92,8 @@ class IftttService:
                     json=payload,
                     headers=self._headers,
                 )
-                return response.json()
+                result: dict[str, Any] = response.json()
+                return result
         except Exception as e:
             logger.error(f"Failed to push IFTTT event: {e}")
             return {"success": False, "error": str(e)}
@@ -112,8 +113,9 @@ class IftttService:
                     f"{BROKER_URL}/api/queue/pending",
                     headers=self._headers,
                 )
-                result = response.json()
-                return result.get("actions", [])
+                result: dict[str, Any] = response.json()
+                actions: list[dict[str, Any]] = result.get("actions", [])
+                return actions
         except Exception as e:
             logger.error(f"Failed to poll IFTTT queue: {e}")
             return []
@@ -135,7 +137,8 @@ class IftttService:
                     json={"id": action_id},
                     headers=self._headers,
                 )
-                return response.json()
+                result: dict[str, Any] = response.json()
+                return result
         except Exception as e:
             logger.error(f"Failed to ACK IFTTT action: {e}")
             return {"success": False, "error": str(e)}
@@ -143,26 +146,29 @@ class IftttService:
     async def push_field_options(
         self,
         categories: list[dict[str, str]],
-        stashes: list[dict[str, str]],
+        stashes: list[dict[str, str]] | None = None,
+        goals: list[dict[str, str]] | None = None,
     ) -> dict[str, Any]:
         """
-        Push current category/stash lists to broker for offline caching.
+        Push current category/stash/goal lists to broker for offline caching.
 
         Called after each sync so IFTTT can populate dropdowns even when offline.
 
         Args:
             categories: List of {label, value} category options
-            stashes: List of {label, value} stash options
+            stashes: List of {label, value} stash options (optional)
+            goals: List of {label, value} goal options (optional)
         """
         if not self.is_configured:
             return {"success": False, "error": "IFTTT not configured"}
 
-        payload = {
-            "fields": {
-                "category": categories,
-                "stash": stashes,
-            }
-        }
+        fields: dict[str, list[dict[str, str]]] = {"category": categories}
+        if stashes:
+            fields["stash"] = stashes
+        if goals:
+            fields["goal"] = goals
+
+        payload = {"fields": fields}
 
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
@@ -171,7 +177,8 @@ class IftttService:
                     json=payload,
                     headers=self._headers,
                 )
-                return response.json()
+                result: dict[str, Any] = response.json()
+                return result
         except Exception as e:
             logger.error(f"Failed to push IFTTT field options: {e}")
             return {"success": False, "error": str(e)}

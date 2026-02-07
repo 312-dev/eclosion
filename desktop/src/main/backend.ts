@@ -446,7 +446,7 @@ export class BackendManager extends EventEmitter {
 
         // Check for Flask hot-reload by comparing boot_id
         try {
-          const data = await response.json();
+          const data = (await response.json()) as { boot_id?: string };
           if (data.boot_id) {
             if (this.lastBootId && data.boot_id !== this.lastBootId) {
               log('[Backend] Flask restarted (boot_id changed), re-pushing secrets');

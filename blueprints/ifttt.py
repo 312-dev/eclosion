@@ -10,7 +10,7 @@ Handles:
 
 import logging
 
-from flask import Blueprint, Response, make_response, request
+from flask import Blueprint, make_response, request
 
 from blueprints import get_services
 from core import api_handler, sanitize_id
@@ -27,7 +27,7 @@ ifttt_bp = Blueprint("ifttt", __name__, url_prefix="/ifttt")
 
 
 @ifttt_bp.route("/ping", methods=["GET", "POST"])
-def ifttt_ping() -> Response:
+def ifttt_ping() -> dict:
     """Health check for IFTTT tunnel connectivity testing."""
     return sanitize_api_result(
         {"success": True, "pong": True, "timestamp": __import__("time").time()}

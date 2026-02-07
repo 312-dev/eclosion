@@ -1307,9 +1307,9 @@ class SyncService:
 
             # Check for goal achievements and push IFTTT trigger events (non-blocking)
             try:
-                await self._check_ifttt_goal_achievements()
+                await self._check_ifttt_events()
             except Exception as e:
-                logger.warning(f"[STASH_SYNC] IFTTT goal check failed (non-fatal): {e}")
+                logger.warning(f"[STASH_SYNC] IFTTT event check failed (non-fatal): {e}")
 
             return {
                 "success": True,
