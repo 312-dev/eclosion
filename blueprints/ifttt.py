@@ -12,11 +12,10 @@ import logging
 
 from flask import Blueprint, Response, make_response, request
 
+from blueprints import get_services
 from core import api_handler, sanitize_id
 from core.exceptions import ValidationError
 from core.middleware import sanitize_api_result
-
-from blueprints import get_services
 
 logger = logging.getLogger(__name__)
 
@@ -349,6 +348,7 @@ def ifttt_authorize_page():
 def _render_approval_page(link_token: str) -> str:
     """Render a self-contained HTML approval page."""
     import json
+
     from markupsafe import escape
 
     # Use json.dumps for JS string literal (handles escaping properly)

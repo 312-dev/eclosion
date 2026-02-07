@@ -371,7 +371,6 @@ class IftttService:
         month_name = now.strftime("%B %Y")
         event_id = f"surplus-{month_key}"
 
-        planned_income = summary.get("planned_income", 0)
         percent_saved = int((surplus / planned_expenses) * 100) if planned_expenses else 0
 
         result = await self.push_trigger_event(
@@ -469,7 +468,6 @@ class IftttService:
         if not self.is_configured:
             return []
 
-        import json
         import os
         from datetime import datetime
 
@@ -586,7 +584,6 @@ class IftttService:
 
         push_all = "*" in subscribed
 
-        import json
         import os
         from datetime import datetime, timedelta
 
