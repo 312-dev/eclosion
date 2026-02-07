@@ -73,9 +73,8 @@ export async function importSettings(
 
 function importRecurringTool(data: EclosionExport, imported: Record<string, boolean>): void {
   const recurring = data.tools.recurring!;
-  updateDemoState((state) => ({
-    ...state,
-    settings: {
+  updateDemoState((state) => {
+    const settings: typeof state.settings = {
       auto_sync_new: recurring.config.auto_sync_new,
       auto_track_threshold: recurring.config.auto_track_threshold,
       auto_update_targets: recurring.config.auto_update_targets,
@@ -83,37 +82,47 @@ function importRecurringTool(data: EclosionExport, imported: Record<string, bool
         recurring.config.auto_categorize_enabled ?? state.settings.auto_categorize_enabled,
       show_category_group:
         recurring.config.show_category_group ?? state.settings.show_category_group,
-    },
-    dashboard: {
-      ...state.dashboard,
-      config: {
-        ...state.dashboard.config,
-        target_group_id: recurring.config.target_group_id,
-        target_group_name: recurring.config.target_group_name,
-        is_configured: !!recurring.config.target_group_id,
-        auto_sync_new: recurring.config.auto_sync_new,
-        auto_track_threshold: recurring.config.auto_track_threshold,
-        auto_update_targets: recurring.config.auto_update_targets,
-        auto_categorize_enabled:
-          recurring.config.auto_categorize_enabled ??
-          state.dashboard.config.auto_categorize_enabled,
-        show_category_group:
-          recurring.config.show_category_group ?? state.dashboard.config.show_category_group,
+    };
+
+    const dashConfig: typeof state.dashboard.config = {
+      ...state.dashboard.config,
+      target_group_id: recurring.config.target_group_id,
+      target_group_name: recurring.config.target_group_name,
+      is_configured: !!recurring.config.target_group_id,
+      auto_sync_new: recurring.config.auto_sync_new,
+      auto_track_threshold: recurring.config.auto_track_threshold,
+      auto_update_targets: recurring.config.auto_update_targets,
+      auto_categorize_enabled:
+        recurring.config.auto_categorize_enabled ??
+        state.dashboard.config.auto_categorize_enabled ??
+        state.settings.auto_categorize_enabled,
+      show_category_group:
+        recurring.config.show_category_group ??
+        state.dashboard.config.show_category_group ??
+        state.settings.show_category_group,
+    };
+
+    return {
+      ...state,
+      settings,
+      dashboard: {
+        ...state.dashboard,
+        config: dashConfig,
+        items: state.dashboard.items.map((item) => ({
+          ...item,
+          is_enabled: recurring.enabled_items.includes(item.id),
+          is_in_rollup: recurring.rollup.item_ids.includes(item.id),
+        })),
+        rollup: {
+          ...state.dashboard.rollup,
+          enabled: recurring.rollup.enabled,
+          category_name: recurring.rollup.category_name,
+          emoji: recurring.rollup.emoji,
+          budgeted: recurring.rollup.total_budgeted,
+        },
       },
-      items: state.dashboard.items.map((item) => ({
-        ...item,
-        is_enabled: recurring.enabled_items.includes(item.id),
-        is_in_rollup: recurring.rollup.item_ids.includes(item.id),
-      })),
-      rollup: {
-        ...state.dashboard.rollup,
-        enabled: recurring.rollup.enabled,
-        category_name: recurring.rollup.category_name,
-        emoji: recurring.rollup.emoji,
-        budgeted: recurring.rollup.total_budgeted,
-      },
-    },
-  }));
+    };
+  });
   imported['recurring'] = true;
 }
 
@@ -196,10 +205,8 @@ function importStashTool(
   // Build set of known category IDs for auto-linking (before state update)
   const currentState = getDemoState();
   const knownCategoryIds = new Set<string>();
-  for (const group of currentState.categoryGroupsDetailed ?? []) {
-    for (const cat of group.categories ?? []) {
-      if (cat.id) knownCategoryIds.add(cat.id);
-    }
+  for (const item of currentState.dashboard.items) {
+    if (item.category_id) knownCategoryIds.add(item.category_id);
   }
   for (const item of currentState.stash.items) {
     if (item.category_id) knownCategoryIds.add(item.category_id);
