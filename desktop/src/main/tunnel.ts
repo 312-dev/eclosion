@@ -20,6 +20,7 @@
  */
 
 import { spawn, type ChildProcess } from 'child_process';
+import { randomUUID } from 'crypto';
 import { createWriteStream, existsSync, mkdirSync, chmodSync, writeFileSync, unlinkSync } from 'fs';
 import { get as httpsGet } from 'https';
 import { join } from 'path';
@@ -959,7 +960,7 @@ export async function drainIftttQueue(): Promise<DrainResult> {
           method: 'POST',
           headers,
           body: JSON.stringify({
-            id: crypto.randomUUID(),
+            id: randomUUID(),
             action_slug: action.action_slug,
             fields: action.fields,
             queued_at: action.queued_at,

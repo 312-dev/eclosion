@@ -412,7 +412,9 @@ class IftttService:
         from datetime import datetime
 
         # Get subscribed categories for this trigger
-        subscribed = subscriptions.get("category_balance_threshold", set()) if subscriptions else set()
+        subscribed = (
+            subscriptions.get("category_balance_threshold", set()) if subscriptions else set()
+        )
         if not subscribed:
             return []  # No active subscriptions, skip pushing
 
@@ -571,7 +573,9 @@ class IftttService:
         Returns:
             List of event IDs that were pushed
         """
-        logger.info(f"[IFTTT] check_new_charges called, is_configured={self.is_configured}, subdomain={self.subdomain}")
+        logger.info(
+            f"[IFTTT] check_new_charges called, is_configured={self.is_configured}, subdomain={self.subdomain}"
+        )
         if not self.is_configured:
             logger.info("[IFTTT] Skipping new charges check - not configured")
             return []
@@ -603,7 +607,9 @@ class IftttService:
 
         transactions = result.get("allTransactions", {}).get("results", [])
 
-        logger.info(f"[IFTTT] Fetched {len(transactions)} transactions from {start_date} to {end_date}")
+        logger.info(
+            f"[IFTTT] Fetched {len(transactions)} transactions from {start_date} to {end_date}"
+        )
 
         if not transactions:
             return []
@@ -674,9 +680,13 @@ class IftttService:
             seen_ids.add(txn_id)
             if push_result.get("stored") or push_result.get("id"):
                 pushed_events.append(event_id)
-                logger.info(f"[IFTTT] New charge pushed: ${abs(int(amount))} at {merchant_name} ({category_name}) on {txn_date}")
+                logger.info(
+                    f"[IFTTT] New charge pushed: ${abs(int(amount))} at {merchant_name} ({category_name}) on {txn_date}"
+                )
 
-        logger.info(f"[IFTTT] Transaction summary: {len(pushed_events)} pushed, {skipped_seen} seen, {skipped_income} income, {skipped_unsubscribed} unsubscribed")
+        logger.info(
+            f"[IFTTT] Transaction summary: {len(pushed_events)} pushed, {skipped_seen} seen, {skipped_income} income, {skipped_unsubscribed} unsubscribed"
+        )
 
         # Cleanup: only keep IDs from the last 7 days worth of runs
         today = datetime.now().strftime("%Y-%m-%d")

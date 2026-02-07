@@ -804,12 +804,14 @@ class SyncService:
             target = item.get("amount")
             balance = item.get("current_balance", 0)
             if target and target > 0:
-                stash_items.append({
-                    "id": item["id"],
-                    "name": item["name"],
-                    "balance": balance,
-                    "target_amount": target,
-                })
+                stash_items.append(
+                    {
+                        "id": item["id"],
+                        "name": item["name"],
+                        "balance": balance,
+                        "target_amount": target,
+                    }
+                )
 
         if stash_items:
             pushed = await ifttt.check_goal_achievements(stash_items)
@@ -867,26 +869,28 @@ class SyncService:
                 if is_group_level:
                     # Flexible group: add group itself, not its categories
                     if group_id:
-                        flexible_group_options.append({
-                            "label": f"{group_name} (Flexible)",
-                            "value": f"group:{group_id}",
-                        })
+                        flexible_group_options.append(
+                            {
+                                "label": f"{group_name} (Flexible)",
+                                "value": f"group:{group_id}",
+                            }
+                        )
                 else:
                     # Regular group: add individual categories
                     for cat in group.get("categories", []):
                         if cat.get("id"):
-                            category_options.append({
-                                "label": cat["name"],
-                                "value": f"cat:{cat['id']}",
-                            })
+                            category_options.append(
+                                {
+                                    "label": cat["name"],
+                                    "value": f"cat:{cat['id']}",
+                                }
+                            )
 
             # Combine: categories first, then flexible groups
             all_options = category_options + flexible_group_options
 
             goals = [
-                {"label": item["name"], "value": item["id"]}
-                for item in items
-                if item.get("id")
+                {"label": item["name"], "value": item["id"]} for item in items if item.get("id")
             ]
 
             await ifttt.push_field_options(categories=all_options, goals=goals)

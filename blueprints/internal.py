@@ -27,6 +27,7 @@ def _validate_desktop_secret() -> bool:
     if not provided:
         return False
     import secrets as secrets_module
+
     return secrets_module.compare_digest(provided, config.DESKTOP_SECRET)
 
 
@@ -43,7 +44,9 @@ def set_ifttt_secrets_endpoint() -> tuple[Response, int] | Response:
     - subdomain: The tunnel subdomain
     - management_key: The management key for broker auth
     """
-    logger.info(f"[Internal] IFTTT secrets endpoint called, DESKTOP_SECRET configured: {bool(config.DESKTOP_SECRET)}")
+    logger.info(
+        f"[Internal] IFTTT secrets endpoint called, DESKTOP_SECRET configured: {bool(config.DESKTOP_SECRET)}"
+    )
     if not _validate_desktop_secret():
         logger.warning("[Internal] IFTTT secrets endpoint: desktop secret validation failed")
         return Response('{"error": "Unauthorized"}', status=403, mimetype="application/json")
@@ -62,7 +65,9 @@ def set_ifttt_secrets_endpoint() -> tuple[Response, int] | Response:
         management_key=management_key,
     )
 
-    logger.info(f"[Internal] IFTTT secrets updated via IPC: subdomain={subdomain}, hasManagementKey={bool(management_key)}")
+    logger.info(
+        f"[Internal] IFTTT secrets updated via IPC: subdomain={subdomain}, hasManagementKey={bool(management_key)}"
+    )
     return Response('{"success": true}', status=200, mimetype="application/json")
 
 

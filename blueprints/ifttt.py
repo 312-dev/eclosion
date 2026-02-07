@@ -29,7 +29,9 @@ ifttt_bp = Blueprint("ifttt", __name__, url_prefix="/ifttt")
 @ifttt_bp.route("/ping", methods=["GET", "POST"])
 def ifttt_ping() -> Response:
     """Health check for IFTTT tunnel connectivity testing."""
-    return sanitize_api_result({"success": True, "pong": True, "timestamp": __import__("time").time()})
+    return sanitize_api_result(
+        {"success": True, "pong": True, "timestamp": __import__("time").time()}
+    )
 
 
 # ---- ACTION ENDPOINTS ----
@@ -52,7 +54,9 @@ def _parse_category_or_group_id(value: str) -> tuple[str, str]:
     elif value.startswith("cat:"):
         return ("category", value[4:])
     else:
-        raise ValidationError(f"Invalid ID format: expected 'cat:' or 'group:' prefix, got '{value}'")
+        raise ValidationError(
+            f"Invalid ID format: expected 'cat:' or 'group:' prefix, got '{value}'"
+        )
 
 
 @ifttt_bp.route("/actions/budget-to", methods=["POST"])
@@ -159,9 +163,7 @@ async def move_funds():
     cm = services.sync_service.category_manager
 
     # Use mixed method to handle any combination of categories/groups
-    result = await cm.move_funds_mixed(
-        source_id, source_type, dest_id, dest_type, float(amount)
-    )
+    result = await cm.move_funds_mixed(source_id, source_type, dest_id, dest_type, float(amount))
     return sanitize_api_result(result, "Failed to move funds.")
 
 
@@ -196,15 +198,17 @@ async def query_category_budgets():
         else:
             status = "on_track"
 
-        data.append({
-            "category_name": info.get("name", "Unknown"),
-            "group_name": info.get("group_name", ""),
-            "budget_amount": str(int(budgeted)),
-            "actual_spending": str(int(actual)),
-            "remaining": str(int(budget.get("remaining", 0))),
-            "rollover": str(int(budget.get("rollover", 0))),
-            "status": status,
-        })
+        data.append(
+            {
+                "category_name": info.get("name", "Unknown"),
+                "group_name": info.get("group_name", ""),
+                "budget_amount": str(int(budgeted)),
+                "actual_spending": str(int(actual)),
+                "remaining": str(int(budget.get("remaining", 0))),
+                "rollover": str(int(budget.get("rollover", 0))),
+                "status": status,
+            }
+        )
 
     # Sort by group then category name
     data.sort(key=lambda x: (x["group_name"], x["category_name"]))
@@ -252,13 +256,15 @@ async def query_under_budget_categories():
         if budgeted > 0 and actual < budgeted:
             amount_saved = int(budgeted - actual)
             percent_saved = int((amount_saved / budgeted) * 100) if budgeted else 0
-            data.append({
-                "category_name": info.get("name", "Unknown"),
-                "budget_amount": str(int(budgeted)),
-                "actual_spending": str(int(actual)),
-                "amount_saved": str(amount_saved),
-                "percent_saved": str(percent_saved),
-            })
+            data.append(
+                {
+                    "category_name": info.get("name", "Unknown"),
+                    "budget_amount": str(int(budgeted)),
+                    "actual_spending": str(int(actual)),
+                    "amount_saved": str(amount_saved),
+                    "percent_saved": str(percent_saved),
+                }
+            )
 
     # Sort by amount saved descending
     data.sort(key=lambda x: int(x["amount_saved"]), reverse=True)
@@ -303,15 +309,17 @@ async def query_budget_summary():
     surplus = int(planned_expenses - actual_expenses) if planned_expenses > actual_expenses else 0
 
     return {
-        "data": [{
-            "month": month_name,
-            "planned_income": str(int(summary.get("planned_income", 0))),
-            "actual_income": str(int(summary.get("actual_income", 0))),
-            "planned_expenses": str(int(planned_expenses)),
-            "actual_expenses": str(int(actual_expenses)),
-            "surplus": str(surplus),
-            "ready_to_assign": str(int(summary.get("ready_to_assign", 0))),
-        }],
+        "data": [
+            {
+                "month": month_name,
+                "planned_income": str(int(summary.get("planned_income", 0))),
+                "actual_income": str(int(summary.get("actual_income", 0))),
+                "planned_expenses": str(int(planned_expenses)),
+                "actual_expenses": str(int(actual_expenses)),
+                "surplus": str(surplus),
+                "ready_to_assign": str(int(summary.get("ready_to_assign", 0))),
+            }
+        ],
     }
 
 
@@ -566,7 +574,9 @@ async def field_options_category():
 
     # Get detailed group info to check group_level_budgeting_enabled
     detailed_groups = await cm.get_category_groups_detailed()
-    group_level_enabled = {g["id"]: g.get("group_level_budgeting_enabled", False) for g in detailed_groups}
+    group_level_enabled = {
+        g["id"]: g.get("group_level_budgeting_enabled", False) for g in detailed_groups
+    }
 
     # Get categories grouped
     groups = await cm.get_all_categories_grouped()
@@ -581,10 +591,12 @@ async def field_options_category():
 
         if is_group_level:
             # Flexible group: add the group itself, not its categories
-            flexible_groups.append({
-                "label": f"{group_name} (Flexible)",
-                "value": f"group:{group_id}",
-            })
+            flexible_groups.append(
+                {
+                    "label": f"{group_name} (Flexible)",
+                    "value": f"group:{group_id}",
+                }
+            )
         else:
             # Regular group: add individual categories
             categories = group.get("categories", [])
@@ -700,7 +712,9 @@ async def refresh_triggers():
         "events_pushed": {},
     }
 
-    logger.info(f"[IFTTT Refresh] Service state: subdomain={ifttt.subdomain}, hasManagementKey={bool(ifttt.management_key)}, is_configured={ifttt.is_configured}")
+    logger.info(
+        f"[IFTTT Refresh] Service state: subdomain={ifttt.subdomain}, hasManagementKey={bool(ifttt.management_key)}, is_configured={ifttt.is_configured}"
+    )
 
     if not ifttt.is_configured:
         logger.info("[IFTTT Refresh] Not configured, skipping")
@@ -719,12 +733,14 @@ async def refresh_triggers():
             target = item.get("amount")
             balance = item.get("current_balance", 0)
             if target and target > 0:
-                stash_items.append({
-                    "id": item["id"],
-                    "name": item["name"],
-                    "balance": balance,
-                    "target_amount": target,
-                })
+                stash_items.append(
+                    {
+                        "id": item["id"],
+                        "name": item["name"],
+                        "balance": balance,
+                        "target_amount": target,
+                    }
+                )
 
         if stash_items:
             pushed = await ifttt.check_goal_achievements(stash_items)
@@ -791,17 +807,21 @@ async def refresh_triggers():
 
             if is_group_level:
                 if group_id:
-                    flexible_group_options.append({
-                        "label": f"{group_name} (Flexible)",
-                        "value": f"group:{group_id}",
-                    })
+                    flexible_group_options.append(
+                        {
+                            "label": f"{group_name} (Flexible)",
+                            "value": f"group:{group_id}",
+                        }
+                    )
             else:
                 for cat in group.get("categories", []):
                     if cat.get("id"):
-                        category_options.append({
-                            "label": cat["name"],
-                            "value": f"cat:{cat['id']}",
-                        })
+                        category_options.append(
+                            {
+                                "label": cat["name"],
+                                "value": f"cat:{cat['id']}",
+                            }
+                        )
 
         all_categories = category_options + flexible_group_options
 
@@ -819,7 +839,9 @@ async def refresh_triggers():
             "categories": len(all_categories),
             "stashes": len(stash_options),
         }
-        logger.info(f"[IFTTT Refresh] Pushed field options: {len(all_categories)} categories, {len(stash_options)} stashes")
+        logger.info(
+            f"[IFTTT Refresh] Pushed field options: {len(all_categories)} categories, {len(stash_options)} stashes"
+        )
     except Exception as e:
         logger.warning(f"[IFTTT Refresh] Field options push failed: {e}")
         results["field_options_pushed"] = f"error: {e}"
