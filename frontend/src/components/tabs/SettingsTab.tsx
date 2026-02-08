@@ -12,19 +12,17 @@ import { useState, useEffect, useRef, useMemo, type ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
-import type { DashboardData, AutoSyncStatus, VersionInfo } from '../../types';
+import type { DashboardData, VersionInfo } from '../../types';
 import { useDemo } from '../../context/DemoContext';
 import { usePageTitle, useApiClient, useTunnelStatus } from '../../hooks';
 import { isDesktopMode } from '../../utils/apiBase';
 import { scrollToElement } from '../../utils';
 import { UI } from '../../constants';
-import * as api from '../../api/client';
 import {
   AppearanceSettings,
   RecurringToolSettings,
   NotesToolCard,
   StashToolSettings,
-  SyncingSection,
   UpdatesSection,
   DesktopSection,
   LogViewerSection,
@@ -55,7 +53,6 @@ export function SettingsTab() {
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [showBookmarkSetupModal, setShowBookmarkSetupModal] = useState(false);
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
-  const [autoSyncStatus, setAutoSyncStatus] = useState<AutoSyncStatus | null>(null);
   const [versionInfo, setVersionInfo] = useState<VersionInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const { logout } = useAuth();
@@ -86,7 +83,6 @@ export function SettingsTab() {
 
   useEffect(() => {
     fetchDashboardData();
-    fetchAutoSyncStatus();
     fetchVersionInfo();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- Initial mount only
   }, []);
@@ -130,26 +126,6 @@ export function SettingsTab() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const fetchAutoSyncStatus = async () => {
-    try {
-      setAutoSyncStatus(await client.getAutoSyncStatus());
-    } catch (err) {
-      console.error('Failed to fetch auto-sync status:', err);
-    }
-  };
-
-  const handleEnableAutoSync = async (intervalMinutes: number, passphrase: string) => {
-    if (isDemo) return;
-    const result = await api.enableAutoSync(intervalMinutes, passphrase, true);
-    if (!result.success) throw new Error(result.error || 'Failed to enable auto-sync');
-  };
-
-  const handleDisableAutoSync = async () => {
-    if (isDemo) return;
-    const result = await api.disableAutoSync();
-    if (!result.success) throw new Error(result.error || 'Failed to disable auto-sync');
   };
 
   const resetStashConfig = {
@@ -209,9 +185,11 @@ export function SettingsTab() {
           <section id="connectivity" className="mb-8" ref={remoteAccessRef}>
             <SectionHeader sectionId="connectivity" />
             <div className="flex flex-col gap-4">
-              <div id="remote-access">
-                <RemoteAccessSection />
-              </div>
+              {isDesktop && (
+                <div id="remote-access">
+                  <RemoteAccessSection />
+                </div>
+              )}
               <div id="ifttt">
                 <IftttSection />
               </div>
@@ -252,16 +230,6 @@ export function SettingsTab() {
           <UpdatesSection
             versionInfo={versionInfo}
             onShowUpdateModal={() => setShowUpdateModal(true)}
-          />
-        );
-
-      case 'syncing':
-        return (
-          <SyncingSection
-            status={autoSyncStatus}
-            onEnable={handleEnableAutoSync}
-            onDisable={handleDisableAutoSync}
-            onRefresh={fetchAutoSyncStatus}
           />
         );
 

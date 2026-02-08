@@ -242,32 +242,6 @@ export interface PeriodicSyncAPI {
   setInterval: (intervalMinutes: number) => Promise<PeriodicSyncSettings>;
 }
 
-// Background Sync Types (sync when app is closed, via system scheduler)
-
-export interface BackgroundSyncStatus {
-  installed: boolean;
-  intervalMinutes: number;
-}
-
-export interface BackgroundSyncInterval {
-  value: number;
-  label: string;
-}
-
-export interface BackgroundSyncResult {
-  success: boolean;
-  intervalMinutes?: number;
-  error?: string;
-}
-
-export interface BackgroundSyncAPI {
-  getStatus: () => Promise<BackgroundSyncStatus>;
-  getIntervals: () => Promise<BackgroundSyncInterval[]>;
-  enable: (intervalMinutes: number, passphrase: string) => Promise<BackgroundSyncResult>;
-  disable: () => Promise<BackgroundSyncResult>;
-  setInterval: (intervalMinutes: number) => Promise<BackgroundSyncResult>;
-}
-
 // Auto-Backup Types (encrypted daily backups)
 
 export interface AutoBackupSettings {
@@ -516,9 +490,6 @@ export interface ElectronAPI {
 
   // Periodic Sync (scheduled sync while app is running)
   periodicSync: PeriodicSyncAPI;
-
-  // Background Sync (sync when app is closed)
-  backgroundSync: BackgroundSyncAPI;
 
   // Auto-Backup (encrypted daily backups)
   autoBackup: AutoBackupAPI;

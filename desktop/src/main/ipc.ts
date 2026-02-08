@@ -87,6 +87,11 @@ import {
   clearMetricsHistory,
 } from './startup-metrics';
 import {
+  startRemoteCommandPolling,
+  stopRemoteCommandPolling,
+  pushUpdateStatusToFlask,
+} from './remote-commands';
+import {
   showFactoryResetDialog,
   getCleanupInstructions,
 } from './cleanup';
@@ -100,14 +105,6 @@ import {
   setPeriodicSyncEnabled,
   setPeriodicSyncInterval,
 } from './periodic-sync';
-import {
-  isBackgroundSyncInstalled,
-  getBackgroundSyncSettings,
-  getBackgroundSyncIntervals,
-  installBackgroundSync,
-  uninstallBackgroundSync,
-  updateBackgroundSyncInterval,
-} from './background-sync';
 import { setupBookmarkIpcHandlers } from './bookmarks';
 import { setupStashIpcHandlers } from './stash';
 import { setupOpenverseIpcHandlers } from './openverse';
@@ -1189,61 +1186,6 @@ export function setupIpcHandlers(backendManager: BackendManager): void {
   });
 
   // =========================================================================
-  // Background Sync (sync when app is closed)
-  // =========================================================================
-
-  /**
-   * Get current background sync status.
-   */
-  ipcMain.handle('background-sync:get-status', async () => {
-    const installed = await isBackgroundSyncInstalled();
-    const { intervalMinutes } = getBackgroundSyncSettings();
-    return { installed, intervalMinutes };
-  });
-
-  /**
-   * Get available sync interval options.
-   */
-  ipcMain.handle('background-sync:get-intervals', () => {
-    return getBackgroundSyncIntervals();
-  });
-
-  /**
-   * Enable background sync with the specified interval.
-   */
-  ipcMain.handle(
-    'background-sync:enable',
-    async (_event, intervalMinutes: number, _passphrase: string) => {
-      const success = await installBackgroundSync(intervalMinutes);
-      if (success) {
-        const { intervalMinutes: actualInterval } = getBackgroundSyncSettings();
-        return { success: true, intervalMinutes: actualInterval };
-      }
-      return { success: false, error: 'Failed to install background sync' };
-    }
-  );
-
-  /**
-   * Disable background sync.
-   */
-  ipcMain.handle('background-sync:disable', async () => {
-    const success = await uninstallBackgroundSync();
-    return { success, error: success ? undefined : 'Failed to uninstall background sync' };
-  });
-
-  /**
-   * Set the sync interval (must be enabled first).
-   */
-  ipcMain.handle('background-sync:set-interval', async (_event, intervalMinutes: number) => {
-    const success = await updateBackgroundSyncInterval(intervalMinutes);
-    if (success) {
-      const { intervalMinutes: actualInterval } = getBackgroundSyncSettings();
-      return { success: true, intervalMinutes: actualInterval };
-    }
-    return { success: false, error: 'Failed to update interval' };
-  });
-
-  // =========================================================================
   // Bookmarks
   // =========================================================================
 
@@ -1344,6 +1286,12 @@ export function setupIpcHandlers(backendManager: BackendManager): void {
             management_key: managementKey,
           });
         }
+
+        // Start remote command polling and push initial update status
+        startRemoteCommandPolling(port, desktopSecret);
+        pushUpdateStatusToFlask(port, desktopSecret).catch((err) => {
+          debugLog(`[Tunnel] Initial update status push failed (non-fatal): ${err}`);
+        });
       }
 
       return { success: true, url };
@@ -1360,6 +1308,9 @@ export function setupIpcHandlers(backendManager: BackendManager): void {
    */
   ipcMain.handle('tunnel:stop', async () => {
     stopTunnel();
+
+    // Stop remote command polling
+    stopRemoteCommandPolling();
 
     // Clear secrets from Flask memory
     const port = backendManager.getPort();
@@ -1398,6 +1349,9 @@ export function setupIpcHandlers(backendManager: BackendManager): void {
    */
   ipcMain.handle('tunnel:unclaim', async () => {
     const result = await unclaimSubdomain();
+
+    // Stop remote command polling (unclaim calls stopTunnel internally)
+    stopRemoteCommandPolling();
 
     // Clear secrets from Flask memory
     if (result.success) {

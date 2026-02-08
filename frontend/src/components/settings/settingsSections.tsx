@@ -11,12 +11,12 @@
  */
 
 import { cloneElement, isValidElement, type ReactElement } from 'react';
+import { isTunnelSite } from '../../utils/environment';
 import {
   Paintbrush,
   Wrench,
   User,
   Download,
-  Zap,
   Monitor,
   Shield,
   Database,
@@ -33,7 +33,6 @@ export type SectionId =
   | 'tool-settings'
   | 'account'
   | 'updates'
-  | 'syncing'
   | 'desktop'
   | 'security'
   | 'data'
@@ -51,7 +50,11 @@ export interface SettingsSection {
   /** Only show in web (not desktop) */
   webOnly?: boolean;
   /** Custom visibility function for complex conditions */
-  isVisible?: (context: { isDemo: boolean; isDesktop: boolean; isRemoteActive: boolean }) => boolean;
+  isVisible?: (context: {
+    isDemo: boolean;
+    isDesktop: boolean;
+    isRemoteActive: boolean;
+  }) => boolean;
   /** Color variant for special sections */
   variant?: 'default' | 'warning' | 'danger';
 }
@@ -62,13 +65,23 @@ export interface SettingsSection {
  * The sidebar navigation and SettingsTab both derive from this array.
  */
 export const SETTINGS_SECTIONS: SettingsSection[] = [
-  { id: 'demo', label: 'Demo Mode', icon: <RotateCcw size={16} />, showInDemo: true, variant: 'warning' },
+  {
+    id: 'demo',
+    label: 'Demo Mode',
+    icon: <RotateCcw size={16} />,
+    showInDemo: true,
+    variant: 'warning',
+  },
   { id: 'appearance', label: 'Appearance', icon: <Paintbrush size={16} /> },
-  { id: 'connectivity', label: 'Connectivity', icon: <Wifi size={16} />, desktopOnly: true },
+  {
+    id: 'connectivity',
+    label: 'Connectivity',
+    icon: <Wifi size={16} />,
+    isVisible: ({ isDesktop }) => isDesktop || isTunnelSite(),
+  },
   { id: 'tool-settings', label: 'Tool Settings', icon: <Wrench size={16} /> },
   { id: 'account', label: 'Account', icon: <User size={16} /> },
   { id: 'updates', label: 'Updates', icon: <Download size={16} /> },
-  { id: 'syncing', label: 'Syncing', icon: <Zap size={16} /> },
   { id: 'desktop', label: 'Desktop', icon: <Monitor size={16} />, desktopOnly: true },
   {
     id: 'security',
@@ -77,7 +90,12 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     isVisible: ({ isDesktop, isRemoteActive }) => !isDesktop || isRemoteActive,
   },
   { id: 'data', label: 'Data', icon: <Database size={16} /> },
-  { id: 'logs', label: 'Logs', icon: <FileText size={16} />, desktopOnly: true },
+  {
+    id: 'logs',
+    label: 'Logs',
+    icon: <FileText size={16} />,
+    isVisible: ({ isDesktop }) => isDesktop || isTunnelSite(),
+  },
   { id: 'danger', label: 'Danger Zone', icon: <AlertTriangle size={16} />, variant: 'danger' },
 ];
 

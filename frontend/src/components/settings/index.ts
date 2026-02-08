@@ -11,7 +11,6 @@ export { NotesToolSettings } from './NotesToolSettings';
 export { NotesToolCard } from './NotesToolCard';
 export { StashToolSettings } from './StashToolSettings';
 export { ToolSettingsHeader } from './ToolSettingsHeader';
-export { SyncingSection, AutomationSection } from './AutomationSection';
 export { UpdatesSection } from './UpdatesSection';
 export { DesktopSection } from './desktop/DesktopSection';
 export { RemoteAccessSection } from './desktop/RemoteAccessSection';
@@ -28,5 +27,10 @@ export { HiddenCategoriesModal } from './HiddenCategoriesModal';
 export { DeveloperSection } from './DeveloperSection';
 export { SettingsHeader } from './SettingsHeader';
 export { SettingsSectionHeader } from './SettingsSectionHeader';
-export { SETTINGS_SECTIONS, getVisibleSections, getSectionById, SectionHeader } from './settingsSections';
+export {
+  SETTINGS_SECTIONS,
+  getVisibleSections,
+  getSectionById,
+  SectionHeader,
+} from './settingsSections';
 export type { SettingsSection, SectionId, SectionVisibilityContext } from './settingsSections';

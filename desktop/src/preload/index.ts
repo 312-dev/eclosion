@@ -803,50 +803,6 @@ const electronAPI = {
   },
 
   // =========================================================================
-  // Background Sync (sync when app is closed)
-  // =========================================================================
-
-  /**
-   * Background sync API for configuring system-level scheduled sync.
-   */
-  backgroundSync: {
-    /**
-     * Get current background sync status.
-     */
-    getStatus: (): Promise<{ installed: boolean; intervalMinutes: number }> =>
-      ipcRenderer.invoke('background-sync:get-status'),
-
-    /**
-     * Get available sync interval options.
-     */
-    getIntervals: (): Promise<Array<{ value: number; label: string }>> =>
-      ipcRenderer.invoke('background-sync:get-intervals'),
-
-    /**
-     * Enable background sync with the specified interval.
-     */
-    enable: (
-      intervalMinutes: number,
-      passphrase: string
-    ): Promise<{ success: boolean; intervalMinutes?: number; error?: string }> =>
-      ipcRenderer.invoke('background-sync:enable', intervalMinutes, passphrase),
-
-    /**
-     * Disable background sync.
-     */
-    disable: (): Promise<{ success: boolean; error?: string }> =>
-      ipcRenderer.invoke('background-sync:disable'),
-
-    /**
-     * Set the sync interval (must be enabled first).
-     */
-    setInterval: (
-      intervalMinutes: number
-    ): Promise<{ success: boolean; intervalMinutes?: number; error?: string }> =>
-      ipcRenderer.invoke('background-sync:set-interval', intervalMinutes),
-  },
-
-  // =========================================================================
   // Auto-Backup
   // =========================================================================
 
