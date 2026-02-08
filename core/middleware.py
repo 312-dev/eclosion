@@ -356,9 +356,9 @@ def queue_remote_command(command_type: str) -> dict[str, Any]:
     Returns the queued command dict.
     """
     # Check for existing pending command of same type
-    for cmd in _remote_command_queue:
-        if cmd["type"] == command_type:
-            return cmd
+    for existing in _remote_command_queue:
+        if existing["type"] == command_type:
+            return existing
 
     cmd: dict[str, Any] = {
         "id": str(uuid.uuid4()),
