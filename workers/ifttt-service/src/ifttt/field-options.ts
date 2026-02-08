@@ -147,16 +147,20 @@ export async function handleTriggerFieldOptions(
 
   const result = await proxyFieldOptions(subdomain, flaskPath, actionSecret);
 
+  // Use fieldKey as cache key to avoid collisions between triggers
+  // (e.g., new_charge:category uses category-all, others use category)
+  const cacheKey = fieldKey;
+
   if (result.online && result.data) {
     // Fire-and-forget: cache the result for offline fallback
     const options = (result.data as { data: IftttFieldOption[] }).data;
     if (Array.isArray(options)) {
-      ctx.waitUntil(cacheFieldOptions(subdomain, fieldSlug, options, env));
+      ctx.waitUntil(cacheFieldOptions(subdomain, cacheKey, options, env));
     }
     return Response.json(result.data);
   }
 
-  return getCachedFieldOptions(subdomain, fieldSlug, env);
+  return getCachedFieldOptions(subdomain, cacheKey, env);
 }
 
 /**

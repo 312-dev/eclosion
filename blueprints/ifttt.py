@@ -800,7 +800,11 @@ async def refresh_triggers():
             g["id"]: g.get("group_level_budgeting_enabled", False) for g in detailed_groups
         }
 
-        category_options = []
+        # Build two category lists:
+        # 1. rolled_up_categories: for actions (flexible groups collapsed)
+        # 2. all_categories: for triggers like new_charge (every individual category)
+        rolled_up_categories = []
+        all_categories = []
         flexible_group_options = []
 
         groups = await cm.get_all_categories_grouped()
@@ -809,7 +813,18 @@ async def refresh_triggers():
             group_name = group.get("name", "")
             is_group_level = group_level_enabled.get(group_id, False)
 
+            # Always add individual categories to all_categories
+            for cat in group.get("categories", []):
+                if cat.get("id"):
+                    all_categories.append(
+                        {
+                            "label": cat["name"],
+                            "value": f"cat:{cat['id']}",
+                        }
+                    )
+
             if is_group_level:
+                # For rolled_up: add flexible group as single option
                 if group_id:
                     flexible_group_options.append(
                         {
@@ -818,16 +833,18 @@ async def refresh_triggers():
                         }
                     )
             else:
+                # For rolled_up: add individual categories from non-flexible groups
                 for cat in group.get("categories", []):
                     if cat.get("id"):
-                        category_options.append(
+                        rolled_up_categories.append(
                             {
                                 "label": cat["name"],
                                 "value": f"cat:{cat['id']}",
                             }
                         )
 
-        all_categories = category_options + flexible_group_options
+        # Combine rolled_up with flexible groups at the end
+        rolled_up_categories = rolled_up_categories + flexible_group_options
 
         # Get stashes
         stash_service = StashService()
@@ -838,13 +855,17 @@ async def refresh_triggers():
             if item.get("id")
         ]
 
-        await ifttt.push_field_options(all_categories, stash_options)
+        await ifttt.push_field_options(
+            rolled_up_categories, stash_options, categories_all=all_categories
+        )
         results["field_options_pushed"] = {
-            "categories": len(all_categories),
+            "categories": len(rolled_up_categories),
+            "categories_all": len(all_categories),
             "stashes": len(stash_options),
         }
         logger.info(
-            f"[IFTTT Refresh] Pushed field options: {len(all_categories)} categories, {len(stash_options)} stashes"
+            f"[IFTTT Refresh] Pushed field options: {len(rolled_up_categories)} categories (rolled up), "
+            f"{len(all_categories)} categories (all), {len(stash_options)} stashes"
         )
     except Exception as e:
         logger.warning(f"[IFTTT Refresh] Field options push failed: {e}")

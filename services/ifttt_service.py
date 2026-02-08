@@ -240,6 +240,7 @@ class IftttService:
         categories: list[dict[str, str]],
         stashes: list[dict[str, str]] | None = None,
         goals: list[dict[str, str]] | None = None,
+        categories_all: list[dict[str, str]] | None = None,
     ) -> dict[str, Any]:
         """
         Push current category/stash/goal lists to broker for offline caching.
@@ -247,9 +248,10 @@ class IftttService:
         Called after each sync so IFTTT can populate dropdowns even when offline.
 
         Args:
-            categories: List of {label, value} category options
+            categories: List of {label, value} category options (rolled up for actions)
             stashes: List of {label, value} stash options (optional)
             goals: List of {label, value} goal options (optional)
+            categories_all: List of {label, value} ALL categories (for triggers like new_charge)
         """
         if not self.is_configured:
             return {"success": False, "error": _NOT_CONFIGURED}
@@ -259,6 +261,9 @@ class IftttService:
             fields["stash"] = stashes
         if goals:
             fields["goal"] = goals
+        if categories_all:
+            # Use trigger:field format as cache key for new_charge trigger
+            fields["new_charge:category"] = categories_all
 
         payload = {"fields": fields}
 
