@@ -402,9 +402,12 @@ async function handleNewCharge(
     filtered = filtered.filter((e) => e.data.category_id === triggerFields.category);
   }
 
-  // Exclude pending transactions unless checkbox is checked
-  // IFTTT checkboxes send the value when checked, empty when unchecked
-  if (!triggerFields?.include_pending) {
+  // When "include pending" is checked, show ONLY pending transactions.
+  // When unchecked, show ONLY posted transactions.
+  // This prevents double-triggering when a pending transaction posts with a new ID.
+  if (triggerFields?.include_pending) {
+    filtered = filtered.filter((e) => e.data.is_pending === 'true');
+  } else {
     filtered = filtered.filter((e) => e.data.is_pending !== 'true');
   }
 
