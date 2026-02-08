@@ -92,7 +92,13 @@ def sanitize_api_result(result: dict, generic_error: str = "Operation failed.") 
 def is_api_request() -> bool:
     """Check if the request is for an API endpoint."""
     api_prefixes = (
-        "/auth/", "/recurring/", "/security/", "/version/", "/notes/", "/settings/", "/remote/",
+        "/auth/",
+        "/recurring/",
+        "/security/",
+        "/version/",
+        "/notes/",
+        "/settings/",
+        "/remote/",
     )
     return any(request.path.startswith(p) for p in api_prefixes)
 

@@ -347,11 +347,13 @@ def list_log_files() -> tuple[Response, int] | Response:
 
         try:
             stat = os.stat(filepath)
-            files.append({
-                "name": filename,
-                "size": stat.st_size,
-                "modified": stat.st_mtime,
-            })
+            files.append(
+                {
+                    "name": filename,
+                    "size": stat.st_size,
+                    "modified": stat.st_mtime,
+                }
+            )
         except OSError:
             continue
 
@@ -401,12 +403,14 @@ def read_log_file(filename: str) -> tuple[Response, int] | Response:
         if truncated:
             all_lines = all_lines[-max_lines:]
 
-        return jsonify({
-            "content": "".join(all_lines),
-            "total_lines": total_lines,
-            "displayed_lines": len(all_lines),
-            "truncated": truncated,
-        })
+        return jsonify(
+            {
+                "content": "".join(all_lines),
+                "total_lines": total_lines,
+                "displayed_lines": len(all_lines),
+                "truncated": truncated,
+            }
+        )
     except OSError as e:
         logger.error(f"[Remote] Failed to read log file {filename}: {e}")
         return jsonify({"error": "Failed to read file"}), 500
@@ -417,10 +421,12 @@ def update_status() -> tuple[Response, int] | Response:
     """Get current update status (cached from Electron)."""
     status = get_update_status()
     if status.get("current_version") is None:
-        return jsonify({
-            **status,
-            "note": "Update status not yet received from desktop app",
-        })
+        return jsonify(
+            {
+                **status,
+                "note": "Update status not yet received from desktop app",
+            }
+        )
     return jsonify(status)
 
 
@@ -441,16 +447,20 @@ def install_update() -> tuple[Response, int] | Response:
     """
     status = get_update_status()
     if not status.get("update_downloaded"):
-        return jsonify({
-            "error": "No update downloaded. Check for updates first.",
-            "update_available": status.get("update_available", False),
-            "update_downloaded": False,
-        }), 400
+        return jsonify(
+            {
+                "error": "No update downloaded. Check for updates first.",
+                "update_available": status.get("update_available", False),
+                "update_downloaded": False,
+            }
+        ), 400
 
     cmd = queue_remote_command("install_update")
     logger.info(f"[Remote] Update install queued: {cmd['id']}")
-    return jsonify({
-        "queued": True,
-        "command": cmd,
-        "warning": "This will restart the app. Remote access will be temporarily unavailable.",
-    })
+    return jsonify(
+        {
+            "queued": True,
+            "command": cmd,
+            "warning": "This will restart the app. Remote access will be temporarily unavailable.",
+        }
+    )
