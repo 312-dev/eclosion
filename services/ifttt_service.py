@@ -7,12 +7,11 @@ Handles communication between the Eclosion desktop app and the IFTTT worker:
 - Pushes field option caches for offline dropdown population
 """
 
+import asyncio
 import json
 import logging
 import os
 from typing import Any
-
-import asyncio
 
 import httpx
 
