@@ -161,9 +161,7 @@ class StateManager:
                 seen_recurring_tour=config.seen_recurring_tour,
                 seen_stash_intro=config.seen_stash_intro,
                 read_update_ids=(
-                    json.loads(config.read_update_ids)
-                    if config.read_update_ids
-                    else []
+                    json.loads(config.read_update_ids) if config.read_update_ids else []
                 ),
                 updates_install_date=config.updates_install_date,
                 updates_last_viewed_at=config.updates_last_viewed_at,
@@ -704,6 +702,7 @@ class StateManager:
             with db_session() as session:
                 repo = TrackerRepository(session)
                 repo.update_config(**updates)
+
 
 # ============================================================================
 # Credentials Manager - SQLite-backed
