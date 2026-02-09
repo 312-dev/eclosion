@@ -5,6 +5,7 @@ Manages persistence of tracker state, credentials, and notes
 using SQLite via SQLAlchemy.
 """
 
+import json
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Literal, cast
@@ -76,19 +77,6 @@ class RollupState:
 
 
 @dataclass
-class AutoSyncState:
-    """State for automatic background sync."""
-
-    enabled: bool = False
-    interval_minutes: int = 360
-    last_auto_sync: str | None = None
-    last_auto_sync_success: bool | None = None
-    last_auto_sync_error: str | None = None
-    consent_acknowledged: bool = False
-    consent_timestamp: str | None = None
-
-
-@dataclass
 class TrackerState:
     """Full tracker state - reconstructed from database."""
 
@@ -109,10 +97,18 @@ class TrackerState:
     rollup: RollupState = field(default_factory=RollupState)
     removed_item_notices: list[RemovedItemNotice] = field(default_factory=list)
     last_read_changelog_version: str | None = None
-    auto_sync: AutoSyncState = field(default_factory=AutoSyncState)
     user_first_name: str | None = None
     mfa_mode: Literal["secret", "code"] = "secret"
     sync_blocked_reason: str | None = None
+
+    # Acknowledgement state (migrated from localStorage)
+    seen_stash_tour: bool = False
+    seen_notes_tour: bool = False
+    seen_recurring_tour: bool = False
+    seen_stash_intro: bool = False
+    read_update_ids: list[str] = field(default_factory=list)
+    updates_install_date: str | None = None
+    updates_last_viewed_at: str | None = None
 
     def is_configured(self) -> bool:
         """Check if the tracker has been configured with a target group."""
@@ -139,7 +135,6 @@ class StateManager:
             # Get or create config
             config = repo.get_config()
             rollup = repo.get_rollup()
-            auto_sync = repo.get_auto_sync_state()
             enabled_items = repo.get_enabled_items()
             categories = repo.get_all_categories()
             rollup_item_ids = repo.get_rollup_item_ids()
@@ -161,6 +156,17 @@ class StateManager:
                 user_first_name=config.user_first_name,
                 mfa_mode=cast(Literal["secret", "code"], config.mfa_mode),
                 sync_blocked_reason=config.sync_blocked_reason,
+                seen_stash_tour=config.seen_stash_tour,
+                seen_notes_tour=config.seen_notes_tour,
+                seen_recurring_tour=config.seen_recurring_tour,
+                seen_stash_intro=config.seen_stash_intro,
+                read_update_ids=(
+                    json.loads(config.read_update_ids)
+                    if config.read_update_ids
+                    else []
+                ),
+                updates_install_date=config.updates_install_date,
+                updates_last_viewed_at=config.updates_last_viewed_at,
                 enabled_items=enabled_items,
             )
 
@@ -198,21 +204,6 @@ class StateManager:
                 ),
                 emoji=rollup.emoji,
                 is_linked=rollup.is_linked,
-            )
-
-            # Convert auto sync
-            state.auto_sync = AutoSyncState(
-                enabled=auto_sync.enabled,
-                interval_minutes=auto_sync.interval_minutes,
-                last_auto_sync=(
-                    auto_sync.last_auto_sync.isoformat() if auto_sync.last_auto_sync else None
-                ),
-                last_auto_sync_success=auto_sync.last_auto_sync_success,
-                last_auto_sync_error=auto_sync.last_auto_sync_error,
-                consent_acknowledged=auto_sync.consent_acknowledged,
-                consent_timestamp=(
-                    auto_sync.consent_timestamp.isoformat() if auto_sync.consent_timestamp else None
-                ),
             )
 
             # Convert notices
@@ -674,36 +665,45 @@ class StateManager:
             repo = TrackerRepository(session)
             repo.update_config(last_read_changelog_version=version)
 
-    # === Auto-sync methods ===
+    # === Acknowledgement methods ===
 
-    def get_auto_sync_state(self) -> AutoSyncState:
-        """Get current auto-sync state."""
-        return self.load().auto_sync
+    def get_acknowledgements(self) -> dict:
+        """Get all acknowledgement states (tours, intros, updates)."""
+        state = self.load()
+        return {
+            "seen_stash_tour": state.seen_stash_tour,
+            "seen_notes_tour": state.seen_notes_tour,
+            "seen_recurring_tour": state.seen_recurring_tour,
+            "seen_stash_intro": state.seen_stash_intro,
+            "read_update_ids": state.read_update_ids,
+            "updates_install_date": state.updates_install_date,
+            "updates_last_viewed_at": state.updates_last_viewed_at,
+        }
 
-    def update_auto_sync_state(
-        self,
-        enabled: bool | None = None,
-        interval_minutes: int | None = None,
-        consent_acknowledged: bool | None = None,
-    ) -> AutoSyncState:
-        """Update auto-sync configuration."""
-        with db_session() as session:
-            repo = TrackerRepository(session)
-            repo.update_auto_sync_state(enabled, interval_minutes, consent_acknowledged)
-        return self.load().auto_sync
-
-    def record_auto_sync_result(self, success: bool, error: str | None = None) -> None:
-        """Record the result of an automatic sync."""
-        with db_session() as session:
-            repo = TrackerRepository(session)
-            repo.record_auto_sync_result(success, error)
-
-    def disable_auto_sync(self) -> None:
-        """Disable auto-sync and clear related state."""
-        with db_session() as session:
-            repo = TrackerRepository(session)
-            repo.update_auto_sync_state(enabled=False)
-
+    def update_acknowledgements(self, **kwargs: object) -> None:
+        """Update acknowledgement states. Accepts partial updates."""
+        allowed_keys = {
+            "seen_stash_tour",
+            "seen_notes_tour",
+            "seen_recurring_tour",
+            "seen_stash_intro",
+            "read_update_ids",
+            "updates_install_date",
+            "updates_last_viewed_at",
+        }
+        updates: dict[str, object] = {}
+        for key in allowed_keys:
+            if key in kwargs:
+                value = kwargs[key]
+                if key == "read_update_ids":
+                    # Serialize list to JSON string for storage
+                    updates[key] = json.dumps(value) if isinstance(value, list) else value
+                else:
+                    updates[key] = value
+        if updates:
+            with db_session() as session:
+                repo = TrackerRepository(session)
+                repo.update_config(**updates)
 
 # ============================================================================
 # Credentials Manager - SQLite-backed

@@ -19,7 +19,6 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import logging
 
-from core.automation_credentials import AutomationCredentialsManager
 from core.scheduler import SyncScheduler
 from monarch_utils import (
     clear_all_caches,
@@ -44,7 +43,6 @@ class SyncService:
     def __init__(self, state_manager: StateManager | None = None):
         self.state_manager = state_manager or StateManager()
         self.credentials_service = CredentialsService()
-        self.automation_creds = AutomationCredentialsManager()
         self.scheduler = SyncScheduler.get_instance()
         self.recurring_service = RecurringService()
         self.category_manager = CategoryManager()
@@ -53,8 +51,9 @@ class SyncService:
             category_manager=self.category_manager,
             recurring_service=self.recurring_service,
         )
-        # Set up scheduler callback
-        self.scheduler.set_sync_callback(self._automated_sync)
+        # Set up scheduler callbacks
+        self.scheduler.set_full_sync_callback(self._background_full_sync)
+        self.scheduler.set_ifttt_sync_callback(self._check_ifttt_events)
 
     # Credential management - delegated to CredentialsService
     def has_stored_credentials(self) -> bool:
@@ -1388,6 +1387,13 @@ class SyncService:
                     "target_group_name": None,
                     "is_configured": False,
                     "user_first_name": state.user_first_name,
+                    "seen_stash_tour": state.seen_stash_tour,
+                    "seen_notes_tour": state.seen_notes_tour,
+                    "seen_recurring_tour": state.seen_recurring_tour,
+                    "seen_stash_intro": state.seen_stash_intro,
+                    "read_update_ids": state.read_update_ids,
+                    "updates_install_date": state.updates_install_date,
+                    "updates_last_viewed_at": state.updates_last_viewed_at,
                 },
                 "last_sync": state.last_sync,
                 "data_month": datetime.now().strftime("%Y-%m"),
@@ -1569,6 +1575,13 @@ class SyncService:
                 "auto_categorize_enabled": state.auto_categorize_enabled,
                 "show_category_group": state.show_category_group,
                 "user_first_name": state.user_first_name,
+                "seen_stash_tour": state.seen_stash_tour,
+                "seen_notes_tour": state.seen_notes_tour,
+                "seen_recurring_tour": state.seen_recurring_tour,
+                "seen_stash_intro": state.seen_stash_intro,
+                "read_update_ids": state.read_update_ids,
+                "updates_install_date": state.updates_install_date,
+                "updates_last_viewed_at": state.updates_last_viewed_at,
             },
             "last_sync": state.last_sync,
             "data_month": datetime.now().strftime("%Y-%m"),
@@ -1587,190 +1600,19 @@ class SyncService:
             ],
         }
 
-    # Auto-sync methods
+    # Background sync callback
 
-    async def enable_auto_sync(
-        self,
-        interval_minutes: int,
-        passphrase: str,
-        consent_acknowledged: bool,
-    ) -> dict[str, Any]:
+    async def _background_full_sync(self) -> None:
         """
-        Enable automatic background sync.
+        Run full sync as a background scheduled task.
 
-        This creates a server-encrypted copy of credentials for automation.
-        The user must explicitly consent to this security trade-off.
-
-        Args:
-            interval_minutes: Minutes between sync runs
-            passphrase: User's passphrase to decrypt current credentials
-            consent_acknowledged: User has acknowledged the security implications
-
-        Returns:
-            Result with success status and schedule info
+        Catches RateLimitError gracefully (user may have just synced manually).
         """
-        if not consent_acknowledged:
-            return {"success": False, "error": "Security consent required"}
-
-        # Load credentials with user's passphrase
-        try:
-            creds = self.credentials_service.credentials_manager.load(passphrase)
-            if not creds:
-                return {"success": False, "error": "Failed to load credentials"}
-        except Exception as e:
-            return {"success": False, "error": f"Invalid passphrase: {e}"}
-
-        # Save copy encrypted with server key
-        try:
-            self.automation_creds.save(
-                email=creds["email"],
-                password=creds["password"],
-                mfa_secret=creds.get("mfa_secret", ""),
-            )
-        except Exception as e:
-            return {
-                "success": False,
-                "error": f"Failed to save automation credentials: {e}",
-            }
-
-        # Update state
-        self.state_manager.update_auto_sync_state(
-            enabled=True,
-            interval_minutes=interval_minutes,
-            consent_acknowledged=True,
-        )
-
-        # Start scheduler
-        actual_interval = self.scheduler.enable_auto_sync(interval_minutes)
-        scheduler_status = self.scheduler.get_status()
-
-        logger.info(f"Auto-sync enabled: every {actual_interval} minutes")
-
-        return {
-            "success": True,
-            "interval_minutes": actual_interval,
-            "next_run": scheduler_status.get("next_run"),
-        }
-
-    def disable_auto_sync(self) -> dict[str, Any]:
-        """
-        Disable automatic background sync.
-
-        Stops the scheduler and disables automation credentials.
-        """
-        self.scheduler.disable_auto_sync()
-        self.automation_creds.disable()
-        self.state_manager.disable_auto_sync()
-
-        logger.info("Auto-sync disabled")
-
-        return {"success": True}
-
-    def set_visibility(self, is_foreground: bool) -> dict[str, Any]:
-        """
-        Update auto-sync interval based on app visibility.
-
-        When app is in foreground, uses 5-minute interval.
-        When app is in background, uses 60-minute interval.
-
-        Args:
-            is_foreground: True if app is visible/active
-
-        Returns:
-            Result with new interval if changed
-        """
-        new_interval = self.scheduler.set_foreground(is_foreground)
-
-        if new_interval is not None:
-            mode = "foreground" if is_foreground else "background"
-            logger.info(f"Auto-sync interval changed to {new_interval} minutes ({mode})")
-            return {
-                "success": True,
-                "interval_minutes": new_interval,
-                "is_foreground": is_foreground,
-            }
-
-        return {"success": True, "changed": False, "is_foreground": is_foreground}
-
-    def get_auto_sync_status(self) -> dict[str, Any]:
-        """
-        Get current auto-sync status and configuration.
-
-        Returns:
-            Status dict with enabled, interval, next run, last sync info, and visibility
-        """
-        auto_sync_state = self.state_manager.get_auto_sync_state()
-        scheduler_status = self.scheduler.get_status()
-
-        return {
-            "enabled": auto_sync_state.enabled,
-            "interval_minutes": scheduler_status.get("interval_minutes"),
-            "next_run": scheduler_status.get("next_run"),
-            "last_sync": auto_sync_state.last_auto_sync,
-            "last_sync_success": auto_sync_state.last_auto_sync_success,
-            "last_sync_error": auto_sync_state.last_auto_sync_error,
-            "consent_acknowledged": auto_sync_state.consent_acknowledged,
-            "is_foreground": scheduler_status.get("is_foreground", True),
-        }
-
-    def restore_auto_sync(self) -> bool:
-        """
-        Restore auto-sync from saved state on startup.
-
-        Called during app initialization to resume scheduled syncs
-        if they were previously enabled.
-
-        Returns:
-            True if auto-sync was restored, False otherwise
-        """
-        auto_sync_state = self.state_manager.get_auto_sync_state()
-
-        if auto_sync_state.enabled and self.automation_creds.is_enabled():
-            self.scheduler.enable_auto_sync(auto_sync_state.interval_minutes)
-            logger.info(f"Auto-sync restored: every {auto_sync_state.interval_minutes} minutes")
-            return True
-
-        return False
-
-    async def _automated_sync(self) -> None:
-        """
-        Run sync using automation credentials.
-
-        This is the callback invoked by the scheduler.
-        Uses server-encrypted credentials, not session credentials.
-        """
-        creds = self.automation_creds.load()
-        if not creds:
-            logger.error("Automated sync failed: no automation credentials available")
-            self.state_manager.record_auto_sync_result(
-                success=False, error="No automation credentials available"
-            )
-            return
-
-        # Store original session credentials
-        original_creds = CredentialsService._session_credentials
+        from core.exceptions import RateLimitError
 
         try:
-            # Temporarily use automation credentials
-            CredentialsService._session_credentials = creds
-
-            # Run the sync
-            result = await self.full_sync()
-
-            # Record result
-            success = result.get("success", False)
-            error = None if success else str(result.get("errors", []))
-
-            self.state_manager.record_auto_sync_result(success=success, error=error)
-
-            if success:
-                logger.info("Automated sync completed successfully")
-            else:
-                logger.warning(f"Automated sync completed with errors: {error}")
-
+            await self.full_sync()
+        except RateLimitError:
+            logger.debug("Background sync skipped — rate limited")
         except Exception as e:
-            logger.error(f"Automated sync failed: {e}")
-            self.state_manager.record_auto_sync_result(success=False, error=str(e))
-        finally:
-            # Restore original session credentials
-            CredentialsService._session_credentials = original_creds
+            logger.error(f"Background full sync failed: {e}")

@@ -8,7 +8,6 @@ from datetime import UTC, datetime
 from sqlalchemy.orm import Session
 
 from state.db.models import (
-    AutoSyncState,
     Category,
     EnabledItem,
     MonarchGoalLayout,
@@ -325,42 +324,6 @@ class TrackerRepository:
             notice.dismissed = True
             return True
         return False
-
-    # === Auto Sync ===
-
-    def get_auto_sync_state(self) -> AutoSyncState:
-        """Get or create auto sync state."""
-        state = self.session.query(AutoSyncState).first()
-        if not state:
-            state = AutoSyncState(id=1)
-            self.session.add(state)
-            self.session.flush()
-        return state
-
-    def update_auto_sync_state(
-        self,
-        enabled: bool | None = None,
-        interval_minutes: int | None = None,
-        consent_acknowledged: bool | None = None,
-    ) -> AutoSyncState:
-        """Update auto sync settings."""
-        state = self.get_auto_sync_state()
-        if enabled is not None:
-            state.enabled = enabled
-        if interval_minutes is not None:
-            state.interval_minutes = interval_minutes
-        if consent_acknowledged is not None:
-            state.consent_acknowledged = consent_acknowledged
-            if consent_acknowledged:
-                state.consent_timestamp = datetime.now(UTC)
-        return state
-
-    def record_auto_sync_result(self, success: bool, error: str | None = None) -> None:
-        """Record result of automatic sync."""
-        state = self.get_auto_sync_state()
-        state.last_auto_sync = datetime.now(UTC)
-        state.last_auto_sync_success = success
-        state.last_auto_sync_error = error
 
     # === Reset Operations ===
 

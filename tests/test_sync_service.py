@@ -76,7 +76,6 @@ def sync_service(mock_credentials_service):
     with (
         patch("services.sync_service.StateManager", MockStateManager),
         patch("services.sync_service.CredentialsService", return_value=mock_credentials_service),
-        patch("services.sync_service.AutomationCredentialsManager"),
         patch("services.sync_service.SyncScheduler") as mock_scheduler,
         patch("services.sync_service.RecurringService"),
         patch("services.sync_service.CategoryManager"),
@@ -259,7 +258,6 @@ class TestSyncServiceInitialization:
         with (
             patch("services.sync_service.StateManager") as MockStateManager,
             patch("services.sync_service.CredentialsService") as MockCredService,
-            patch("services.sync_service.AutomationCredentialsManager") as MockAutoCreds,
             patch("services.sync_service.SyncScheduler") as MockScheduler,
             patch("services.sync_service.RecurringService") as MockRecurring,
             patch("services.sync_service.CategoryManager") as MockCatMgr,
@@ -274,7 +272,6 @@ class TestSyncServiceInitialization:
             # Should have created all dependencies
             MockStateManager.assert_called_once()
             MockCredService.assert_called_once()
-            MockAutoCreds.assert_called_once()
             MockRecurring.assert_called_once()
             MockCatMgr.assert_called_once()
             MockRollup.assert_called_once()
@@ -285,7 +282,6 @@ class TestSyncServiceInitialization:
 
         with (
             patch("services.sync_service.CredentialsService"),
-            patch("services.sync_service.AutomationCredentialsManager"),
             patch("services.sync_service.SyncScheduler") as MockScheduler,
             patch("services.sync_service.RecurringService"),
             patch("services.sync_service.CategoryManager"),
