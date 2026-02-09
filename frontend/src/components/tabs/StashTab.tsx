@@ -8,8 +8,9 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useBlocker } from 'react-router-dom';
 import { ExternalLink, Target } from 'lucide-react';
-import { usePageTitle, useBookmarks, useStashSync, useLocalStorage } from '../../hooks';
-import { STASH_INTRO_STATE_KEY } from '../../hooks/useStashTour';
+import { usePageTitle, useBookmarks, useStashSync } from '../../hooks';
+import { useConfig, useUpdateConfigInCache } from '../../api/queries/configStoreQueries';
+import { useUpdateAcknowledgementsMutation } from '../../api/queries/settingsMutations';
 import { SkeletonToolHeader, SkeletonTabs, SkeletonStashGrid } from '../ui/SkeletonLayouts';
 import { FolderSyncIcon, type FolderSyncIconHandle } from '../ui/FolderSyncIcon';
 import {
@@ -252,28 +253,29 @@ export function StashTab() {
   const pendingSectionRef = useRef<HTMLDivElement>(null);
 
   // Track whether user has seen the intro modal (Stashes vs Monarch Goals)
-  const [introState, setIntroState] = useLocalStorage<{ hasSeenIntro: boolean }>(
-    STASH_INTRO_STATE_KEY,
-    { hasSeenIntro: false }
-  );
+  const { config: ackConfig } = useConfig();
+  const updateConfigInCache = useUpdateConfigInCache();
+  const updateAck = useUpdateAcknowledgementsMutation();
+  const hasSeenIntro = ackConfig?.seen_stash_intro ?? false;
 
   // Auto-open intro modal on first visit (before guided tour starts)
   const introShownRef = useRef(false);
   useEffect(() => {
     // Only show once per session and only if not seen before
-    if (!introState.hasSeenIntro && !introShownRef.current && !configLoading && !isLoading) {
+    if (!hasSeenIntro && !introShownRef.current && !configLoading && !isLoading) {
       introShownRef.current = true;
       setShowExplainerModal(true);
     }
-  }, [introState.hasSeenIntro, configLoading, isLoading]);
+  }, [hasSeenIntro, configLoading, isLoading]);
 
   // Handle intro modal close - mark as seen to trigger guided tour
   const handleExplainerModalClose = useCallback(() => {
     setShowExplainerModal(false);
-    if (!introState.hasSeenIntro) {
-      setIntroState({ hasSeenIntro: true });
+    if (!hasSeenIntro) {
+      updateConfigInCache({ seen_stash_intro: true });
+      updateAck.mutate({ seen_stash_intro: true });
     }
-  }, [introState.hasSeenIntro, setIntroState]);
+  }, [hasSeenIntro, updateConfigInCache, updateAck]);
 
   const isBrowserConfigured =
     !!configData?.selectedBrowser && (configData?.selectedFolderIds?.length ?? 0) > 0;

@@ -2,23 +2,16 @@
  * useNotesTour Hook
  *
  * Manages the notes page guided tour.
- * Tour state is persisted in localStorage.
+ * Tour state is persisted server-side via the config store.
  */
 
 import { useMemo, useCallback } from 'react';
-import { useLocalStorage } from './useLocalStorage';
+import { useConfig, useUpdateConfigInCache } from '../api/queries/configStoreQueries';
+import { useUpdateAcknowledgementsMutation } from '../api/queries/settingsMutations';
 import { NOTES_TOUR_STEPS } from '../components/layout/notesTourSteps';
 
-// localStorage key for notes tour state
+// localStorage key preserved for migration hook reference
 export const NOTES_TOUR_STATE_KEY = 'eclosion-notes-tour';
-
-interface TourState {
-  hasSeenTour: boolean;
-}
-
-const INITIAL_TOUR_STATE: TourState = {
-  hasSeenTour: false,
-};
 
 export interface UseNotesTourReturn {
   /** Tour steps to display */
@@ -39,25 +32,28 @@ export interface UseNotesTourReturn {
  * @returns Tour state and controls
  */
 export function useNotesTour(): UseNotesTourReturn {
-  const [tourState, setTourState] = useLocalStorage<TourState>(
-    NOTES_TOUR_STATE_KEY,
-    INITIAL_TOUR_STATE
-  );
+  const { config } = useConfig();
+  const updateConfigInCache = useUpdateConfigInCache();
+  const updateAck = useUpdateAcknowledgementsMutation();
+
+  const hasSeenTour = config?.seen_notes_tour ?? false;
 
   // Notes tour steps are always available (not data-dependent like recurring)
   const steps = useMemo(() => NOTES_TOUR_STEPS, []);
 
   const markAsSeen = useCallback(() => {
-    setTourState({ hasSeenTour: true });
-  }, [setTourState]);
+    updateConfigInCache({ seen_notes_tour: true });
+    updateAck.mutate({ seen_notes_tour: true });
+  }, [updateConfigInCache, updateAck]);
 
   const resetTour = useCallback(() => {
-    setTourState(INITIAL_TOUR_STATE);
-  }, [setTourState]);
+    updateConfigInCache({ seen_notes_tour: false });
+    updateAck.mutate({ seen_notes_tour: false });
+  }, [updateConfigInCache, updateAck]);
 
   return {
     steps,
-    hasSeenTour: tourState.hasSeenTour,
+    hasSeenTour,
     markAsSeen,
     resetTour,
     hasTourSteps: steps.length > 0,

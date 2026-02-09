@@ -25,7 +25,6 @@ import {
   useStashQuery,
   useStashConfigQuery,
   usePendingCountQuery,
-  useAutoSyncStatusQuery,
   useMonarchGoalsQuery,
 } from '../../api/queries';
 import { useAuth } from '../../context/AuthContext';
@@ -38,11 +37,11 @@ import {
   useMacOSElectron,
   useWindowsElectron,
   useAppTour,
-  useAutoSyncVisibility,
   usePageSync,
   useCurrentPage,
   useBackgroundPoller,
 } from '../../hooks';
+import { useAcknowledgementMigration } from '../../hooks/useAcknowledgementMigration';
 
 export function AppShell() {
   const [showSecurityInfo, setShowSecurityInfo] = useState(false);
@@ -60,6 +59,9 @@ export function AppShell() {
 
   // Background polling - keeps data fresh while app is visible
   useBackgroundPoller();
+
+  // One-time migration of acknowledgement state from localStorage to DB
+  useAcknowledgementMigration();
   const isWindowsElectron = useWindowsElectron();
 
   // Stash data for tour (lightweight queries)
@@ -67,10 +69,6 @@ export function AppShell() {
   const { data: stashConfig } = useStashConfigQuery();
   const { data: pendingCount = 0 } = usePendingCountQuery();
   const { data: monarchGoals = [] } = useMonarchGoalsQuery();
-
-  // Auto-sync visibility management (5 min foreground, 60 min background)
-  const { data: autoSyncStatus } = useAutoSyncStatusQuery();
-  useAutoSyncVisibility(autoSyncStatus?.enabled ?? false);
 
   // Use the app tour hook for all tour-related logic
   const { showTour, setShowTour, currentTourSteps, tourKey, hasTour, handleTourClose, pathPrefix } =

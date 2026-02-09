@@ -1,81 +1,19 @@
 /**
  * Updates State Hook
  *
- * Manages read/unread state for Reddit updates using localStorage.
+ * Manages read/unread state for updates using server-side storage.
  * Tracks install date to filter relevant updates and provides
- * reactive state via useSyncExternalStore.
+ * reactive state via the config store (React Query).
  */
 
-import { useCallback, useMemo, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useConfig, useUpdateConfigInCache } from '../api/queries/configStoreQueries';
+import { useUpdateAcknowledgementsMutation } from '../api/queries/settingsMutations';
 import { useUpdatesQuery, type UpdateEntry } from '../api/queries/updatesQueries';
+import { useDemo } from '../context/DemoContext';
 
-const STORAGE_KEY = 'eclosion-updates-state';
-
-interface UpdatesState {
-  /** When app was first used */
-  installDate: string;
-  /** IDs of updates marked as read */
-  readIds: string[];
-  /** Last time user viewed updates */
-  lastViewedAt: string | null;
-}
-
-function loadFromStorage(): UpdatesState {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      return JSON.parse(stored) as UpdatesState;
-    }
-  } catch {
-    // Ignore parse errors
-  }
-  // First time: set install date to now
-  const initial: UpdatesState = {
-    installDate: new Date().toISOString(),
-    readIds: [],
-    lastViewedAt: null,
-  };
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(initial));
-  return initial;
-}
-
-// Cache the snapshot to avoid creating new objects on every call.
-// useSyncExternalStore compares by reference, so we need stable references.
-let cachedState: UpdatesState = loadFromStorage();
-
-function refreshCache(): void {
-  cachedState = loadFromStorage();
-}
-
-function saveState(state: UpdatesState): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  // Update cache when saving
-  cachedState = state;
-}
-
-// For useSyncExternalStore - subscribe to storage changes
-function subscribe(callback: () => void): () => void {
-  const handleStorage = (e: StorageEvent) => {
-    if (e.key === STORAGE_KEY) {
-      refreshCache();
-      callback();
-    }
-  };
-  const handleCustom = () => callback();
-
-  globalThis.addEventListener('storage', handleStorage);
-  globalThis.addEventListener('updates-state-changed', handleCustom);
-
-  return () => {
-    globalThis.removeEventListener('storage', handleStorage);
-    globalThis.removeEventListener('updates-state-changed', handleCustom);
-  };
-}
-
-// Snapshot for useSyncExternalStore - returns cached state for stable reference
-function getSnapshot(): UpdatesState {
-  return cachedState;
-}
+// localStorage key preserved for migration hook reference
+export const UPDATES_STATE_KEY = 'eclosion-updates-state';
 
 export interface UseUpdatesStateReturn {
   /** All updates relevant to this user (since install or latest) */
@@ -100,13 +38,36 @@ export interface UseUpdatesStateReturn {
 
 export function useUpdatesState(): UseUpdatesStateReturn {
   const { data: allUpdates = [], isLoading, error } = useUpdatesQuery();
-  const state = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+  const { config } = useConfig();
+  const updateConfigInCache = useUpdateConfigInCache();
+  const updateAck = useUpdateAcknowledgementsMutation();
+  const isDemo = useDemo();
+  const installDateInitialized = useRef(false);
+
+  const readIds = useMemo(() => config?.read_update_ids ?? [], [config?.read_update_ids]);
+  const installDate = config?.updates_install_date ?? null;
+
+  // Initialize install date on first load if not set
+  useEffect(() => {
+    if (installDateInitialized.current) return;
+    if (!config) return; // Wait for config to load
+
+    installDateInitialized.current = true;
+    if (installDate) return;
+
+    const now = new Date().toISOString();
+    updateConfigInCache({ updates_install_date: now });
+    if (!isDemo) {
+      updateAck.mutate({ updates_install_date: now });
+    }
+  }, [config, installDate, updateConfigInCache, updateAck, isDemo]);
 
   // Filter updates to only those since install date
   // OR if no updates since install, show just the latest one
   const relevantUpdates = useMemo((): UpdateEntry[] => {
-    const installDate = new Date(state.installDate);
-    const sinceInstall = allUpdates.filter((u) => new Date(u.date) >= installDate);
+    if (!installDate) return [];
+    const installDateObj = new Date(installDate);
+    const sinceInstall = allUpdates.filter((u) => new Date(u.date) >= installDateObj);
 
     if (sinceInstall.length === 0 && allUpdates.length > 0) {
       // No updates since install - show just the latest
@@ -115,35 +76,47 @@ export function useUpdatesState(): UseUpdatesStateReturn {
     }
 
     return sinceInstall;
-  }, [allUpdates, state.installDate]);
+  }, [allUpdates, installDate]);
 
   // Unread = relevant updates not in readIds
   const unreadUpdates = useMemo(() => {
-    return relevantUpdates.filter((u) => !state.readIds.includes(u.id));
-  }, [relevantUpdates, state.readIds]);
+    return relevantUpdates.filter((u) => !readIds.includes(u.id));
+  }, [relevantUpdates, readIds]);
 
   const unreadCount = unreadUpdates.length;
   const currentUpdate = unreadUpdates[0] || null;
 
-  const markAsRead = useCallback((id: string) => {
-    const current = loadFromStorage();
-    if (!current.readIds.includes(id)) {
-      current.readIds.push(id);
-      current.lastViewedAt = new Date().toISOString();
-      saveState(current);
-      // Trigger re-render
-      globalThis.dispatchEvent(new Event('updates-state-changed'));
-    }
-  }, []);
+  const markAsRead = useCallback(
+    (id: string) => {
+      if (readIds.includes(id)) return;
+
+      const newReadIds = [...readIds, id];
+      const now = new Date().toISOString();
+      updateConfigInCache({
+        read_update_ids: newReadIds,
+        updates_last_viewed_at: now,
+      });
+      updateAck.mutate({
+        read_update_ids: newReadIds,
+        updates_last_viewed_at: now,
+      });
+    },
+    [readIds, updateConfigInCache, updateAck]
+  );
 
   const markAllAsRead = useCallback(() => {
-    const current = loadFromStorage();
     const allIds = relevantUpdates.map((u) => u.id);
-    current.readIds = [...new Set([...current.readIds, ...allIds])];
-    current.lastViewedAt = new Date().toISOString();
-    saveState(current);
-    globalThis.dispatchEvent(new Event('updates-state-changed'));
-  }, [relevantUpdates]);
+    const newReadIds = [...new Set([...readIds, ...allIds])];
+    const now = new Date().toISOString();
+    updateConfigInCache({
+      read_update_ids: newReadIds,
+      updates_last_viewed_at: now,
+    });
+    updateAck.mutate({
+      read_update_ids: newReadIds,
+      updates_last_viewed_at: now,
+    });
+  }, [relevantUpdates, readIds, updateConfigInCache, updateAck]);
 
   return {
     allUpdates: relevantUpdates,

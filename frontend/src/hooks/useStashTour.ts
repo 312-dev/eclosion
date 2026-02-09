@@ -3,7 +3,7 @@
  *
  * Manages the stash page guided tour with trigger-based steps.
  * Steps are dynamically generated based on available data.
- * Tour state is persisted in localStorage.
+ * Tour state is persisted server-side via the config store.
  *
  * Step triggers (progressive disclosure):
  * - Phase 1: Always shown (available-funds, distribute-mode, hypothesize-mode, add-item)
@@ -15,30 +15,13 @@
  */
 
 import { useMemo, useCallback } from 'react';
-import { useLocalStorage } from './useLocalStorage';
+import { useConfig, useUpdateConfigInCache } from '../api/queries/configStoreQueries';
+import { useUpdateAcknowledgementsMutation } from '../api/queries/settingsMutations';
 import { STASH_TOUR_STEPS, type StashTourStepId } from '../components/layout/stashTourSteps';
 
-// localStorage key for tour state
+// localStorage keys preserved for migration hook reference
 export const STASH_TOUR_STATE_KEY = 'eclosion-stash-tour';
-
-// localStorage key for intro modal state (Stashes vs Monarch Goals)
 export const STASH_INTRO_STATE_KEY = 'eclosion-stash-intro';
-
-interface TourState {
-  hasSeenTour: boolean;
-}
-
-interface IntroState {
-  hasSeenIntro: boolean;
-}
-
-const INITIAL_TOUR_STATE: TourState = {
-  hasSeenTour: false,
-};
-
-const INITIAL_INTRO_STATE: IntroState = {
-  hasSeenIntro: false,
-};
 
 /** Data needed to evaluate which tour steps should be shown */
 export interface StashTourData {
@@ -123,15 +106,12 @@ export interface UseStashTourReturn {
  * @returns Tour state and controls
  */
 export function useStashTour(data: StashTourData | undefined): UseStashTourReturn {
-  const [tourState, setTourState] = useLocalStorage<TourState>(
-    STASH_TOUR_STATE_KEY,
-    INITIAL_TOUR_STATE
-  );
+  const { config } = useConfig();
+  const updateConfigInCache = useUpdateConfigInCache();
+  const updateAck = useUpdateAcknowledgementsMutation();
 
-  const [introState, setIntroState] = useLocalStorage<IntroState>(
-    STASH_INTRO_STATE_KEY,
-    INITIAL_INTRO_STATE
-  );
+  const hasSeenTour = config?.seen_stash_tour ?? false;
+  const hasSeenIntro = config?.seen_stash_intro ?? false;
 
   // Evaluate which steps should be shown based on current data
   const activeStepIds = useMemo(() => evaluateTriggers(data), [data]);
@@ -142,28 +122,32 @@ export function useStashTour(data: StashTourData | undefined): UseStashTourRetur
   }, [activeStepIds]);
 
   const markAsSeen = useCallback(() => {
-    setTourState({ hasSeenTour: true });
-  }, [setTourState]);
+    updateConfigInCache({ seen_stash_tour: true });
+    updateAck.mutate({ seen_stash_tour: true });
+  }, [updateConfigInCache, updateAck]);
 
   const resetTour = useCallback(() => {
-    setTourState(INITIAL_TOUR_STATE);
-  }, [setTourState]);
+    updateConfigInCache({ seen_stash_tour: false });
+    updateAck.mutate({ seen_stash_tour: false });
+  }, [updateConfigInCache, updateAck]);
 
   const markIntroSeen = useCallback(() => {
-    setIntroState({ hasSeenIntro: true });
-  }, [setIntroState]);
+    updateConfigInCache({ seen_stash_intro: true });
+    updateAck.mutate({ seen_stash_intro: true });
+  }, [updateConfigInCache, updateAck]);
 
   const resetIntro = useCallback(() => {
-    setIntroState(INITIAL_INTRO_STATE);
-  }, [setIntroState]);
+    updateConfigInCache({ seen_stash_intro: false });
+    updateAck.mutate({ seen_stash_intro: false });
+  }, [updateConfigInCache, updateAck]);
 
   return {
     steps,
-    hasSeenTour: tourState.hasSeenTour,
+    hasSeenTour,
     markAsSeen,
     resetTour,
     hasTourSteps: steps.length > 0,
-    hasSeenIntro: introState.hasSeenIntro,
+    hasSeenIntro,
     markIntroSeen,
     resetIntro,
   };

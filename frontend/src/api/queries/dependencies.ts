@@ -70,7 +70,9 @@ export type MutationType =
   // Config mutations
   | 'updateStashConfig'
   | 'updateSettings'
-  | 'importSettings';
+  | 'importSettings'
+  // Acknowledgement mutations
+  | 'updateAcknowledgements';
 
 /** Configuration for a query's refresh behavior */
 export interface QueryConfig {
@@ -118,12 +120,6 @@ export const queryConfig: Record<QueryKeyName, QueryConfig> = {
     gcTime: 10 * 60 * 1000, // 10 minutes
     pollable: true,
   },
-  autoSyncStatus: {
-    dependsOn: [],
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    pollable: false,
-  },
-
   // Category data
   categoryGroups: {
     dependsOn: [],
@@ -485,6 +481,12 @@ export const mutationEffects: Record<MutationType, MutationEffect> = {
     invalidate: ['dashboard', 'stash', 'stashConfig', 'categoryStore'],
     markStale: ['availableToStash', 'categoryGroups'],
   },
+
+  // Acknowledgement mutations
+  updateAcknowledgements: {
+    invalidate: ['dashboard'],
+    markStale: [],
+  },
 };
 
 // ============================================================================
@@ -513,7 +515,7 @@ export const pageQueryMap: Record<PageName, PageQueryRequirements> = {
   },
   settings: {
     primary: ['stashConfig'],
-    supporting: ['dashboard', 'categoryGroups', 'autoSyncStatus'],
+    supporting: ['dashboard', 'categoryGroups'],
     syncScope: 'full', // Settings may affect everything
   },
 };

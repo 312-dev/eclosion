@@ -3,24 +3,20 @@
  *
  * Manages the recurring page guided tour with trigger-based steps.
  * Steps are dynamically generated based on available data.
- * Tour state is persisted in localStorage.
+ * Tour state is persisted server-side via the config store.
  */
 
 import { useMemo, useCallback } from 'react';
-import { useLocalStorage } from './useLocalStorage';
+import { useConfig, useUpdateConfigInCache } from '../api/queries/configStoreQueries';
+import { useUpdateAcknowledgementsMutation } from '../api/queries/settingsMutations';
 import type { DashboardData } from '../types';
-import { RECURRING_TOUR_STEPS, type RecurringTourStepId } from '../components/layout/recurringTourSteps';
+import {
+  RECURRING_TOUR_STEPS,
+  type RecurringTourStepId,
+} from '../components/layout/recurringTourSteps';
 
-// localStorage key for tour state
+// localStorage key preserved for migration hook reference
 export const TOUR_STATE_KEY = 'eclosion-recurring-tour';
-
-interface TourState {
-  hasSeenTour: boolean;
-}
-
-const INITIAL_TOUR_STATE: TourState = {
-  hasSeenTour: false,
-};
 
 /**
  * Evaluates which tour steps should be shown based on current data.
@@ -37,17 +33,13 @@ function evaluateTriggers(data: DashboardData | undefined): RecurringTourStepId[
   }
 
   // Step 3: Individual Item - when there are enabled non-rollup items
-  const enabledIndividual = data.items.filter(
-    (item) => item.is_enabled && !item.is_in_rollup
-  );
+  const enabledIndividual = data.items.filter((item) => item.is_enabled && !item.is_in_rollup);
   if (enabledIndividual.length > 0) {
     stepIds.push('individual-item');
   }
 
   // Step 4: Status/Catch-up - when there's an item with "behind" status
-  const behindItems = data.items.filter(
-    (item) => item.is_enabled && item.status === 'behind'
-  );
+  const behindItems = data.items.filter((item) => item.is_enabled && item.status === 'behind');
   if (behindItems.length > 0) {
     stepIds.push('item-status');
   }
@@ -101,35 +93,34 @@ export interface UseRecurringTourReturn {
  * @param data - Dashboard data to evaluate triggers against
  * @returns Tour state and controls
  */
-export function useRecurringTour(
-  data: DashboardData | undefined
-): UseRecurringTourReturn {
-  const [tourState, setTourState] = useLocalStorage<TourState>(
-    TOUR_STATE_KEY,
-    INITIAL_TOUR_STATE
-  );
+export function useRecurringTour(data: DashboardData | undefined): UseRecurringTourReturn {
+  const { config } = useConfig();
+  const updateConfigInCache = useUpdateConfigInCache();
+  const updateAck = useUpdateAcknowledgementsMutation();
+
+  const hasSeenTour = config?.seen_recurring_tour ?? false;
 
   // Evaluate which steps should be shown based on current data
   const activeStepIds = useMemo(() => evaluateTriggers(data), [data]);
 
   // Filter tour steps to only include those whose triggers are met
   const steps = useMemo(() => {
-    return RECURRING_TOUR_STEPS.filter((step) =>
-      activeStepIds.includes(step.id as RecurringTourStepId)
-    );
+    return RECURRING_TOUR_STEPS.filter((step) => activeStepIds.includes(step.id));
   }, [activeStepIds]);
 
   const markAsSeen = useCallback(() => {
-    setTourState({ hasSeenTour: true });
-  }, [setTourState]);
+    updateConfigInCache({ seen_recurring_tour: true });
+    updateAck.mutate({ seen_recurring_tour: true });
+  }, [updateConfigInCache, updateAck]);
 
   const resetTour = useCallback(() => {
-    setTourState(INITIAL_TOUR_STATE);
-  }, [setTourState]);
+    updateConfigInCache({ seen_recurring_tour: false });
+    updateAck.mutate({ seen_recurring_tour: false });
+  }, [updateConfigInCache, updateAck]);
 
   return {
     steps,
-    hasSeenTour: tourState.hasSeenTour,
+    hasSeenTour,
     markAsSeen,
     resetTour,
     hasTourSteps: steps.length > 0,

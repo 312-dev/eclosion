@@ -79,7 +79,7 @@ export {
   useExportSettingsMutation,
   useImportSettingsMutation,
   usePreviewImportMutation,
-  useAutoSyncStatusQuery,
+  useUpdateAcknowledgementsMutation,
 } from './settingsMutations';
 
 // Uninstall mutations

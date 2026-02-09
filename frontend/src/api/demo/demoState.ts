@@ -13,6 +13,7 @@ import {
 } from '../demoData';
 import { TOUR_STATE_KEY } from '../../hooks/useRecurringTour';
 import { NOTES_TOUR_STATE_KEY } from '../../hooks/useNotesTour';
+import { STASH_TOUR_STATE_KEY, STASH_INTRO_STATE_KEY } from '../../hooks/useStashTour';
 
 // Version injected at build time
 declare const __APP_VERSION__: string;
@@ -135,4 +136,6 @@ export function resetDemoData(): void {
   localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(initial));
   localStorage.removeItem(TOUR_STATE_KEY);
   localStorage.removeItem(NOTES_TOUR_STATE_KEY);
+  localStorage.removeItem(STASH_TOUR_STATE_KEY);
+  localStorage.removeItem(STASH_INTRO_STATE_KEY);
 }
