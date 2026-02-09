@@ -80,6 +80,13 @@ export {
   previewImport,
 } from './settings';
 
+// Acknowledgements
+export {
+  getAcknowledgements,
+  updateAcknowledgements,
+  type AcknowledgementsData,
+} from './acknowledgements';
+
 // Version
 export {
   getVersion,
@@ -115,12 +122,8 @@ export {
   type AllNotesResponse,
 } from './notes';
 
-// Misc (auto-sync, deployment, notices, uninstall, migration)
+// Misc (deployment, notices, uninstall, migration)
 export {
-  getAutoSyncStatus,
-  enableAutoSync,
-  disableAutoSync,
-  setAutoSyncVisibility,
   dismissNotice,
   getDeploymentInfo,
   cancelSubscription,
@@ -141,7 +144,6 @@ export {
   type Backup,
   type ExecuteMigrationResult,
   type BackupsResponse,
-  type SetVisibilityResult,
 } from './misc';
 
 // Available to Stash

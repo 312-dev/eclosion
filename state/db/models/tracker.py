@@ -48,6 +48,15 @@ class TrackerConfig(Base):
     mfa_mode: Mapped[str] = mapped_column(String(20), default="secret")
     sync_blocked_reason: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
+    # Acknowledgement state (migrated from localStorage)
+    seen_stash_tour: Mapped[bool] = mapped_column(Boolean, default=False)
+    seen_notes_tour: Mapped[bool] = mapped_column(Boolean, default=False)
+    seen_recurring_tour: Mapped[bool] = mapped_column(Boolean, default=False)
+    seen_stash_intro: Mapped[bool] = mapped_column(Boolean, default=False)
+    read_update_ids: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON array
+    updates_install_date: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    updates_last_viewed_at: Mapped[str | None] = mapped_column(String(50), nullable=True)
+
     __table_args__ = (CheckConstraint("id = 1", name="single_row_config"),)
 
 

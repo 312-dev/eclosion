@@ -1,60 +1,16 @@
 /**
  * Misc API Functions
  *
- * Auto-sync, deployment info, notices, uninstall, and migration.
+ * Deployment info, notices, uninstall, and migration.
  */
 
 import type {
-  AutoSyncStatus,
-  EnableAutoSyncResult,
-  DisableAutoSyncResult,
   DeletableCategoriesResult,
   DeleteCategoriesResult,
   ResetDedicatedResult,
   ResetRollupResult,
 } from '../../types';
 import { fetchApi } from './fetchApi';
-
-// Auto-sync functions
-
-export async function getAutoSyncStatus(): Promise<AutoSyncStatus> {
-  return fetchApi<AutoSyncStatus>('/recurring/auto-sync/status');
-}
-
-export async function enableAutoSync(
-  intervalMinutes: number,
-  passphrase: string,
-  consentAcknowledged: boolean
-): Promise<EnableAutoSyncResult> {
-  return fetchApi<EnableAutoSyncResult>('/recurring/auto-sync/enable', {
-    method: 'POST',
-    body: JSON.stringify({
-      interval_minutes: intervalMinutes,
-      passphrase,
-      consent_acknowledged: consentAcknowledged,
-    }),
-  });
-}
-
-export async function disableAutoSync(): Promise<DisableAutoSyncResult> {
-  return fetchApi<DisableAutoSyncResult>('/recurring/auto-sync/disable', {
-    method: 'POST',
-  });
-}
-
-export interface SetVisibilityResult {
-  success: boolean;
-  interval_minutes?: number;
-  is_foreground: boolean;
-  changed?: boolean;
-}
-
-export async function setAutoSyncVisibility(isForeground: boolean): Promise<SetVisibilityResult> {
-  return fetchApi<SetVisibilityResult>('/recurring/auto-sync/visibility', {
-    method: 'POST',
-    body: JSON.stringify({ is_foreground: isForeground }),
-  });
-}
 
 // Notice functions
 

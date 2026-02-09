@@ -632,3 +632,46 @@ def restore_backup():
                 "error": "Restore failed. Please try again.",
             }
         ), 500
+
+
+# ---- ACKNOWLEDGEMENTS ----
+
+
+@admin_bp.route("/acknowledgements", methods=["GET"])
+def get_acknowledgements():
+    """Get all acknowledgement states (tours, intros, update read status)."""
+    services = get_services()
+    return jsonify(services.sync_service.state_manager.get_acknowledgements())
+
+
+@admin_bp.route("/acknowledgements", methods=["POST"])
+def update_acknowledgements():
+    """
+    Update acknowledgement states. Accepts partial updates.
+
+    Body: {
+        "seen_stash_tour": true,
+        "seen_notes_tour": true,
+        "read_update_ids": ["id1", "id2"],
+        ...
+    }
+    """
+    services = get_services()
+    data = request.get_json() or {}
+
+    allowed = {
+        "seen_stash_tour",
+        "seen_notes_tour",
+        "seen_recurring_tour",
+        "seen_stash_intro",
+        "read_update_ids",
+        "updates_install_date",
+        "updates_last_viewed_at",
+    }
+    filtered = {k: v for k, v in data.items() if k in allowed}
+
+    if not filtered:
+        return jsonify({"success": True})
+
+    services.sync_service.state_manager.update_acknowledgements(**filtered)
+    return jsonify({"success": True})

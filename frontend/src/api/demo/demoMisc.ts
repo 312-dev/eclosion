@@ -1,28 +1,10 @@
 /**
  * Demo Miscellaneous Functions
  *
- * Auto-sync, deployment info, notices, and other utilities.
+ * Deployment info, notices, and other utilities.
  */
 
-import type { AutoSyncStatus } from '../../types';
 import { updateDemoState, simulateDelay } from './demoState';
-
-/**
- * Get auto-sync status (disabled in demo mode).
- */
-export async function getAutoSyncStatus(): Promise<AutoSyncStatus> {
-  await simulateDelay(50);
-  return {
-    enabled: false,
-    interval_minutes: 0,
-    next_run: null,
-    last_sync: null,
-    last_sync_success: null,
-    last_sync_error: null,
-    consent_acknowledged: false,
-    is_foreground: true,
-  };
-}
 
 /**
  * Get deployment info.

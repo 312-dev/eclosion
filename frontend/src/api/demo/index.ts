@@ -52,6 +52,9 @@ export {
   previewImport,
 } from './demoSettings';
 
+// Acknowledgements
+export { getAcknowledgements, updateAcknowledgements } from './demoAcknowledgements';
+
 // Security
 export {
   getSecurityStatus,
@@ -76,12 +79,7 @@ export {
 } from './demoVersion';
 
 // Misc
-export {
-  getAutoSyncStatus,
-  getDeploymentInfo,
-  dismissNotice,
-  clearCategoryCache,
-} from './demoMisc';
+export { getDeploymentInfo, dismissNotice, clearCategoryCache } from './demoMisc';
 
 // Notes
 export {

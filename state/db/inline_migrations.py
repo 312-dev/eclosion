@@ -20,7 +20,7 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 # Current schema version - bump when adding migrations
-SCHEMA_VERSION = 14
+SCHEMA_VERSION = 15
 
 
 def column_exists(conn: sqlite3.Connection, table: str, column: str) -> bool:
@@ -304,6 +304,41 @@ def migrate_v13_wishlist_config_folder_names(conn: sqlite3.Connection) -> None:
         conn.commit()
 
 
+def migrate_v15_acknowledgements(conn: sqlite3.Connection) -> None:
+    """
+    Migration v15: Add acknowledgement columns to tracker_config.
+
+    Moves tour completion, news article read state, and stash intro
+    from client-side localStorage to server-side database storage.
+    """
+    cursor = conn.cursor()
+
+    if not column_exists(conn, "tracker_config", "seen_stash_tour"):
+        cursor.execute(
+            "ALTER TABLE tracker_config ADD COLUMN seen_stash_tour BOOLEAN NOT NULL DEFAULT 0"
+        )
+    if not column_exists(conn, "tracker_config", "seen_notes_tour"):
+        cursor.execute(
+            "ALTER TABLE tracker_config ADD COLUMN seen_notes_tour BOOLEAN NOT NULL DEFAULT 0"
+        )
+    if not column_exists(conn, "tracker_config", "seen_recurring_tour"):
+        cursor.execute(
+            "ALTER TABLE tracker_config ADD COLUMN seen_recurring_tour BOOLEAN NOT NULL DEFAULT 0"
+        )
+    if not column_exists(conn, "tracker_config", "seen_stash_intro"):
+        cursor.execute(
+            "ALTER TABLE tracker_config ADD COLUMN seen_stash_intro BOOLEAN NOT NULL DEFAULT 0"
+        )
+    if not column_exists(conn, "tracker_config", "read_update_ids"):
+        cursor.execute("ALTER TABLE tracker_config ADD COLUMN read_update_ids TEXT")
+    if not column_exists(conn, "tracker_config", "updates_install_date"):
+        cursor.execute("ALTER TABLE tracker_config ADD COLUMN updates_install_date VARCHAR(50)")
+    if not column_exists(conn, "tracker_config", "updates_last_viewed_at"):
+        cursor.execute("ALTER TABLE tracker_config ADD COLUMN updates_last_viewed_at VARCHAR(50)")
+
+    conn.commit()
+
+
 def migrate_v14_wishlist_nullable_amount_date(conn: sqlite3.Connection) -> None:
     """
     Migration v14: Make amount and target_date nullable in wishlist_items.
@@ -533,6 +568,13 @@ MIGRATIONS = [
         "version": 14,
         "description": "Make amount and target_date nullable for open-ended goals",
         "sql": migrate_v14_wishlist_nullable_amount_date,
+    },
+    # Version 15: Add acknowledgement columns to tracker_config
+    # Moves tours, news state, and stash intro from localStorage to DB
+    {
+        "version": 15,
+        "description": "Add acknowledgement columns to tracker_config",
+        "sql": migrate_v15_acknowledgements,
     },
 ]
 
