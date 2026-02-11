@@ -348,6 +348,90 @@ class MonarchGoalLayout(Base):
     )
 
 
+class RefundablesConfig(Base):
+    """
+    Refundables feature configuration.
+
+    Single row table containing tool-wide settings like tag replacement
+    preferences for when refunds are matched.
+    """
+
+    __tablename__ = "refundables_config"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+
+    # Tag replacement: optionally swap original tag with a "Refunded" tag
+    replacement_tag_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    replace_tag_by_default: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    # Aging warning: highlight old unmatched transactions (0 = disabled)
+    aging_warning_days: Mapped[int] = mapped_column(Integer, default=30)
+
+    # Show pending count badge in sidebar navigation
+    show_badge: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+    )
+
+    __table_args__ = (CheckConstraint("id = 1", name="single_row_refundables_config"),)
+
+
+class RefundablesSavedView(Base):
+    """
+    Saved view for the Refundables feature.
+
+    Each view represents a tab filtered by one or more Monarch transaction tags.
+    Users can create, rename, reorder, and delete views.
+    """
+
+    __tablename__ = "refundables_saved_views"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)  # UUID
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    tag_ids: Mapped[str] = mapped_column(Text, nullable=False)  # JSON array of Monarch tag IDs
+    category_ids: Mapped[str | None] = mapped_column(
+        Text, nullable=True
+    )  # JSON array or NULL (all)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+    )
+
+
+class RefundablesMatch(Base):
+    """
+    Refund match linking an original transaction to its refund transaction.
+
+    Tracks which transactions have been matched to refunds (or skipped).
+    Match details are also written to the original transaction's notes in Monarch.
+    """
+
+    __tablename__ = "refundables_matches"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)  # UUID
+    original_transaction_id: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
+    refund_transaction_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    refund_amount: Mapped[float | None] = mapped_column(Float, nullable=True)
+    refund_merchant: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    refund_date: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    refund_account: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    skipped: Mapped[bool] = mapped_column(Boolean, default=False)
+    transaction_data: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+    )
+
+
 class StashHypothesis(Base):
     """
     Saved hypothesis for what-if planning in the Distribute Wizard.

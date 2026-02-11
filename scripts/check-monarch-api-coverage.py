@@ -46,6 +46,8 @@ API_PATTERNS = [
     r"mm\.set_budget_amount",
     r"mm\.update_transaction",
     r"mm\.update_flexible_budget",
+    r"mm\.get_transaction_tags",
+    r"mm\.set_transaction_tags",
     r"mm\.gql_call",
     r"monarch_client\.get_budgets",
     r"monarch_client\.get_transaction_categories",
@@ -59,6 +61,8 @@ API_PATTERNS = [
     r"monarch_client\.set_budget_amount",
     r"monarch_client\.update_transaction",
     r"monarch_client\.update_flexible_budget",
+    r"monarch_client\.get_transaction_tags",
+    r"monarch_client\.set_transaction_tags",
     r"monarch_client\.gql_call",
 ]
 
@@ -76,6 +80,8 @@ API_METHOD_NAMES = {
     "set_budget_amount": "set_budget_amount()",
     "update_transaction": "update_transaction()",
     "update_flexible_budget": "update_flexible_budget()",
+    "get_transaction_tags": "get_transaction_tags()",
+    "set_transaction_tags": "set_transaction_tags()",
     "gql_call": "gql_call() [GraphQL]",
 }
 

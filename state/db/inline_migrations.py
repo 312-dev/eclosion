@@ -20,7 +20,7 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 # Current schema version - bump when adding migrations
-SCHEMA_VERSION = 15
+SCHEMA_VERSION = 20
 
 
 def column_exists(conn: sqlite3.Connection, table: str, column: str) -> bool:
@@ -444,6 +444,130 @@ def migrate_v14_wishlist_nullable_amount_date(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
+def migrate_v16_refundables(conn: sqlite3.Connection) -> None:
+    """
+    Migration v16: Create refundables tables.
+
+    Adds refundables_config (single-row settings), refundables_saved_views
+    (tag-filtered tabs), and refundables_matches (refund match tracking).
+    """
+    cursor = conn.cursor()
+
+    # Create refundables_config table
+    cursor.execute("""
+        SELECT name FROM sqlite_master
+        WHERE type='table' AND name='refundables_config'
+    """)
+    if not cursor.fetchone():
+        cursor.execute("""
+            CREATE TABLE refundables_config (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                replacement_tag_id VARCHAR(100),
+                replace_tag_by_default BOOLEAN NOT NULL DEFAULT 1,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+    # Create refundables_saved_views table
+    cursor.execute("""
+        SELECT name FROM sqlite_master
+        WHERE type='table' AND name='refundables_saved_views'
+    """)
+    if not cursor.fetchone():
+        cursor.execute("""
+            CREATE TABLE refundables_saved_views (
+                id VARCHAR(36) PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                tag_ids TEXT NOT NULL,
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+    # Create refundables_matches table
+    cursor.execute("""
+        SELECT name FROM sqlite_master
+        WHERE type='table' AND name='refundables_matches'
+    """)
+    if not cursor.fetchone():
+        cursor.execute("""
+            CREATE TABLE refundables_matches (
+                id VARCHAR(36) PRIMARY KEY,
+                original_transaction_id VARCHAR(100) NOT NULL UNIQUE,
+                refund_transaction_id VARCHAR(100),
+                refund_amount FLOAT,
+                refund_merchant VARCHAR(255),
+                refund_date VARCHAR(20),
+                refund_account VARCHAR(255),
+                skipped BOOLEAN NOT NULL DEFAULT 0,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+    conn.commit()
+
+
+def migrate_v17_refundables_category_ids(conn: sqlite3.Connection) -> None:
+    """
+    Migration v17: Add category_ids column to refundables_saved_views.
+
+    Allows views to optionally filter by Monarch category IDs.
+    NULL means "all categories" (no category filter).
+    """
+    if not column_exists(conn, "refundables_saved_views", "category_ids"):
+        cursor = conn.cursor()
+        cursor.execute("ALTER TABLE refundables_saved_views ADD COLUMN category_ids TEXT")
+        conn.commit()
+
+
+def migrate_v18_refundables_transaction_data(conn: sqlite3.Connection) -> None:
+    """
+    Migration v18: Add transaction_data column to refundables_matches.
+
+    Stores a JSON snapshot of the transaction at match time, so matched
+    transactions remain visible even after their tags are removed.
+    """
+    if not column_exists(conn, "refundables_matches", "transaction_data"):
+        cursor = conn.cursor()
+        cursor.execute("ALTER TABLE refundables_matches ADD COLUMN transaction_data TEXT")
+        conn.commit()
+
+
+def migrate_v19_refundables_aging_warning_days(conn: sqlite3.Connection) -> None:
+    """
+    Migration v19: Add aging_warning_days column to refundables_config.
+
+    Configurable threshold (in days) for highlighting old unmatched
+    transactions with an orange-to-red color gradient. Default 30 days.
+    """
+    if not column_exists(conn, "refundables_config", "aging_warning_days"):
+        cursor = conn.cursor()
+        cursor.execute(
+            "ALTER TABLE refundables_config "
+            "ADD COLUMN aging_warning_days INTEGER NOT NULL DEFAULT 30"
+        )
+        conn.commit()
+
+
+def migrate_v20_refundables_show_badge(conn: sqlite3.Connection) -> None:
+    """
+    Migration v20: Add show_badge column to refundables_config.
+
+    Toggle for showing the pending transaction count badge in the
+    sidebar navigation. Default enabled (true).
+    """
+    if not column_exists(conn, "refundables_config", "show_badge"):
+        cursor = conn.cursor()
+        cursor.execute(
+            "ALTER TABLE refundables_config "
+            "ADD COLUMN show_badge BOOLEAN NOT NULL DEFAULT 1"
+        )
+        conn.commit()
+
+
 # Migration definitions
 # Each migration runs only if current DB version < migration version
 # "sql" can be a string (executed as script) or a callable (called with conn)
@@ -575,6 +699,41 @@ MIGRATIONS = [
         "version": 15,
         "description": "Add acknowledgement columns to tracker_config",
         "sql": migrate_v15_acknowledgements,
+    },
+    # Version 16: Create refundables tables
+    # Adds config, saved views, and matches tables for the Refundables feature
+    {
+        "version": 16,
+        "description": "Create refundables tables",
+        "sql": migrate_v16_refundables,
+    },
+    # Version 17: Add category_ids to refundables_saved_views
+    # Allows views to filter by Monarch category IDs (NULL = all categories)
+    {
+        "version": 17,
+        "description": "Add category_ids to refundables saved views",
+        "sql": migrate_v17_refundables_category_ids,
+    },
+    # Version 18: Add transaction_data to refundables_matches
+    # Stores transaction snapshot so matched transactions stay visible after tag removal
+    {
+        "version": 18,
+        "description": "Add transaction_data to refundables matches",
+        "sql": migrate_v18_refundables_transaction_data,
+    },
+    # Version 19: Add aging_warning_days to refundables_config
+    # Configurable threshold for orange-to-red aging gradient on old unmatched transactions
+    {
+        "version": 19,
+        "description": "Add aging_warning_days to refundables config",
+        "sql": migrate_v19_refundables_aging_warning_days,
+    },
+    # Version 20: Add show_badge to refundables_config
+    # Toggle for showing pending transaction count badge in sidebar navigation
+    {
+        "version": 20,
+        "description": "Add show_badge to refundables config",
+        "sql": migrate_v20_refundables_show_badge,
     },
 ]
 

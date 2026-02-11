@@ -10,6 +10,7 @@ from typing import Any
 
 from cachetools import TTLCache
 from dotenv import load_dotenv
+from gql import gql
 from monarchmoney import MonarchMoney
 
 from core import config
@@ -155,6 +156,7 @@ def get_cache(cache_name: str) -> TTLCache:
         "savings_goals": _savings_goals_cache,
         "goal_balances": _goal_balances_cache,
         "full_goals": _full_goals_cache,
+        "tags": _tags_cache,
     }
     cache = caches.get(cache_name)
     if cache is None:
@@ -171,6 +173,7 @@ def clear_all_caches():
     _savings_goals_cache.clear()
     _goal_balances_cache.clear()
     _full_goals_cache.clear()
+    _tags_cache.clear()
 
 
 def clear_cache(cache_name: str):
@@ -845,3 +848,302 @@ async def update_category_rollover_balance(
 
     result_dict: dict[str, Any] = result if isinstance(result, dict) else {}
     return result_dict
+
+
+# =============================================================================
+# Transaction Tags
+# =============================================================================
+
+# Cache tags (short TTL since they're rarely changed)
+_tags_cache: TTLCache = TTLCache(maxsize=1, ttl=_CACHE_TTL)
+
+
+async def get_transaction_tags(mm: MonarchMoney) -> list[dict[str, Any]]:
+    """
+    Get all transaction tags from Monarch.
+
+    Returns:
+        List of tag dicts with 'id', 'name', 'color', etc.
+    """
+    cache_key = "tags"
+    if cache_key in _tags_cache:
+        cached: list[dict[str, Any]] = _tags_cache[cache_key]
+        return cached
+
+    result = await mm.get_transaction_tags()
+    tags: list[dict[str, Any]] = result.get("householdTransactionTags", [])
+
+    _tags_cache[cache_key] = tags
+    return tags
+
+
+async def get_transactions_by_tags(
+    mm: MonarchMoney,
+    tag_ids: list[str],
+    start_date: str | None = None,
+    end_date: str | None = None,
+    limit: int = 500,
+    offset: int = 0,
+) -> list[dict[str, Any]]:
+    """
+    Get transactions filtered by tag IDs and optional date range.
+
+    Args:
+        mm: MonarchMoney client instance
+        tag_ids: List of Monarch tag IDs to filter by
+        start_date: Optional start date (YYYY-MM-DD)
+        end_date: Optional end date (YYYY-MM-DD)
+        limit: Max transactions to return
+        offset: Offset for pagination
+
+    Returns:
+        List of transaction dicts.
+    """
+    result = await mm.get_transactions(
+        limit=limit,
+        offset=offset,
+        start_date=start_date,
+        end_date=end_date,
+        tag_ids=tag_ids,
+    )
+
+    transactions: list[dict[str, Any]] = result.get("allTransactions", {}).get("results", [])
+    return transactions
+
+
+async def search_transactions(
+    mm: MonarchMoney,
+    search: str,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    limit: int = 50,
+) -> list[dict[str, Any]]:
+    """
+    Search transactions by text query.
+
+    Used for finding refund transactions to match against originals.
+
+    Args:
+        mm: MonarchMoney client instance
+        search: Search query string
+        start_date: Optional start date (YYYY-MM-DD)
+        end_date: Optional end date (YYYY-MM-DD)
+        limit: Max transactions to return
+
+    Returns:
+        List of matching transaction dicts.
+    """
+    result = await mm.get_transactions(
+        limit=limit,
+        search=search,
+        start_date=start_date,
+        end_date=end_date,
+    )
+
+    transactions: list[dict[str, Any]] = result.get("allTransactions", {}).get("results", [])
+    return transactions
+
+
+# =============================================================================
+# Transactions with Icon Data (custom query for richer UI)
+# =============================================================================
+
+# Custom GraphQL fragment that extends TransactionOverviewFields with icon data:
+# - merchant.logoUrl: Merchant logo image URL
+# - account.logoUrl: Institution logo URL
+# - account.icon: Account icon identifier
+# - category.icon: Category emoji
+_TRANSACTIONS_WITH_ICONS_QUERY = gql("""
+  query GetTransactionsWithIcons(
+    $offset: Int,
+    $limit: Int,
+    $filters: TransactionFilterInput,
+    $orderBy: TransactionOrdering
+  ) {
+    allTransactions(filters: $filters) {
+      totalCount
+      results(offset: $offset, limit: $limit, orderBy: $orderBy) {
+        id
+        amount
+        pending
+        date
+        hideFromReports
+        plaidName
+        notes
+        isRecurring
+        reviewStatus
+        needsReview
+        isSplitTransaction
+        createdAt
+        updatedAt
+        category {
+          id
+          name
+          icon
+          __typename
+        }
+        merchant {
+          name
+          id
+          logoUrl
+          __typename
+        }
+        account {
+          id
+          displayName
+          logoUrl
+          icon
+          __typename
+        }
+        tags {
+          id
+          name
+          color
+          order
+          __typename
+        }
+        __typename
+      }
+      __typename
+    }
+  }
+""")
+
+
+async def get_transactions_with_icons(
+    mm: MonarchMoney,
+    tag_ids: list[str] | None = None,
+    category_ids: list[str] | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    limit: int = 500,
+    offset: int = 0,
+) -> list[dict[str, Any]]:
+    """
+    Get transactions with icon data (merchant logos, account logos, category emojis).
+
+    Uses a custom GraphQL query that includes fields not present in the
+    library's default get_transactions() method.
+
+    Args:
+        mm: MonarchMoney client instance
+        tag_ids: Optional list of Monarch tag IDs to filter by
+        category_ids: Optional list of Monarch category IDs to filter by
+        start_date: Optional start date (YYYY-MM-DD)
+        end_date: Optional end date (YYYY-MM-DD)
+        limit: Max transactions to return
+        offset: Offset for pagination
+
+    Returns:
+        List of transaction dicts with icon data.
+    """
+    filters: dict[str, Any] = {}
+    if tag_ids:
+        filters["tags"] = tag_ids
+    if category_ids:
+        filters["categories"] = category_ids
+    if start_date:
+        filters["startDate"] = start_date
+    if end_date:
+        filters["endDate"] = end_date
+    variables: dict[str, Any] = {
+        "offset": offset,
+        "limit": limit,
+        "orderBy": "date",
+        "filters": filters,
+    }
+
+    result = await mm.gql_call(
+        operation="GetTransactionsWithIcons",
+        graphql_query=_TRANSACTIONS_WITH_ICONS_QUERY,
+        variables=variables,
+    )
+
+    transactions: list[dict[str, Any]] = result.get("allTransactions", {}).get("results", [])
+    return transactions
+
+
+async def search_transactions_with_icons(
+    mm: MonarchMoney,
+    search: str | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> list[dict[str, Any]]:
+    """
+    Search transactions with icon data (merchant logos, account logos, category emojis).
+
+    Args:
+        mm: MonarchMoney client instance
+        search: Optional search query string
+        start_date: Optional start date (YYYY-MM-DD)
+        end_date: Optional end date (YYYY-MM-DD)
+        limit: Max transactions to return
+        offset: Offset for pagination
+
+    Returns:
+        List of matching transaction dicts with icon data.
+    """
+    filters: dict[str, Any] = {}
+    if search:
+        filters["search"] = search
+    variables: dict[str, Any] = {
+        "offset": offset,
+        "limit": limit,
+        "orderBy": "date",
+        "filters": filters,
+    }
+    if start_date:
+        variables["filters"]["startDate"] = start_date
+    if end_date:
+        variables["filters"]["endDate"] = end_date
+
+    result = await mm.gql_call(
+        operation="GetTransactionsWithIcons",
+        graphql_query=_TRANSACTIONS_WITH_ICONS_QUERY,
+        variables=variables,
+    )
+
+    transactions: list[dict[str, Any]] = result.get("allTransactions", {}).get("results", [])
+    return transactions
+
+
+async def update_transaction_notes(
+    mm: MonarchMoney,
+    transaction_id: str,
+    notes: str,
+) -> dict[str, Any]:
+    """
+    Update a transaction's notes field.
+
+    Args:
+        mm: MonarchMoney client instance
+        transaction_id: Monarch transaction ID
+        notes: New notes content
+
+    Returns:
+        API response dict.
+    """
+    result = await mm.update_transaction(transaction_id, notes=notes)
+    return result if isinstance(result, dict) else {}
+
+
+async def set_transaction_tags(
+    mm: MonarchMoney,
+    transaction_id: str,
+    tag_ids: list[str],
+) -> dict[str, Any]:
+    """
+    Set tags on a transaction (replaces all existing tags).
+
+    Args:
+        mm: MonarchMoney client instance
+        transaction_id: Monarch transaction ID
+        tag_ids: List of tag IDs to set
+
+    Returns:
+        API response dict.
+    """
+    result = await mm.set_transaction_tags(transaction_id, tag_ids)
+    return result if isinstance(result, dict) else {}

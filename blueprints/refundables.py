@@ -1,0 +1,222 @@
+# Refundables blueprint
+# /refundables/* endpoints for tracking purchases awaiting refunds
+
+import logging
+
+from flask import Blueprint, request
+
+from core import api_handler, sanitize_name
+from services.refundables_service import RefundablesService
+
+logger = logging.getLogger(__name__)
+
+refundables_bp = Blueprint("refundables", __name__, url_prefix="/refundables")
+
+# Create service instance
+_refundables_service: RefundablesService | None = None
+
+
+def get_refundables_service() -> RefundablesService:
+    """Get or create the refundables service singleton."""
+    global _refundables_service
+    if _refundables_service is None:
+        _refundables_service = RefundablesService()
+    return _refundables_service
+
+
+# ---- CONFIG ENDPOINTS ----
+
+
+@refundables_bp.route("/config", methods=["GET"])
+@api_handler(handle_mfa=False)
+async def get_config():
+    """Get refundables configuration."""
+    service = get_refundables_service()
+    return await service.get_config()
+
+
+@refundables_bp.route("/config", methods=["PATCH"])
+@api_handler(handle_mfa=False)
+async def update_config():
+    """Update refundables configuration."""
+    data = request.json or {}
+    service = get_refundables_service()
+    return await service.update_config(data)
+
+
+# ---- PENDING COUNT ENDPOINT ----
+
+
+@refundables_bp.route("/pending-count", methods=["GET"])
+@api_handler(handle_mfa=True)
+async def get_pending_count():
+    """Get count of unmatched transactions across all views."""
+    service = get_refundables_service()
+    return await service.get_pending_count()
+
+
+# ---- TAGS ENDPOINT ----
+
+
+@refundables_bp.route("/tags", methods=["GET"])
+@api_handler(handle_mfa=True)
+async def get_tags():
+    """Get all Monarch transaction tags."""
+    service = get_refundables_service()
+    tags = await service.get_tags()
+    return {"tags": tags}
+
+
+# ---- SAVED VIEWS ENDPOINTS ----
+
+
+@refundables_bp.route("/views", methods=["GET"])
+@api_handler(handle_mfa=False)
+async def get_views():
+    """Get all saved views."""
+    service = get_refundables_service()
+    views = await service.get_views()
+    return {"views": views}
+
+
+@refundables_bp.route("/views", methods=["POST"])
+@api_handler(handle_mfa=False)
+async def create_view():
+    """Create a new saved view."""
+    data = request.json or {}
+    name = sanitize_name(data.get("name", ""))
+    tag_ids = data.get("tagIds", [])
+    category_ids = data.get("categoryIds")
+
+    if not name:
+        return {"success": False, "error": "Name is required"}, 400
+    if not isinstance(tag_ids, list):
+        tag_ids = []
+    has_tags = len(tag_ids) > 0
+    has_categories = isinstance(category_ids, list) and len(category_ids) > 0
+    if not has_tags and not has_categories:
+        return {"success": False, "error": "At least one tag or category is required"}, 400
+
+    service = get_refundables_service()
+    return await service.create_view(name, tag_ids, category_ids)
+
+
+@refundables_bp.route("/views/<view_id>", methods=["PATCH"])
+@api_handler(handle_mfa=False)
+async def update_view(view_id: str):
+    """Update a saved view."""
+    data = request.json or {}
+    if "name" in data:
+        data["name"] = sanitize_name(data["name"])
+
+    service = get_refundables_service()
+    return await service.update_view(view_id, data)
+
+
+@refundables_bp.route("/views/<view_id>", methods=["DELETE"])
+@api_handler(handle_mfa=False)
+async def delete_view(view_id: str):
+    """Delete a saved view."""
+    service = get_refundables_service()
+    return await service.delete_view(view_id)
+
+
+@refundables_bp.route("/views/reorder", methods=["POST"])
+@api_handler(handle_mfa=False)
+async def reorder_views():
+    """Reorder saved views."""
+    data = request.json or {}
+    view_ids = data.get("viewIds", [])
+    service = get_refundables_service()
+    return await service.reorder_views(view_ids)
+
+
+# ---- TRANSACTION ENDPOINTS ----
+
+
+@refundables_bp.route("/transactions", methods=["POST"])
+@api_handler(handle_mfa=True)
+async def get_transactions():
+    """Fetch transactions by tags, categories, and date range."""
+    data = request.json or {}
+    tag_ids = data.get("tagIds", [])
+    category_ids = data.get("categoryIds") or []
+    start_date = data.get("startDate")
+    end_date = data.get("endDate")
+
+    if not tag_ids and not category_ids:
+        return {"transactions": []}
+
+    service = get_refundables_service()
+    transactions = await service.get_transactions(
+        tag_ids=tag_ids or None,
+        category_ids=category_ids or None,
+        start_date=start_date,
+        end_date=end_date,
+    )
+    return {"transactions": transactions}
+
+
+@refundables_bp.route("/search", methods=["POST"])
+@api_handler(handle_mfa=True)
+async def search_transactions():
+    """Search transactions for refund matching."""
+    data = request.json or {}
+    search = data.get("search") or None
+    start_date = data.get("startDate")
+    end_date = data.get("endDate")
+    limit = data.get("limit", 10)
+    cursor = data.get("cursor", 0)
+
+    service = get_refundables_service()
+    result = await service.search_for_refund(
+        search, start_date, end_date, limit=limit, cursor=cursor
+    )
+    return result
+
+
+# ---- MATCH ENDPOINTS ----
+
+
+@refundables_bp.route("/matches", methods=["GET"])
+@api_handler(handle_mfa=False)
+async def get_matches():
+    """Get all refund matches."""
+    service = get_refundables_service()
+    matches = await service.get_matches()
+    return {"matches": matches}
+
+
+@refundables_bp.route("/match", methods=["POST"])
+@api_handler(handle_mfa=True)
+async def create_match():
+    """Create a refund match."""
+    data = request.json or {}
+
+    original_transaction_id = data.get("originalTransactionId")
+    if not original_transaction_id:
+        return {"success": False, "error": "originalTransactionId is required"}, 400
+
+    service = get_refundables_service()
+    return await service.create_match(
+        original_transaction_id=original_transaction_id,
+        refund_transaction_id=data.get("refundTransactionId"),
+        refund_amount=data.get("refundAmount"),
+        refund_merchant=data.get("refundMerchant"),
+        refund_date=data.get("refundDate"),
+        refund_account=data.get("refundAccount"),
+        skipped=data.get("skipped", False),
+        replace_tag=data.get("replaceTag", False),
+        original_tag_ids=data.get("originalTagIds"),
+        original_notes=data.get("originalNotes"),
+        view_tag_ids=data.get("viewTagIds"),
+        transaction_data=data.get("transactionData"),
+    )
+
+
+@refundables_bp.route("/match/<match_id>", methods=["DELETE"])
+@api_handler(handle_mfa=True)
+async def delete_match(match_id: str):
+    """Delete a refund match and restore original tags."""
+    service = get_refundables_service()
+    return await service.delete_match(match_id)

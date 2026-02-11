@@ -122,3 +122,8 @@ def register_blueprints(app: Flask) -> None:
     from .remote import remote_bp
 
     app.register_blueprint(remote_bp)
+
+    # Phase 12: Refundables blueprint
+    from .refundables import refundables_bp
+
+    app.register_blueprint(refundables_bp)

@@ -12,6 +12,9 @@ from state.db.models import (
     EnabledItem,
     MonarchGoalLayout,
     PendingBookmark,
+    RefundablesConfig,
+    RefundablesMatch,
+    RefundablesSavedView,
     RemovedItemNotice,
     Rollup,
     RollupItem,
@@ -967,3 +970,157 @@ class TrackerRepository:
         """Delete all hypotheses. Returns number deleted."""
         result = self.session.query(StashHypothesis).delete()
         return result
+
+    # === Refundables Config ===
+
+    def get_refundables_config(self) -> RefundablesConfig:
+        """Get or create refundables configuration."""
+        config = self.session.query(RefundablesConfig).first()
+        if not config:
+            config = RefundablesConfig(id=1)
+            self.session.add(config)
+            self.session.flush()
+        return config
+
+    def update_refundables_config(self, **kwargs: object) -> RefundablesConfig:
+        """Update refundables configuration fields."""
+        config = self.get_refundables_config()
+        for key, value in kwargs.items():
+            if hasattr(config, key):
+                setattr(config, key, value)
+        config.updated_at = datetime.now(UTC)
+        return config
+
+    # === Refundables Saved Views ===
+
+    def get_refundables_views(self) -> list[RefundablesSavedView]:
+        """Get all saved views ordered by sort_order."""
+        return (
+            self.session.query(RefundablesSavedView)
+            .order_by(RefundablesSavedView.sort_order)
+            .all()
+        )
+
+    def get_refundables_view(self, view_id: str) -> RefundablesSavedView | None:
+        """Get a saved view by ID."""
+        return (
+            self.session.query(RefundablesSavedView)
+            .filter(RefundablesSavedView.id == view_id)
+            .first()
+        )
+
+    def create_refundables_view(
+        self,
+        name: str,
+        tag_ids: str,
+        category_ids: str | None = None,
+    ) -> RefundablesSavedView:
+        """Create a new saved view. tag_ids/category_ids are JSON array strings."""
+        # Get next sort order
+        max_order = (
+            self.session.query(RefundablesSavedView.sort_order)
+            .order_by(RefundablesSavedView.sort_order.desc())
+            .first()
+        )
+        next_order = (max_order[0] + 1) if max_order else 0
+
+        view = RefundablesSavedView(
+            id=str(uuid.uuid4()),
+            name=name,
+            tag_ids=tag_ids,
+            category_ids=category_ids,
+            sort_order=next_order,
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
+        )
+        self.session.add(view)
+        return view
+
+    def update_refundables_view(
+        self,
+        view_id: str,
+        **kwargs: object,
+    ) -> RefundablesSavedView | None:
+        """Update a saved view by ID."""
+        view = self.get_refundables_view(view_id)
+        if not view:
+            return None
+        for key, value in kwargs.items():
+            if hasattr(view, key):
+                setattr(view, key, value)
+        view.updated_at = datetime.now(UTC)
+        return view
+
+    def delete_refundables_view(self, view_id: str) -> bool:
+        """Delete a saved view by ID."""
+        result = (
+            self.session.query(RefundablesSavedView)
+            .filter(RefundablesSavedView.id == view_id)
+            .delete()
+        )
+        return result > 0
+
+    def reorder_refundables_views(self, view_ids: list[str]) -> None:
+        """Reorder saved views by setting sort_order based on list position."""
+        for i, view_id in enumerate(view_ids):
+            view = self.get_refundables_view(view_id)
+            if view:
+                view.sort_order = i
+                view.updated_at = datetime.now(UTC)
+
+    # === Refundables Matches ===
+
+    def get_refundables_matches(self) -> list[RefundablesMatch]:
+        """Get all refund matches."""
+        return (
+            self.session.query(RefundablesMatch)
+            .order_by(RefundablesMatch.created_at.desc())
+            .all()
+        )
+
+    def get_refundables_match_by_original(
+        self, original_transaction_id: str
+    ) -> RefundablesMatch | None:
+        """Get a match by original transaction ID."""
+        return (
+            self.session.query(RefundablesMatch)
+            .filter(RefundablesMatch.original_transaction_id == original_transaction_id)
+            .first()
+        )
+
+    def create_refundables_match(
+        self,
+        original_transaction_id: str,
+        refund_transaction_id: str | None = None,
+        refund_amount: float | None = None,
+        refund_merchant: str | None = None,
+        refund_date: str | None = None,
+        refund_account: str | None = None,
+        skipped: bool = False,
+        transaction_data: str | None = None,
+    ) -> RefundablesMatch:
+        """Create a new refund match."""
+        match = RefundablesMatch(
+            id=str(uuid.uuid4()),
+            original_transaction_id=original_transaction_id,
+            refund_transaction_id=refund_transaction_id,
+            refund_amount=refund_amount,
+            refund_merchant=refund_merchant,
+            refund_date=refund_date,
+            refund_account=refund_account,
+            skipped=skipped,
+            transaction_data=transaction_data,
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
+        )
+        self.session.add(match)
+        return match
+
+    def delete_refundables_match(self, match_id: str) -> bool:
+        """Delete a refund match by ID."""
+        result = (
+            self.session.query(RefundablesMatch)
+            .filter(RefundablesMatch.id == match_id)
+            .delete()
+        )
+        return result > 0
