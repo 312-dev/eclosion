@@ -192,11 +192,27 @@ export const TransactionRow = React.memo(function TransactionRow({
   const agingBorder =
     !isMatched && !isSkipped ? getAgingBorder(transaction.date, agingWarningDays) : null;
 
+  const handleRowClick = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (target.closest('button, a')) return;
+    onToggleSelect(transaction);
+  };
+
   return (
+    // eslint-disable-next-line jsx-a11y/prefer-tag-over-role -- native button can't contain nested interactive elements
     <div
-      className={`w-full items-center px-4 py-3 border-b border-(--monarch-border) hover:bg-(--monarch-bg-hover) transition-colors text-left ${GRID_CLASSES} ${getRowClassName(isMatched, isSelected)}`}
+      className={`w-full items-center px-4 py-3 border-b border-(--monarch-border) hover:bg-(--monarch-bg-hover) transition-colors text-left cursor-pointer ${GRID_CLASSES} ${getRowClassName(isMatched, isSelected)}`}
       style={agingBorder ? { boxShadow: agingBorder } : undefined}
       aria-label={`${merchantName}: ${formatAmount(transaction.amount)}${getStatusLabel(isMatched, isSkipped)}`}
+      role="button"
+      tabIndex={0}
+      onClick={handleRowClick}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onToggleSelect(transaction);
+        }
+      }}
     >
       {/* Col 1: Selection checkbox */}
       <div className="flex items-center justify-center">
