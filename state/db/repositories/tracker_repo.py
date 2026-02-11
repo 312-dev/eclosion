@@ -996,9 +996,7 @@ class TrackerRepository:
     def get_refundables_views(self) -> list[RefundablesSavedView]:
         """Get all saved views ordered by sort_order."""
         return (
-            self.session.query(RefundablesSavedView)
-            .order_by(RefundablesSavedView.sort_order)
-            .all()
+            self.session.query(RefundablesSavedView).order_by(RefundablesSavedView.sort_order).all()
         )
 
     def get_refundables_view(self, view_id: str) -> RefundablesSavedView | None:
@@ -1073,9 +1071,7 @@ class TrackerRepository:
     def get_refundables_matches(self) -> list[RefundablesMatch]:
         """Get all refund matches."""
         return (
-            self.session.query(RefundablesMatch)
-            .order_by(RefundablesMatch.created_at.desc())
-            .all()
+            self.session.query(RefundablesMatch).order_by(RefundablesMatch.created_at.desc()).all()
         )
 
     def get_refundables_match_by_original(
@@ -1119,8 +1115,6 @@ class TrackerRepository:
     def delete_refundables_match(self, match_id: str) -> bool:
         """Delete a refund match by ID."""
         result = (
-            self.session.query(RefundablesMatch)
-            .filter(RefundablesMatch.id == match_id)
-            .delete()
+            self.session.query(RefundablesMatch).filter(RefundablesMatch.id == match_id).delete()
         )
         return result > 0

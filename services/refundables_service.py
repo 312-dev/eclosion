@@ -8,7 +8,7 @@ and tag replacement.
 
 import json
 import logging
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Any
 
 from monarch_utils import (
@@ -82,9 +82,7 @@ class RefundablesService:
             if not all_tag_ids:
                 return {"count": 0, "viewCounts": {}}
 
-            matched_ids = {
-                m.original_transaction_id for m in repo.get_refundables_matches()
-            }
+            matched_ids = {m.original_transaction_id for m in repo.get_refundables_matches()}
 
         # Fetch all tagged transactions from Monarch in one call.
         # Only pass tag_ids (not category_ids) — category filtering is
@@ -99,8 +97,7 @@ class RefundablesService:
 
         # Only count expenses (negative amount), matching the UI tally logic
         unmatched_expenses = [
-            t for t in transactions
-            if t.get("amount", 0) < 0 and t["id"] not in matched_ids
+            t for t in transactions if t.get("amount", 0) < 0 and t["id"] not in matched_ids
         ]
 
         return _compute_view_counts(view_filters, unmatched_expenses)
@@ -410,9 +407,7 @@ def _txn_matches_view(
     cats_match = cat_set is not None and cat_id is not None and cat_id in cat_set
     if not tags_match and not cats_match:
         return False
-    if cat_set is not None and not cats_match:
-        return False
-    return True
+    return not (cat_set is not None and not cats_match)
 
 
 def _compute_view_counts(

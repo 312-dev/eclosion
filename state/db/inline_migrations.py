@@ -562,8 +562,7 @@ def migrate_v20_refundables_show_badge(conn: sqlite3.Connection) -> None:
     if not column_exists(conn, "refundables_config", "show_badge"):
         cursor = conn.cursor()
         cursor.execute(
-            "ALTER TABLE refundables_config "
-            "ADD COLUMN show_badge BOOLEAN NOT NULL DEFAULT 1"
+            "ALTER TABLE refundables_config ADD COLUMN show_badge BOOLEAN NOT NULL DEFAULT 1"
         )
         conn.commit()
 
