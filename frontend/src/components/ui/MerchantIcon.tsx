@@ -21,9 +21,9 @@ import {
   DumbbellIcon,
   CloudIcon,
   NewspaperIcon,
-  RepeatIcon,
   ShieldIcon,
 } from '../icons';
+import { Landmark } from 'lucide-react';
 import type { LucideProps } from '../icons';
 
 export interface MerchantIconProps {
@@ -59,19 +59,45 @@ type CategoryIconComponent = ComponentType<LucideProps>;
 
 const CATEGORY_PATTERNS: Array<{ keywords: string[]; icon: CategoryIconComponent }> = [
   // Streaming/Entertainment
-  { keywords: ['netflix', 'hulu', 'disney', 'hbo', 'max', 'prime video', 'peacock', 'paramount', 'apple tv', 'streaming'], icon: TvIcon },
+  {
+    keywords: [
+      'netflix',
+      'hulu',
+      'disney',
+      'hbo',
+      'max',
+      'prime video',
+      'peacock',
+      'paramount',
+      'apple tv',
+      'streaming',
+    ],
+    icon: TvIcon,
+  },
   { keywords: ['spotify', 'apple music', 'pandora', 'tidal', 'deezer', 'music'], icon: MusicIcon },
-  { keywords: ['xbox', 'playstation', 'nintendo', 'steam', 'gaming', 'game pass'], icon: GamepadIcon },
+  {
+    keywords: ['xbox', 'playstation', 'nintendo', 'steam', 'gaming', 'game pass'],
+    icon: GamepadIcon,
+  },
 
   // Utilities
   { keywords: ['electric', 'power', 'energy', 'pge', 'edison'], icon: ZapIcon },
   { keywords: ['water', 'sewer'], icon: DropletIcon },
   { keywords: ['gas', 'propane'], icon: FlameIcon },
-  { keywords: ['internet', 'wifi', 'comcast', 'xfinity', 'spectrum', 'att', 'verizon fios', 'isp'], icon: WifiIcon },
-  { keywords: ['phone', 'mobile', 'verizon', 't-mobile', 'tmobile', 'at&t', 'cellular', 'cell'], icon: PhoneIcon },
+  {
+    keywords: ['internet', 'wifi', 'comcast', 'xfinity', 'spectrum', 'att', 'verizon fios', 'isp'],
+    icon: WifiIcon,
+  },
+  {
+    keywords: ['phone', 'mobile', 'verizon', 't-mobile', 'tmobile', 'at&t', 'cellular', 'cell'],
+    icon: PhoneIcon,
+  },
 
   // Insurance
-  { keywords: ['auto insurance', 'car insurance', 'geico', 'progressive', 'state farm', 'allstate'], icon: CarIcon },
+  {
+    keywords: ['auto insurance', 'car insurance', 'geico', 'progressive', 'state farm', 'allstate'],
+    icon: CarIcon,
+  },
   { keywords: ['health insurance', 'medical', 'dental', 'vision', 'healthcare'], icon: HeartIcon },
   { keywords: ['insurance', 'life insurance', 'renters', 'homeowners'], icon: ShieldIcon },
 
@@ -79,13 +105,22 @@ const CATEGORY_PATTERNS: Array<{ keywords: string[]; icon: CategoryIconComponent
   { keywords: ['mortgage', 'rent', 'hoa', 'housing', 'lease'], icon: HomeIcon },
 
   // Fitness
-  { keywords: ['gym', 'fitness', 'planet fitness', 'equinox', 'crossfit', 'peloton', 'workout'], icon: DumbbellIcon },
+  {
+    keywords: ['gym', 'fitness', 'planet fitness', 'equinox', 'crossfit', 'peloton', 'workout'],
+    icon: DumbbellIcon,
+  },
 
   // Cloud/Software
-  { keywords: ['cloud', 'dropbox', 'google drive', 'icloud', 'storage', 'onedrive'], icon: CloudIcon },
+  {
+    keywords: ['cloud', 'dropbox', 'google drive', 'icloud', 'storage', 'onedrive'],
+    icon: CloudIcon,
+  },
 
   // News/Media
-  { keywords: ['news', 'times', 'post', 'journal', 'newspaper', 'magazine', 'medium', 'substack'], icon: NewspaperIcon },
+  {
+    keywords: ['news', 'times', 'post', 'journal', 'newspaper', 'magazine', 'medium', 'substack'],
+    icon: NewspaperIcon,
+  },
 ];
 
 /**
@@ -95,13 +130,13 @@ function getCategoryIcon(itemName: string): CategoryIconComponent {
   const lowerName = itemName.toLowerCase();
 
   for (const { keywords, icon } of CATEGORY_PATTERNS) {
-    if (keywords.some(keyword => lowerName.includes(keyword))) {
+    if (keywords.some((keyword) => lowerName.includes(keyword))) {
       return icon;
     }
   }
 
   // Default fallback
-  return RepeatIcon;
+  return Landmark;
 }
 
 /**
@@ -127,13 +162,7 @@ export function MerchantIcon({
     if (!itemName) return null;
     const IconComponent = getCategoryIcon(itemName);
     if (!IconComponent) return null;
-    return (
-      <IconComponent
-        size={iconSize}
-        color="var(--monarch-text-muted)"
-        strokeWidth={1.5}
-      />
-    );
+    return <IconComponent size={iconSize} color="var(--monarch-text-muted)" strokeWidth={1.5} />;
   }, [itemName, iconSize]);
   /* eslint-enable react-hooks/static-components */
 

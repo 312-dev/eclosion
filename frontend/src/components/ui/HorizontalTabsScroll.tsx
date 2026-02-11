@@ -17,12 +17,14 @@ interface HorizontalTabsScrollProps {
   children: ReactNode;
   className?: string;
   innerClassName?: string;
+  disableDragScroll?: boolean;
 }
 
 export function HorizontalTabsScroll({
   children,
   className = '',
   innerClassName = '',
+  disableDragScroll = false,
 }: Readonly<HorizontalTabsScrollProps>) {
   const containerRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
@@ -37,7 +39,7 @@ export function HorizontalTabsScroll({
     containerRef,
     { enabled: !isMobile }
   );
-  const { isDragging } = useDragScroll(innerRef, !isMobile);
+  const { isDragging } = useDragScroll(innerRef, !isMobile && !disableDragScroll);
 
   // Determine which fades to show
   // Mobile: only right fade, hidden when at end

@@ -186,6 +186,48 @@ export const FEATURES: FeatureDefinition[] = [
     ],
   },
   {
+    id: 'refundables',
+    name: 'Refundables',
+    tagline: 'Track purchases awaiting refunds',
+    description:
+      'Tag transactions in Monarch that need refunds or reimbursements, then match them to refund transactions when they arrive. Organize by type with saved views, track progress with a tally bar, and optionally replace tags when matched.',
+    icon: 'Rotate',
+    status: 'available',
+    benefits: [
+      {
+        icon: 'Bookmark',
+        title: 'Tag-Based Tracking',
+        description:
+          'Use Monarch tags to flag transactions awaiting refunds—work expenses, insurance claims, returns, and more.',
+      },
+      {
+        icon: 'Filter',
+        title: 'Saved Views',
+        description:
+          'Create custom views that filter by tag and category. Organize refundables by type with reorderable tabs.',
+      },
+      {
+        icon: 'CheckCircle',
+        title: 'Refund Matching',
+        description:
+          'Search for and match refund transactions to originals. See matched amounts, merchants, and dates at a glance.',
+      },
+      {
+        icon: 'TrendUp',
+        title: 'Progress Tally',
+        description:
+          'A summary bar shows total pending, matched, and skipped amounts so you always know where you stand.',
+      },
+    ],
+    demoPath: '/demo/refundables/',
+    appPath: '/refundables',
+    sourcePaths: [
+      'frontend/src/components/refundables/',
+      'services/refundables_service.py',
+      'blueprints/refundables.py',
+    ],
+  },
+  {
     id: 'ifttt',
     name: 'IFTTT Integration',
     tagline: 'Connect to 900+ apps and services',

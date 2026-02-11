@@ -5,7 +5,7 @@
  */
 
 import { useNavigate } from 'react-router-dom';
-import { Github } from 'lucide-react';
+import { Github, Undo2 } from 'lucide-react';
 import { ToolTile } from '../ui/ToolTile';
 import { RecurringIcon, NotesIcon, StashIcon } from '../wizards/WizardComponents';
 import { Icons } from '../icons';
@@ -38,6 +38,13 @@ function getTools(isDemo: boolean) {
       description: "Save for today's wants and tomorrow's needs",
       icon: <StashIcon size={28} />,
       path: `${prefix}/stashes`,
+    },
+    {
+      id: 'refundables',
+      name: 'Refundables',
+      description: 'Track purchases awaiting refunds and match them when they arrive',
+      icon: <Undo2 size={28} />,
+      path: `${prefix}/refundables`,
     },
   ];
 }

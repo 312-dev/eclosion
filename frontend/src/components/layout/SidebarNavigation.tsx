@@ -7,13 +7,14 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { Settings, Lock, Lightbulb, LayoutDashboard } from 'lucide-react';
+import { Settings, Lock, Lightbulb, LayoutDashboard, Undo2 } from 'lucide-react';
 import { RecurringIcon, NotesIcon, StashIcon } from '../wizards/WizardComponents';
 import { ToolSettingsModal, type ToolType } from '../ui/ToolSettingsModal';
 import { NavItemLink, type NavItem } from './NavItemLink';
 import { useDemo } from '../../context/DemoContext';
 import { useUpdatesState } from '../../hooks/useUpdatesState';
 import { useMediaQuery, useScrollEnd, useTunnelStatus } from '../../hooks';
+import { useRefundablesConfigQuery, useRefundablesPendingCountQuery } from '../../api/queries';
 import { isDesktopMode } from '../../utils/apiBase';
 import { getVisibleSections } from '../settings';
 import { scrollToElement, scrollIntoViewLocal } from '../../utils';
@@ -53,6 +54,12 @@ function getNavItems(isDemo: boolean): {
         icon: <StashIcon size={20} />,
         settingsHash: '#stash',
       },
+      {
+        path: `${prefix}/refundables`,
+        label: 'Refundables',
+        icon: <Undo2 size={20} />,
+        settingsHash: '#refundables',
+      },
     ],
     otherItems: [{ path: `${prefix}/settings`, label: 'Settings', icon: <Settings size={20} /> }],
   };
@@ -70,6 +77,12 @@ export function SidebarNavigation({ onLock }: Readonly<SidebarNavigationProps>) 
   const { status: tunnelStatus } = useTunnelStatus();
   const isRemoteActive = isDesktop && tunnelStatus?.active;
   const dashboardItemWithBadge = { ...dashboardItem, badge: unreadCount };
+
+  // Refundables badge: show pending count when enabled in config
+  const { data: refundablesConfig } = useRefundablesConfigQuery();
+  const showRefundablesBadge = refundablesConfig?.showBadge ?? true;
+  const { data: pendingCountData } = useRefundablesPendingCountQuery();
+  const refundablesBadge = showRefundablesBadge ? pendingCountData?.count : undefined;
   const prefix = isDemo ? '/demo' : '';
   const toolkitListRef = useRef<HTMLUListElement>(null);
   const isScrolledToEnd = useScrollEnd(toolkitListRef, isMobile);
@@ -105,6 +118,7 @@ export function SidebarNavigation({ onLock }: Readonly<SidebarNavigationProps>) 
       '#notes': 'notes',
       '#recurring': 'recurring',
       '#stash': 'stash',
+      '#refundables': 'refundables',
     };
     const tool = toolMap[hash];
     if (tool) {
@@ -160,11 +174,17 @@ export function SidebarNavigation({ onLock }: Readonly<SidebarNavigationProps>) 
                 <li className="sidebar-mobile-only">
                   <NavItemLink item={dashboardItemWithBadge} />
                 </li>
-                {toolkitItems.map((item) => (
-                  <li key={item.path}>
-                    <NavItemLink item={item} onSettingsClick={handleSettingsClick} />
-                  </li>
-                ))}
+                {toolkitItems.map((item) => {
+                  const withBadge =
+                    item.settingsHash === '#refundables' && refundablesBadge
+                      ? { ...item, badge: refundablesBadge }
+                      : item;
+                  return (
+                    <li key={item.path}>
+                      <NavItemLink item={withBadge} onSettingsClick={handleSettingsClick} />
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           </div>

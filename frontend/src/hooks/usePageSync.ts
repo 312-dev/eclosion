@@ -188,6 +188,8 @@ export function useFullSync() {
         'monarchGoals',
         'categoryGroups',
         'stashHistory',
+        'refundablesTransactions',
+        'refundablesTags',
       ];
 
       await Promise.all(
@@ -233,6 +235,9 @@ export function useCurrentPage(): PageName {
   }
   if (pathname.includes('/notes') || pathname.includes('/demo/notes')) {
     return 'notes';
+  }
+  if (pathname.includes('/refundables') || pathname.includes('/demo/refundables')) {
+    return 'refundables';
   }
   if (pathname.includes('/settings') || pathname.includes('/demo/settings')) {
     return 'settings';

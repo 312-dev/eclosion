@@ -11,6 +11,7 @@ import { Modal } from './Modal';
 import { RecurringToolSettings } from '../settings/RecurringToolSettings';
 import { StashToolSettings } from '../settings/StashToolSettings';
 import { NotesToolSettings } from '../settings/NotesToolSettings';
+import { RefundablesToolSettings } from '../settings/RefundablesToolSettings';
 import { RecurringResetModal } from '../settings/RecurringResetModal';
 import {
   useDashboardQuery,
@@ -19,7 +20,7 @@ import {
 } from '../../api/queries';
 import { useToast } from '../../context/ToastContext';
 
-export type ToolType = 'recurring' | 'stash' | 'notes';
+export type ToolType = 'recurring' | 'stash' | 'notes' | 'refundables';
 
 interface ToolSettingsModalProps {
   readonly isOpen: boolean;
@@ -90,6 +91,8 @@ export function ToolSettingsModal({ isOpen, onClose, tool }: ToolSettingsModalPr
         return 'Stashes Settings';
       case 'notes':
         return 'Monthly Notes Settings';
+      case 'refundables':
+        return 'Refundables Settings';
     }
   };
 
@@ -131,6 +134,10 @@ export function ToolSettingsModal({ isOpen, onClose, tool }: ToolSettingsModalPr
         )}
 
         {tool === 'notes' && <NotesToolSettings defaultExpanded={true} variant="modal" />}
+
+        {tool === 'refundables' && (
+          <RefundablesToolSettings defaultExpanded={true} variant="modal" />
+        )}
       </Modal>
 
       {/* Nested modal */}

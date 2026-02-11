@@ -1180,17 +1180,8 @@ input[type='radio'] {
 }
 
 .sidebar-nav-badge {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
-  font-size: 0.625rem;
-  font-weight: 600;
   color: white;
   background-color: var(--monarch-orange);
-  border-radius: 9999px;
 }
 
 /* Desktop: badge sits inline to the right of the label */
@@ -1470,9 +1461,16 @@ input[type='radio'] {
     display: none !important;
   }
 
-  /* Mobile: badge on icon, not inline */
+  /* Mobile: badge on icon, not inline — smaller to fit compact nav */
   .sidebar-nav-badge-mobile {
     display: flex;
+    min-width: 0.875rem;
+    height: 0.875rem;
+    padding-inline: 0.2rem;
+    font-size: 0.5rem;
+    line-height: 1;
+    top: -10px;
+    right: -12px;
   }
 
   .sidebar-nav-badge-desktop {

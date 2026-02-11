@@ -46,6 +46,7 @@ import { DashboardTab } from './components/tabs/DashboardTab';
 import { RecurringTab } from './components/tabs/RecurringTab';
 import { NotesTab } from './components/tabs/NotesTab';
 import { StashTab } from './components/tabs/StashTab';
+import { RefundablesTab } from './components/refundables';
 import { SettingsTab } from './components/tabs/SettingsTab';
 import { RateLimitError, AuthRequiredError } from './api/client';
 import { ErrorPage } from './components/ui/ErrorPage';
@@ -354,6 +355,7 @@ const appShellChildren: RouteObject[] = [
   { path: 'recurring', element: <RecurringTab /> },
   { path: 'notes', element: <NotesTab /> },
   { path: 'stashes', element: <StashTab /> },
+  { path: 'refundables', element: <RefundablesTab /> },
   { path: 'settings', element: <SettingsTab /> },
 ];
 
@@ -415,6 +417,7 @@ const demoRouteChildren: RouteObject[] = [
       { path: 'recurring', element: <RecurringTab /> },
       { path: 'notes', element: <NotesTab /> },
       { path: 'stashes', element: <StashTab /> },
+      { path: 'refundables', element: <RefundablesTab /> },
       { path: 'settings', element: <SettingsTab /> },
     ],
   },
