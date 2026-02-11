@@ -1,10 +1,5 @@
-/**
- * RefundablesTab — Main container for the Refundables feature.
- * Manages saved views, filtering, transaction list, refund matching, and tally bar.
- */
-
 import { useState, useMemo, useCallback } from 'react';
-import { Undo2, SearchX } from 'lucide-react';
+import { Undo2 } from 'lucide-react';
 import { ToolPageHeader } from '../ui/ToolPageHeader';
 import { EmptyState, EmptyStateIcon } from '../ui/EmptyState';
 import { SkeletonToolHeader, SkeletonTabs } from '../ui/SkeletonLayouts';
@@ -13,10 +8,7 @@ import { ViewTabs } from './ViewTabs';
 import { RefundablesModals } from './RefundablesModals';
 import { DateRangeFilter, getDateRangeFromPreset } from './DateRangeFilter';
 import { CategoryFilter } from './CategoryFilter';
-import { TransactionList } from './TransactionList';
-import { TransactionSearchBar } from './TransactionSearchBar';
-import { TallyBar } from './TallyBar';
-import { SkippedSection } from './SkippedSection';
+import { TransactionContent } from './TransactionContent';
 import { SelectionActionBar } from './SelectionActionBar';
 import { useRefundablesViewActions } from './useRefundablesViewActions';
 import { useTransactionPipeline } from './useTransactionPipeline';
@@ -232,68 +224,25 @@ export function RefundablesTab() {
               }
             />
             <div className="mt-4">
-              {transactionsLoading && (
-                <div className="space-y-2">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <div
-                      key={i}
-                      className="h-14 rounded-lg animate-pulse"
-                      style={{ backgroundColor: 'var(--monarch-bg-hover)' }}
-                    />
-                  ))}
-                </div>
-              )}
-              {!transactionsLoading && filteredTransactions.length === 0 && (
-                <EmptyState
-                  icon={<SearchX className="w-full h-full" />}
-                  title="No transactions found"
-                  description="No transactions match the selected tags, date range, and categories."
-                  size="md"
-                />
-              )}
-              {!transactionsLoading && filteredTransactions.length > 0 && (
-                <>
-                  <div
-                    className="rounded-lg border border-(--monarch-border) overflow-hidden"
-                    style={{ backgroundColor: 'var(--monarch-bg-card)' }}
-                  >
-                    <TallyBar
-                      tally={tally}
-                      totalCount={
-                        pendingCountData?.viewCounts[effectiveViewId ?? ''] ??
-                        expenseTransactions.length
-                      }
-                      onResetFilter={
-                        selectedCategoryIds === null
-                          ? undefined
-                          : () => setSelectedCategoryIds(null)
-                      }
-                    />
-                    <TransactionSearchBar value={searchQuery} onChange={setSearchQuery} />
-                    {activeTransactions.length > 0 ? (
-                      <TransactionList
-                        transactions={activeTransactions}
-                        matches={matches}
-                        agingWarningDays={config?.agingWarningDays ?? 30}
-                        selectedIds={selectedIds}
-                        onToggleSelect={handleToggleSelect}
-                      />
-                    ) : (
-                      <div className="px-4 py-8 text-center text-sm text-(--monarch-text-muted)">
-                        All transactions have been skipped
-                      </div>
-                    )}
-                  </div>
-                  <SkippedSection
-                    transactions={skippedTransactions}
-                    matches={matches}
-                    selectedIds={selectedIds}
-                    onToggleSelect={handleToggleSelect}
-                    isOpen={showSkipped}
-                    onToggle={() => setShowSkipped((prev) => !prev)}
-                  />
-                </>
-              )}
+              <TransactionContent
+                transactionsLoading={transactionsLoading}
+                filteredTransactions={filteredTransactions}
+                activeTransactions={activeTransactions}
+                skippedTransactions={skippedTransactions}
+                expenseTransactions={expenseTransactions}
+                matches={matches}
+                config={config}
+                tally={tally}
+                pendingCount={pendingCountData?.viewCounts[effectiveViewId ?? ''] ?? 0}
+                selectedCategoryIds={selectedCategoryIds}
+                onResetCategoryFilter={() => setSelectedCategoryIds(null)}
+                searchQuery={searchQuery}
+                onSearchChange={setSearchQuery}
+                selectedIds={selectedIds}
+                onToggleSelect={handleToggleSelect}
+                showSkipped={showSkipped}
+                onToggleSkipped={() => setShowSkipped((prev) => !prev)}
+              />
             </div>
           </>
         )}
