@@ -12,9 +12,8 @@ interface TransactionListProps {
   readonly transactions: Transaction[];
   readonly matches: RefundablesMatch[];
   readonly agingWarningDays: number;
-  readonly onCheckboxClick: (transaction: Transaction) => void;
-  readonly onSkipClick: (transaction: Transaction) => void;
-  readonly onRestoreClick: (transaction: Transaction) => void;
+  readonly selectedIds: ReadonlySet<string>;
+  readonly onToggleSelect: (transaction: Transaction) => void;
 }
 
 interface DateGroup {
@@ -57,9 +56,8 @@ export function TransactionList({
   transactions,
   matches,
   agingWarningDays,
-  onCheckboxClick,
-  onSkipClick,
-  onRestoreClick,
+  selectedIds,
+  onToggleSelect,
 }: TransactionListProps) {
   const matchesByOriginalId = useMemo(() => {
     const map = new Map<string, RefundablesMatch>();
@@ -95,9 +93,8 @@ export function TransactionList({
               transaction={txn}
               match={matchesByOriginalId.get(txn.id)}
               agingWarningDays={agingWarningDays}
-              onCheckboxClick={onCheckboxClick}
-              onSkipClick={onSkipClick}
-              onRestoreClick={onRestoreClick}
+              isSelected={selectedIds.has(txn.id)}
+              onToggleSelect={onToggleSelect}
             />
           ))}
         </div>

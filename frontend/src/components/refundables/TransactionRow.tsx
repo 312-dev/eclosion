@@ -6,19 +6,19 @@
  */
 
 import React, { useState } from 'react';
-import { Check, FlagOff, Undo2 } from 'lucide-react';
+import { Check, StickyNote } from 'lucide-react';
 import { MerchantIcon } from '../ui';
 import { Tooltip } from '../ui/Tooltip';
 import { decodeHtmlEntities } from '../../utils';
+import { isSafeUrl } from '../../utils/safeUrl';
 import type { Transaction, RefundablesMatch } from '../../types/refundables';
 
 interface TransactionRowProps {
   readonly transaction: Transaction;
   readonly match: RefundablesMatch | undefined;
   readonly agingWarningDays: number;
-  readonly onCheckboxClick: (transaction: Transaction) => void;
-  readonly onSkipClick: (transaction: Transaction) => void;
-  readonly onRestoreClick: (transaction: Transaction) => void;
+  readonly isSelected: boolean;
+  readonly onToggleSelect: (transaction: Transaction) => void;
 }
 
 function formatAmount(amount: number): string {
@@ -62,14 +62,65 @@ function getAgingBorder(transactionDate: string, thresholdDays: number): string 
   return `inset 3px 0 0 hsl(${hue.toFixed(0)} ${sat.toFixed(0)}% ${light.toFixed(0)}%)`;
 }
 
-function getRowClassName(isMatched: boolean): string {
+/** Strip auto-generated `[Refund matched]` lines, return user notes or null. */
+function getUserNotes(notes: string | null): string | null {
+  if (!notes) return null;
+  const cleaned = notes
+    .split('\n')
+    .filter((line) => !line.startsWith('[Refund matched]'))
+    .join('\n')
+    .trim();
+  return cleaned ? decodeHtmlEntities(cleaned) : null;
+}
+
+const URL_REGEX = /https?:\/\/[^\s)]+/g;
+
+/** Render text with URLs as clickable links. */
+function linkifyText(text: string): React.ReactNode {
+  const parts: React.ReactNode[] = [];
+  let lastIndex = 0;
+
+  for (const match of text.matchAll(URL_REGEX)) {
+    const url = match[0];
+    const start = match.index;
+    if (start > lastIndex) {
+      parts.push(text.slice(lastIndex, start));
+    }
+    if (isSafeUrl(url)) {
+      parts.push(
+        <a
+          key={start}
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline hover:opacity-80"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {url}
+        </a>
+      );
+    } else {
+      parts.push(url);
+    }
+    lastIndex = start + url.length;
+  }
+
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+
+  return parts.length > 0 ? parts : text;
+}
+
+function getRowClassName(isMatched: boolean, isSelected: boolean): string {
+  if (isSelected) return 'bg-(--monarch-orange)/5';
   if (isMatched) return 'bg-(--monarch-success)/5';
   return '';
 }
 
-function getCheckboxClassName(isMatched: boolean): string {
-  if (isMatched) return 'bg-(--monarch-success) border-(--monarch-success) text-white';
-  return 'border-(--monarch-text-muted)/50 text-(--monarch-text-muted)/50 hover:border-(--monarch-text-muted) hover:text-(--monarch-text-muted)';
+function getCheckboxClassName(isSelected: boolean): string {
+  if (isSelected) return 'bg-(--monarch-orange) border-(--monarch-orange) text-white';
+  return 'border-(--monarch-text-muted)/40 hover:border-(--monarch-text-muted)';
 }
 
 function getStatusLabel(isMatched: boolean, isSkipped: boolean): string {
@@ -129,9 +180,8 @@ export const TransactionRow = React.memo(function TransactionRow({
   transaction,
   match,
   agingWarningDays,
-  onCheckboxClick,
-  onSkipClick,
-  onRestoreClick,
+  isSelected,
+  onToggleSelect,
 }: TransactionRowProps) {
   const isMatched = match != null && !match.skipped;
   const isSkipped = match?.skipped === true;
@@ -144,49 +194,21 @@ export const TransactionRow = React.memo(function TransactionRow({
 
   return (
     <div
-      className={`w-full items-center px-4 py-3 border-b border-(--monarch-border) hover:bg-(--monarch-bg-hover) transition-colors text-left ${GRID_CLASSES} ${getRowClassName(isMatched)}`}
+      className={`w-full items-center px-4 py-3 border-b border-(--monarch-border) hover:bg-(--monarch-bg-hover) transition-colors text-left ${GRID_CLASSES} ${getRowClassName(isMatched, isSelected)}`}
       style={agingBorder ? { boxShadow: agingBorder } : undefined}
       aria-label={`${merchantName}: ${formatAmount(transaction.amount)}${getStatusLabel(isMatched, isSkipped)}`}
     >
-      {/* Col 1: Action buttons */}
-      <div className="flex items-center gap-1">
-        {isSkipped ? (
-          <Tooltip content="Restore">
-            <button
-              type="button"
-              className="shrink-0 w-5 h-5 rounded-full border flex items-center justify-center transition-colors border-(--monarch-text-muted) text-(--monarch-text-muted) hover:border-(--monarch-text-dark) hover:text-(--monarch-text-dark) cursor-pointer"
-              aria-label="Restore skipped transaction"
-              onClick={() => onRestoreClick(transaction)}
-            >
-              <Undo2 size={12} />
-            </button>
-          </Tooltip>
-        ) : (
-          <>
-            <Tooltip content="Mark refunded">
-              <button
-                type="button"
-                className={`shrink-0 w-5 h-5 rounded-full border flex items-center justify-center transition-colors cursor-pointer ${getCheckboxClassName(isMatched)}`}
-                aria-label="Mark refunded"
-                onClick={() => onCheckboxClick(transaction)}
-              >
-                <Check size={14} />
-              </button>
-            </Tooltip>
-            {!isMatched && (
-              <Tooltip content="Skip">
-                <button
-                  type="button"
-                  className="shrink-0 w-5 h-5 rounded-full flex items-center justify-center transition-colors text-(--monarch-text-muted)/20 hover:text-(--monarch-text-muted)/50 cursor-pointer"
-                  aria-label="Skip transaction"
-                  onClick={() => onSkipClick(transaction)}
-                >
-                  <FlagOff size={14} />
-                </button>
-              </Tooltip>
-            )}
-          </>
-        )}
+      {/* Col 1: Selection checkbox */}
+      <div className="flex items-center justify-center">
+        <button
+          type="button"
+          className={`shrink-0 w-5 h-5 rounded border flex items-center justify-center transition-colors cursor-pointer ${getCheckboxClassName(isSelected)}`}
+          aria-label={isSelected ? 'Deselect transaction' : 'Select transaction'}
+          aria-pressed={isSelected}
+          onClick={() => onToggleSelect(transaction)}
+        >
+          {isSelected && <Check size={14} />}
+        </button>
       </div>
 
       {/* Col 2: Merchant icon */}
@@ -238,7 +260,7 @@ export const TransactionRow = React.memo(function TransactionRow({
         )}
       </div>
 
-      {/* Col 6: Tags + pending + amount */}
+      {/* Col 6: Tags + notes + pending + amount */}
       <div className="flex items-center gap-2 justify-end">
         {/* Tag dots */}
         {transaction.tags.length > 0 && (
@@ -255,6 +277,25 @@ export const TransactionRow = React.memo(function TransactionRow({
               </Tooltip>
             ))}
           </span>
+        )}
+
+        {/* Notes icon */}
+        {getUserNotes(transaction.notes) != null && (
+          <Tooltip
+            sticky
+            content={
+              <span
+                className="block max-h-48 overflow-y-auto custom-scrollbar"
+                style={{ whiteSpace: 'pre-line' }}
+              >
+                {linkifyText(getUserNotes(transaction.notes)!)}
+              </span>
+            }
+          >
+            <span aria-label="Transaction notes">
+              <StickyNote size={14} className="text-(--monarch-text-muted)" />
+            </span>
+          </Tooltip>
         )}
 
         {/* Pending badge */}

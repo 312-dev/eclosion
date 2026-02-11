@@ -4,12 +4,17 @@
  * Modal for matching a transaction to its refund.
  * Shows search results, allows selecting a refund transaction or skipping.
  * Optionally replaces the original tag with a configured replacement tag.
+ *
+ * In batch mode (batchCount > 1), the title and submit button reflect
+ * that all selected transactions will be matched to the same refund.
+ * The Skip button is hidden in batch mode.
  */
 
-import { useState, useMemo, useCallback, useRef } from 'react';
+import { useState, useMemo, useCallback, useRef, type ReactNode } from 'react';
 import { Search } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { PrimaryButton, CancelButton, WarningButton, ModalButton } from '../ui/ModalButtons';
+import { Tooltip } from '../ui/Tooltip';
 import { useSearchRefundablesTransactionsQuery } from '../../api/queries/refundablesQueries';
 import { decodeHtmlEntities } from '../../utils';
 import {
@@ -37,6 +42,9 @@ interface RefundMatchModalProps {
   readonly onSkip: () => void;
   readonly onUnmatch: () => void;
   readonly matching: boolean;
+  readonly batchCount: number;
+  readonly batchAmount: number;
+  readonly batchTransactions: Transaction[];
 }
 
 export function RefundMatchModal({
@@ -49,22 +57,29 @@ export function RefundMatchModal({
   onSkip,
   onUnmatch,
   matching,
+  batchCount,
+  batchAmount,
+  batchTransactions,
 }: RefundMatchModalProps) {
   const merchantName = decodeHtmlEntities(transaction.merchant?.name ?? transaction.originalName);
-  const [searchQuery, setSearchQuery] = useState('');
+  const isBatch = batchCount > 1;
+  const defaultSearch = isBatch ? batchAmount.toFixed(2) : Math.abs(transaction.amount).toFixed(2);
+  const [searchQuery, setSearchQuery] = useState(defaultSearch);
   const [selectedTxnId, setSelectedTxnId] = useState<string | null>(null);
   const [replaceTag, setReplaceTag] = useState(config?.replaceTagByDefault ?? false);
   const hasReplacementTag = config?.replacementTagId != null;
   const isAlreadyMatched = existingMatch != null;
+  const hasMultipleTags = isBatch && batchTransactions.some((txn) => txn.tags.length > 1);
+  const tagNoun = hasMultipleTags ? 'tags' : 'tag';
   const tagActionLabel = hasReplacementTag
-    ? 'Replace tag with configured replacement'
-    : 'Remove tag';
+    ? `Replace ${tagNoun} with configured replacement`
+    : `Remove ${tagNoun}`;
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const [prevTxnId, setPrevTxnId] = useState(transaction.id);
   if (prevTxnId !== transaction.id) {
     setPrevTxnId(transaction.id);
-    setSearchQuery('');
+    setSearchQuery(defaultSearch);
     setSelectedTxnId(null);
   }
 
@@ -98,16 +113,53 @@ export function RefundMatchModal({
     });
   }, [selectedTxn, onMatch, replaceTag]);
 
-  const descriptionText = isAlreadyMatched
-    ? undefined
-    : `Original: ${formatAmount(transaction.amount)} on ${formatDate(transaction.date)}`;
+  const batchTooltipContent = isBatch ? (
+    <div className="text-xs space-y-0.5 min-w-48">
+      {batchTransactions.map((txn) => (
+        <div key={txn.id} className="flex justify-between gap-4">
+          <span className="truncate" style={{ color: 'var(--monarch-tooltip-text)', opacity: 0.7 }}>
+            {decodeHtmlEntities(txn.merchant?.name ?? txn.originalName)}
+          </span>
+          <span className="tabular-nums shrink-0">{formatAmount(txn.amount)}</span>
+        </div>
+      ))}
+    </div>
+  ) : null;
+
+  let title = `Match Refund for "${merchantName}"`;
+  let description: ReactNode | undefined =
+    `Original: ${formatAmount(transaction.amount)} on ${formatDate(transaction.date)}`;
+  if (isAlreadyMatched) {
+    title = 'Match Details';
+    description = undefined;
+  } else if (isBatch) {
+    title = `Match ${batchCount} Transactions`;
+    description = (
+      <span>
+        {'Match all '}
+        <Tooltip content={batchTooltipContent} side="bottom">
+          <span
+            className="cursor-help"
+            style={{
+              textDecorationLine: 'underline',
+              textDecorationStyle: 'dotted',
+              textUnderlineOffset: '3px',
+            }}
+          >
+            {batchCount} selected transactions
+          </span>
+        </Tooltip>
+        {' to the same refund'}
+      </span>
+    );
+  }
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={isAlreadyMatched ? 'Match Details' : `Match Refund for "${merchantName}"`}
-      {...(descriptionText == null ? {} : { description: descriptionText })}
+      title={title}
+      {...(description == null ? {} : { description })}
       maxWidth="lg"
       footer={
         <div className="flex items-center justify-end gap-2 w-full">
@@ -121,15 +173,17 @@ export function RefundMatchModal({
           ) : (
             <>
               <CancelButton onClick={onClose} />
-              <ModalButton variant="secondary" onClick={onSkip} disabled={matching}>
-                Skip
-              </ModalButton>
+              {!isBatch && (
+                <ModalButton variant="secondary" onClick={onSkip} disabled={matching}>
+                  Skip
+                </ModalButton>
+              )}
               <PrimaryButton
                 onClick={handleMatch}
                 disabled={!selectedTxn || matching}
                 isLoading={matching}
               >
-                Match Selected
+                {isBatch ? `Match All ${batchCount}` : 'Match Selected'}
               </PrimaryButton>
             </>
           )}

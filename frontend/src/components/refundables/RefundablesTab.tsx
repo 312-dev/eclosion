@@ -1,30 +1,27 @@
 /**
- * RefundablesTab
- *
- * Main container for the Refundables feature. Manages saved views,
- * date range filtering, category filtering, transaction list, refund matching,
- * and tally bar.
+ * RefundablesTab — Main container for the Refundables feature.
+ * Manages saved views, filtering, transaction list, refund matching, and tally bar.
  */
 
 import { useState, useMemo, useCallback } from 'react';
-import { Undo2, ChevronDown, SearchX } from 'lucide-react';
+import { Undo2, SearchX } from 'lucide-react';
 import { ToolPageHeader } from '../ui/ToolPageHeader';
 import { EmptyState, EmptyStateIcon } from '../ui/EmptyState';
 import { SkeletonToolHeader, SkeletonTabs } from '../ui/SkeletonLayouts';
 import { Button } from '../ui/Button';
 import { ViewTabs } from './ViewTabs';
-import { ViewConfigModal } from './ViewConfigModal';
-import { DeleteViewConfirmModal } from './DeleteViewConfirmModal';
+import { RefundablesModals } from './RefundablesModals';
 import { DateRangeFilter, getDateRangeFromPreset } from './DateRangeFilter';
 import { CategoryFilter } from './CategoryFilter';
 import { TransactionList } from './TransactionList';
 import { TransactionSearchBar } from './TransactionSearchBar';
-import { RefundMatchModal } from './RefundMatchModal';
 import { TallyBar } from './TallyBar';
-import { ToolSettingsModal } from '../ui/ToolSettingsModal';
+import { SkippedSection } from './SkippedSection';
+import { SelectionActionBar } from './SelectionActionBar';
 import { useRefundablesViewActions } from './useRefundablesViewActions';
 import { useTransactionPipeline } from './useTransactionPipeline';
 import { useRefundablesMatchHandlers } from './useRefundablesMatchHandlers';
+import { useRefundablesSelection } from './useRefundablesSelection';
 import { usePageTitle } from '../../hooks/usePageTitle';
 import {
   useRefundablesViewsQuery,
@@ -35,6 +32,7 @@ import {
   useReorderRefundablesViewsMutation,
   useRefundablesPendingCountQuery,
 } from '../../api/queries/refundablesQueries';
+import type { MatchActionParams } from './useRefundablesMatchHandlers';
 import type { Transaction, DateRangeFilter as DateRangeFilterType } from '../../types/refundables';
 
 const DEFAULT_DATE_RANGE: DateRangeFilterType = {
@@ -44,17 +42,16 @@ const DEFAULT_DATE_RANGE: DateRangeFilterType = {
 
 export function RefundablesTab() {
   usePageTitle('Refundables');
-
-  // UI state
   const [activeViewId, setActiveViewId] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState<DateRangeFilterType>(DEFAULT_DATE_RANGE);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[] | null>(null);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [matchingTransaction, setMatchingTransaction] = useState<Transaction | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showSkipped, setShowSkipped] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [batchCount, setBatchCount] = useState(0);
 
-  // Queries
   const { data: unsortedViews = [], isLoading: viewsLoading } = useRefundablesViewsQuery();
   const views = useMemo(
     () => [...unsortedViews].sort((a, b) => a.sortOrder - b.sortOrder),
@@ -64,8 +61,6 @@ export function RefundablesTab() {
   const { data: config } = useRefundablesConfigQuery();
   const { data: matches = [] } = useRefundablesMatchesQuery();
   const { data: pendingCountData } = useRefundablesPendingCountQuery();
-
-  // Active view
   const activeView = useMemo(() => {
     if (activeViewId) return views.find((v) => v.id === activeViewId) ?? null;
     return views.length > 0 ? views[0] : null;
@@ -82,33 +77,28 @@ export function RefundablesTab() {
       dateRange.endDate,
       viewCategoryIds
     );
-
-  // View CRUD actions
   const viewActions = useRefundablesViewActions({
     views,
     effectiveViewId,
     onViewDeleted: () => setActiveViewId(null),
   });
 
-  const reorderViewsMutation = useReorderRefundablesViewsMutation();
+  const reorderMutation = useReorderRefundablesViewsMutation();
   const handleReorderViews = useCallback(
-    (viewIds: string[]) => reorderViewsMutation.mutate(viewIds),
-    [reorderViewsMutation]
+    (ids: string[]) => reorderMutation.mutate(ids),
+    [reorderMutation]
   );
-
-  const handleDateRangeChange = useCallback((newDateRange: DateRangeFilterType) => {
-    setDateRange(newDateRange);
-    setSelectedCategoryIds(null);
-    setSearchQuery('');
-  }, []);
-
-  const handleSelectView = useCallback((viewId: string | null) => {
-    setActiveViewId(viewId);
-    setSelectedCategoryIds(null);
-    setSearchQuery('');
-  }, []);
-
-  // Transaction pipeline
+  const {
+    handleMatch,
+    handleBatchMatchAll,
+    handleSkip,
+    handleUnmatch,
+    handleDirectSkip,
+    handleDirectUnmatch,
+    handleRestore,
+    existingMatch,
+    matchPending,
+  } = useRefundablesMatchHandlers({ matchingTransaction, setMatchingTransaction, matches, tagIds });
   const {
     activeTransactions,
     skippedTransactions,
@@ -124,27 +114,78 @@ export function RefundablesTab() {
     dateRange,
     selectedCategoryIds,
     searchQuery,
+    selectedIds,
+  });
+  const {
+    selectedAmount,
+    selectionState,
+    handleToggleSelect,
+    handleBatchSkip,
+    handleBatchUnmatch,
+    handleBatchRestore,
+    clearSelection,
+  } = useRefundablesSelection({
+    selectedIds,
+    setSelectedIds,
+    activeTransactions,
+    skippedTransactions,
+    matches,
+    handleDirectSkip,
+    handleDirectUnmatch,
+    handleRestore,
   });
 
-  // Match handlers
-  const {
-    handleMatch,
-    handleSkip,
-    handleUnmatch,
-    handleDirectSkip,
-    handleRestore,
-    existingMatch,
-    matchPending,
-  } = useRefundablesMatchHandlers({ matchingTransaction, setMatchingTransaction, matches, tagIds });
+  const batchTransactions = useMemo(
+    () => activeTransactions.filter((txn) => selectedIds.has(txn.id)),
+    [activeTransactions, selectedIds]
+  );
+  const handleStartBatchMatch = useCallback(() => {
+    const first = batchTransactions[0];
+    if (!first) return;
+    setBatchCount(batchTransactions.length);
+    setMatchingTransaction(first);
+  }, [batchTransactions]);
+  const handleModalBatchMatch = useCallback(
+    async (params: MatchActionParams) => {
+      await handleBatchMatchAll(batchTransactions, params);
+      setBatchCount(0);
+      setSelectedIds(new Set());
+    },
+    [batchTransactions, handleBatchMatchAll, setSelectedIds]
+  );
 
-  if (viewsLoading) {
+  const handleCloseMatch = useCallback(() => {
+    setMatchingTransaction(null);
+    setBatchCount(0);
+  }, []);
+
+  const resetFiltersAndSelection = useCallback(() => {
+    setSelectedCategoryIds(null);
+    setSearchQuery('');
+    clearSelection();
+  }, [clearSelection]);
+  const handleDateRangeChange = useCallback(
+    (r: DateRangeFilterType) => {
+      setDateRange(r);
+      resetFiltersAndSelection();
+    },
+    [resetFiltersAndSelection]
+  );
+  const handleSelectView = useCallback(
+    (id: string | null) => {
+      setActiveViewId(id);
+      resetFiltersAndSelection();
+    },
+    [resetFiltersAndSelection]
+  );
+
+  if (viewsLoading)
     return (
       <div className="p-6">
         <SkeletonToolHeader />
         <SkeletonTabs />
       </div>
     );
-  }
 
   return (
     <div className="flex flex-col h-full">
@@ -234,9 +275,8 @@ export function RefundablesTab() {
                         transactions={activeTransactions}
                         matches={matches}
                         agingWarningDays={config?.agingWarningDays ?? 30}
-                        onCheckboxClick={setMatchingTransaction}
-                        onSkipClick={handleDirectSkip}
-                        onRestoreClick={handleRestore}
+                        selectedIds={selectedIds}
+                        onToggleSelect={handleToggleSelect}
                       />
                     ) : (
                       <div className="px-4 py-8 text-center text-sm text-(--monarch-text-muted)">
@@ -244,97 +284,48 @@ export function RefundablesTab() {
                       </div>
                     )}
                   </div>
-                  {skippedTransactions.length > 0 && (
-                    <div className="mt-3">
-                      <button
-                        type="button"
-                        className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-(--monarch-text-muted) hover:text-(--monarch-text-dark) transition-colors cursor-pointer rounded-lg hover:bg-(--monarch-bg-hover)"
-                        onClick={() => setShowSkipped((prev) => !prev)}
-                        aria-expanded={showSkipped}
-                      >
-                        <ChevronDown
-                          size={14}
-                          className={`transition-transform ${showSkipped ? 'rotate-0' : '-rotate-90'}`}
-                        />
-                        <span>
-                          {skippedTransactions.length} skipped transaction
-                          {skippedTransactions.length === 1 ? '' : 's'}
-                        </span>
-                      </button>
-                      {showSkipped && (
-                        <div
-                          className="mt-1 rounded-lg border border-(--monarch-border) overflow-hidden opacity-75"
-                          style={{ backgroundColor: 'var(--monarch-bg-card)' }}
-                        >
-                          <TransactionList
-                            transactions={skippedTransactions}
-                            matches={matches}
-                            agingWarningDays={0}
-                            onCheckboxClick={setMatchingTransaction}
-                            onSkipClick={handleDirectSkip}
-                            onRestoreClick={handleRestore}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  )}
+                  <SkippedSection
+                    transactions={skippedTransactions}
+                    matches={matches}
+                    selectedIds={selectedIds}
+                    onToggleSelect={handleToggleSelect}
+                    isOpen={showSkipped}
+                    onToggle={() => setShowSkipped((prev) => !prev)}
+                  />
                 </>
               )}
             </div>
           </>
         )}
       </div>
-      {viewActions.showCreateModal && (
-        <ViewConfigModal
-          isOpen={viewActions.showCreateModal}
-          onClose={() => viewActions.setShowCreateModal(false)}
-          onSave={viewActions.handleCreateView}
-          tags={tags}
-          tagsLoading={tagsLoading}
-          saving={viewActions.createPending}
-        />
-      )}
-      {viewActions.editingView && (
-        <ViewConfigModal
-          isOpen={true}
-          onClose={() => viewActions.setEditingView(null)}
-          onSave={viewActions.handleUpdateView}
-          tags={tags}
-          tagsLoading={tagsLoading}
-          saving={viewActions.updatePending}
-          existingView={viewActions.editingView}
-          onDelete={() => {
-            const view = viewActions.editingView;
-            viewActions.setEditingView(null);
-            if (view) viewActions.handleDeleteView(view.id);
-          }}
-        />
-      )}
-      {matchingTransaction && (
-        <RefundMatchModal
-          isOpen={true}
-          onClose={() => setMatchingTransaction(null)}
-          transaction={matchingTransaction}
-          config={config}
-          existingMatch={existingMatch}
-          onMatch={handleMatch}
-          onSkip={handleSkip}
-          onUnmatch={handleUnmatch}
-          matching={matchPending}
-        />
-      )}
-      <DeleteViewConfirmModal
-        isOpen={viewActions.deletingView !== null}
-        onClose={viewActions.cancelDeleteView}
-        onConfirm={viewActions.confirmDeleteView}
-        view={viewActions.deletingView}
-        isDeleting={viewActions.deletePending}
+      <RefundablesModals
+        viewActions={viewActions}
+        tags={tags}
+        tagsLoading={tagsLoading}
+        matchingTransaction={matchingTransaction}
+        onCloseMatch={handleCloseMatch}
+        config={config}
+        existingMatch={existingMatch}
+        onMatch={batchCount > 1 ? handleModalBatchMatch : handleMatch}
+        onSkip={handleSkip}
+        onUnmatch={handleUnmatch}
+        matchPending={matchPending}
+        batchCount={batchCount}
+        batchAmount={selectedAmount}
+        batchTransactions={batchTransactions}
+        showSettingsModal={showSettingsModal}
+        onCloseSettings={() => setShowSettingsModal(false)}
       />
-      {showSettingsModal && (
-        <ToolSettingsModal
-          isOpen={true}
-          onClose={() => setShowSettingsModal(false)}
-          tool="refundables"
+      {selectedIds.size > 0 && (
+        <SelectionActionBar
+          count={selectedIds.size}
+          selectedAmount={selectedAmount}
+          selectionState={selectionState}
+          onMatch={handleStartBatchMatch}
+          onSkip={handleBatchSkip}
+          onUnmatch={handleBatchUnmatch}
+          onRestore={handleBatchRestore}
+          onClear={clearSelection}
         />
       )}
     </div>

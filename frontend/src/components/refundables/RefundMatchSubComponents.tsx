@@ -139,7 +139,7 @@ export function SearchResultsList({
             key={txn.id}
             type="button"
             onClick={() => onSelect(txn.id)}
-            className={`w-full text-left px-3 py-2.5 text-sm flex items-center justify-between gap-2 transition-colors hover:bg-(--monarch-bg-hover) border-b border-(--monarch-border) last:border-b-0 ${
+            className={`w-full text-left px-3 py-2.5 text-sm flex items-center justify-between gap-2 transition-colors hover:bg-(--monarch-bg-hover) border-b border-(--monarch-border) last-of-type:border-b-0 ${
               isSelected ? 'bg-(--monarch-orange)/10' : ''
             }`}
             aria-pressed={isSelected}

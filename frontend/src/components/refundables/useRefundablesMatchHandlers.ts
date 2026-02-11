@@ -35,9 +35,11 @@ export function useRefundablesMatchHandlers({
   tagIds,
 }: MatchHandlersParams): {
   handleMatch: (params: MatchActionParams) => Promise<void>;
+  handleBatchMatchAll: (transactions: Transaction[], params: MatchActionParams) => Promise<void>;
   handleSkip: () => Promise<void>;
   handleUnmatch: () => Promise<void>;
   handleDirectSkip: (transaction: Transaction) => Promise<void>;
+  handleDirectUnmatch: (transaction: Transaction) => Promise<void>;
   handleRestore: (transaction: Transaction) => Promise<void>;
   existingMatch: RefundablesMatch | undefined;
   matchPending: boolean;
@@ -73,6 +75,28 @@ export function useRefundablesMatchHandlers({
       }
     },
     [matchingTransaction, createMatchMutation, toast, tagIds, setMatchingTransaction]
+  );
+
+  const handleBatchMatchAll = useCallback(
+    async (transactions: Transaction[], params: MatchActionParams) => {
+      try {
+        for (const txn of transactions) {
+          await createMatchMutation.mutateAsync({
+            originalTransactionId: txn.id,
+            ...params,
+            originalTagIds: txn.tags.map((t) => t.id),
+            originalNotes: txn.notes,
+            viewTagIds: tagIds,
+            transactionData: txn,
+          });
+        }
+        setMatchingTransaction(null);
+        toast.success(`Matched ${transactions.length} transactions`);
+      } catch (err) {
+        toast.error(handleApiError(err, 'Refundables'));
+      }
+    },
+    [createMatchMutation, toast, tagIds, setMatchingTransaction]
   );
 
   const handleSkip = useCallback(async () => {
@@ -119,6 +143,19 @@ export function useRefundablesMatchHandlers({
     [createMatchMutation, toast]
   );
 
+  const handleDirectUnmatch = useCallback(
+    async (transaction: Transaction) => {
+      const matchToDelete = matches.find((m) => m.originalTransactionId === transaction.id);
+      if (!matchToDelete) return;
+      try {
+        await deleteMatchMutation.mutateAsync(matchToDelete.id);
+      } catch (err) {
+        toast.error(handleApiError(err, 'Refundables'));
+      }
+    },
+    [matches, deleteMatchMutation, toast]
+  );
+
   const handleRestore = useCallback(
     async (transaction: Transaction) => {
       const matchToDelete = matches.find((m) => m.originalTransactionId === transaction.id);
@@ -137,9 +174,11 @@ export function useRefundablesMatchHandlers({
 
   return {
     handleMatch,
+    handleBatchMatchAll,
     handleSkip,
     handleUnmatch,
     handleDirectSkip,
+    handleDirectUnmatch,
     handleRestore,
     existingMatch,
     matchPending: createMatchMutation.isPending || deleteMatchMutation.isPending,

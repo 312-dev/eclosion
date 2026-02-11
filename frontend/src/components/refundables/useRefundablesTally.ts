@@ -20,16 +20,17 @@ export function useRefundablesTally(
     let unmatchedCount = 0;
 
     for (const txn of transactions) {
-      totalAmount += Math.abs(txn.amount);
       const match = matchMap.get(txn.id);
       if (match) {
         if (match.skipped) {
           skippedCount++;
         } else {
+          totalAmount += Math.abs(txn.amount);
           matchedCount++;
           matchedAmount += Math.abs(match.refundAmount ?? 0);
         }
       } else {
+        totalAmount += Math.abs(txn.amount);
         unmatchedCount++;
       }
     }

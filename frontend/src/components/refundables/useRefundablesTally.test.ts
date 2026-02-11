@@ -92,8 +92,9 @@ describe('useRefundablesTally', () => {
     expect(result.current.matchedCount).toBe(1);
     expect(result.current.skippedCount).toBe(1);
     expect(result.current.unmatchedCount).toBe(1);
+    expect(result.current.totalAmount).toBe(125); // excludes skipped $50
     expect(result.current.matchedAmount).toBe(100);
-    expect(result.current.remainingAmount).toBe(75); // 175 - 100
+    expect(result.current.remainingAmount).toBe(25); // 125 - 100
   });
 
   it('uses absolute values for negative transaction amounts', () => {

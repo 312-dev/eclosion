@@ -85,16 +85,7 @@ export function TallyBar({ tally, totalCount, onResetFilter }: TallyBarProps) {
       {/* Row 2: financial summary */}
       <div className="flex items-center gap-4 mt-1.5 text-sm">
         <span className="text-(--monarch-text-muted)">
-          Total{' '}
-          <span className="font-medium text-(--monarch-text-dark)">
-            {formatCurrency(tally.totalAmount)}
-          </span>
-        </span>
-        <span className="text-(--monarch-text-muted) opacity-30" aria-hidden="true">
-          &middot;
-        </span>
-        <span className="text-(--monarch-text-muted)">
-          Matched{' '}
+          Refunded{' '}
           <span className="font-medium text-(--monarch-success)">
             {formatCurrency(tally.matchedAmount)}
           </span>

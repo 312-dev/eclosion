@@ -15,6 +15,7 @@ interface TransactionPipelineInput {
   readonly dateRange: { startDate: string | null; endDate: string | null };
   readonly selectedCategoryIds: string[] | null;
   readonly searchQuery: string;
+  readonly selectedIds: ReadonlySet<string>;
 }
 
 export function useTransactionPipeline(input: TransactionPipelineInput): {
@@ -33,6 +34,7 @@ export function useTransactionPipeline(input: TransactionPipelineInput): {
     dateRange,
     selectedCategoryIds,
     searchQuery,
+    selectedIds,
   } = input;
 
   // Merge orphaned matched/skipped transactions whose tags were removed from Monarch
@@ -57,21 +59,22 @@ export function useTransactionPipeline(input: TransactionPipelineInput): {
     [mergedTransactions]
   );
 
-  // Apply ad-hoc category filter
+  // Apply ad-hoc category filter (pin selected items so they stay visible)
   const filteredTransactions = useMemo(() => {
     if (selectedCategoryIds === null) return expenseTransactions;
     return expenseTransactions.filter((txn) => {
+      if (selectedIds.has(txn.id)) return true;
       const catId = txn.category?.id ?? '__uncategorized__';
       return selectedCategoryIds.includes(catId);
     });
-  }, [expenseTransactions, selectedCategoryIds]);
+  }, [expenseTransactions, selectedCategoryIds, selectedIds]);
 
-  // Apply text search filter
+  // Apply text search filter (pin selected items so they stay visible)
   const searchedTransactions = useMemo(() => {
     if (!searchQuery.trim()) return filteredTransactions;
     const q = searchQuery.toLowerCase();
-    return filteredTransactions.filter((txn) => matchesSearch(txn, q));
-  }, [filteredTransactions, searchQuery]);
+    return filteredTransactions.filter((txn) => selectedIds.has(txn.id) || matchesSearch(txn, q));
+  }, [filteredTransactions, searchQuery, selectedIds]);
 
   // Split into active and skipped
   const skippedTransactionIds = useMemo(() => {

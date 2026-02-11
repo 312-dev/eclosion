@@ -560,7 +560,7 @@ export const mutationEffects: Record<MutationType, MutationEffect> = {
     markStale: [],
   },
   deleteRefundablesMatch: {
-    invalidate: ['refundablesMatches', 'refundablesPendingCount'],
+    invalidate: ['refundablesMatches', 'refundablesTransactions', 'refundablesPendingCount'],
     markStale: [],
   },
 };
