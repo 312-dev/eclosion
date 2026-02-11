@@ -1483,7 +1483,8 @@ input[type='radio'] {
     display: flex;
     flex-shrink: 1;
     min-width: 0;
-    overflow: hidden;
+    overflow-x: clip;
+    overflow-y: visible;
   }
 
   .sidebar-toolkit-wrapper::after {
@@ -1507,10 +1508,12 @@ input[type='radio'] {
   .sidebar-toolkit-wrapper .sidebar-nav-list {
     flex-shrink: 1;
     overflow-x: auto;
-    overflow-y: hidden;
     scrollbar-width: none;
     -ms-overflow-style: none;
     -webkit-overflow-scrolling: touch;
+    /* Extra top space so absolutely-positioned badges aren't clipped */
+    padding-top: 12px;
+    margin-top: -12px;
   }
 
   .sidebar-toolkit-wrapper .sidebar-nav-list::-webkit-scrollbar {

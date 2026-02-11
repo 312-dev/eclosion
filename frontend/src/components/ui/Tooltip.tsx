@@ -35,6 +35,8 @@ export interface TooltipProps {
   readonly disabled?: boolean;
   /** Additional className for the trigger wrapper span */
   readonly triggerClassName?: string;
+  /** When true, tooltip opens on click and stays open until clicked again or outside */
+  readonly sticky?: boolean;
 }
 
 /** Get slide offset based on tooltip side */
@@ -59,13 +61,15 @@ export function Tooltip({
   delayDuration = 300,
   disabled = false,
   triggerClassName,
+  sticky = false,
 }: TooltipProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isLocked, setIsLocked] = useState(false);
   const isTouchDevice = useMediaQuery(breakpoints.isTouchDevice);
   const triggerRef = useRef<HTMLElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
 
-  // Handle tap-to-toggle on touch devices via click event
+  // Touch devices: tap to toggle
   useEffect(() => {
     if (!isTouchDevice) return;
 
@@ -73,9 +77,7 @@ export function Tooltip({
     if (!trigger) return;
 
     const handleClick = (e: MouseEvent) => {
-      // Toggle open state on tap
       setIsOpen((prev) => !prev);
-      // Prevent the click from bubbling to avoid unwanted side effects
       e.stopPropagation();
     };
 
@@ -83,9 +85,33 @@ export function Tooltip({
     return () => trigger.removeEventListener('click', handleClick);
   }, [isTouchDevice]);
 
-  // Close on tap outside for touch devices
+  // Desktop + sticky: click to lock/unlock
   useEffect(() => {
-    if (!isTouchDevice || !isOpen) return;
+    if (isTouchDevice || !sticky) return;
+
+    const trigger = triggerRef.current;
+    if (!trigger) return;
+
+    const handleClick = (e: MouseEvent) => {
+      setIsLocked((prev) => {
+        if (prev) {
+          setIsOpen(false);
+          return false;
+        }
+        setIsOpen(true);
+        return true;
+      });
+      e.stopPropagation();
+    };
+
+    trigger.addEventListener('click', handleClick);
+    return () => trigger.removeEventListener('click', handleClick);
+  }, [isTouchDevice, sticky]);
+
+  // Close on click outside (touch devices, or desktop sticky when locked)
+  useEffect(() => {
+    const shouldListen = (isTouchDevice && isOpen) || (sticky && isLocked);
+    if (!shouldListen) return;
 
     const handleClickOutside = (event: PointerEvent) => {
       const target = event.target as Node;
@@ -94,13 +120,13 @@ export function Tooltip({
 
       if (isOutsideTrigger && isOutsideContent) {
         setIsOpen(false);
+        setIsLocked(false);
       }
     };
 
-    // Use pointerdown for immediate response on touch
     document.addEventListener('pointerdown', handleClickOutside);
     return () => document.removeEventListener('pointerdown', handleClickOutside);
-  }, [isTouchDevice, isOpen]);
+  }, [isTouchDevice, sticky, isOpen, isLocked]);
 
   if (disabled || !content) {
     return <>{children}</>;
@@ -108,8 +134,18 @@ export function Tooltip({
 
   const slideOffset = getSlideOffset(side);
 
-  // On touch devices, use a no-op for onOpenChange to prevent hover from controlling state
-  const handleOpenChange = isTouchDevice ? () => {} : setIsOpen;
+  // Touch: disable hover entirely. Sticky desktop: allow hover but block close when locked.
+  let handleOpenChange: (open: boolean) => void;
+  if (isTouchDevice) {
+    handleOpenChange = () => {};
+  } else if (sticky) {
+    handleOpenChange = (open: boolean) => {
+      if (!open && isLocked) return;
+      setIsOpen(open);
+    };
+  } else {
+    handleOpenChange = setIsOpen;
+  }
 
   return (
     <RadixTooltip.Root

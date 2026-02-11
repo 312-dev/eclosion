@@ -61,7 +61,7 @@ export interface ModalProps {
   /** Modal title */
   title: ReactNode;
   /** Optional description below title */
-  description?: string;
+  description?: ReactNode;
   /** Modal content */
   children: ReactNode;
   /** Optional footer content (buttons, etc.) */
