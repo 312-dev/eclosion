@@ -16,6 +16,7 @@ import { useRefundsMatchHandlers } from './useRefundsMatchHandlers';
 import { useRefundsSelection } from './useRefundsSelection';
 import { useExpectedRefundFlow } from './useExpectedRefundFlow';
 import { usePageTitle } from '../../hooks/usePageTitle';
+import { buildRefundsExportHtml, printHtml } from '../../utils/refundsExport';
 import {
   useRefundsViewsQuery,
   useRefundsTagsQuery,
@@ -113,6 +114,8 @@ export function RefundsTab() {
     selectedAmount,
     selectionState,
     handleToggleSelect,
+    handleSelectAll,
+    handleDeselectAll,
     handleBatchSkip,
     handleBatchUnmatch,
     handleBatchRestore,
@@ -133,12 +136,21 @@ export function RefundsTab() {
     () => activeTransactions.filter((txn) => selectedIds.has(txn.id)),
     [activeTransactions, selectedIds]
   );
+  const selectedSkippedTransactions = useMemo(
+    () => skippedTransactions.filter((txn) => selectedIds.has(txn.id)),
+    [skippedTransactions, selectedIds]
+  );
   const expectedFlow = useExpectedRefundFlow({
     batchTransactions,
     handleBatchExpectedRefundAll,
     handleBatchClearExpected,
     setSelectedIds,
   });
+  const handleExport = useCallback(() => {
+    const allSelected = [...batchTransactions, ...selectedSkippedTransactions];
+    if (allSelected.length === 0) return;
+    printHtml(buildRefundsExportHtml(allSelected, matches));
+  }, [batchTransactions, selectedSkippedTransactions, matches]);
   const handleStartBatchMatch = useCallback(() => {
     const first = batchTransactions[0];
     if (!first) return;
@@ -246,6 +258,8 @@ export function RefundsTab() {
                 onSearchChange={setSearchQuery}
                 selectedIds={selectedIds}
                 onToggleSelect={handleToggleSelect}
+                onSelectAll={handleSelectAll}
+                onDeselectAll={handleDeselectAll}
                 showSkipped={showSkipped}
                 onToggleSkipped={() => setShowSkipped((prev) => !prev)}
               />
@@ -292,6 +306,7 @@ export function RefundsTab() {
           onRestore={handleBatchRestore}
           onClearExpected={expectedFlow.handleStartClearExpected}
           onClear={clearSelection}
+          onExport={handleExport}
         />
       )}
     </div>

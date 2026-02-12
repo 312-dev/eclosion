@@ -5,17 +5,15 @@
  * Portalled to document.body and centered above the footer,
  * showing selection count + amount and contextual action buttons.
  *
- * Buttons shown depend on selection state:
- * - unmatched → Match (with Expected Refund dropdown), Skip
- * - expected  → Match, Clear Expected
- * - matched   → Unmatch
- * - skipped   → Restore
- * - mixed     → (no actions, just Clear)
+ * Actions (except Clear) are consolidated into a split-button dropdown:
+ * - Primary action is the button label (e.g. Match Refund)
+ * - Secondary actions + Export appear in the dropdown menu
+ * - Clear remains a standalone button
  */
 
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { SearchCheck, FlagOff, Undo2, X, ChevronDown, Clock } from 'lucide-react';
+import { SearchCheck, FlagOff, Undo2, X, ChevronDown, Clock, Download } from 'lucide-react';
 import { Z_INDEX } from '../../constants';
 import type { SelectionState } from './useRefundsSelection';
 
@@ -30,14 +28,124 @@ interface SelectionActionBarProps {
   readonly onRestore: () => void;
   readonly onClearExpected: () => void;
   readonly onClear: () => void;
+  readonly onExport: () => void;
 }
 
 function formatCurrency(amount: number): string {
   return `$${Math.abs(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-const BTN_BASE =
-  'inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors cursor-pointer';
+interface MenuItem {
+  label: string;
+  icon: React.ReactNode;
+  onClick: () => void;
+  color?: string;
+}
+
+interface PrimaryAction {
+  label: string;
+  icon: React.ReactNode;
+  onClick: () => void;
+  colorClass: string;
+  borderClass: string;
+  bgClass: string;
+}
+
+function getActions(
+  state: SelectionState,
+  handlers: {
+    onMatch: () => void;
+    onExpectedRefund: () => void;
+    onSkip: () => void;
+    onUnmatch: () => void;
+    onRestore: () => void;
+    onClearExpected: () => void;
+    onExport: () => void;
+  }
+): { primary: PrimaryAction | null; menuItems: MenuItem[] } {
+  const exportItem: MenuItem = {
+    label: 'Print / Export',
+    icon: <Download size={14} />,
+    onClick: handlers.onExport,
+  };
+
+  switch (state) {
+    case 'unmatched':
+      return {
+        primary: {
+          label: 'Match Refund',
+          icon: <SearchCheck size={14} />,
+          onClick: handlers.onMatch,
+          colorClass: 'text-(--monarch-success)',
+          borderClass: 'border-(--monarch-success)/30',
+          bgClass: 'bg-(--monarch-success)/10',
+        },
+        menuItems: [
+          {
+            label: 'Expected Refund',
+            icon: <Clock size={14} />,
+            onClick: handlers.onExpectedRefund,
+            color: 'var(--monarch-accent)',
+          },
+          exportItem,
+          {
+            label: 'Ignore',
+            icon: <FlagOff size={14} />,
+            onClick: handlers.onSkip,
+          },
+        ],
+      };
+    case 'expected':
+      return {
+        primary: {
+          label: 'Match Refund',
+          icon: <SearchCheck size={14} />,
+          onClick: handlers.onMatch,
+          colorClass: 'text-(--monarch-success)',
+          borderClass: 'border-(--monarch-success)/30',
+          bgClass: 'bg-(--monarch-success)/10',
+        },
+        menuItems: [
+          {
+            label: 'Clear Expected',
+            icon: <X size={14} />,
+            onClick: handlers.onClearExpected,
+            color: 'var(--monarch-accent)',
+          },
+          exportItem,
+        ],
+      };
+    case 'matched':
+      return {
+        primary: {
+          label: 'Unmatch',
+          icon: <X size={14} />,
+          onClick: handlers.onUnmatch,
+          colorClass: 'text-(--monarch-orange)',
+          borderClass: 'border-(--monarch-orange)/30',
+          bgClass: 'bg-(--monarch-orange)/10',
+        },
+        menuItems: [exportItem],
+      };
+    case 'skipped':
+      return {
+        primary: {
+          label: 'Restore',
+          icon: <Undo2 size={14} />,
+          onClick: handlers.onRestore,
+          colorClass: 'text-(--monarch-orange)',
+          borderClass: 'border-(--monarch-orange)/30',
+          bgClass: 'bg-(--monarch-orange)/10',
+        },
+        menuItems: [exportItem],
+      };
+    case 'mixed':
+      return {
+        primary: null,
+        menuItems: [exportItem],
+      };
+  }
+}
 
 export function SelectionActionBar({
   count,
@@ -50,6 +158,7 @@ export function SelectionActionBar({
   onRestore,
   onClearExpected,
   onClear,
+  onExport,
 }: SelectionActionBarProps): React.JSX.Element {
   const plural = count === 1 ? '' : 's';
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -65,6 +174,16 @@ export function SelectionActionBar({
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [dropdownOpen]);
+
+  const { primary, menuItems } = getActions(selectionState, {
+    onMatch,
+    onExpectedRefund,
+    onSkip,
+    onUnmatch,
+    onRestore,
+    onClearExpected,
+    onExport,
+  });
 
   return createPortal(
     <>
@@ -101,118 +220,84 @@ export function SelectionActionBar({
             </span>
           </span>
           <div className="flex items-center gap-2">
-            {selectionState === 'unmatched' && (
-              <>
-                <div
-                  className="relative inline-flex items-center rounded-lg border border-(--monarch-success)/30 bg-(--monarch-success)/10"
-                  ref={dropdownRef}
+            {/* Split-button: primary action + dropdown */}
+            {primary ? (
+              <div
+                className={`relative inline-flex items-center rounded-lg border ${primary.borderClass} ${primary.bgClass}`}
+                ref={dropdownRef}
+              >
+                <button
+                  type="button"
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-s-lg ${primary.colorClass} hover:brightness-110 transition-colors cursor-pointer`}
+                  onClick={primary.onClick}
+                  aria-label={`${primary.label} ${count} selected transaction${plural}`}
                 >
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-s-lg text-(--monarch-success) hover:bg-(--monarch-success)/10 transition-colors cursor-pointer"
-                    onClick={onMatch}
-                    aria-label={`Match ${count} selected transaction${plural}`}
+                  {primary.icon}
+                  {primary.label}
+                </button>
+                <div
+                  className={`w-px self-stretch ${primary.colorClass.replace('text-', 'bg-')}/20`}
+                  aria-hidden="true"
+                />
+                <button
+                  type="button"
+                  className={`inline-flex items-center justify-center px-2 py-1.5 rounded-e-lg ${primary.colorClass} hover:brightness-110 transition-colors cursor-pointer self-stretch`}
+                  onClick={() => setDropdownOpen((prev) => !prev)}
+                  aria-label="More actions"
+                  aria-expanded={dropdownOpen}
+                  aria-haspopup="menu"
+                >
+                  <ChevronDown size={12} />
+                </button>
+                {dropdownOpen && (
+                  <div
+                    className="absolute bottom-full right-0 mb-1 rounded-lg py-1 whitespace-nowrap"
+                    style={{
+                      backgroundColor: 'var(--monarch-bg-card)',
+                      border: '1px solid var(--monarch-border)',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                      zIndex: Z_INDEX.DROPDOWN,
+                    }}
+                    role="menu"
                   >
-                    <SearchCheck size={14} />
-                    Match Refund
-                  </button>
-                  <div className="w-px self-stretch bg-(--monarch-success)/20" aria-hidden="true" />
-                  <button
-                    type="button"
-                    className="inline-flex items-center justify-center px-2 py-1.5 rounded-e-lg text-(--monarch-success) hover:bg-(--monarch-success)/10 transition-colors cursor-pointer self-stretch"
-                    onClick={() => setDropdownOpen((prev) => !prev)}
-                    aria-label="More match options"
-                    aria-expanded={dropdownOpen}
-                    aria-haspopup="menu"
-                  >
-                    <ChevronDown size={12} />
-                  </button>
-                  {dropdownOpen && (
-                    <div
-                      className="absolute bottom-full right-0 mb-1 rounded-lg py-1 whitespace-nowrap"
-                      style={{
-                        backgroundColor: 'var(--monarch-bg-card)',
-                        border: '1px solid var(--monarch-border)',
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                        zIndex: Z_INDEX.DROPDOWN,
-                      }}
-                      role="menu"
-                    >
+                    {menuItems.map((item) => (
                       <button
+                        key={item.label}
                         type="button"
                         className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-(--monarch-bg-hover) transition-colors cursor-pointer"
-                        style={{ color: 'var(--monarch-accent)' }}
+                        style={
+                          item.color ? { color: item.color } : { color: 'var(--monarch-text-dark)' }
+                        }
                         role="menuitem"
                         onClick={() => {
-                          onExpectedRefund();
+                          item.onClick();
                           setDropdownOpen(false);
                         }}
                       >
-                        <Clock size={14} />
-                        Expected Refund
+                        {item.icon}
+                        {item.label}
                       </button>
-                    </div>
-                  )}
-                </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* mixed state: just an Export button, no split */
+              <div ref={dropdownRef}>
                 <button
                   type="button"
-                  className={`${BTN_BASE} bg-(--monarch-text-muted)/10 text-(--monarch-text-muted) hover:bg-(--monarch-text-muted)/20`}
-                  onClick={onSkip}
-                  aria-label={`Skip ${count} selected transaction${plural}`}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-(--monarch-text-muted)/10 text-(--monarch-text-muted) hover:bg-(--monarch-text-muted)/20 transition-colors cursor-pointer"
+                  onClick={onExport}
+                  aria-label={`Print / Export ${count} selected transaction${plural}`}
                 >
-                  <FlagOff size={14} />
-                  Skip
+                  <Download size={14} />
+                  Print / Export
                 </button>
-              </>
-            )}
-            {selectionState === 'expected' && (
-              <>
-                <button
-                  type="button"
-                  className={`${BTN_BASE} bg-(--monarch-success)/10 text-(--monarch-success) hover:bg-(--monarch-success)/20`}
-                  onClick={onMatch}
-                  aria-label={`Match ${count} selected transaction${plural}`}
-                >
-                  <SearchCheck size={14} />
-                  Match Refund{count > 1 ? ` (${count})` : ''}
-                </button>
-                <button
-                  type="button"
-                  className={`${BTN_BASE} bg-(--monarch-accent)/10 hover:bg-(--monarch-accent)/20`}
-                  style={{ color: 'var(--monarch-accent)' }}
-                  onClick={onClearExpected}
-                  aria-label={`Clear expected refund from ${count} transaction${plural}`}
-                >
-                  <X size={14} />
-                  Clear Expected{count > 1 ? ` (${count})` : ''}
-                </button>
-              </>
-            )}
-            {selectionState === 'matched' && (
-              <button
-                type="button"
-                className={`${BTN_BASE} bg-(--monarch-orange)/10 text-(--monarch-orange) hover:bg-(--monarch-orange)/20`}
-                onClick={onUnmatch}
-                aria-label={`Unmatch ${count} selected transaction${plural}`}
-              >
-                <X size={14} />
-                Unmatch{count > 1 ? ` ${count}` : ''}
-              </button>
-            )}
-            {selectionState === 'skipped' && (
-              <button
-                type="button"
-                className={`${BTN_BASE} bg-(--monarch-orange)/10 text-(--monarch-orange) hover:bg-(--monarch-orange)/20`}
-                onClick={onRestore}
-                aria-label={`Restore ${count} selected transaction${plural}`}
-              >
-                <Undo2 size={14} />
-                Restore{count > 1 ? ` ${count}` : ''}
-              </button>
+              </div>
             )}
             <button
               type="button"
-              className={`${BTN_BASE} text-(--monarch-text-muted) hover:bg-(--monarch-bg-hover)`}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg text-(--monarch-text-muted) hover:bg-(--monarch-bg-hover) transition-colors cursor-pointer"
               onClick={onClear}
               aria-label="Clear selection"
             >
