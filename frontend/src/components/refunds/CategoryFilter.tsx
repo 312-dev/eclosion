@@ -6,6 +6,7 @@ import { Portal } from '../Portal';
 import { useDropdown } from '../../hooks';
 import { useCategoriesByGroup } from '../../api/queries/categoryStoreQueries';
 import { Z_INDEX, UI } from '../../constants';
+import { decodeHtmlEntities } from '../../utils';
 import type { Transaction } from '../../types/refunds';
 
 interface CategoryOption {
@@ -261,7 +262,9 @@ export function CategoryFilter({
                     <span className="shrink-0" aria-hidden="true">
                       {cat.icon}
                     </span>
-                    <span className="truncate text-(--monarch-text-dark)">{cat.name}</span>
+                    <span className="truncate text-(--monarch-text-dark)">
+                      {decodeHtmlEntities(cat.name)}
+                    </span>
                   </button>
                 );
               })}

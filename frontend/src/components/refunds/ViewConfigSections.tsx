@@ -4,6 +4,7 @@
  */
 
 import { Search, Check, ChevronDown } from 'lucide-react';
+import { decodeHtmlEntities } from '../../utils';
 import type { TransactionTag } from '../../types/refunds';
 
 interface CategoryInfo {
@@ -225,7 +226,7 @@ export function CategorySection({
                     groupIdx > 0 ? { borderTop: '1px solid var(--monarch-border)' } : undefined
                   }
                 >
-                  {group.name}
+                  {decodeHtmlEntities(group.name)}
                 </div>
                 {group.categories.map((cat) => {
                   const isSelected =
@@ -254,7 +255,9 @@ export function CategorySection({
                           {cat.icon}
                         </span>
                       )}
-                      <span className="text-(--monarch-text-dark)">{cat.name}</span>
+                      <span className="text-(--monarch-text-dark)">
+                        {decodeHtmlEntities(cat.name)}
+                      </span>
                     </button>
                   );
                 })}

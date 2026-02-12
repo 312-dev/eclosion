@@ -10,15 +10,16 @@ import { Check, StickyNote } from 'lucide-react';
 import { MerchantIcon } from '../ui';
 import { Tooltip } from '../ui/Tooltip';
 import { decodeHtmlEntities } from '../../utils';
-import { isSafeUrl } from '../../utils/safeUrl';
+import { getUserNotes, linkifyText } from '../../utils/refunds';
 import type { Transaction, RefundsMatch } from '../../types/refunds';
 
 interface TransactionRowProps {
   readonly transaction: Transaction;
   readonly match: RefundsMatch | undefined;
+  readonly effectiveRefundAmount: number | undefined;
   readonly agingWarningDays: number;
   readonly isSelected: boolean;
-  readonly onToggleSelect: (transaction: Transaction) => void;
+  readonly onToggleSelect: (transaction: Transaction, shiftKey: boolean) => void;
 }
 
 function formatAmount(amount: number): string {
@@ -38,16 +39,7 @@ function formatMatchDate(dateStr: string | null): string {
 
 const MS_PER_DAY = 86_400_000;
 
-/**
- * Compute an aging left-border accent for unmatched transactions.
- *
- * Returns a box-shadow string (inset left border) or null.
- * Uses box-shadow instead of border-left to avoid layout shift.
- *
- * - Below 75% of threshold: no border
- * - 75%–100%: amber → orange → red
- * - 100%+: full red
- */
+/** Aging left-border accent (box-shadow): amber→red from 75%→100% of threshold. */
 function getAgingBorder(transactionDate: string, thresholdDays: number): string | null {
   if (thresholdDays <= 0) return null;
   const txDate = new Date(transactionDate + 'T00:00:00');
@@ -60,56 +52,6 @@ function getAgingBorder(transactionDate: string, thresholdDays: number): string 
   const sat = 90 + 10 * t; // 90% → 100%
   const light = 55 - 5 * t; // 55% → 50%
   return `inset 3px 0 0 hsl(${hue.toFixed(0)} ${sat.toFixed(0)}% ${light.toFixed(0)}%)`;
-}
-
-/** Strip auto-generated `[Refund matched]` lines, return user notes or null. */
-function getUserNotes(notes: string | null): string | null {
-  if (!notes) return null;
-  const cleaned = notes
-    .split('\n')
-    .filter((line) => !line.startsWith('[Refund matched]') && !line.startsWith('[Refund expected]'))
-    .join('\n')
-    .trim();
-  return cleaned ? decodeHtmlEntities(cleaned) : null;
-}
-
-const URL_REGEX = /https?:\/\/[^\s)]+/g;
-
-/** Render text with URLs as clickable links. */
-function linkifyText(text: string): React.ReactNode {
-  const parts: React.ReactNode[] = [];
-  let lastIndex = 0;
-
-  for (const match of text.matchAll(URL_REGEX)) {
-    const url = match[0];
-    const start = match.index;
-    if (start > lastIndex) {
-      parts.push(text.slice(lastIndex, start));
-    }
-    if (isSafeUrl(url)) {
-      parts.push(
-        <a
-          key={start}
-          href={url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="underline hover:opacity-80"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {url}
-        </a>
-      );
-    } else {
-      parts.push(url);
-    }
-    lastIndex = start + url.length;
-  }
-
-  if (lastIndex < text.length) {
-    parts.push(text.slice(lastIndex));
-  }
-
-  return parts.length > 0 ? parts : text;
 }
 
 function getRowClassName(isMatched: boolean, isExpected: boolean, isSelected: boolean): string {
@@ -165,22 +107,43 @@ function AccountIcon({
   );
 }
 
-/**
- * Grid column layout (responsive):
- *   md+:  [actions 48px] [icon 24px] [merchant 1.5fr] [category 1fr] [account 1.2fr] [amount 130px]
- *   sm-md: [actions 48px] [icon 24px] [merchant 1.5fr] [category 1fr] [amount 130px]
- *   <sm:  [actions 48px] [icon 24px] [merchant 1fr] [amount 130px]
- *
- * Amount column uses a fixed width so columns stay consistent across all rows
- * (each row is an independent grid container, so `auto` would vary per row).
- * Hidden cells (display:none) are removed from grid flow so remaining children fill columns in order.
- */
+function buildMatchedText(amt: number, refundAmt: number, m: RefundsMatch): string {
+  const parts = ['Remaining: ' + formatAmount(Math.abs(amt) - refundAmt)];
+  if (m.refundMerchant) parts.push('from "' + m.refundMerchant + '"');
+  if (m.refundDate) parts.push('on ' + formatMatchDate(m.refundDate));
+  return parts.join(' · ');
+}
+
+function buildExpectedText(amt: number, m: RefundsMatch): string {
+  const parts = ['Remaining: ' + formatAmount(Math.abs(amt) - Math.abs(m.expectedAmount ?? amt))];
+  if (m.expectedDate) parts.push('by ' + formatMatchDate(m.expectedDate));
+  if (m.expectedAccount) parts.push('to ' + m.expectedAccount);
+  return parts.join(' · ');
+}
+
+/** Match/expected detail text with tooltip for truncated content. */
+function MatchDetailText({
+  className,
+  text,
+}: {
+  readonly className: string;
+  readonly text: string;
+}): React.JSX.Element {
+  return (
+    <Tooltip content={text} triggerClassName="block min-w-0">
+      <span className={`text-xs truncate block ${className}`}>{text}</span>
+    </Tooltip>
+  );
+}
+
+/** Responsive grid: [actions][icon][merchant][category?][account?][amount]. */
 const GRID_CLASSES =
   'grid gap-x-3 grid-cols-[48px_24px_minmax(0,1fr)_130px] sm:grid-cols-[48px_24px_minmax(0,1.5fr)_minmax(0,1fr)_130px] md:grid-cols-[48px_24px_minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1.2fr)_130px]';
 
 export const TransactionRow = React.memo(function TransactionRow({
   transaction,
   match,
+  effectiveRefundAmount,
   agingWarningDays,
   isSelected,
   onToggleSelect,
@@ -200,7 +163,7 @@ export const TransactionRow = React.memo(function TransactionRow({
   const handleRowClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
     if (target.closest('button, a')) return;
-    onToggleSelect(transaction);
+    onToggleSelect(transaction, e.shiftKey);
   };
 
   return (
@@ -215,7 +178,7 @@ export const TransactionRow = React.memo(function TransactionRow({
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
-          onToggleSelect(transaction);
+          onToggleSelect(transaction, e.shiftKey);
         }
       }}
     >
@@ -226,7 +189,7 @@ export const TransactionRow = React.memo(function TransactionRow({
           className={`shrink-0 w-5 h-5 rounded border flex items-center justify-center transition-colors cursor-pointer ${getCheckboxClassName(isSelected)}`}
           aria-label={isSelected ? 'Deselect transaction' : 'Select transaction'}
           aria-pressed={isSelected}
-          onClick={() => onToggleSelect(transaction)}
+          onClick={(e) => onToggleSelect(transaction, e.shiftKey)}
         >
           {isSelected && <Check size={14} />}
         </button>
@@ -244,19 +207,26 @@ export const TransactionRow = React.memo(function TransactionRow({
         <span className="font-medium text-sm text-(--monarch-text-dark) truncate block">
           {merchantName}
         </span>
-        {hasMatch && isMatched && match.refundAmount != null && (
-          <span className="text-xs text-(--monarch-success) truncate block">
-            Matched: {formatAmount(match.refundAmount)}
-            {match.refundMerchant && ` from "${match.refundMerchant}"`}
-            {match.refundDate && ` on ${formatMatchDate(match.refundDate)}`}
-          </span>
+        {hasMatch && isMatched && effectiveRefundAmount != null && (
+          <MatchDetailText
+            className={
+              Math.abs(transaction.amount) - effectiveRefundAmount <= 0
+                ? 'text-(--monarch-success)'
+                : 'text-(--monarch-orange)'
+            }
+            text={buildMatchedText(transaction.amount, effectiveRefundAmount, match)}
+          />
         )}
-        {hasMatch && isExpected && match.expectedAmount != null && (
-          <span className="text-xs truncate block" style={{ color: 'var(--monarch-accent)' }}>
-            Expected: {formatAmount(match.expectedAmount)}
-            {match.expectedDate && ` by ${formatMatchDate(match.expectedDate)}`}
-            {match.expectedAccount && ` to ${match.expectedAccount}`}
-          </span>
+        {hasMatch && isExpected && (
+          <MatchDetailText
+            className={
+              Math.abs(transaction.amount) - Math.abs(match.expectedAmount ?? transaction.amount) <=
+              0
+                ? 'text-(--monarch-success)'
+                : 'text-(--monarch-orange)'
+            }
+            text={buildExpectedText(transaction.amount, match)}
+          />
         )}
       </div>
 
@@ -266,7 +236,7 @@ export const TransactionRow = React.memo(function TransactionRow({
           <>
             <span className="shrink-0 text-sm">{transaction.category.icon}</span>
             <span className="text-xs text-(--monarch-text-muted) truncate">
-              {transaction.category.name}
+              {decodeHtmlEntities(transaction.category.name)}
             </span>
           </>
         ) : (
