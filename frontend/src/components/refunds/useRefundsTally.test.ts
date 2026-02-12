@@ -9,6 +9,7 @@ function makeTxn(overrides: Partial<Transaction> = {}): Transaction {
     amount: -50,
     date: '2026-02-01',
     originalName: 'TEST',
+    plaidName: null,
     notes: null,
     pending: false,
     hideFromReports: false,
@@ -161,6 +162,36 @@ describe('useRefundsTally', () => {
     expect(result.current.expectedAmount).toBe(50);
     expect(result.current.totalAmount).toBe(175); // all 3 included (expected not excluded)
     expect(result.current.remainingAmount).toBe(25); // 175 - 100 - 50
+  });
+
+  it('de-duplicates matched amount when multiple purchases share the same refund', () => {
+    const transactions = [
+      makeTxn({ id: 'a', amount: -80 }),
+      makeTxn({ id: 'b', amount: -60 }),
+      makeTxn({ id: 'c', amount: -40 }),
+    ];
+    const matches = [
+      makeMatch({
+        id: 'm1',
+        originalTransactionId: 'a',
+        refundTransactionId: 'shared-refund',
+        refundAmount: 200,
+      }),
+      makeMatch({
+        id: 'm2',
+        originalTransactionId: 'b',
+        refundTransactionId: 'shared-refund',
+        refundAmount: 200,
+      }),
+    ];
+
+    const { result } = renderHook(() => useRefundsTally(transactions, matches));
+
+    expect(result.current.matchedCount).toBe(2);
+    expect(result.current.matchedAmount).toBe(200); // counted once, not 400
+    expect(result.current.totalAmount).toBe(180); // 80 + 60 + 40
+    expect(result.current.remainingAmount).toBe(-20); // 180 - 200
+    expect(result.current.unmatchedCount).toBe(1);
   });
 
   it('returns stable reference when inputs do not change', () => {

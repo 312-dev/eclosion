@@ -12,6 +12,8 @@ export interface Transaction {
   amount: number;
   date: string;
   originalName: string;
+  /** Original bank/Plaid description (raw). Stored for audit trail. */
+  plaidName: string | null;
   notes: string | null;
   pending: boolean;
   hideFromReports: boolean;
