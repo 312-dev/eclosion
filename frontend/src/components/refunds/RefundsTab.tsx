@@ -16,6 +16,7 @@ import { useRefundsMatchHandlers } from './useRefundsMatchHandlers';
 import { useRefundsSelection } from './useRefundsSelection';
 import { useRefundsBatchActions } from './useRefundsBatchActions';
 import { useExpectedRefundFlow } from './useExpectedRefundFlow';
+import { useRefundsScroll } from './useRefundsScroll';
 import { usePageTitle } from '../../hooks/usePageTitle';
 import {
   useRefundsViewsQuery,
@@ -99,6 +100,7 @@ export function RefundsTab() {
     filteredTransactions,
     tally,
     viewCategoryCount,
+    creditGroups,
   } = useTransactionPipeline({
     transactions,
     matches,
@@ -113,6 +115,7 @@ export function RefundsTab() {
     selectedAmount,
     selectionState,
     handleToggleSelect,
+    handleToggleCreditGroup,
     handleSelectAll,
     handleDeselectAll,
     handleBatchSkip,
@@ -126,6 +129,7 @@ export function RefundsTab() {
     activeTransactions,
     skippedTransactions,
     matches,
+    creditGroups,
     handleDirectSkip,
     handleDirectUnmatch,
     handleRestore,
@@ -143,6 +147,8 @@ export function RefundsTab() {
     activeTransactions,
     skippedTransactions,
     matches,
+    creditGroups,
+    allTransactions: transactions,
     handleBatchMatchAll,
     setMatchingTransaction,
     setBatchCount,
@@ -173,17 +179,23 @@ export function RefundsTab() {
     [resetFiltersAndSelection]
   );
 
+  const { handleScrollToTransaction, handleScrollToCredit } = useRefundsScroll({
+    setSearchQuery,
+    setSelectedCategoryIds,
+    setDateRange,
+    defaultDateRange: DEFAULT_DATE_RANGE,
+  });
   if (viewsLoading)
     return (
-      <div className="p-6">
+      <div>
         <SkeletonToolHeader />
         <SkeletonTabs />
       </div>
     );
 
   return (
-    <div className="flex flex-col h-full">
-      <div className={`flex-1 overflow-y-auto p-6${selectedIds.size > 0 ? ' pb-28' : ''}`}>
+    <div className="flex flex-col sm:h-full">
+      <div className={`sm:flex-1 sm:overflow-y-auto${selectedIds.size > 0 ? ' pb-28' : ''}`}>
         <ToolPageHeader
           icon={<Undo2 size={24} />}
           title="Refunds"
@@ -204,48 +216,50 @@ export function RefundsTab() {
           />
         ) : (
           <>
-            <ViewTabs
-              views={views}
-              activeViewId={effectiveViewId}
-              viewCounts={pendingCountData?.viewCounts}
-              onSelectView={handleSelectView}
-              onAddView={() => viewActions.setShowCreateModal(true)}
-              onEditView={viewActions.handleEditView}
-              onReorder={handleReorderViews}
-              trailing={
-                <>
-                  <DateRangeFilter value={dateRange} onChange={handleDateRangeChange} />
-                  {viewCategoryCount > 1 && (
+            <div className="sm:mt-3 max-sm:px-2 max-sm:pt-1">
+              <ViewTabs
+                views={views}
+                activeViewId={effectiveViewId}
+                viewCounts={pendingCountData?.viewCounts}
+                onSelectView={handleSelectView}
+                onAddView={() => viewActions.setShowCreateModal(true)}
+                onEditView={viewActions.handleEditView}
+                onReorder={handleReorderViews}
+                trailing={
+                  viewCategoryCount > 1 ? (
                     <CategoryFilter
                       transactions={expenseTransactions}
                       selectedCategoryIds={selectedCategoryIds}
                       onChange={setSelectedCategoryIds}
                     />
-                  )}
-                </>
-              }
-            />
-            <div className="mt-4">
+                  ) : undefined
+                }
+              />
+            </div>
+            <div className="mt-2 sm:mt-3">
               <TransactionContent
                 transactionsLoading={transactionsLoading}
                 filteredTransactions={filteredTransactions}
                 activeTransactions={activeTransactions}
                 skippedTransactions={skippedTransactions}
-                expenseTransactions={expenseTransactions}
                 matches={matches}
                 config={config}
                 tally={tally}
-                pendingCount={pendingCountData?.viewCounts[effectiveViewId ?? ''] ?? 0}
-                selectedCategoryIds={selectedCategoryIds}
-                onResetCategoryFilter={() => setSelectedCategoryIds(null)}
                 searchQuery={searchQuery}
                 onSearchChange={setSearchQuery}
+                searchTrailing={
+                  <DateRangeFilter value={dateRange} onChange={handleDateRangeChange} />
+                }
                 selectedIds={selectedIds}
                 onToggleSelect={handleToggleSelect}
+                onToggleCreditGroup={handleToggleCreditGroup}
                 onSelectAll={handleSelectAll}
                 onDeselectAll={handleDeselectAll}
                 showSkipped={showSkipped}
                 onToggleSkipped={() => setShowSkipped((prev) => !prev)}
+                creditGroups={creditGroups}
+                onScrollToTransaction={handleScrollToTransaction}
+                onScrollToCredit={handleScrollToCredit}
               />
             </div>
           </>
