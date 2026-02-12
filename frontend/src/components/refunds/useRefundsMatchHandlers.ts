@@ -149,11 +149,30 @@ export function useRefundsMatchHandlers({
   const handleBatchExpectedRefundAll = useCallback(
     async (transactions: Transaction[], params: ExpectedRefundParams) => {
       try {
+        // Delete existing expected matches to avoid duplicates
         for (const txn of transactions) {
+          const existing = matches.find(
+            (m) => m.originalTransactionId === txn.id && m.expectedRefund
+          );
+          if (existing) {
+            await deleteMatchMutation.mutateAsync(existing.id);
+          }
+        }
+
+        // Sort most recent first for distribution
+        const sorted = [...transactions].sort((a, b) => b.date.localeCompare(a.date));
+        let remaining = params.expectedAmount;
+
+        for (const txn of sorted) {
+          const expense = Math.abs(txn.amount);
+          const allocated = Math.min(remaining, expense);
+          remaining = Math.max(0, remaining - allocated);
+
           await createMatchMutation.mutateAsync({
             originalTransactionId: txn.id,
             expectedRefund: true,
             ...params,
+            expectedAmount: allocated,
             originalNotes: txn.notes,
             transactionData: txn,
           });
@@ -164,7 +183,7 @@ export function useRefundsMatchHandlers({
         toast.error(handleApiError(err, 'Refunds'));
       }
     },
-    [createMatchMutation, toast, setMatchingTransaction]
+    [createMatchMutation, deleteMatchMutation, matches, toast, setMatchingTransaction]
   );
 
   const handleSkip = useCallback(async () => {
