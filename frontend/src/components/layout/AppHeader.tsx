@@ -85,7 +85,7 @@ export function AppHeader({
         >
           <Link
             to={isDemo ? '/' : `${pathPrefix}/`}
-            className="flex items-center gap-2"
+            className="hidden sm:flex items-center gap-2"
             style={{ textDecoration: 'none' }}
             aria-label="Eclosion - Go to home"
             onClick={() => isDemo && scrollToTop()}
@@ -108,8 +108,8 @@ export function AppHeader({
         >
           {(!isMobile || isElectron) && <RemoteAccessIndicator />}
           <SyncButton onSync={onSync} isSyncing={isSyncing} isFetching={isFetching} compact />
+          {!isMobile && <HelpDropdown hasTour={hasTour} onStartTour={onStartTour} />}
           <NotificationBell />
-          <HelpDropdown hasTour={hasTour} onStartTour={onStartTour} />
         </div>
       </div>
       <RateLimitBanner />

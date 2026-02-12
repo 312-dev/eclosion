@@ -32,14 +32,14 @@ export function NavItemLink({ item, onSettingsClick }: Readonly<NavItemLinkProps
       <span className="sidebar-nav-icon" aria-hidden="true">
         {item.icon}
         {item.badge !== undefined && item.badge > 0 && (
-          <span className="sidebar-nav-badge sidebar-nav-badge-mobile flex items-center justify-center min-w-4.5 h-4.5 px-1.25 text-[0.65rem] font-semibold rounded-full whitespace-nowrap">
+          <span className="sidebar-nav-badge sidebar-nav-badge-mobile flex items-center justify-center min-w-5 h-5 px-1.5 text-[0.7rem] font-bold rounded-full whitespace-nowrap">
             {item.badge}
           </span>
         )}
       </span>
       <span className="sidebar-nav-label">{item.label}</span>
       {item.badge !== undefined && item.badge > 0 && (
-        <span className="sidebar-nav-badge sidebar-nav-badge-desktop flex items-center justify-center min-w-4.5 h-4.5 px-1.25 text-[0.65rem] font-semibold rounded-full whitespace-nowrap">
+        <span className="sidebar-nav-badge sidebar-nav-badge-desktop flex items-center justify-center min-w-5 h-5 px-1.5 text-[0.7rem] font-bold rounded-full whitespace-nowrap">
           {item.badge}
         </span>
       )}
