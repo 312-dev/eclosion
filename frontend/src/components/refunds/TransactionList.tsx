@@ -1,14 +1,15 @@
 /**
  * TransactionList
  *
- * Groups transactions by date and renders them in a list with date headers.
- * Includes a header row with a tri-state select-all checkbox.
+ * Groups transactions and credit groups by date and renders them in a list
+ * with date headers. Includes a header row with a tri-state select-all checkbox.
  */
 
 import { useMemo } from 'react';
 import { Check, Minus } from 'lucide-react';
 import { TransactionRow } from './TransactionRow';
-import type { Transaction, RefundsMatch } from '../../types/refunds';
+import { CreditGroupRow } from './CreditGroupRow';
+import type { Transaction, RefundsMatch, CreditGroup } from '../../types/refunds';
 
 interface TransactionListProps {
   readonly transactions: Transaction[];
@@ -16,15 +17,23 @@ interface TransactionListProps {
   readonly agingWarningDays: number;
   readonly selectedIds: ReadonlySet<string>;
   readonly onToggleSelect: (transaction: Transaction, shiftKey: boolean) => void;
+  readonly onToggleCreditGroup?: (groupId: string) => void;
   readonly onSelectAll: () => void;
   readonly onDeselectAll: () => void;
+  readonly creditGroups?: CreditGroup[];
+  readonly onScrollToTransaction?: (id: string) => void;
+  readonly onScrollToCredit?: (id: string) => void;
 }
+
+type DateItem =
+  | { kind: 'transaction'; transaction: Transaction }
+  | { kind: 'credit'; group: CreditGroup };
 
 interface DateGroup {
   date: string;
   label: string;
   total: number;
-  transactions: Transaction[];
+  items: DateItem[];
 }
 
 function formatDateHeader(dateStr: string): string {
@@ -32,27 +41,38 @@ function formatDateHeader(dateStr: string): string {
   return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 }
 
-function groupByDate(transactions: Transaction[]): DateGroup[] {
-  const groups = new Map<string, Transaction[]>();
+function groupByDate(transactions: Transaction[], creditGroups: CreditGroup[]): DateGroup[] {
+  const groups = new Map<string, DateItem[]>();
 
   for (const txn of transactions) {
-    const date = txn.date;
-    const existing = groups.get(date);
+    const existing = groups.get(txn.date);
     if (existing) {
-      existing.push(txn);
+      existing.push({ kind: 'transaction', transaction: txn });
     } else {
-      groups.set(date, [txn]);
+      groups.set(txn.date, [{ kind: 'transaction', transaction: txn }]);
+    }
+  }
+
+  for (const cg of creditGroups) {
+    const existing = groups.get(cg.date);
+    if (existing) {
+      existing.push({ kind: 'credit', group: cg });
+    } else {
+      groups.set(cg.date, [{ kind: 'credit', group: cg }]);
     }
   }
 
   // Sort by date descending
   return Array.from(groups.entries())
     .sort(([a], [b]) => b.localeCompare(a))
-    .map(([date, txns]) => ({
+    .map(([date, items]) => ({
       date,
       label: formatDateHeader(date),
-      total: txns.reduce((sum, t) => sum + t.amount, 0),
-      transactions: txns,
+      total: items.reduce((sum, item) => {
+        if (item.kind === 'transaction') return sum + item.transaction.amount;
+        return sum;
+      }, 0),
+      items,
     }));
 }
 
@@ -69,17 +89,66 @@ function getHeaderCheckboxState(
   return 'some';
 }
 
-/**
- * Same grid column layout as TransactionRow for alignment.
- * See TransactionRow.tsx GRID_CLASSES for the full responsive spec.
- */
+/** Desktop-only grid matching TransactionRow's 6-column layout at md+. */
 const HEADER_GRID_CLASSES =
-  'grid gap-x-3 grid-cols-[48px_24px_minmax(0,1fr)_130px] sm:grid-cols-[48px_24px_minmax(0,1.5fr)_minmax(0,1fr)_130px] md:grid-cols-[48px_24px_minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1.2fr)_130px]';
+  'hidden md:grid gap-x-3 grid-cols-[48px_24px_minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1.2fr)_130px]';
 
 function getSelectAllCheckboxClassName(state: CheckboxState): string {
   if (state === 'none')
     return 'border-(--monarch-text-muted)/40 hover:border-(--monarch-text-muted)';
   return 'bg-(--monarch-orange) border-(--monarch-orange) text-white';
+}
+
+interface MatchInfo {
+  matchType: 'matched' | 'expected';
+  matchDate: string | null;
+  matchAmount: number | null;
+  creditGroupId: string;
+}
+
+/** Build a map from original transaction ID → match info for icon display. */
+function buildMatchInfoMap(
+  matches: RefundsMatch[],
+  creditGroups: CreditGroup[]
+): Map<string, MatchInfo> {
+  const map = new Map<string, MatchInfo>();
+
+  // Index matches by originalTransactionId for per-txn amount lookup
+  const matchByOrigId = new Map<string, RefundsMatch>();
+  for (const m of matches) matchByOrigId.set(m.originalTransactionId, m);
+
+  for (const group of creditGroups) {
+    for (const origId of group.originalTransactionIds) {
+      const m = matchByOrigId.get(origId);
+      map.set(origId, {
+        matchType: group.type === 'refund' ? 'matched' : 'expected',
+        matchDate: group.date,
+        matchAmount: m?.expectedAmount ?? m?.refundAmount ?? null,
+        creditGroupId: group.id,
+      });
+    }
+  }
+  // For matches without credit groups (shouldn't happen, but defensive)
+  for (const m of matches) {
+    if (map.has(m.originalTransactionId)) continue;
+    if (m.skipped) continue;
+    if (m.expectedRefund) {
+      map.set(m.originalTransactionId, {
+        matchType: 'expected',
+        matchDate: m.expectedDate,
+        matchAmount: m.expectedAmount,
+        creditGroupId: `expected-${m.expectedDate ?? 'none'}-${m.expectedAccountId ?? 'none'}`,
+      });
+    } else if (m.refundTransactionId) {
+      map.set(m.originalTransactionId, {
+        matchType: 'matched',
+        matchDate: m.refundDate,
+        matchAmount: m.refundAmount,
+        creditGroupId: m.refundTransactionId,
+      });
+    }
+  }
+  return map;
 }
 
 export function TransactionList({
@@ -88,9 +157,13 @@ export function TransactionList({
   agingWarningDays,
   selectedIds,
   onToggleSelect,
+  onToggleCreditGroup,
   onSelectAll,
   onDeselectAll,
-}: TransactionListProps) {
+  creditGroups = [],
+  onScrollToTransaction,
+  onScrollToCredit,
+}: TransactionListProps): React.JSX.Element | null {
   const matchesByOriginalId = useMemo(() => {
     const map = new Map<string, RefundsMatch>();
     for (const m of matches) {
@@ -120,14 +193,22 @@ export function TransactionList({
     return map;
   }, [matches]);
 
-  const dateGroups = useMemo(() => groupByDate(transactions), [transactions]);
+  const matchInfoMap = useMemo(
+    () => buildMatchInfoMap(matches, creditGroups),
+    [matches, creditGroups]
+  );
+
+  const dateGroups = useMemo(
+    () => groupByDate(transactions, creditGroups),
+    [transactions, creditGroups]
+  );
 
   const checkboxState = useMemo(
     () => getHeaderCheckboxState(transactions, selectedIds),
     [transactions, selectedIds]
   );
 
-  if (transactions.length === 0) {
+  if (transactions.length === 0 && creditGroups.length === 0) {
     return null;
   }
 
@@ -135,9 +216,12 @@ export function TransactionList({
   const headerCheckboxLabel =
     checkboxState === 'none' ? 'Select all transactions' : 'Deselect all transactions';
 
+  const scrollToCreditFn = onScrollToCredit ?? null;
+  const scrollToTransactionFn = onScrollToTransaction;
+
   return (
     <div className="divide-y divide-(--monarch-border)">
-      {/* Column header row */}
+      {/* Column header — desktop */}
       <div className={`items-center px-4 py-2 bg-(--monarch-bg-page) ${HEADER_GRID_CLASSES}`}>
         <div className="flex items-center justify-center">
           <button
@@ -152,12 +236,8 @@ export function TransactionList({
         </div>
         <div /> {/* icon column spacer */}
         <span className="text-xs font-medium text-(--monarch-text-muted)">Name</span>
-        <span className="text-xs font-medium text-(--monarch-text-muted) hidden sm:block">
-          Category
-        </span>
-        <span className="text-xs font-medium text-(--monarch-text-muted) hidden md:block">
-          Account
-        </span>
+        <span className="text-xs font-medium text-(--monarch-text-muted)">Category</span>
+        <span className="text-xs font-medium text-(--monarch-text-muted)">Account</span>
         <span className="text-xs font-medium text-(--monarch-text-muted) text-right">Amount</span>
       </div>
 
@@ -173,17 +253,40 @@ export function TransactionList({
               })}
             </span>
           </div>
-          {group.transactions.map((txn) => (
-            <TransactionRow
-              key={txn.id}
-              transaction={txn}
-              match={matchesByOriginalId.get(txn.id)}
-              effectiveRefundAmount={effectiveRefundMap.get(txn.id)}
-              agingWarningDays={agingWarningDays}
-              isSelected={selectedIds.has(txn.id)}
-              onToggleSelect={onToggleSelect}
-            />
-          ))}
+          {group.items.map((item) => {
+            if (item.kind === 'credit') {
+              return (
+                <div key={item.group.id} data-credit-id={item.group.id}>
+                  <CreditGroupRow
+                    group={item.group}
+                    transactions={transactions}
+                    onScrollToTransaction={scrollToTransactionFn ?? (() => {})}
+                    isSelected={selectedIds.has(item.group.id)}
+                    onToggleSelect={onToggleCreditGroup ?? (() => {})}
+                  />
+                </div>
+              );
+            }
+            const txn = item.transaction;
+            const matchInfo = matchInfoMap.get(txn.id);
+            return (
+              <div key={txn.id} data-transaction-id={txn.id}>
+                <TransactionRow
+                  transaction={txn}
+                  match={matchesByOriginalId.get(txn.id)}
+                  effectiveRefundAmount={effectiveRefundMap.get(txn.id)}
+                  agingWarningDays={agingWarningDays}
+                  isSelected={selectedIds.has(txn.id)}
+                  onToggleSelect={onToggleSelect}
+                  matchType={matchInfo?.matchType ?? null}
+                  matchDate={matchInfo?.matchDate ?? null}
+                  matchAmount={matchInfo?.matchAmount ?? null}
+                  creditGroupId={matchInfo?.creditGroupId ?? null}
+                  onScrollToCredit={scrollToCreditFn}
+                />
+              </div>
+            );
+          })}
         </div>
       ))}
     </div>

@@ -1,16 +1,4 @@
-/**
- * SelectionActionBar
- *
- * Floating bar that appears when transactions are selected.
- * Portalled to document.body and centered above the footer,
- * showing selection count + amount and contextual action buttons.
- *
- * Actions (except Clear) are consolidated into a split-button dropdown:
- * - Primary action is the button label (e.g. Match Refund)
- * - Secondary actions + Export appear in the dropdown menu
- * - Clear remains a standalone button
- */
-
+/** SelectionActionBar — floating toolbar for bulk actions on selected transactions. */
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { SearchCheck, FlagOff, Undo2, X, ChevronDown, Clock, Download } from 'lucide-react';
@@ -41,7 +29,6 @@ interface MenuItem {
   onClick: () => void;
   color?: string;
 }
-
 interface PrimaryAction {
   label: string;
   icon: React.ReactNode;
@@ -51,20 +38,22 @@ interface PrimaryAction {
   bgClass: string;
 }
 
+interface ActionHandlers {
+  onMatch: () => void;
+  onExpectedRefund: () => void;
+  onSkip: () => void;
+  onUnmatch: () => void;
+  onRestore: () => void;
+  onClearExpected: () => void;
+  onExport: () => void;
+}
+
 function getActions(
   state: SelectionState,
-  handlers: {
-    onMatch: () => void;
-    onExpectedRefund: () => void;
-    onSkip: () => void;
-    onUnmatch: () => void;
-    onRestore: () => void;
-    onClearExpected: () => void;
-    onExport: () => void;
-  }
+  handlers: ActionHandlers
 ): { primary: PrimaryAction | null; menuItems: MenuItem[] } {
   const exportItem: MenuItem = {
-    label: 'Print / Export',
+    label: 'Export',
     icon: <Download size={14} />,
     onClick: handlers.onExport,
   };
@@ -73,7 +62,7 @@ function getActions(
     case 'unmatched':
       return {
         primary: {
-          label: 'Match Refund',
+          label: 'Refunded',
           icon: <SearchCheck size={14} />,
           onClick: handlers.onMatch,
           colorClass: 'text-(--monarch-success)',
@@ -82,7 +71,7 @@ function getActions(
         },
         menuItems: [
           {
-            label: 'Expected Refund',
+            label: 'Expecting...',
             icon: <Clock size={14} />,
             onClick: handlers.onExpectedRefund,
             color: 'var(--monarch-accent)',
@@ -98,7 +87,7 @@ function getActions(
     case 'expected':
       return {
         primary: {
-          label: 'Match Refund',
+          label: 'Refunded',
           icon: <SearchCheck size={14} />,
           onClick: handlers.onMatch,
           colorClass: 'text-(--monarch-success)',
@@ -147,19 +136,20 @@ function getActions(
   }
 }
 
-export function SelectionActionBar({
-  count,
-  selectedAmount,
-  selectionState,
-  onMatch,
-  onExpectedRefund,
-  onSkip,
-  onUnmatch,
-  onRestore,
-  onClearExpected,
-  onClear,
-  onExport,
-}: SelectionActionBarProps): React.JSX.Element {
+export function SelectionActionBar(props: SelectionActionBarProps): React.JSX.Element {
+  const {
+    count,
+    selectedAmount,
+    selectionState,
+    onMatch,
+    onExpectedRefund,
+    onSkip,
+    onUnmatch,
+    onRestore,
+    onClearExpected,
+    onClear,
+    onExport,
+  } = props;
   const plural = count === 1 ? '' : 's';
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -202,7 +192,7 @@ export function SelectionActionBar({
         style={{ zIndex: Z_INDEX.POPOVER }}
       >
         <div
-          className="pointer-events-auto rounded-xl px-4 py-2.5 flex items-center gap-4 slide-up"
+          className="pointer-events-auto rounded-xl px-3 sm:px-4 py-2 sm:py-2.5 flex items-center gap-2 sm:gap-4 slide-up"
           style={{
             backgroundColor: 'var(--monarch-bg-card)',
             border: '1px solid var(--monarch-border)',
@@ -212,14 +202,14 @@ export function SelectionActionBar({
           role="toolbar"
           aria-label="Selection actions"
         >
-          <span className="text-sm text-(--monarch-text-muted) whitespace-nowrap">
+          <span className="hidden sm:inline text-sm text-(--monarch-text-muted) whitespace-nowrap">
             <span className="font-medium text-(--monarch-orange)">{count}</span> selected
             {' · '}
             <span className="font-medium text-(--monarch-orange)">
               {formatCurrency(selectedAmount)}
             </span>
           </span>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             {/* Split-button: primary action + dropdown */}
             {primary ? (
               <div
@@ -228,12 +218,14 @@ export function SelectionActionBar({
               >
                 <button
                   type="button"
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-s-lg ${primary.colorClass} hover:brightness-110 transition-colors cursor-pointer`}
+                  className={`inline-flex items-center gap-1.5 px-2 sm:px-3 py-1.5 text-sm font-medium rounded-s-lg ${primary.colorClass} hover:brightness-110 transition-colors cursor-pointer`}
                   onClick={primary.onClick}
                   aria-label={`${primary.label} ${count} selected transaction${plural}`}
                 >
                   {primary.icon}
-                  {primary.label}
+                  <span>
+                    {primary.label} <span className="sm:hidden">({count})</span>
+                  </span>
                 </button>
                 <div
                   className={`w-px self-stretch ${primary.colorClass.replace('text-', 'bg-')}/20`}
@@ -241,7 +233,7 @@ export function SelectionActionBar({
                 />
                 <button
                   type="button"
-                  className={`inline-flex items-center justify-center px-2 py-1.5 rounded-e-lg ${primary.colorClass} hover:brightness-110 transition-colors cursor-pointer self-stretch`}
+                  className={`inline-flex items-center justify-center px-1.5 sm:px-2 py-1.5 rounded-e-lg ${primary.colorClass} hover:brightness-110 transition-colors cursor-pointer self-stretch`}
                   onClick={() => setDropdownOpen((prev) => !prev)}
                   aria-label="More actions"
                   aria-expanded={dropdownOpen}
@@ -251,7 +243,7 @@ export function SelectionActionBar({
                 </button>
                 {dropdownOpen && (
                   <div
-                    className="absolute bottom-full right-0 mb-1 rounded-lg py-1 whitespace-nowrap"
+                    className="absolute bottom-full right-0 mb-1 rounded-lg py-1 whitespace-nowrap pop-in"
                     style={{
                       backgroundColor: 'var(--monarch-bg-card)',
                       border: '1px solid var(--monarch-border)',
@@ -286,22 +278,25 @@ export function SelectionActionBar({
               <div ref={dropdownRef}>
                 <button
                   type="button"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-(--monarch-text-muted)/10 text-(--monarch-text-muted) hover:bg-(--monarch-text-muted)/20 transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-2 sm:px-3 py-1.5 text-sm font-medium rounded-lg bg-(--monarch-text-muted)/10 text-(--monarch-text-muted) hover:bg-(--monarch-text-muted)/20 transition-colors cursor-pointer"
                   onClick={onExport}
                   aria-label={`Print / Export ${count} selected transaction${plural}`}
                 >
                   <Download size={14} />
-                  Print / Export
+                  <span>
+                    Export <span className="sm:hidden">({count})</span>
+                  </span>
                 </button>
               </div>
             )}
             <button
               type="button"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg text-(--monarch-text-muted) hover:bg-(--monarch-bg-hover) transition-colors cursor-pointer"
+              className="inline-flex items-center justify-center w-8 h-8 sm:w-auto sm:h-auto sm:gap-1.5 sm:px-3 sm:py-1.5 text-sm font-medium rounded-lg text-(--monarch-text-muted) hover:bg-(--monarch-bg-hover) transition-colors cursor-pointer"
               onClick={onClear}
               aria-label="Clear selection"
             >
-              Clear
+              <X size={14} className="sm:hidden" />
+              <span className="hidden sm:inline">Clear</span>
             </button>
           </div>
         </div>

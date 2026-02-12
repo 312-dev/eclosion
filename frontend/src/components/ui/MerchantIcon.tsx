@@ -32,7 +32,7 @@ export interface MerchantIconProps {
   /** Item name for category-based fallback icon (demo mode) */
   itemName?: string;
   /** Size of the icon */
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'xs' | 'sm' | 'md' | 'lg';
   /** Additional CSS classes */
   className?: string;
   /** Alt text for the image */
@@ -40,12 +40,14 @@ export interface MerchantIconProps {
 }
 
 const SIZE_CLASSES = {
+  xs: 'w-5 h-5',
   sm: 'w-6 h-6',
   md: 'w-10 h-10',
   lg: 'w-12 h-12',
 };
 
 const ICON_SIZES = {
+  xs: 12,
   sm: 14,
   md: 20,
   lg: 24,

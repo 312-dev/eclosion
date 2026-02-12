@@ -49,7 +49,7 @@ export function SkippedSection({
       </button>
       {isOpen && (
         <div
-          className="mt-1 rounded-lg border border-(--monarch-border) overflow-hidden opacity-75"
+          className="mt-1 sm:rounded-lg sm:border border-(--monarch-border) overflow-hidden opacity-75 animate-expand"
           style={{ backgroundColor: 'var(--monarch-bg-card)' }}
         >
           <TransactionList

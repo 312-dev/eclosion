@@ -101,7 +101,7 @@ const SortableViewTab = React.memo(function SortableViewTab({
         <span>{view.name}</span>
         {badge !== undefined && badge > 0 && (
           <span
-            className="flex items-center justify-center min-w-4.5 h-4.5 px-1.25 text-[0.65rem] font-semibold rounded-full whitespace-nowrap"
+            className="hidden sm:flex items-center justify-center min-w-5 h-5 px-1.5 text-[0.7rem] font-bold rounded-full whitespace-nowrap"
             style={{
               backgroundColor: isActive ? 'var(--monarch-orange)' : 'var(--monarch-text-muted)',
               color: 'white',

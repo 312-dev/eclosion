@@ -12,9 +12,16 @@ import { useKeyboardShortcut } from '../../hooks/useKeyboardShortcut';
 interface TransactionSearchBarProps {
   readonly value: string;
   readonly onChange: (value: string) => void;
+  readonly transactionCount?: number | undefined;
+  readonly trailing?: React.ReactNode;
 }
 
-export function TransactionSearchBar({ value, onChange }: TransactionSearchBarProps) {
+export function TransactionSearchBar({
+  value,
+  onChange,
+  transactionCount,
+  trailing,
+}: TransactionSearchBarProps) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   useKeyboardShortcut(
@@ -24,8 +31,8 @@ export function TransactionSearchBar({ value, onChange }: TransactionSearchBarPr
   );
 
   return (
-    <div className="sticky top-18 z-10 px-4 py-2 border-b border-(--monarch-border) bg-(--monarch-bg-card)">
-      <div className="relative">
+    <div className="px-2 sm:px-4 py-2 border-b border-(--monarch-border) bg-(--monarch-bg-card) flex items-stretch gap-2">
+      <div className="relative flex-1 min-w-0">
         <Search
           size={14}
           className="absolute left-2.5 top-1/2 -translate-y-1/2 text-(--monarch-text-muted)"
@@ -39,9 +46,13 @@ export function TransactionSearchBar({ value, onChange }: TransactionSearchBarPr
           onKeyDown={(e) => {
             if (e.key === 'Escape') inputRef.current?.blur();
           }}
-          placeholder="Search transactions..."
+          placeholder={
+            transactionCount === undefined
+              ? 'Search transactions...'
+              : `Search ${transactionCount} transactions...`
+          }
           aria-label="Search transactions"
-          className="w-full pl-8 pr-8 py-1.5 text-sm rounded-lg border border-(--monarch-border) bg-(--monarch-bg-page) text-(--monarch-text-dark) placeholder:text-(--monarch-text-muted) focus:outline-none focus:border-(--monarch-orange) focus:ring-1 focus:ring-(--monarch-orange)/20"
+          className={`w-full pl-8 ${value ? 'pr-8' : 'pr-2'} py-1.5 text-sm rounded-lg border border-(--monarch-border) bg-(--monarch-bg-page) text-(--monarch-text-dark) placeholder:text-(--monarch-text-muted) focus:outline-none focus:border-(--monarch-orange) focus:ring-1 focus:ring-(--monarch-orange)/20`}
         />
         {value && (
           <button
@@ -54,6 +65,7 @@ export function TransactionSearchBar({ value, onChange }: TransactionSearchBarPr
           </button>
         )}
       </div>
+      {trailing}
     </div>
   );
 }

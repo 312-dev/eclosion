@@ -114,21 +114,29 @@ export function DateRangeFilter({ value, onChange }: DateRangeFilterProps) {
   })();
 
   return (
-    <div className="relative">
+    <div className="relative self-stretch">
       <button
         ref={triggerRef}
         type="button"
         onClick={toggle}
-        className="flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg border border-(--monarch-border) bg-(--monarch-bg-card) hover:border-(--monarch-text-muted) transition-colors"
+        className="flex items-center gap-2 px-3 h-full text-sm rounded-lg border border-(--monarch-border) bg-(--monarch-bg-page) hover:border-(--monarch-text-muted) transition-colors"
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         aria-label="Select date range"
       >
-        <Calendar size={14} className="text-(--monarch-text-muted)" aria-hidden="true" />
-        <span className="text-(--monarch-text-dark)">{displayLabel}</span>
+        <span className="relative shrink-0">
+          <Calendar size={14} className="text-(--monarch-text-muted)" aria-hidden="true" />
+          {value.preset !== 'all_time' && (
+            <span
+              className="sm:hidden absolute -top-1 -right-1 w-2 h-2 rounded-full bg-(--monarch-orange)"
+              aria-hidden="true"
+            />
+          )}
+        </span>
+        <span className="hidden sm:inline text-(--monarch-text-dark)">{displayLabel}</span>
         <ChevronDown
           size={14}
-          className={`text-(--monarch-text-muted) transition-transform ${isOpen ? 'rotate-180' : ''}`}
+          className={`hidden sm:block text-(--monarch-text-muted) transition-transform ${isOpen ? 'rotate-180' : ''}`}
           aria-hidden="true"
         />
       </button>

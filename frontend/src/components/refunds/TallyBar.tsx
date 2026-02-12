@@ -5,122 +5,138 @@
  * transaction count, total amount, matched refund amount, and remaining balance.
  */
 
-import { Filter, FilterX } from 'lucide-react';
+import type React from 'react';
 import type { RefundsTally } from '../../types/refunds';
-import { Tooltip } from '../ui/Tooltip';
 
 interface TallyBarProps {
   readonly tally: RefundsTally;
-  readonly totalCount?: number | undefined;
-  readonly onResetFilter?: (() => void) | undefined;
 }
 
 function formatCurrency(amount: number): string {
-  return `$${Math.abs(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `$${Math.round(Math.abs(amount)).toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
 }
 
-export function TallyBar({ tally, totalCount, onResetFilter }: TallyBarProps) {
+function StatItem({
+  label,
+  value,
+  colorClass,
+  colorStyle,
+  valueFirst,
+}: {
+  readonly label: string;
+  readonly value: string;
+  readonly colorClass?: string | undefined;
+  readonly colorStyle?: string | undefined;
+  readonly valueFirst?: boolean | undefined;
+}): React.JSX.Element {
+  if (valueFirst) {
+    return (
+      <div className="min-w-0 text-center">
+        <div
+          className={`text-sm font-medium tabular-nums ${colorClass ?? ''}`}
+          style={colorStyle ? { color: colorStyle } : undefined}
+        >
+          {value}
+        </div>
+        <div className="text-[10px] font-medium uppercase tracking-wider text-(--monarch-text-muted)">
+          {label}
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="min-w-0">
+      <div className="text-[10px] font-medium uppercase tracking-wider text-(--monarch-text-muted)">
+        {label}
+      </div>
+      <div
+        className={`text-sm font-medium tabular-nums ${colorClass ?? ''}`}
+        style={colorStyle ? { color: colorStyle } : undefined}
+      >
+        {value}
+      </div>
+    </div>
+  );
+}
+
+export function TallyBar({ tally }: TallyBarProps) {
   const isFullyRefunded = tally.remainingAmount <= 0;
-  const isFiltered = totalCount !== undefined && totalCount > tally.transactionCount;
+  const hasExpected = tally.expectedAmount > 0;
 
   return (
     <output
       className="sticky top-0 z-10 border-b border-(--monarch-border) bg-(--monarch-bg-card) px-4 py-3 block"
       aria-label="Refunds summary"
     >
-      {/* Row 1: count + status breakdown */}
-      <div className="flex items-center justify-between gap-4 text-sm">
-        <span className="flex items-center gap-1.5 text-(--monarch-text-muted)">
-          {isFiltered && onResetFilter && (
-            <Tooltip content="Clear filter" side="top">
-              <button
-                type="button"
-                onClick={onResetFilter}
-                className="group inline-flex items-center text-(--monarch-orange) rounded transition-colors hover:bg-(--monarch-orange)/10 p-0.5 -m-0.5"
-                aria-label="Clear filter"
-              >
-                <Filter size={12} className="group-hover:hidden" aria-hidden="true" />
-                <FilterX size={12} className="hidden group-hover:block" aria-hidden="true" />
-              </button>
-            </Tooltip>
-          )}
-          {isFiltered && !onResetFilter && (
-            <Filter size={12} className="text-(--monarch-orange)" aria-hidden="true" />
-          )}
-          <span>
-            <span className="font-medium text-(--monarch-text-dark)">
-              {isFiltered ? `${tally.transactionCount} of ${totalCount}` : tally.transactionCount}
-            </span>{' '}
-            transaction{tally.transactionCount === 1 && !isFiltered ? '' : 's'}
-          </span>
-        </span>
-
-        {(tally.matchedCount > 0 || tally.expectedCount > 0 || tally.skippedCount > 0) && (
-          <span className="flex items-center gap-3 text-xs text-(--monarch-text-muted)">
-            {tally.unmatchedCount > 0 && (
-              <span className="flex items-center gap-1">
-                <span className="inline-block w-1.5 h-1.5 rounded-full bg-(--monarch-orange)" />
-                {tally.unmatchedCount} pending
-              </span>
-            )}
-            {tally.matchedCount > 0 && (
-              <span className="flex items-center gap-1">
-                <span className="inline-block w-1.5 h-1.5 rounded-full bg-(--monarch-success)" />
-                {tally.matchedCount} matched
-              </span>
-            )}
-            {tally.expectedCount > 0 && (
-              <span className="flex items-center gap-1">
-                <span
-                  className="inline-block w-1.5 h-1.5 rounded-full"
-                  style={{ backgroundColor: 'var(--monarch-accent)' }}
-                />
-                {tally.expectedCount} expected
-              </span>
-            )}
-            {tally.skippedCount > 0 && (
-              <span className="flex items-center gap-1">
-                <span
-                  className="inline-block w-1.5 h-1.5 rounded-full"
-                  style={{ backgroundColor: 'var(--monarch-text-muted)' }}
-                />
-                {tally.skippedCount} skipped
-              </span>
-            )}
-          </span>
+      {/* Financial summary — mobile stat row */}
+      <div className="flex items-stretch gap-4 sm:hidden">
+        <div className="flex-1">
+          <StatItem
+            label="Refunds"
+            value={formatCurrency(tally.matchedAmount)}
+            colorClass="text-(--monarch-success)"
+            valueFirst
+          />
+        </div>
+        {hasExpected && (
+          <>
+            <div className="w-px self-stretch my-0.5 bg-(--monarch-border)" aria-hidden="true" />
+            <div className="flex-1">
+              <StatItem
+                label="Expected"
+                value={formatCurrency(tally.expectedAmount)}
+                colorStyle="var(--monarch-accent)"
+                valueFirst
+              />
+            </div>
+          </>
         )}
+        <div className="w-px self-stretch my-0.5 bg-(--monarch-border)" aria-hidden="true" />
+        <div className="flex-1">
+          <StatItem
+            label="Remaining"
+            value={formatCurrency(tally.remainingAmount)}
+            colorClass={isFullyRefunded ? 'text-(--monarch-success)' : 'text-(--monarch-orange)'}
+            valueFirst
+          />
+        </div>
       </div>
 
-      {/* Row 2: financial summary */}
-      <div className="flex items-center gap-4 mt-1.5 text-sm flex-wrap">
-        <span className="text-(--monarch-text-muted)">
-          Refunded{' '}
-          <span className="font-medium text-(--monarch-success)">
+      {/* Financial summary — desktop inline */}
+      <div className="hidden sm:flex items-center gap-6 text-sm flex-wrap">
+        <span className="flex items-center gap-2">
+          <span className="font-semibold text-base tabular-nums text-(--monarch-success)">
             {formatCurrency(tally.matchedAmount)}
           </span>
+          <span className="text-xs font-medium uppercase tracking-wider text-(--monarch-text-muted)">
+            Refunds
+          </span>
         </span>
-        {tally.expectedAmount > 0 && (
+        {hasExpected && (
           <>
-            <span className="text-(--monarch-text-muted) opacity-30" aria-hidden="true">
-              &middot;
-            </span>
-            <span className="text-(--monarch-text-muted)">
-              Expected{' '}
-              <span className="font-medium" style={{ color: 'var(--monarch-accent)' }}>
+            <div className="w-px self-stretch my-0.5 bg-(--monarch-border)" aria-hidden="true" />
+            <span className="flex items-center gap-2">
+              <span
+                className="font-semibold text-base tabular-nums"
+                style={{ color: 'var(--monarch-accent)' }}
+              >
                 {formatCurrency(tally.expectedAmount)}
+              </span>
+              <span className="text-xs font-medium uppercase tracking-wider text-(--monarch-text-muted)">
+                Expected
               </span>
             </span>
           </>
         )}
-        <span className="text-(--monarch-text-muted) opacity-30" aria-hidden="true">
-          &middot;
-        </span>
-        <span className="text-(--monarch-text-muted)">
-          Remaining{' '}
+        <div className="w-px self-stretch my-0.5 bg-(--monarch-border)" aria-hidden="true" />
+        <span className="flex items-center gap-2">
           <span
-            className={`font-medium ${isFullyRefunded ? 'text-(--monarch-success)' : 'text-(--monarch-orange)'}`}
+            className={`font-semibold text-base tabular-nums ${isFullyRefunded ? 'text-(--monarch-success)' : 'text-(--monarch-orange)'}`}
           >
             {formatCurrency(tally.remainingAmount)}
+          </span>
+          <span className="text-xs font-medium uppercase tracking-wider text-(--monarch-text-muted)">
+            Remaining
           </span>
         </span>
       </div>
