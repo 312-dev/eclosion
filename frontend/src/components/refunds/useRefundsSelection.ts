@@ -1,22 +1,22 @@
 /**
- * Selection-derived state and batch action handlers for the Refundables feature.
- * Extracted from RefundablesTab to keep component under 300-line limit.
+ * Selection-derived state and batch action handlers for the Refunds feature.
+ * Extracted from RefundsTab to keep component under 300-line limit.
  *
  * Selection ID state (useState) is owned by the parent; this hook computes
  * derived values and action handlers from it.
  */
 
 import { useMemo, useCallback } from 'react';
-import type { Transaction, RefundablesMatch } from '../../types/refundables';
+import type { Transaction, RefundsMatch } from '../../types/refunds';
 
-export type SelectionState = 'unmatched' | 'matched' | 'skipped' | 'mixed';
+export type SelectionState = 'unmatched' | 'matched' | 'skipped' | 'expected' | 'mixed';
 
 interface SelectionParams {
   readonly selectedIds: Set<string>;
   readonly setSelectedIds: React.Dispatch<React.SetStateAction<Set<string>>>;
   readonly activeTransactions: Transaction[];
   readonly skippedTransactions: Transaction[];
-  readonly matches: RefundablesMatch[];
+  readonly matches: RefundsMatch[];
   readonly handleDirectSkip: (transaction: Transaction) => Promise<void>;
   readonly handleDirectUnmatch: (transaction: Transaction) => Promise<void>;
   readonly handleRestore: (transaction: Transaction) => Promise<void>;
@@ -29,10 +29,19 @@ interface SelectionActions {
   handleBatchSkip: () => Promise<void>;
   handleBatchUnmatch: () => Promise<void>;
   handleBatchRestore: () => Promise<void>;
+  handleBatchClearExpected: () => Promise<void>;
   clearSelection: () => void;
 }
 
-export function useRefundablesSelection({
+function classifyTransaction(
+  match: RefundsMatch | undefined
+): 'unmatched' | 'matched' | 'expected' {
+  if (match?.expectedRefund) return 'expected';
+  if (match && !match.skipped) return 'matched';
+  return 'unmatched';
+}
+
+export function useRefundsSelection({
   selectedIds,
   setSelectedIds,
   activeTransactions,
@@ -57,26 +66,21 @@ export function useRefundablesSelection({
 
   const selectionState: SelectionState = useMemo(() => {
     if (selectedIds.size === 0) return 'unmatched';
-    let hasUnmatched = false;
-    let hasMatched = false;
-    let hasSkipped = false;
+    const flags = { unmatched: false, matched: false, skipped: false, expected: false };
     for (const txn of activeTransactions) {
       if (!selectedIds.has(txn.id)) continue;
       const match = matches.find((m) => m.originalTransactionId === txn.id);
-      if (match && !match.skipped) {
-        hasMatched = true;
-      } else {
-        hasUnmatched = true;
-      }
+      const cls = classifyTransaction(match);
+      flags[cls] = true;
     }
     for (const txn of skippedTransactions) {
-      if (!selectedIds.has(txn.id)) continue;
-      hasSkipped = true;
+      if (selectedIds.has(txn.id)) flags.skipped = true;
     }
-    const stateCount = [hasUnmatched, hasMatched, hasSkipped].filter(Boolean).length;
-    if (stateCount > 1) return 'mixed';
-    if (hasMatched) return 'matched';
-    if (hasSkipped) return 'skipped';
+    const count = Object.values(flags).filter(Boolean).length;
+    if (count > 1) return 'mixed';
+    if (flags.expected) return 'expected';
+    if (flags.matched) return 'matched';
+    if (flags.skipped) return 'skipped';
     return 'unmatched';
   }, [selectedIds, activeTransactions, skippedTransactions, matches]);
 
@@ -121,6 +125,14 @@ export function useRefundablesSelection({
     setSelectedIds(new Set());
   }, [skippedTransactions, selectedIds, handleRestore, setSelectedIds]);
 
+  const handleBatchClearExpected = useCallback(async () => {
+    const toClear = activeTransactions.filter((txn) => selectedIds.has(txn.id));
+    for (const txn of toClear) {
+      await handleDirectUnmatch(txn);
+    }
+    setSelectedIds(new Set());
+  }, [activeTransactions, selectedIds, handleDirectUnmatch, setSelectedIds]);
+
   return {
     selectedAmount,
     selectionState,
@@ -128,6 +140,7 @@ export function useRefundablesSelection({
     handleBatchSkip,
     handleBatchUnmatch,
     handleBatchRestore,
+    handleBatchClearExpected,
     clearSelection,
   };
 }

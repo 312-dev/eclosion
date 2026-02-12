@@ -26,10 +26,10 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { Plus, Pencil } from 'lucide-react';
 import { HorizontalTabsScroll } from '../ui/HorizontalTabsScroll';
-import type { RefundablesSavedView } from '../../types/refundables';
+import type { RefundsSavedView } from '../../types/refunds';
 
 interface ViewTabsProps {
-  readonly views: RefundablesSavedView[];
+  readonly views: RefundsSavedView[];
   readonly activeViewId: string | null;
   readonly viewCounts?: Record<string, number> | undefined;
   readonly onSelectView: (viewId: string) => void;
@@ -46,7 +46,7 @@ const SortableViewTab = React.memo(function SortableViewTab({
   onSelect,
   onEdit,
 }: {
-  view: RefundablesSavedView;
+  view: RefundsSavedView;
   isActive: boolean;
   badge?: number | undefined;
   onSelect: () => void;
@@ -75,12 +75,20 @@ const SortableViewTab = React.memo(function SortableViewTab({
     }
   };
 
+  const handleTabKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      onSelect();
+    }
+  };
+
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      <button
-        type="button"
-        onClick={onSelect}
+      <div
         role="tab"
+        tabIndex={0}
+        onClick={onSelect}
+        onKeyDown={handleTabKeyDown}
         aria-selected={isActive}
         className={`flex items-center gap-1.5 px-2.5 py-1.5 text-sm font-medium whitespace-nowrap rounded-lg transition-colors shrink-0 ${
           isDragging ? 'cursor-grabbing' : 'cursor-grab'
@@ -115,7 +123,7 @@ const SortableViewTab = React.memo(function SortableViewTab({
             <Pencil size={12} aria-hidden="true" />
           </button>
         )}
-      </button>
+      </div>
     </div>
   );
 });

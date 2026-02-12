@@ -1,10 +1,10 @@
 /**
- * Demo data constants for the Refundables feature.
+ * Demo data constants for the Refunds feature.
  *
- * Extracted from demoRefundables.ts to keep file sizes under the 300-line limit.
+ * Extracted from demoRefunds.ts to keep file sizes under the 300-line limit.
  */
 
-import type { Transaction, TransactionTag } from '../../types/refundables';
+import type { Transaction, TransactionTag } from '../../types/refunds';
 
 // ---- Demo Tags ----
 

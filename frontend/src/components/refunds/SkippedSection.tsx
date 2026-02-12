@@ -6,11 +6,11 @@
 
 import { ChevronDown } from 'lucide-react';
 import { TransactionList } from './TransactionList';
-import type { Transaction, RefundablesMatch } from '../../types/refundables';
+import type { Transaction, RefundsMatch } from '../../types/refunds';
 
 interface SkippedSectionProps {
   readonly transactions: Transaction[];
-  readonly matches: RefundablesMatch[];
+  readonly matches: RefundsMatch[];
   readonly selectedIds: ReadonlySet<string>;
   readonly onToggleSelect: (txn: Transaction) => void;
   readonly isOpen: boolean;

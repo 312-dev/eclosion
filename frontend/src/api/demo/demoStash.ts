@@ -20,6 +20,7 @@ import type {
 } from '../../types';
 import { calculateProgressPercent, calculateShortfall } from '../../utils/savingsCalculations';
 import { recomputeItem, recomputeTotals } from './demoStashUtils';
+import { DEMO_ACCOUNTS } from './demoAccounts';
 
 // Re-export CRUD operations
 export {
@@ -585,59 +586,10 @@ export async function getAvailableToStashData(): Promise<AvailableToStashData> {
       balance: item.current_balance,
     }));
 
-  // Define all accounts
-  const allAccounts = [
-    // Cash accounts
-    {
-      id: 'demo-checking',
-      name: 'Chase Checking',
-      balance: 5200,
-      accountType: 'checking',
-      isEnabled: true,
-    },
-    {
-      id: 'demo-savings',
-      name: 'Ally Savings',
-      balance: 8500,
-      accountType: 'savings',
-      isEnabled: true,
-    },
-    // Credit card (positive balance = debt owed)
-    {
-      id: 'demo-credit',
-      name: 'Chase Sapphire',
-      balance: 1850,
-      accountType: 'credit_card',
-      isEnabled: true,
-    },
-    // Loan accounts for debt tracking (using Monarch's loan subtypes)
-    {
-      id: 'demo-student-loan',
-      name: 'Federal Student Loans',
-      balance: 24500,
-      accountType: 'student',
-      isEnabled: true,
-    },
-    {
-      id: 'demo-car-loan',
-      name: 'Honda Civic Auto Loan',
-      balance: 12800,
-      accountType: 'auto',
-      isEnabled: true,
-    },
-    {
-      id: 'demo-mortgage',
-      name: 'Home Mortgage',
-      balance: 285000,
-      accountType: 'mortgage',
-      isEnabled: true,
-    },
-  ];
-
   // Apply filtering if specific accounts selected
-  let accounts = allAccounts;
+  let accounts = [...DEMO_ACCOUNTS];
   if (selectedIds !== null) {
-    accounts = allAccounts.filter((acc) => {
+    accounts = DEMO_ACCOUNTS.filter((acc) => {
       // Always include credit cards
       if (acc.accountType === 'credit_card') return true;
       // For cash accounts, check if in selection

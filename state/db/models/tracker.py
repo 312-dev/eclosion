@@ -348,15 +348,15 @@ class MonarchGoalLayout(Base):
     )
 
 
-class RefundablesConfig(Base):
+class RefundsConfig(Base):
     """
-    Refundables feature configuration.
+    Refunds feature configuration.
 
     Single row table containing tool-wide settings like tag replacement
     preferences for when refunds are matched.
     """
 
-    __tablename__ = "refundables_config"
+    __tablename__ = "refunds_config"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
 
@@ -377,18 +377,18 @@ class RefundablesConfig(Base):
         onupdate=lambda: datetime.now(UTC),
     )
 
-    __table_args__ = (CheckConstraint("id = 1", name="single_row_refundables_config"),)
+    __table_args__ = (CheckConstraint("id = 1", name="single_row_refunds_config"),)
 
 
-class RefundablesSavedView(Base):
+class RefundsSavedView(Base):
     """
-    Saved view for the Refundables feature.
+    Saved view for the Refunds feature.
 
     Each view represents a tab filtered by one or more Monarch transaction tags.
     Users can create, rename, reorder, and delete views.
     """
 
-    __tablename__ = "refundables_saved_views"
+    __tablename__ = "refunds_saved_views"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)  # UUID
     name: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -405,7 +405,7 @@ class RefundablesSavedView(Base):
     )
 
 
-class RefundablesMatch(Base):
+class RefundsMatch(Base):
     """
     Refund match linking an original transaction to its refund transaction.
 
@@ -413,7 +413,7 @@ class RefundablesMatch(Base):
     Match details are also written to the original transaction's notes in Monarch.
     """
 
-    __tablename__ = "refundables_matches"
+    __tablename__ = "refunds_matches"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)  # UUID
     original_transaction_id: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
@@ -423,6 +423,12 @@ class RefundablesMatch(Base):
     refund_date: Mapped[str | None] = mapped_column(String(20), nullable=True)
     refund_account: Mapped[str | None] = mapped_column(String(255), nullable=True)
     skipped: Mapped[bool] = mapped_column(Boolean, default=False)
+    expected_refund: Mapped[bool] = mapped_column(Boolean, default=False)
+    expected_date: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    expected_account: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    expected_account_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    expected_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    expected_amount: Mapped[float | None] = mapped_column(Float, nullable=True)
     transaction_data: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(

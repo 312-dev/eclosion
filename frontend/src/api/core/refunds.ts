@@ -1,31 +1,31 @@
 /**
- * Refundables API
+ * Refunds API
  *
- * API functions for the Refundables feature - tracking purchases
+ * API functions for the Refunds feature - tracking purchases
  * awaiting refunds/reimbursements.
  */
 
 import type {
-  RefundablesConfig,
-  RefundablesMatch,
-  RefundablesSavedView,
+  RefundsConfig,
+  RefundsMatch,
+  RefundsSavedView,
   Transaction,
   TransactionTag,
   CreateMatchRequest,
-} from '../../types/refundables';
+} from '../../types/refunds';
 
 import { fetchApi } from './fetchApi';
 
 // ---- Config ----
 
-export async function getRefundablesConfig(): Promise<RefundablesConfig> {
-  return fetchApi<RefundablesConfig>('/refundables/config');
+export async function getRefundsConfig(): Promise<RefundsConfig> {
+  return fetchApi<RefundsConfig>('/refunds/config');
 }
 
-export async function updateRefundablesConfig(
-  updates: Partial<RefundablesConfig>
+export async function updateRefundsConfig(
+  updates: Partial<RefundsConfig>
 ): Promise<{ success: boolean }> {
-  return fetchApi('/refundables/config', {
+  return fetchApi('/refunds/config', {
     method: 'PATCH',
     body: JSON.stringify(updates),
   });
@@ -33,47 +33,47 @@ export async function updateRefundablesConfig(
 
 // ---- Tags ----
 
-export async function getRefundablesTags(): Promise<TransactionTag[]> {
-  const result = await fetchApi<{ tags: TransactionTag[] }>('/refundables/tags');
+export async function getRefundsTags(): Promise<TransactionTag[]> {
+  const result = await fetchApi<{ tags: TransactionTag[] }>('/refunds/tags');
   return result.tags;
 }
 
 // ---- Saved Views ----
 
-export async function getRefundablesViews(): Promise<RefundablesSavedView[]> {
-  const result = await fetchApi<{ views: RefundablesSavedView[] }>('/refundables/views');
+export async function getRefundsViews(): Promise<RefundsSavedView[]> {
+  const result = await fetchApi<{ views: RefundsSavedView[] }>('/refunds/views');
   return result.views;
 }
 
-export async function createRefundablesView(
+export async function createRefundsView(
   name: string,
   tagIds: string[],
   categoryIds: string[] | null
-): Promise<RefundablesSavedView> {
-  return fetchApi<RefundablesSavedView>('/refundables/views', {
+): Promise<RefundsSavedView> {
+  return fetchApi<RefundsSavedView>('/refunds/views', {
     method: 'POST',
     body: JSON.stringify({ name, tagIds, categoryIds }),
   });
 }
 
-export async function updateRefundablesView(
+export async function updateRefundsView(
   viewId: string,
-  updates: Partial<Pick<RefundablesSavedView, 'name' | 'tagIds' | 'categoryIds' | 'sortOrder'>>
+  updates: Partial<Pick<RefundsSavedView, 'name' | 'tagIds' | 'categoryIds' | 'sortOrder'>>
 ): Promise<{ success: boolean }> {
-  return fetchApi(`/refundables/views/${viewId}`, {
+  return fetchApi(`/refunds/views/${viewId}`, {
     method: 'PATCH',
     body: JSON.stringify(updates),
   });
 }
 
-export async function deleteRefundablesView(viewId: string): Promise<{ success: boolean }> {
-  return fetchApi(`/refundables/views/${viewId}`, {
+export async function deleteRefundsView(viewId: string): Promise<{ success: boolean }> {
+  return fetchApi(`/refunds/views/${viewId}`, {
     method: 'DELETE',
   });
 }
 
-export async function reorderRefundablesViews(viewIds: string[]): Promise<{ success: boolean }> {
-  return fetchApi('/refundables/views/reorder', {
+export async function reorderRefundsViews(viewIds: string[]): Promise<{ success: boolean }> {
+  return fetchApi('/refunds/views/reorder', {
     method: 'POST',
     body: JSON.stringify({ viewIds }),
   });
@@ -81,32 +81,32 @@ export async function reorderRefundablesViews(viewIds: string[]): Promise<{ succ
 
 // ---- Transactions ----
 
-export async function getRefundablesTransactions(
+export async function getRefundsTransactions(
   tagIds: string[],
   startDate?: string | null,
   endDate?: string | null,
   categoryIds?: string[] | null
 ): Promise<Transaction[]> {
-  const result = await fetchApi<{ transactions: Transaction[] }>('/refundables/transactions', {
+  const result = await fetchApi<{ transactions: Transaction[] }>('/refunds/transactions', {
     method: 'POST',
     body: JSON.stringify({ tagIds, startDate, endDate, categoryIds }),
   });
   return result.transactions;
 }
 
-export interface SearchRefundablesResult {
+export interface SearchRefundsResult {
   transactions: Transaction[];
   nextCursor: number | null;
 }
 
-export async function searchRefundablesTransactions(
+export async function searchRefundsTransactions(
   search: string,
   startDate?: string | null,
   endDate?: string | null,
   limit?: number,
   cursor?: number
-): Promise<SearchRefundablesResult> {
-  return fetchApi<SearchRefundablesResult>('/refundables/search', {
+): Promise<SearchRefundsResult> {
+  return fetchApi<SearchRefundsResult>('/refunds/search', {
     method: 'POST',
     body: JSON.stringify({ search: search || undefined, startDate, endDate, limit, cursor }),
   });
@@ -114,31 +114,31 @@ export async function searchRefundablesTransactions(
 
 // ---- Pending Count ----
 
-export async function getRefundablesPendingCount(): Promise<{
+export async function getRefundsPendingCount(): Promise<{
   count: number;
   viewCounts: Record<string, number>;
 }> {
-  return fetchApi('/refundables/pending-count');
+  return fetchApi('/refunds/pending-count');
 }
 
 // ---- Matches ----
 
-export async function getRefundablesMatches(): Promise<RefundablesMatch[]> {
-  const result = await fetchApi<{ matches: RefundablesMatch[] }>('/refundables/matches');
+export async function getRefundsMatches(): Promise<RefundsMatch[]> {
+  const result = await fetchApi<{ matches: RefundsMatch[] }>('/refunds/matches');
   return result.matches;
 }
 
-export async function createRefundablesMatch(
+export async function createRefundsMatch(
   request: CreateMatchRequest
 ): Promise<{ success: boolean }> {
-  return fetchApi('/refundables/match', {
+  return fetchApi('/refunds/match', {
     method: 'POST',
     body: JSON.stringify(request),
   });
 }
 
-export async function deleteRefundablesMatch(matchId: string): Promise<{ success: boolean }> {
-  return fetchApi(`/refundables/match/${matchId}`, {
+export async function deleteRefundsMatch(matchId: string): Promise<{ success: boolean }> {
+  return fetchApi(`/refunds/match/${matchId}`, {
     method: 'DELETE',
   });
 }

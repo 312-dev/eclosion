@@ -27,6 +27,7 @@ export const queryKeys = {
   checkboxStates: ['checkboxStates'] as const,
   // Shared stores (normalized caches)
   categoryStore: ['categoryStore'] as const,
+  accountStore: ['accountStore'] as const,
   // Stash
   stash: ['stash'] as const,
   stashConfig: ['stashConfig'] as const,
@@ -47,13 +48,13 @@ export const queryKeys = {
   openverseSearch: ['openverseSearch'] as const,
   // Reddit updates feed
   updates: ['updates'] as const,
-  // Refundables
-  refundablesConfig: ['refundablesConfig'] as const,
-  refundablesTags: ['refundablesTags'] as const,
-  refundablesViews: ['refundablesViews'] as const,
-  refundablesTransactions: ['refundablesTransactions'] as const,
-  refundablesMatches: ['refundablesMatches'] as const,
-  refundablesPendingCount: ['refundablesPendingCount'] as const,
+  // Refunds
+  refundsConfig: ['refundsConfig'] as const,
+  refundsTags: ['refundsTags'] as const,
+  refundsViews: ['refundsViews'] as const,
+  refundsTransactions: ['refundsTransactions'] as const,
+  refundsMatches: ['refundsMatches'] as const,
+  refundsPendingCount: ['refundsPendingCount'] as const,
 };
 
 /**

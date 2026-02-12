@@ -4,7 +4,7 @@
  */
 
 import { Search, Check, ChevronDown } from 'lucide-react';
-import type { TransactionTag } from '../../types/refundables';
+import type { TransactionTag } from '../../types/refunds';
 
 interface CategoryInfo {
   id: string;

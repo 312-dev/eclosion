@@ -22,7 +22,7 @@ import { queryKeys } from './keys';
 export type QueryKeyName = keyof typeof queryKeys;
 
 /** Page identifiers for page-specific sync */
-export type PageName = 'recurring' | 'stash' | 'notes' | 'refundables' | 'settings';
+export type PageName = 'recurring' | 'stash' | 'notes' | 'refunds' | 'settings';
 
 /** Mutation types that affect query caches */
 export type MutationType =
@@ -73,14 +73,14 @@ export type MutationType =
   | 'importSettings'
   // Acknowledgement mutations
   | 'updateAcknowledgements'
-  // Refundables mutations
-  | 'updateRefundablesConfig'
-  | 'createRefundablesView'
-  | 'updateRefundablesView'
-  | 'deleteRefundablesView'
-  | 'reorderRefundablesViews'
-  | 'createRefundablesMatch'
-  | 'deleteRefundablesMatch';
+  // Refunds mutations
+  | 'updateRefundsConfig'
+  | 'createRefundsView'
+  | 'updateRefundsView'
+  | 'deleteRefundsView'
+  | 'reorderRefundsViews'
+  | 'createRefundsMatch'
+  | 'deleteRefundsMatch';
 
 /** Configuration for a query's refresh behavior */
 export interface QueryConfig {
@@ -155,6 +155,12 @@ export const queryConfig: Record<QueryKeyName, QueryConfig> = {
     pollable: false,
   },
   categoryStore: {
+    dependsOn: [],
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
+    pollable: false,
+  },
+  accountStore: {
     dependsOn: [],
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 10 * 60 * 1000, // 10 minutes
@@ -307,34 +313,34 @@ export const queryConfig: Record<QueryKeyName, QueryConfig> = {
     pollable: false,
   },
 
-  // Refundables
-  refundablesConfig: {
+  // Refunds
+  refundsConfig: {
     dependsOn: [],
     staleTime: 5 * 60 * 1000, // 5 minutes
     pollable: false,
   },
-  refundablesTags: {
+  refundsTags: {
     dependsOn: [],
     staleTime: 5 * 60 * 1000, // 5 minutes
     pollable: false,
   },
-  refundablesViews: {
+  refundsViews: {
     dependsOn: [],
     staleTime: 5 * 60 * 1000, // 5 minutes
     pollable: false,
   },
-  refundablesTransactions: {
+  refundsTransactions: {
     dependsOn: [],
     staleTime: 1 * 60 * 1000, // 1 minute
     pollable: false,
   },
-  refundablesMatches: {
+  refundsMatches: {
     dependsOn: [],
     staleTime: 5 * 60 * 1000, // 5 minutes
     pollable: false,
   },
-  refundablesPendingCount: {
-    dependsOn: ['refundablesViews', 'refundablesMatches'],
+  refundsPendingCount: {
+    dependsOn: ['refundsViews', 'refundsMatches'],
     staleTime: 10 * 60 * 1000, // 10 minutes (expensive Monarch API call)
     pollable: false,
   },
@@ -352,13 +358,13 @@ export const queryConfig: Record<QueryKeyName, QueryConfig> = {
 export const mutationEffects: Record<MutationType, MutationEffect> = {
   // Recurring mutations
   sync: {
-    invalidate: ['dashboard', 'categoryStore', 'stash', 'availableToStash'],
+    invalidate: ['dashboard', 'categoryStore', 'accountStore', 'stash', 'availableToStash'],
     markStale: [
       'monarchGoals',
       'stashHistory',
       'categoryGroups',
-      'refundablesTransactions',
-      'refundablesTags',
+      'refundsTransactions',
+      'refundsTags',
     ],
   },
   toggleItem: {
@@ -416,8 +422,8 @@ export const mutationEffects: Record<MutationType, MutationEffect> = {
 
   // Stash mutations
   stashSync: {
-    invalidate: ['stash', 'availableToStash', 'monarchGoals'],
-    markStale: ['dashboard', 'stashHistory', 'refundablesTransactions', 'refundablesTags'],
+    invalidate: ['stash', 'availableToStash', 'accountStore', 'monarchGoals'],
+    markStale: ['dashboard', 'stashHistory', 'refundsTransactions', 'refundsTags'],
   },
   createStash: {
     invalidate: ['stash', 'availableToStash'],
@@ -534,33 +540,33 @@ export const mutationEffects: Record<MutationType, MutationEffect> = {
     markStale: [],
   },
 
-  // Refundables mutations
-  updateRefundablesConfig: {
-    invalidate: ['refundablesConfig'],
-    markStale: ['refundablesPendingCount'],
+  // Refunds mutations
+  updateRefundsConfig: {
+    invalidate: ['refundsConfig'],
+    markStale: ['refundsPendingCount'],
   },
-  createRefundablesView: {
-    invalidate: ['refundablesViews'],
+  createRefundsView: {
+    invalidate: ['refundsViews'],
     markStale: [],
   },
-  updateRefundablesView: {
-    invalidate: ['refundablesViews'],
+  updateRefundsView: {
+    invalidate: ['refundsViews'],
     markStale: [],
   },
-  deleteRefundablesView: {
-    invalidate: ['refundablesViews'],
+  deleteRefundsView: {
+    invalidate: ['refundsViews'],
     markStale: [],
   },
-  reorderRefundablesViews: {
-    invalidate: ['refundablesViews'],
+  reorderRefundsViews: {
+    invalidate: ['refundsViews'],
     markStale: [],
   },
-  createRefundablesMatch: {
-    invalidate: ['refundablesMatches', 'refundablesTransactions', 'refundablesPendingCount'],
+  createRefundsMatch: {
+    invalidate: ['refundsMatches', 'refundsTransactions', 'refundsPendingCount'],
     markStale: [],
   },
-  deleteRefundablesMatch: {
-    invalidate: ['refundablesMatches', 'refundablesTransactions', 'refundablesPendingCount'],
+  deleteRefundsMatch: {
+    invalidate: ['refundsMatches', 'refundsTransactions', 'refundsPendingCount'],
     markStale: [],
   },
 };
@@ -581,7 +587,7 @@ export const pageQueryMap: Record<PageName, PageQueryRequirements> = {
   },
   stash: {
     primary: ['dashboard', 'stash', 'availableToStash', 'stashConfig'],
-    supporting: ['monarchGoals', 'pendingBookmarks'],
+    supporting: ['monarchGoals', 'pendingBookmarks', 'accountStore'],
     syncScope: 'stash',
   },
   notes: {
@@ -589,14 +595,14 @@ export const pageQueryMap: Record<PageName, PageQueryRequirements> = {
     supporting: ['categoryStore', 'archivedNotes'],
     syncScope: 'notes', // Notes don't need Monarch sync
   },
-  refundables: {
-    primary: ['refundablesTransactions', 'refundablesMatches'],
-    supporting: ['refundablesTags', 'refundablesViews', 'refundablesConfig'],
+  refunds: {
+    primary: ['refundsTransactions', 'refundsMatches'],
+    supporting: ['refundsTags', 'refundsViews', 'refundsConfig'],
     syncScope: 'notes', // No backend sync needed; data is fetched live from Monarch
   },
   settings: {
     primary: ['stashConfig'],
-    supporting: ['dashboard', 'categoryGroups'],
+    supporting: ['dashboard', 'categoryGroups', 'accountStore'],
     syncScope: 'full', // Settings may affect everything
   },
 };

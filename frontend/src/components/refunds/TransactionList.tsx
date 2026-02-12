@@ -6,11 +6,11 @@
 
 import { useMemo } from 'react';
 import { TransactionRow } from './TransactionRow';
-import type { Transaction, RefundablesMatch } from '../../types/refundables';
+import type { Transaction, RefundsMatch } from '../../types/refunds';
 
 interface TransactionListProps {
   readonly transactions: Transaction[];
-  readonly matches: RefundablesMatch[];
+  readonly matches: RefundsMatch[];
   readonly agingWarningDays: number;
   readonly selectedIds: ReadonlySet<string>;
   readonly onToggleSelect: (transaction: Transaction) => void;
@@ -60,7 +60,7 @@ export function TransactionList({
   onToggleSelect,
 }: TransactionListProps) {
   const matchesByOriginalId = useMemo(() => {
-    const map = new Map<string, RefundablesMatch>();
+    const map = new Map<string, RefundsMatch>();
     for (const m of matches) {
       map.set(m.originalTransactionId, m);
     }

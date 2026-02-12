@@ -186,8 +186,8 @@ export const FEATURES: FeatureDefinition[] = [
     ],
   },
   {
-    id: 'refundables',
-    name: 'Refundables',
+    id: 'refunds',
+    name: 'Refunds',
     tagline: 'Track purchases awaiting refunds',
     description:
       'Tag transactions in Monarch that need refunds or reimbursements, then match them to refund transactions when they arrive. Organize by type with saved views, track progress with a tally bar, and optionally replace tags when matched.',
@@ -204,7 +204,7 @@ export const FEATURES: FeatureDefinition[] = [
         icon: 'Filter',
         title: 'Saved Views',
         description:
-          'Create custom views that filter by tag and category. Organize refundables by type with reorderable tabs.',
+          'Create custom views that filter by tag and category. Organize refunds by type with reorderable tabs.',
       },
       {
         icon: 'CheckCircle',
@@ -219,12 +219,12 @@ export const FEATURES: FeatureDefinition[] = [
           'A summary bar shows total pending, matched, and skipped amounts so you always know where you stand.',
       },
     ],
-    demoPath: '/demo/refundables/',
-    appPath: '/refundables',
+    demoPath: '/demo/refunds/',
+    appPath: '/refunds',
     sourcePaths: [
-      'frontend/src/components/refundables/',
-      'services/refundables_service.py',
-      'blueprints/refundables.py',
+      'frontend/src/components/refunds/',
+      'services/refunds_service.py',
+      'blueprints/refunds.py',
     ],
   },
   {

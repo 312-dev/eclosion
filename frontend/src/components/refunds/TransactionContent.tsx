@@ -4,12 +4,7 @@ import { TallyBar } from './TallyBar';
 import { TransactionSearchBar } from './TransactionSearchBar';
 import { TransactionList } from './TransactionList';
 import { SkippedSection } from './SkippedSection';
-import type {
-  Transaction,
-  RefundablesMatch,
-  RefundablesConfig,
-  RefundablesTally,
-} from '../../types/refundables';
+import type { Transaction, RefundsMatch, RefundsConfig, RefundsTally } from '../../types/refunds';
 
 interface TransactionContentProps {
   readonly transactionsLoading: boolean;
@@ -17,9 +12,9 @@ interface TransactionContentProps {
   readonly activeTransactions: Transaction[];
   readonly skippedTransactions: Transaction[];
   readonly expenseTransactions: Transaction[];
-  readonly matches: RefundablesMatch[];
-  readonly config: RefundablesConfig | undefined;
-  readonly tally: RefundablesTally;
+  readonly matches: RefundsMatch[];
+  readonly config: RefundsConfig | undefined;
+  readonly tally: RefundsTally;
   readonly pendingCount: number;
   readonly selectedCategoryIds: string[] | null;
   readonly onResetCategoryFilter: () => void;

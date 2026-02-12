@@ -1,7 +1,7 @@
 /**
- * Refundables Tool Settings
+ * Refunds Tool Settings
  *
- * Settings component for the Refundables feature.
+ * Settings component for the Refunds feature.
  * Includes tag replacement, aging warning, and badge visibility settings.
  * Used by ToolSettingsModal from both the sidebar cog and the tool page header.
  */
@@ -14,24 +14,24 @@ import { ToggleSwitch } from './ToggleSwitch';
 import { SearchableSelect } from '../SearchableSelect';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import {
-  useRefundablesConfigQuery,
-  useRefundablesTagsQuery,
-  useUpdateRefundablesConfigMutation,
+  useRefundsConfigQuery,
+  useRefundsTagsQuery,
+  useUpdateRefundsConfigMutation,
 } from '../../api/queries';
 
-interface RefundablesToolSettingsProps {
+interface RefundsToolSettingsProps {
   defaultExpanded?: boolean;
   variant?: 'page' | 'modal';
 }
 
-export const RefundablesToolSettings = forwardRef<HTMLDivElement, RefundablesToolSettingsProps>(
-  function RefundablesToolSettings({ defaultExpanded = false, variant = 'page' }, ref) {
+export const RefundsToolSettings = forwardRef<HTMLDivElement, RefundsToolSettingsProps>(
+  function RefundsToolSettings({ defaultExpanded = false, variant = 'page' }, ref) {
     const [isExpanded, setIsExpanded] = useState(defaultExpanded);
     const toggleExpanded = useCallback(() => setIsExpanded((prev) => !prev), []);
 
-    const { data: config } = useRefundablesConfigQuery();
-    const { data: tags = [], isLoading: tagsLoading } = useRefundablesTagsQuery();
-    const updateConfig = useUpdateRefundablesConfigMutation();
+    const { data: config } = useRefundsConfigQuery();
+    const { data: tags = [], isLoading: tagsLoading } = useRefundsTagsQuery();
+    const updateConfig = useUpdateRefundsConfigMutation();
 
     const showBadge = config?.showBadge ?? true;
     const replacementTagId = config?.replacementTagId ?? '';
@@ -95,7 +95,7 @@ export const RefundablesToolSettings = forwardRef<HTMLDivElement, RefundablesToo
         {variant === 'page' && (
           <ToolSettingsHeader
             icon={<Undo2 size={20} />}
-            title="Refundables"
+            title="Refunds"
             description="Track purchases awaiting refunds or reimbursements"
             isActive={true}
             isExpanded={isExpanded}

@@ -5,12 +5,11 @@
  * Credit cards are always included (shown as disabled in UI).
  */
 
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { Wallet, CreditCard } from 'lucide-react';
 import { Portal } from '../Portal';
 import { CancelButton, PrimaryButton } from '../ui/ModalButtons';
-import { useAvailableToStashDataQuery } from '../../api/queries';
-import { isCashAccount, isCreditCardAccount } from '../../types/availableToStash';
+import { useCashAccounts, useCreditCardAccounts, useAccountStore } from '../../api/queries';
 import { decodeHtmlEntities } from '../../utils';
 
 /**
@@ -42,24 +41,10 @@ export function CashAccountSelectionModal({
   const [localSelection, setLocalSelection] = useState<string[] | null>(selectedAccountIds);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Fetch account data
-  const { data: availableData, isLoading } = useAvailableToStashDataQuery();
-
-  // Separate cash accounts and credit cards
-  const { cashAccounts, creditCards } = useMemo(() => {
-    if (!availableData) {
-      return { cashAccounts: [], creditCards: [] };
-    }
-
-    return {
-      cashAccounts: availableData.accounts.filter(
-        (acc) => acc.isEnabled && isCashAccount(acc.accountType)
-      ),
-      creditCards: availableData.accounts.filter(
-        (acc) => acc.isEnabled && isCreditCardAccount(acc.accountType)
-      ),
-    };
-  }, [availableData]);
+  // Pull account data from normalized account store
+  const { isLoading } = useAccountStore();
+  const cashAccounts = useCashAccounts();
+  const creditCards = useCreditCardAccounts();
 
   const isAllSelected = localSelection === null;
   const selectedCount = isAllSelected ? cashAccounts.length : (localSelection?.length ?? 0);

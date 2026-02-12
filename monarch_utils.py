@@ -1113,6 +1113,27 @@ async def search_transactions_with_icons(
     return transactions
 
 
+async def get_transaction_notes(
+    mm: MonarchMoney,
+    transaction_id: str,
+) -> str | None:
+    """
+    Fetch the current notes for a single transaction.
+
+    Args:
+        mm: MonarchMoney client instance
+        transaction_id: Monarch transaction ID
+
+    Returns:
+        The transaction's notes string, or None if not found.
+    """
+    result = await mm.get_transaction_details(transaction_id)
+    txn = result.get("getTransaction")
+    if isinstance(txn, dict):
+        return txn.get("notes")
+    return None
+
+
 async def update_transaction_notes(
     mm: MonarchMoney,
     transaction_id: str,

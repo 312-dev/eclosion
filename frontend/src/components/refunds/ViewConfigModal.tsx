@@ -12,7 +12,7 @@ import { Modal } from '../ui/Modal';
 import { ModalFooter } from '../ui/ModalButtons';
 import { useCategoriesByGroup } from '../../api/queries/categoryStoreQueries';
 import { TagSection, CategorySection } from './ViewConfigSections';
-import type { TransactionTag, RefundablesSavedView } from '../../types/refundables';
+import type { TransactionTag, RefundsSavedView } from '../../types/refunds';
 
 interface ViewConfigModalProps {
   readonly isOpen: boolean;
@@ -21,7 +21,7 @@ interface ViewConfigModalProps {
   readonly tags: TransactionTag[];
   readonly tagsLoading: boolean;
   readonly saving: boolean;
-  readonly existingView?: RefundablesSavedView | null;
+  readonly existingView?: RefundsSavedView | null;
   readonly onDelete?: () => void;
 }
 

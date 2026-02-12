@@ -189,6 +189,9 @@ export type {
   PendingBookmarkActionResponse,
 } from './pendingBookmark';
 
+// Account store (normalized cache for cross-feature account data)
+export type { AccountMetadata, AccountStore } from './accountStore';
+
 // Available Funds calculation
 export type {
   AccountBalance,

@@ -11,11 +11,11 @@ import { MerchantIcon } from '../ui';
 import { Tooltip } from '../ui/Tooltip';
 import { decodeHtmlEntities } from '../../utils';
 import { isSafeUrl } from '../../utils/safeUrl';
-import type { Transaction, RefundablesMatch } from '../../types/refundables';
+import type { Transaction, RefundsMatch } from '../../types/refunds';
 
 interface TransactionRowProps {
   readonly transaction: Transaction;
-  readonly match: RefundablesMatch | undefined;
+  readonly match: RefundsMatch | undefined;
   readonly agingWarningDays: number;
   readonly isSelected: boolean;
   readonly onToggleSelect: (transaction: Transaction) => void;
@@ -67,7 +67,7 @@ function getUserNotes(notes: string | null): string | null {
   if (!notes) return null;
   const cleaned = notes
     .split('\n')
-    .filter((line) => !line.startsWith('[Refund matched]'))
+    .filter((line) => !line.startsWith('[Refund matched]') && !line.startsWith('[Refund expected]'))
     .join('\n')
     .trim();
   return cleaned ? decodeHtmlEntities(cleaned) : null;
@@ -112,9 +112,10 @@ function linkifyText(text: string): React.ReactNode {
   return parts.length > 0 ? parts : text;
 }
 
-function getRowClassName(isMatched: boolean, isSelected: boolean): string {
+function getRowClassName(isMatched: boolean, isExpected: boolean, isSelected: boolean): string {
   if (isSelected) return 'bg-(--monarch-orange)/5';
   if (isMatched) return 'bg-(--monarch-success)/5';
+  if (isExpected) return 'bg-(--monarch-accent)/5';
   return '';
 }
 
@@ -123,8 +124,9 @@ function getCheckboxClassName(isSelected: boolean): string {
   return 'border-(--monarch-text-muted)/40 hover:border-(--monarch-text-muted)';
 }
 
-function getStatusLabel(isMatched: boolean, isSkipped: boolean): string {
+function getStatusLabel(isMatched: boolean, isExpected: boolean, isSkipped: boolean): string {
   if (isMatched) return ', matched';
+  if (isExpected) return ', expected refund';
   if (isSkipped) return ', skipped';
   return ', unmatched';
 }
@@ -183,14 +185,17 @@ export const TransactionRow = React.memo(function TransactionRow({
   isSelected,
   onToggleSelect,
 }: TransactionRowProps) {
-  const isMatched = match != null && !match.skipped;
+  const isExpected = match?.expectedRefund === true;
+  const isMatched = match != null && !match.skipped && !isExpected;
   const isSkipped = match?.skipped === true;
   const hasMatch = match != null;
   const merchantName = decodeHtmlEntities(transaction.merchant?.name ?? transaction.originalName);
 
-  // Only apply aging border to unmatched, unskipped transactions
+  // Only apply aging border to unmatched, unskipped, non-expected transactions
   const agingBorder =
-    !isMatched && !isSkipped ? getAgingBorder(transaction.date, agingWarningDays) : null;
+    !isMatched && !isSkipped && !isExpected
+      ? getAgingBorder(transaction.date, agingWarningDays)
+      : null;
 
   const handleRowClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
@@ -201,9 +206,9 @@ export const TransactionRow = React.memo(function TransactionRow({
   return (
     // eslint-disable-next-line jsx-a11y/prefer-tag-over-role -- native button can't contain nested interactive elements
     <div
-      className={`w-full items-center px-4 py-3 border-b border-(--monarch-border) hover:bg-(--monarch-bg-hover) transition-colors text-left cursor-pointer ${GRID_CLASSES} ${getRowClassName(isMatched, isSelected)}`}
+      className={`w-full items-center px-4 py-3 border-b border-(--monarch-border) hover:bg-(--monarch-bg-hover) transition-colors text-left cursor-pointer ${GRID_CLASSES} ${getRowClassName(isMatched, isExpected, isSelected)}`}
       style={agingBorder ? { boxShadow: agingBorder } : undefined}
-      aria-label={`${merchantName}: ${formatAmount(transaction.amount)}${getStatusLabel(isMatched, isSkipped)}`}
+      aria-label={`${merchantName}: ${formatAmount(transaction.amount)}${getStatusLabel(isMatched, isExpected, isSkipped)}`}
       role="button"
       tabIndex={0}
       onClick={handleRowClick}
@@ -239,11 +244,18 @@ export const TransactionRow = React.memo(function TransactionRow({
         <span className="font-medium text-sm text-(--monarch-text-dark) truncate block">
           {merchantName}
         </span>
-        {hasMatch && !isSkipped && match.refundAmount != null && (
+        {hasMatch && isMatched && match.refundAmount != null && (
           <span className="text-xs text-(--monarch-success) truncate block">
             Matched: {formatAmount(match.refundAmount)}
             {match.refundMerchant && ` from "${match.refundMerchant}"`}
             {match.refundDate && ` on ${formatMatchDate(match.refundDate)}`}
+          </span>
+        )}
+        {hasMatch && isExpected && match.expectedAmount != null && (
+          <span className="text-xs truncate block" style={{ color: 'var(--monarch-accent)' }}>
+            Expected: {formatAmount(match.expectedAmount)}
+            {match.expectedDate && ` by ${formatMatchDate(match.expectedDate)}`}
+            {match.expectedAccount && ` to ${match.expectedAccount}`}
           </span>
         )}
       </div>

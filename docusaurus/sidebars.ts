@@ -48,11 +48,11 @@ const sidebars: SidebarsConfig = {
         },
         {
           type: 'category',
-          label: 'Refundables',
+          label: 'Refunds',
           collapsed: false,
           link: {
             type: 'doc',
-            id: 'refundables/overview',
+            id: 'refunds/overview',
           },
           items: [],
         },

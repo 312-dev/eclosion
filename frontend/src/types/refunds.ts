@@ -6,7 +6,7 @@ export interface TransactionTag {
   order: number;
 }
 
-/** Monarch transaction (subset of fields relevant to Refundables). */
+/** Monarch transaction (subset of fields relevant to Refunds). */
 export interface Transaction {
   id: string;
   amount: number;
@@ -35,7 +35,7 @@ export interface Transaction {
 }
 
 /** Saved view configuration - a tab filtered by Monarch tags and optionally by categories. */
-export interface RefundablesSavedView {
+export interface RefundsSavedView {
   id: string;
   name: string;
   tagIds: string[];
@@ -44,7 +44,7 @@ export interface RefundablesSavedView {
 }
 
 /** Refund match linking original transaction to its refund. */
-export interface RefundablesMatch {
+export interface RefundsMatch {
   id: string;
   originalTransactionId: string;
   refundTransactionId: string | null;
@@ -53,11 +53,17 @@ export interface RefundablesMatch {
   refundDate: string | null;
   refundAccount: string | null;
   skipped: boolean;
+  expectedRefund: boolean;
+  expectedDate: string | null;
+  expectedAccount: string | null;
+  expectedAccountId: string | null;
+  expectedNote: string | null;
+  expectedAmount: number | null;
   transactionData: Transaction | null;
 }
 
-/** Tool-level configuration for the Refundables feature. */
-export interface RefundablesConfig {
+/** Tool-level configuration for the Refunds feature. */
+export interface RefundsConfig {
   replacementTagId: string | null;
   replaceTagByDefault: boolean;
   agingWarningDays: number;
@@ -89,6 +95,12 @@ export interface CreateMatchRequest {
   refundDate?: string;
   refundAccount?: string;
   skipped?: boolean;
+  expectedRefund?: boolean;
+  expectedDate?: string;
+  expectedAccount?: string;
+  expectedAccountId?: string;
+  expectedNote?: string;
+  expectedAmount?: number;
   replaceTag?: boolean;
   originalTagIds?: string[];
   originalNotes?: string | null;
@@ -97,12 +109,14 @@ export interface CreateMatchRequest {
 }
 
 /** Tally summary for the current view. */
-export interface RefundablesTally {
+export interface RefundsTally {
   transactionCount: number;
   totalAmount: number;
   matchedAmount: number;
+  expectedAmount: number;
   remainingAmount: number;
   matchedCount: number;
+  expectedCount: number;
   skippedCount: number;
   unmatchedCount: number;
 }

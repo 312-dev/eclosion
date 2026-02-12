@@ -9,14 +9,13 @@
 import { useState, useMemo } from 'react';
 import { Modal } from '../ui/Modal';
 import { Icons } from '../icons';
-import { useAvailableToStash } from '../../api/queries';
-import type { AccountBalance } from '../../types';
-import { isDebtAccount } from '../../types';
+import { useDebtAccounts, useAccountStore } from '../../api/queries';
+import type { AccountMetadata } from '../../types/accountStore';
 
 interface DebtAccountSelectorModalProps {
   readonly isOpen: boolean;
   readonly onClose: () => void;
-  readonly onSelect: (account: AccountBalance) => void;
+  readonly onSelect: (account: AccountMetadata) => void;
 }
 
 export function DebtAccountSelectorModal({
@@ -25,7 +24,8 @@ export function DebtAccountSelectorModal({
   onSelect,
 }: DebtAccountSelectorModalProps) {
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
-  const { rawData, isLoading } = useAvailableToStash();
+  const { isLoading } = useAccountStore();
+  const allDebtAccounts = useDebtAccounts();
 
   // Group account types into categories for display
   // Based on Monarch's loan subtypes: auto, student, mortgage, home_equity, line_of_credit, etc.
@@ -40,19 +40,16 @@ export function DebtAccountSelectorModal({
     return 'Other Loans';
   };
 
-  // Filter to debt accounts and group by category
-  const accounts = rawData?.accounts;
+  // Filter to debt accounts with a balance and sort by size
   const debtAccounts = useMemo(() => {
-    if (!accounts) return [];
-    return accounts
-      .filter((account) => account.isEnabled && isDebtAccount(account.accountType))
+    return allDebtAccounts
       .filter((account) => account.balance !== 0) // Show accounts with any balance (debt is negative for credit cards)
       .sort((a, b) => Math.abs(b.balance) - Math.abs(a.balance)); // Sort by debt size descending
-  }, [accounts]);
+  }, [allDebtAccounts]);
 
   // Group accounts by category
   const groupedAccounts = useMemo(() => {
-    const groups: Record<string, AccountBalance[]> = {};
+    const groups: Record<string, AccountMetadata[]> = {};
     const categoryOrder = [
       'Credit Cards',
       'Auto Loans',
@@ -94,7 +91,7 @@ export function DebtAccountSelectorModal({
     setSelectedAccountId(accountId);
   };
 
-  const handleRowDoubleClick = (account: AccountBalance) => {
+  const handleRowDoubleClick = (account: AccountMetadata) => {
     onSelect(account);
     setSelectedAccountId(null);
     onClose();

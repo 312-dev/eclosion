@@ -10,10 +10,7 @@ import { ChevronDown, Calendar } from 'lucide-react';
 import { Portal } from '../Portal';
 import { useDropdown } from '../../hooks';
 import { Z_INDEX } from '../../constants';
-import type {
-  DateRangePreset,
-  DateRangeFilter as DateRangeFilterType,
-} from '../../types/refundables';
+import type { DateRangePreset, DateRangeFilter as DateRangeFilterType } from '../../types/refunds';
 
 interface DateRangeFilterProps {
   readonly value: DateRangeFilterType;

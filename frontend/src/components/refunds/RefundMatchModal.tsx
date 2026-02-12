@@ -15,7 +15,7 @@ import { Search } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { PrimaryButton, CancelButton, WarningButton, ModalButton } from '../ui/ModalButtons';
 import { Tooltip } from '../ui/Tooltip';
-import { useSearchRefundablesTransactionsQuery } from '../../api/queries/refundablesQueries';
+import { useSearchRefundsTransactionsQuery } from '../../api/queries/refundsQueries';
 import { decodeHtmlEntities } from '../../utils';
 import {
   MatchDetailsContent,
@@ -23,14 +23,14 @@ import {
   formatAmount,
   formatDate,
 } from './RefundMatchSubComponents';
-import type { Transaction, RefundablesConfig, RefundablesMatch } from '../../types/refundables';
+import type { Transaction, RefundsConfig, RefundsMatch } from '../../types/refunds';
 
 interface RefundMatchModalProps {
   readonly isOpen: boolean;
   readonly onClose: () => void;
   readonly transaction: Transaction;
-  readonly config: RefundablesConfig | undefined;
-  readonly existingMatch: RefundablesMatch | undefined;
+  readonly config: RefundsConfig | undefined;
+  readonly existingMatch: RefundsMatch | undefined;
   readonly onMatch: (params: {
     refundTransactionId: string;
     refundAmount: number;
@@ -89,7 +89,7 @@ export function RefundMatchModal({
     hasNextPage,
     isFetchingNextPage,
     fetchNextPage,
-  } = useSearchRefundablesTransactionsQuery(searchQuery);
+  } = useSearchRefundsTransactionsQuery(searchQuery);
 
   const refundCandidates = useMemo(() => {
     const allResults = searchData?.pages.flatMap((p) => p.transactions) ?? [];
@@ -133,10 +133,10 @@ export function RefundMatchModal({
     title = 'Match Details';
     description = undefined;
   } else if (isBatch) {
-    title = `Match ${batchCount} Transactions`;
+    title = 'Match Refund';
     description = (
       <span>
-        {'Match all '}
+        {'Apply to '}
         <Tooltip content={batchTooltipContent} side="bottom">
           <span
             className="cursor-help"
@@ -149,7 +149,6 @@ export function RefundMatchModal({
             {batchCount} selected transactions
           </span>
         </Tooltip>
-        {' to the same refund'}
       </span>
     );
   }

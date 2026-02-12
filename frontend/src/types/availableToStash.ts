@@ -17,6 +17,10 @@ export interface AccountBalance {
   accountType: string;
   /** Whether the account is enabled/visible */
   isEnabled: boolean;
+  /** Institution logo URL from Monarch */
+  logoUrl: string | null;
+  /** Account icon identifier from Monarch */
+  icon: string | null;
 }
 
 /**

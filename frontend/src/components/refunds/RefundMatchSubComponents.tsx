@@ -7,7 +7,7 @@ import { useRef, useEffect } from 'react';
 import { SearchX, FilterX } from 'lucide-react';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { decodeHtmlEntities } from '../../utils';
-import type { Transaction, RefundablesMatch } from '../../types/refundables';
+import type { Transaction, RefundsMatch } from '../../types/refunds';
 
 export function formatAmount(amount: number): string {
   return `$${Math.abs(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -21,7 +21,7 @@ export function formatDate(dateStr: string): string {
 export function MatchDetailsContent({
   existingMatch,
 }: {
-  readonly existingMatch: RefundablesMatch;
+  readonly existingMatch: RefundsMatch;
 }): React.JSX.Element {
   if (existingMatch.skipped) {
     return (

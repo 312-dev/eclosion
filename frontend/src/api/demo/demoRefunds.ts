@@ -1,19 +1,19 @@
 /**
- * Demo Refundables API
+ * Demo Refunds API
  *
- * localStorage-based implementation of the Refundables API for demo mode.
+ * localStorage-based implementation of the Refunds API for demo mode.
  */
 
 import type {
-  RefundablesConfig,
-  RefundablesMatch,
-  RefundablesSavedView,
+  RefundsConfig,
+  RefundsMatch,
+  RefundsSavedView,
   Transaction,
   TransactionTag,
   CreateMatchRequest,
-} from '../../types/refundables';
+} from '../../types/refunds';
 import { getDemoState, updateDemoState } from './demoState';
-import { DEMO_TAGS, DEMO_TRANSACTIONS, DEMO_REFUND_TRANSACTIONS } from './demoRefundablesData';
+import { DEMO_TAGS, DEMO_TRANSACTIONS, DEMO_REFUND_TRANSACTIONS } from './demoRefundsData';
 
 const DEMO_DELAY = 200;
 const simulateDelay = (): Promise<void> =>
@@ -21,44 +21,44 @@ const simulateDelay = (): Promise<void> =>
 
 // ---- Config ----
 
-export async function getRefundablesConfig(): Promise<RefundablesConfig> {
+export async function getRefundsConfig(): Promise<RefundsConfig> {
   await simulateDelay();
-  return getDemoState().refundablesConfig;
+  return getDemoState().refundsConfig;
 }
 
-export async function updateRefundablesConfig(
-  updates: Partial<RefundablesConfig>
+export async function updateRefundsConfig(
+  updates: Partial<RefundsConfig>
 ): Promise<{ success: boolean }> {
   await simulateDelay();
   updateDemoState((state) => ({
     ...state,
-    refundablesConfig: { ...state.refundablesConfig, ...updates },
+    refundsConfig: { ...state.refundsConfig, ...updates },
   }));
   return { success: true };
 }
 
 // ---- Tags ----
 
-export async function getRefundablesTags(): Promise<TransactionTag[]> {
+export async function getRefundsTags(): Promise<TransactionTag[]> {
   await simulateDelay();
   return DEMO_TAGS;
 }
 
 // ---- Views ----
 
-export async function getRefundablesViews(): Promise<RefundablesSavedView[]> {
+export async function getRefundsViews(): Promise<RefundsSavedView[]> {
   await simulateDelay();
-  return getDemoState().refundablesViews;
+  return getDemoState().refundsViews;
 }
 
-export async function createRefundablesView(
+export async function createRefundsView(
   name: string,
   tagIds: string[],
   categoryIds: string[] | null
-): Promise<RefundablesSavedView> {
+): Promise<RefundsSavedView> {
   await simulateDelay();
-  const views = getDemoState().refundablesViews;
-  const newView: RefundablesSavedView = {
+  const views = getDemoState().refundsViews;
+  const newView: RefundsSavedView = {
     id: crypto.randomUUID(),
     name,
     tagIds,
@@ -67,58 +67,56 @@ export async function createRefundablesView(
   };
   updateDemoState((state) => ({
     ...state,
-    refundablesViews: [...state.refundablesViews, newView],
+    refundsViews: [...state.refundsViews, newView],
   }));
   return newView;
 }
 
-export async function updateRefundablesView(
+export async function updateRefundsView(
   viewId: string,
-  updates: Partial<Pick<RefundablesSavedView, 'name' | 'tagIds' | 'categoryIds' | 'sortOrder'>>
+  updates: Partial<Pick<RefundsSavedView, 'name' | 'tagIds' | 'categoryIds' | 'sortOrder'>>
 ): Promise<{ success: boolean }> {
   await simulateDelay();
   updateDemoState((state) => ({
     ...state,
-    refundablesViews: state.refundablesViews.map((v) =>
-      v.id === viewId ? { ...v, ...updates } : v
-    ),
+    refundsViews: state.refundsViews.map((v) => (v.id === viewId ? { ...v, ...updates } : v)),
   }));
   return { success: true };
 }
 
-export async function deleteRefundablesView(viewId: string): Promise<{ success: boolean }> {
+export async function deleteRefundsView(viewId: string): Promise<{ success: boolean }> {
   await simulateDelay();
   updateDemoState((state) => ({
     ...state,
-    refundablesViews: state.refundablesViews.filter((v) => v.id !== viewId),
+    refundsViews: state.refundsViews.filter((v) => v.id !== viewId),
   }));
   return { success: true };
 }
 
-export async function reorderRefundablesViews(viewIds: string[]): Promise<{ success: boolean }> {
+export async function reorderRefundsViews(viewIds: string[]): Promise<{ success: boolean }> {
   await simulateDelay();
   updateDemoState((state) => ({
     ...state,
-    refundablesViews: viewIds
+    refundsViews: viewIds
       .map((id, i) => {
-        const view = state.refundablesViews.find((v) => v.id === id);
+        const view = state.refundsViews.find((v) => v.id === id);
         return view ? { ...view, sortOrder: i } : null;
       })
-      .filter((v): v is RefundablesSavedView => v !== null),
+      .filter((v): v is RefundsSavedView => v !== null),
   }));
   return { success: true };
 }
 
 // ---- Transactions ----
 
-export async function getRefundablesTransactions(
+export async function getRefundsTransactions(
   tagIds: string[],
   _startDate?: string | null,
   _endDate?: string | null,
   categoryIds?: string[] | null
 ): Promise<Transaction[]> {
   await simulateDelay();
-  const overrides = getDemoState().refundablesTransactionTagOverrides ?? {};
+  const overrides = getDemoState().refundsTransactionTagOverrides ?? {};
 
   // Apply tag overrides then filter by requested tag IDs and/or category IDs
   const withOverrides = DEMO_TRANSACTIONS.map((txn) => {
@@ -137,7 +135,7 @@ export async function getRefundablesTransactions(
   });
 }
 
-export async function searchRefundablesTransactions(
+export async function searchRefundsTransactions(
   search: string,
   _startDate?: string | null,
   _endDate?: string | null,
@@ -162,17 +160,17 @@ export async function searchRefundablesTransactions(
 
 // ---- Pending Count ----
 
-export async function getRefundablesPendingCount(): Promise<{
+export async function getRefundsPendingCount(): Promise<{
   count: number;
   viewCounts: Record<string, number>;
 }> {
   await simulateDelay();
   const state = getDemoState();
-  const views = state.refundablesViews;
+  const views = state.refundsViews;
   if (views.length === 0) return { count: 0, viewCounts: {} };
 
-  const overrides = state.refundablesTransactionTagOverrides ?? {};
-  const matchedIds = new Set(state.refundablesMatches.map((m) => m.originalTransactionId));
+  const overrides = state.refundsTransactionTagOverrides ?? {};
+  const matchedIds = new Set(state.refundsMatches.map((m) => m.originalTransactionId));
 
   // Apply tag overrides
   const withOverrides = DEMO_TRANSACTIONS.map((txn) => {
@@ -206,16 +204,16 @@ export async function getRefundablesPendingCount(): Promise<{
 
 // ---- Matches ----
 
-export async function getRefundablesMatches(): Promise<RefundablesMatch[]> {
+export async function getRefundsMatches(): Promise<RefundsMatch[]> {
   await simulateDelay();
-  return getDemoState().refundablesMatches;
+  return getDemoState().refundsMatches;
 }
 
-export async function createRefundablesMatch(
+export async function createRefundsMatch(
   request: CreateMatchRequest
 ): Promise<{ success: boolean }> {
   await simulateDelay();
-  const newMatch: RefundablesMatch = {
+  const newMatch: RefundsMatch = {
     id: crypto.randomUUID(),
     originalTransactionId: request.originalTransactionId,
     refundTransactionId: request.refundTransactionId ?? null,
@@ -224,21 +222,27 @@ export async function createRefundablesMatch(
     refundDate: request.refundDate ?? null,
     refundAccount: request.refundAccount ?? null,
     skipped: request.skipped ?? false,
+    expectedRefund: request.expectedRefund ?? false,
+    expectedDate: request.expectedDate ?? null,
+    expectedAccount: request.expectedAccount ?? null,
+    expectedAccountId: request.expectedAccountId ?? null,
+    expectedNote: request.expectedNote ?? null,
+    expectedAmount: request.expectedAmount ?? null,
     transactionData: request.transactionData ?? null,
   };
   updateDemoState((state) => {
-    const updated = { ...state, refundablesMatches: [...state.refundablesMatches, newMatch] };
+    const updated = { ...state, refundsMatches: [...state.refundsMatches, newMatch] };
 
     // Simulate view-scoped tag replacement
     if (request.replaceTag && request.originalTagIds) {
       const tagsToRemove = new Set(request.viewTagIds ?? request.originalTagIds);
       const newTagIds = request.originalTagIds.filter((tid) => !tagsToRemove.has(tid));
-      const { replacementTagId } = state.refundablesConfig;
+      const { replacementTagId } = state.refundsConfig;
       if (replacementTagId && !newTagIds.includes(replacementTagId)) {
         newTagIds.push(replacementTagId);
       }
-      updated.refundablesTransactionTagOverrides = {
-        ...state.refundablesTransactionTagOverrides,
+      updated.refundsTransactionTagOverrides = {
+        ...state.refundsTransactionTagOverrides,
         [request.originalTransactionId]: newTagIds,
       };
     }
@@ -248,20 +252,20 @@ export async function createRefundablesMatch(
   return { success: true };
 }
 
-export async function deleteRefundablesMatch(matchId: string): Promise<{ success: boolean }> {
+export async function deleteRefundsMatch(matchId: string): Promise<{ success: boolean }> {
   await simulateDelay();
   updateDemoState((state) => {
-    const match = state.refundablesMatches.find((m) => m.id === matchId);
+    const match = state.refundsMatches.find((m) => m.id === matchId);
     const updated = {
       ...state,
-      refundablesMatches: state.refundablesMatches.filter((m) => m.id !== matchId),
+      refundsMatches: state.refundsMatches.filter((m) => m.id !== matchId),
     };
 
-    // Restore original tags by removing the override (reverts to hardcoded tags)
-    if (match) {
-      const overrides = { ...state.refundablesTransactionTagOverrides };
+    // Restore original tags by removing the override (not for expected refunds - tags weren't changed)
+    if (match && !match.expectedRefund) {
+      const overrides = { ...state.refundsTransactionTagOverrides };
       delete overrides[match.originalTransactionId];
-      updated.refundablesTransactionTagOverrides = overrides;
+      updated.refundsTransactionTagOverrides = overrides;
     }
 
     return updated;

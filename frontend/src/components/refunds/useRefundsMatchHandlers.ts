@@ -1,21 +1,21 @@
 /**
- * Match action handlers for the Refundables feature.
- * Extracted from RefundablesTab to keep component under 300-line limit.
+ * Match action handlers for the Refunds feature.
+ * Extracted from RefundsTab to keep component under 300-line limit.
  */
 
 import { useCallback, useMemo } from 'react';
 import { useToast } from '../../context/ToastContext';
 import { handleApiError } from '../../utils';
 import {
-  useCreateRefundablesMatchMutation,
-  useDeleteRefundablesMatchMutation,
-} from '../../api/queries/refundablesQueries';
-import type { Transaction, RefundablesMatch } from '../../types/refundables';
+  useCreateRefundsMatchMutation,
+  useDeleteRefundsMatchMutation,
+} from '../../api/queries/refundsQueries';
+import type { Transaction, RefundsMatch } from '../../types/refunds';
 
 interface MatchHandlersParams {
   readonly matchingTransaction: Transaction | null;
   readonly setMatchingTransaction: (t: Transaction | null) => void;
-  readonly matches: RefundablesMatch[];
+  readonly matches: RefundsMatch[];
   readonly tagIds: string[];
 }
 
@@ -28,7 +28,15 @@ export interface MatchActionParams {
   replaceTag: boolean;
 }
 
-export function useRefundablesMatchHandlers({
+export interface ExpectedRefundParams {
+  expectedDate: string;
+  expectedAccount: string;
+  expectedAccountId: string;
+  expectedNote: string;
+  expectedAmount: number;
+}
+
+export function useRefundsMatchHandlers({
   matchingTransaction,
   setMatchingTransaction,
   matches,
@@ -36,17 +44,22 @@ export function useRefundablesMatchHandlers({
 }: MatchHandlersParams): {
   handleMatch: (params: MatchActionParams) => Promise<void>;
   handleBatchMatchAll: (transactions: Transaction[], params: MatchActionParams) => Promise<void>;
+  handleExpectedRefund: (params: ExpectedRefundParams) => Promise<void>;
+  handleBatchExpectedRefundAll: (
+    transactions: Transaction[],
+    params: ExpectedRefundParams
+  ) => Promise<void>;
   handleSkip: () => Promise<void>;
   handleUnmatch: () => Promise<void>;
   handleDirectSkip: (transaction: Transaction) => Promise<void>;
   handleDirectUnmatch: (transaction: Transaction) => Promise<void>;
   handleRestore: (transaction: Transaction) => Promise<void>;
-  existingMatch: RefundablesMatch | undefined;
+  existingMatch: RefundsMatch | undefined;
   matchPending: boolean;
 } {
   const toast = useToast();
-  const createMatchMutation = useCreateRefundablesMatchMutation();
-  const deleteMatchMutation = useDeleteRefundablesMatchMutation();
+  const createMatchMutation = useCreateRefundsMatchMutation();
+  const deleteMatchMutation = useDeleteRefundsMatchMutation();
 
   const existingMatch = useMemo(
     () =>
@@ -71,7 +84,7 @@ export function useRefundablesMatchHandlers({
         setMatchingTransaction(null);
         toast.success('Refund matched');
       } catch (err) {
-        toast.error(handleApiError(err, 'Refundables'));
+        toast.error(handleApiError(err, 'Refunds'));
       }
     },
     [matchingTransaction, createMatchMutation, toast, tagIds, setMatchingTransaction]
@@ -93,10 +106,65 @@ export function useRefundablesMatchHandlers({
         setMatchingTransaction(null);
         toast.success(`Matched ${transactions.length} transactions`);
       } catch (err) {
-        toast.error(handleApiError(err, 'Refundables'));
+        toast.error(handleApiError(err, 'Refunds'));
       }
     },
     [createMatchMutation, toast, tagIds, setMatchingTransaction]
+  );
+
+  const handleExpectedRefund = useCallback(
+    async (params: ExpectedRefundParams) => {
+      if (!matchingTransaction) return;
+      try {
+        // If transaction already has an expected refund, delete it first
+        const existing = matches.find(
+          (m) => m.originalTransactionId === matchingTransaction.id && m.expectedRefund
+        );
+        if (existing) {
+          await deleteMatchMutation.mutateAsync(existing.id);
+        }
+        await createMatchMutation.mutateAsync({
+          originalTransactionId: matchingTransaction.id,
+          expectedRefund: true,
+          ...params,
+          originalNotes: matchingTransaction.notes,
+          transactionData: matchingTransaction,
+        });
+        setMatchingTransaction(null);
+        toast.success('Expected refund set');
+      } catch (err) {
+        toast.error(handleApiError(err, 'Refunds'));
+      }
+    },
+    [
+      matchingTransaction,
+      matches,
+      createMatchMutation,
+      deleteMatchMutation,
+      toast,
+      setMatchingTransaction,
+    ]
+  );
+
+  const handleBatchExpectedRefundAll = useCallback(
+    async (transactions: Transaction[], params: ExpectedRefundParams) => {
+      try {
+        for (const txn of transactions) {
+          await createMatchMutation.mutateAsync({
+            originalTransactionId: txn.id,
+            expectedRefund: true,
+            ...params,
+            originalNotes: txn.notes,
+            transactionData: txn,
+          });
+        }
+        setMatchingTransaction(null);
+        toast.success(`Set expected refund for ${transactions.length} transactions`);
+      } catch (err) {
+        toast.error(handleApiError(err, 'Refunds'));
+      }
+    },
+    [createMatchMutation, toast, setMatchingTransaction]
   );
 
   const handleSkip = useCallback(async () => {
@@ -110,7 +178,7 @@ export function useRefundablesMatchHandlers({
       setMatchingTransaction(null);
       toast.info('Transaction skipped');
     } catch (err) {
-      toast.error(handleApiError(err, 'Refundables'));
+      toast.error(handleApiError(err, 'Refunds'));
     }
   }, [matchingTransaction, createMatchMutation, toast, setMatchingTransaction]);
 
@@ -123,7 +191,7 @@ export function useRefundablesMatchHandlers({
       const suffix = tagNames?.length ? ` — tags restored: ${tagNames.join(', ')}` : '';
       toast.success(`Match removed${suffix}`);
     } catch (err) {
-      toast.error(handleApiError(err, 'Refundables'));
+      toast.error(handleApiError(err, 'Refunds'));
     }
   }, [existingMatch, deleteMatchMutation, toast, setMatchingTransaction]);
 
@@ -137,7 +205,7 @@ export function useRefundablesMatchHandlers({
         });
         toast.info('Transaction skipped');
       } catch (err) {
-        toast.error(handleApiError(err, 'Refundables'));
+        toast.error(handleApiError(err, 'Refunds'));
       }
     },
     [createMatchMutation, toast]
@@ -150,7 +218,7 @@ export function useRefundablesMatchHandlers({
       try {
         await deleteMatchMutation.mutateAsync(matchToDelete.id);
       } catch (err) {
-        toast.error(handleApiError(err, 'Refundables'));
+        toast.error(handleApiError(err, 'Refunds'));
       }
     },
     [matches, deleteMatchMutation, toast]
@@ -166,7 +234,7 @@ export function useRefundablesMatchHandlers({
         const suffix = tagNames?.length ? ` — tags restored: ${tagNames.join(', ')}` : '';
         toast.success(`Transaction restored${suffix}`);
       } catch (err) {
-        toast.error(handleApiError(err, 'Refundables'));
+        toast.error(handleApiError(err, 'Refunds'));
       }
     },
     [matches, deleteMatchMutation, toast]
@@ -175,6 +243,8 @@ export function useRefundablesMatchHandlers({
   return {
     handleMatch,
     handleBatchMatchAll,
+    handleExpectedRefund,
+    handleBatchExpectedRefundAll,
     handleSkip,
     handleUnmatch,
     handleDirectSkip,

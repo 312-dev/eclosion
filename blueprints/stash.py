@@ -79,6 +79,14 @@ async def get_stash_history():
     return await service.get_stash_history(months)
 
 
+@stash_bp.route("/accounts", methods=["GET"])
+@api_handler(handle_mfa=True)
+async def get_accounts():
+    """Get all non-hidden Monarch accounts (unfiltered)."""
+    service = get_stash_service()
+    return await service.get_accounts()
+
+
 @stash_bp.route("/available-to-stash", methods=["GET"])
 @api_handler(handle_mfa=True)
 async def get_available_to_stash():

@@ -1,21 +1,23 @@
 /**
- * useRefundablesTally
+ * useRefundsTally
  *
  * Calculates tally summary from transactions and matches.
  */
 
 import { useMemo } from 'react';
-import type { Transaction, RefundablesMatch, RefundablesTally } from '../../types/refundables';
+import type { Transaction, RefundsMatch, RefundsTally } from '../../types/refunds';
 
-export function useRefundablesTally(
+export function useRefundsTally(
   transactions: Transaction[],
-  matches: RefundablesMatch[]
-): RefundablesTally {
+  matches: RefundsMatch[]
+): RefundsTally {
   return useMemo(() => {
     const matchMap = new Map(matches.map((m) => [m.originalTransactionId, m]));
     let totalAmount = 0;
     let matchedAmount = 0;
+    let expectedAmount = 0;
     let matchedCount = 0;
+    let expectedCount = 0;
     let skippedCount = 0;
     let unmatchedCount = 0;
 
@@ -24,6 +26,10 @@ export function useRefundablesTally(
       if (match) {
         if (match.skipped) {
           skippedCount++;
+        } else if (match.expectedRefund) {
+          totalAmount += Math.abs(txn.amount);
+          expectedCount++;
+          expectedAmount += Math.abs(match.expectedAmount ?? txn.amount);
         } else {
           totalAmount += Math.abs(txn.amount);
           matchedCount++;
@@ -39,8 +45,10 @@ export function useRefundablesTally(
       transactionCount: transactions.length,
       totalAmount,
       matchedAmount,
-      remainingAmount: totalAmount - matchedAmount,
+      expectedAmount,
+      remainingAmount: totalAmount - matchedAmount - expectedAmount,
       matchedCount,
+      expectedCount,
       skippedCount,
       unmatchedCount,
     };

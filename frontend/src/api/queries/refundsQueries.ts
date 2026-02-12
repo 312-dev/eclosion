@@ -1,7 +1,7 @@
 /**
- * Refundables Queries
+ * Refunds Queries
  *
- * React Query hooks for the Refundables feature.
+ * React Query hooks for the Refunds feature.
  */
 
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -11,53 +11,53 @@ import * as api from '../client';
 import * as demoApi from '../demoClient';
 import { queryKeys, getQueryKey } from './keys';
 import type {
-  RefundablesConfig,
-  RefundablesSavedView,
-  RefundablesMatch,
+  RefundsConfig,
+  RefundsSavedView,
+  RefundsMatch,
   Transaction,
   TransactionTag,
   CreateMatchRequest,
-} from '../../types/refundables';
+} from '../../types/refunds';
 
 // ---- Config ----
 
-export function useRefundablesConfigQuery() {
+export function useRefundsConfigQuery() {
   const isDemo = useDemo();
   return useQuery({
-    queryKey: getQueryKey(queryKeys.refundablesConfig, isDemo),
-    queryFn: async (): Promise<RefundablesConfig> => {
+    queryKey: getQueryKey(queryKeys.refundsConfig, isDemo),
+    queryFn: async (): Promise<RefundsConfig> => {
       if (isDemo) {
-        return await demoApi.getRefundablesConfig();
+        return await demoApi.getRefundsConfig();
       }
-      return await api.getRefundablesConfig();
+      return await api.getRefundsConfig();
     },
     staleTime: 5 * 60 * 1000,
   });
 }
 
-export function useUpdateRefundablesConfigMutation() {
+export function useUpdateRefundsConfigMutation() {
   const isDemo = useDemo();
   const smartInvalidate = useSmartInvalidate();
   return useMutation({
-    mutationFn: (updates: Partial<RefundablesConfig>) =>
-      isDemo ? demoApi.updateRefundablesConfig(updates) : api.updateRefundablesConfig(updates),
+    mutationFn: (updates: Partial<RefundsConfig>) =>
+      isDemo ? demoApi.updateRefundsConfig(updates) : api.updateRefundsConfig(updates),
     onSuccess: () => {
-      smartInvalidate('updateRefundablesConfig');
+      smartInvalidate('updateRefundsConfig');
     },
   });
 }
 
 // ---- Tags ----
 
-export function useRefundablesTagsQuery() {
+export function useRefundsTagsQuery() {
   const isDemo = useDemo();
   return useQuery({
-    queryKey: getQueryKey(queryKeys.refundablesTags, isDemo),
+    queryKey: getQueryKey(queryKeys.refundsTags, isDemo),
     queryFn: async (): Promise<TransactionTag[]> => {
       if (isDemo) {
-        return await demoApi.getRefundablesTags();
+        return await demoApi.getRefundsTags();
       }
-      return await api.getRefundablesTags();
+      return await api.getRefundsTags();
     },
     staleTime: 5 * 60 * 1000,
   });
@@ -65,21 +65,21 @@ export function useRefundablesTagsQuery() {
 
 // ---- Saved Views ----
 
-export function useRefundablesViewsQuery() {
+export function useRefundsViewsQuery() {
   const isDemo = useDemo();
   return useQuery({
-    queryKey: getQueryKey(queryKeys.refundablesViews, isDemo),
-    queryFn: async (): Promise<RefundablesSavedView[]> => {
+    queryKey: getQueryKey(queryKeys.refundsViews, isDemo),
+    queryFn: async (): Promise<RefundsSavedView[]> => {
       if (isDemo) {
-        return await demoApi.getRefundablesViews();
+        return await demoApi.getRefundsViews();
       }
-      return await api.getRefundablesViews();
+      return await api.getRefundsViews();
     },
     staleTime: 5 * 60 * 1000,
   });
 }
 
-export function useCreateRefundablesViewMutation() {
+export function useCreateRefundsViewMutation() {
   const isDemo = useDemo();
   const smartInvalidate = useSmartInvalidate();
   return useMutation({
@@ -93,15 +93,15 @@ export function useCreateRefundablesViewMutation() {
       categoryIds: string[] | null;
     }) =>
       isDemo
-        ? demoApi.createRefundablesView(name, tagIds, categoryIds)
-        : api.createRefundablesView(name, tagIds, categoryIds),
+        ? demoApi.createRefundsView(name, tagIds, categoryIds)
+        : api.createRefundsView(name, tagIds, categoryIds),
     onSuccess: () => {
-      smartInvalidate('createRefundablesView');
+      smartInvalidate('createRefundsView');
     },
   });
 }
 
-export function useUpdateRefundablesViewMutation() {
+export function useUpdateRefundsViewMutation() {
   const isDemo = useDemo();
   const smartInvalidate = useSmartInvalidate();
   return useMutation({
@@ -110,30 +110,28 @@ export function useUpdateRefundablesViewMutation() {
       updates,
     }: {
       viewId: string;
-      updates: Partial<Pick<RefundablesSavedView, 'name' | 'tagIds' | 'categoryIds' | 'sortOrder'>>;
+      updates: Partial<Pick<RefundsSavedView, 'name' | 'tagIds' | 'categoryIds' | 'sortOrder'>>;
     }) =>
-      isDemo
-        ? demoApi.updateRefundablesView(viewId, updates)
-        : api.updateRefundablesView(viewId, updates),
+      isDemo ? demoApi.updateRefundsView(viewId, updates) : api.updateRefundsView(viewId, updates),
     onSuccess: () => {
-      smartInvalidate('updateRefundablesView');
+      smartInvalidate('updateRefundsView');
     },
   });
 }
 
-export function useReorderRefundablesViewsMutation() {
+export function useReorderRefundsViewsMutation() {
   const isDemo = useDemo();
   const queryClient = useQueryClient();
   const smartInvalidate = useSmartInvalidate();
   return useMutation({
     mutationFn: (viewIds: string[]) =>
-      isDemo ? demoApi.reorderRefundablesViews(viewIds) : api.reorderRefundablesViews(viewIds),
+      isDemo ? demoApi.reorderRefundsViews(viewIds) : api.reorderRefundsViews(viewIds),
     onMutate: async (viewIds: string[]) => {
       await queryClient.cancelQueries({
-        queryKey: getQueryKey(queryKeys.refundablesViews, isDemo),
+        queryKey: getQueryKey(queryKeys.refundsViews, isDemo),
       });
-      const previous = queryClient.getQueryData<RefundablesSavedView[]>(
-        getQueryKey(queryKeys.refundablesViews, isDemo)
+      const previous = queryClient.getQueryData<RefundsSavedView[]>(
+        getQueryKey(queryKeys.refundsViews, isDemo)
       );
       if (previous) {
         const reordered = viewIds
@@ -141,37 +139,37 @@ export function useReorderRefundablesViewsMutation() {
             const view = previous.find((v) => v.id === id);
             return view ? { ...view, sortOrder: i } : null;
           })
-          .filter((v): v is RefundablesSavedView => v !== null);
-        queryClient.setQueryData(getQueryKey(queryKeys.refundablesViews, isDemo), reordered);
+          .filter((v): v is RefundsSavedView => v !== null);
+        queryClient.setQueryData(getQueryKey(queryKeys.refundsViews, isDemo), reordered);
       }
       return { previous };
     },
     onError: (_err, _viewIds, context) => {
       if (context?.previous) {
-        queryClient.setQueryData(getQueryKey(queryKeys.refundablesViews, isDemo), context.previous);
+        queryClient.setQueryData(getQueryKey(queryKeys.refundsViews, isDemo), context.previous);
       }
     },
     onSettled: () => {
-      smartInvalidate('reorderRefundablesViews');
+      smartInvalidate('reorderRefundsViews');
     },
   });
 }
 
-export function useDeleteRefundablesViewMutation() {
+export function useDeleteRefundsViewMutation() {
   const isDemo = useDemo();
   const smartInvalidate = useSmartInvalidate();
   return useMutation({
     mutationFn: (viewId: string) =>
-      isDemo ? demoApi.deleteRefundablesView(viewId) : api.deleteRefundablesView(viewId),
+      isDemo ? demoApi.deleteRefundsView(viewId) : api.deleteRefundsView(viewId),
     onSuccess: () => {
-      smartInvalidate('deleteRefundablesView');
+      smartInvalidate('deleteRefundsView');
     },
   });
 }
 
 // ---- Transactions ----
 
-export function useRefundablesTransactionsQuery(
+export function useRefundsTransactionsQuery(
   tagIds: string[],
   startDate: string | null,
   endDate: string | null,
@@ -180,7 +178,7 @@ export function useRefundablesTransactionsQuery(
   const isDemo = useDemo();
   return useQuery({
     queryKey: [
-      ...getQueryKey(queryKeys.refundablesTransactions, isDemo),
+      ...getQueryKey(queryKeys.refundsTransactions, isDemo),
       tagIds,
       startDate,
       endDate,
@@ -188,9 +186,9 @@ export function useRefundablesTransactionsQuery(
     ],
     queryFn: async (): Promise<Transaction[]> => {
       if (isDemo) {
-        return await demoApi.getRefundablesTransactions(tagIds, startDate, endDate, categoryIds);
+        return await demoApi.getRefundsTransactions(tagIds, startDate, endDate, categoryIds);
       }
-      return await api.getRefundablesTransactions(tagIds, startDate, endDate, categoryIds);
+      return await api.getRefundsTransactions(tagIds, startDate, endDate, categoryIds);
     },
     enabled: tagIds.length > 0 || (categoryIds != null && categoryIds.length > 0),
     staleTime: 2 * 60 * 1000,
@@ -204,7 +202,7 @@ interface SearchPage {
   nextCursor: number | null;
 }
 
-export function useSearchRefundablesTransactionsQuery(
+export function useSearchRefundsTransactionsQuery(
   search: string,
   startDate?: string | null,
   endDate?: string | null
@@ -212,7 +210,7 @@ export function useSearchRefundablesTransactionsQuery(
   const isDemo = useDemo();
   return useInfiniteQuery<SearchPage, Error, { pages: SearchPage[] }, unknown[], number>({
     queryKey: [
-      ...getQueryKey(queryKeys.refundablesTransactions, isDemo),
+      ...getQueryKey(queryKeys.refundsTransactions, isDemo),
       'search',
       search,
       startDate,
@@ -220,7 +218,7 @@ export function useSearchRefundablesTransactionsQuery(
     ],
     queryFn: async ({ pageParam }): Promise<SearchPage> => {
       if (isDemo) {
-        return await demoApi.searchRefundablesTransactions(
+        return await demoApi.searchRefundsTransactions(
           search,
           startDate,
           endDate,
@@ -228,7 +226,7 @@ export function useSearchRefundablesTransactionsQuery(
           pageParam
         );
       }
-      return await api.searchRefundablesTransactions(
+      return await api.searchRefundsTransactions(
         search,
         startDate,
         endDate,
@@ -249,14 +247,12 @@ interface PendingCountData {
   viewCounts: Record<string, number>;
 }
 
-export function useRefundablesPendingCountQuery() {
+export function useRefundsPendingCountQuery() {
   const isDemo = useDemo();
   return useQuery({
-    queryKey: getQueryKey(queryKeys.refundablesPendingCount, isDemo),
+    queryKey: getQueryKey(queryKeys.refundsPendingCount, isDemo),
     queryFn: async (): Promise<PendingCountData> => {
-      return isDemo
-        ? await demoApi.getRefundablesPendingCount()
-        : await api.getRefundablesPendingCount();
+      return isDemo ? await demoApi.getRefundsPendingCount() : await api.getRefundsPendingCount();
     },
     staleTime: 10 * 60 * 1000,
   });
@@ -264,40 +260,40 @@ export function useRefundablesPendingCountQuery() {
 
 // ---- Matches ----
 
-export function useRefundablesMatchesQuery() {
+export function useRefundsMatchesQuery() {
   const isDemo = useDemo();
   return useQuery({
-    queryKey: getQueryKey(queryKeys.refundablesMatches, isDemo),
-    queryFn: async (): Promise<RefundablesMatch[]> => {
+    queryKey: getQueryKey(queryKeys.refundsMatches, isDemo),
+    queryFn: async (): Promise<RefundsMatch[]> => {
       if (isDemo) {
-        return await demoApi.getRefundablesMatches();
+        return await demoApi.getRefundsMatches();
       }
-      return await api.getRefundablesMatches();
+      return await api.getRefundsMatches();
     },
     staleTime: 5 * 60 * 1000,
   });
 }
 
-export function useCreateRefundablesMatchMutation() {
+export function useCreateRefundsMatchMutation() {
   const isDemo = useDemo();
   const smartInvalidate = useSmartInvalidate();
   return useMutation({
     mutationFn: (request: CreateMatchRequest) =>
-      isDemo ? demoApi.createRefundablesMatch(request) : api.createRefundablesMatch(request),
+      isDemo ? demoApi.createRefundsMatch(request) : api.createRefundsMatch(request),
     onSuccess: () => {
-      smartInvalidate('createRefundablesMatch');
+      smartInvalidate('createRefundsMatch');
     },
   });
 }
 
-export function useDeleteRefundablesMatchMutation() {
+export function useDeleteRefundsMatchMutation() {
   const isDemo = useDemo();
   const smartInvalidate = useSmartInvalidate();
   return useMutation({
     mutationFn: (matchId: string) =>
-      isDemo ? demoApi.deleteRefundablesMatch(matchId) : api.deleteRefundablesMatch(matchId),
+      isDemo ? demoApi.deleteRefundsMatch(matchId) : api.deleteRefundsMatch(matchId),
     onSuccess: () => {
-      smartInvalidate('deleteRefundablesMatch');
+      smartInvalidate('deleteRefundsMatch');
     },
   });
 }

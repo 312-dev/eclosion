@@ -14,7 +14,7 @@ import { NavItemLink, type NavItem } from './NavItemLink';
 import { useDemo } from '../../context/DemoContext';
 import { useUpdatesState } from '../../hooks/useUpdatesState';
 import { useMediaQuery, useScrollEnd, useTunnelStatus } from '../../hooks';
-import { useRefundablesConfigQuery, useRefundablesPendingCountQuery } from '../../api/queries';
+import { useRefundsConfigQuery, useRefundsPendingCountQuery } from '../../api/queries';
 import { isDesktopMode } from '../../utils/apiBase';
 import { getVisibleSections } from '../settings';
 import { scrollToElement, scrollIntoViewLocal } from '../../utils';
@@ -55,10 +55,10 @@ function getNavItems(isDemo: boolean): {
         settingsHash: '#stash',
       },
       {
-        path: `${prefix}/refundables`,
-        label: 'Refundables',
+        path: `${prefix}/refunds`,
+        label: 'Refunds',
         icon: <Undo2 size={20} />,
-        settingsHash: '#refundables',
+        settingsHash: '#refunds',
       },
     ],
     otherItems: [{ path: `${prefix}/settings`, label: 'Settings', icon: <Settings size={20} /> }],
@@ -78,11 +78,11 @@ export function SidebarNavigation({ onLock }: Readonly<SidebarNavigationProps>) 
   const isRemoteActive = isDesktop && tunnelStatus?.active;
   const dashboardItemWithBadge = { ...dashboardItem, badge: unreadCount };
 
-  // Refundables badge: show pending count when enabled in config
-  const { data: refundablesConfig } = useRefundablesConfigQuery();
-  const showRefundablesBadge = refundablesConfig?.showBadge ?? true;
-  const { data: pendingCountData } = useRefundablesPendingCountQuery();
-  const refundablesBadge = showRefundablesBadge ? pendingCountData?.count : undefined;
+  // Refunds badge: show pending count when enabled in config
+  const { data: refundsConfig } = useRefundsConfigQuery();
+  const showRefundsBadge = refundsConfig?.showBadge ?? true;
+  const { data: pendingCountData } = useRefundsPendingCountQuery();
+  const refundsBadge = showRefundsBadge ? pendingCountData?.count : undefined;
   const prefix = isDemo ? '/demo' : '';
   const toolkitListRef = useRef<HTMLUListElement>(null);
   const isScrolledToEnd = useScrollEnd(toolkitListRef, isMobile);
@@ -118,7 +118,7 @@ export function SidebarNavigation({ onLock }: Readonly<SidebarNavigationProps>) 
       '#notes': 'notes',
       '#recurring': 'recurring',
       '#stash': 'stash',
-      '#refundables': 'refundables',
+      '#refunds': 'refunds',
     };
     const tool = toolMap[hash];
     if (tool) {
@@ -176,8 +176,8 @@ export function SidebarNavigation({ onLock }: Readonly<SidebarNavigationProps>) 
                 </li>
                 {toolkitItems.map((item) => {
                   const withBadge =
-                    item.settingsHash === '#refundables' && refundablesBadge
-                      ? { ...item, badge: refundablesBadge }
+                    item.settingsHash === '#refunds' && refundsBadge
+                      ? { ...item, badge: refundsBadge }
                       : item;
                   return (
                     <li key={item.path}>

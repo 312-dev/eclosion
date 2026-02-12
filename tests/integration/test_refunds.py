@@ -1,7 +1,7 @@
 """
-Integration tests for Refundables feature - Monarch API calls.
+Integration tests for Refunds feature - Monarch API calls.
 
-Tests the new API calls introduced by the Refundables feature:
+Tests the new API calls introduced by the Refunds feature:
 - get_transaction_tags(): Fetches all household tags
 - get_transactions(tag_ids=[...]): Fetches transactions filtered by tags
 - set_transaction_tags(): Sets tags on a transaction (tested via write safety)

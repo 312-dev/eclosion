@@ -1,10 +1,10 @@
 /**
- * Refundables Components
+ * Refunds Components
  *
- * Re-exports all refundables feature components.
+ * Re-exports all refunds feature components.
  */
 
-export { RefundablesTab } from './RefundablesTab';
+export { RefundsTab } from './RefundsTab';
 export { ViewTabs } from './ViewTabs';
 export { ViewConfigModal } from './ViewConfigModal';
 export { DateRangeFilter, getDateRangeFromPreset } from './DateRangeFilter';
@@ -12,4 +12,4 @@ export { TransactionList } from './TransactionList';
 export { TransactionRow } from './TransactionRow';
 export { RefundMatchModal } from './RefundMatchModal';
 export { TallyBar } from './TallyBar';
-export { RefundablesSettingsModal } from './RefundablesSettingsModal';
+export { RefundsSettingsModal } from './RefundsSettingsModal';

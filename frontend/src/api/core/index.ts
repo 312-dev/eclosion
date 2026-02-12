@@ -146,6 +146,9 @@ export {
   type BackupsResponse,
 } from './misc';
 
+// Accounts
+export { getAccounts } from './accounts';
+
 // Available to Stash
 export { getAvailableToStashData } from './availableToStash';
 
@@ -200,20 +203,20 @@ export {
   generateAttribution as generateOpenverseAttribution,
 } from './openverse';
 
-// Refundables
+// Refunds
 export {
-  getRefundablesConfig,
-  updateRefundablesConfig,
-  getRefundablesTags,
-  getRefundablesViews,
-  createRefundablesView,
-  updateRefundablesView,
-  deleteRefundablesView,
-  reorderRefundablesViews,
-  getRefundablesTransactions,
-  searchRefundablesTransactions,
-  getRefundablesMatches,
-  createRefundablesMatch,
-  deleteRefundablesMatch,
-  getRefundablesPendingCount,
-} from './refundables';
+  getRefundsConfig,
+  updateRefundsConfig,
+  getRefundsTags,
+  getRefundsViews,
+  createRefundsView,
+  updateRefundsView,
+  deleteRefundsView,
+  reorderRefundsViews,
+  getRefundsTransactions,
+  searchRefundsTransactions,
+  getRefundsMatches,
+  createRefundsMatch,
+  deleteRefundsMatch,
+  getRefundsPendingCount,
+} from './refunds';

@@ -6,11 +6,11 @@
  */
 
 import { Filter, FilterX } from 'lucide-react';
-import type { RefundablesTally } from '../../types/refundables';
+import type { RefundsTally } from '../../types/refunds';
 import { Tooltip } from '../ui/Tooltip';
 
 interface TallyBarProps {
-  readonly tally: RefundablesTally;
+  readonly tally: RefundsTally;
   readonly totalCount?: number | undefined;
   readonly onResetFilter?: (() => void) | undefined;
 }
@@ -26,7 +26,7 @@ export function TallyBar({ tally, totalCount, onResetFilter }: TallyBarProps) {
   return (
     <output
       className="sticky top-0 z-10 border-b border-(--monarch-border) bg-(--monarch-bg-card) px-4 py-3 block"
-      aria-label="Refundables summary"
+      aria-label="Refunds summary"
     >
       {/* Row 1: count + status breakdown */}
       <div className="flex items-center justify-between gap-4 text-sm">
@@ -55,7 +55,7 @@ export function TallyBar({ tally, totalCount, onResetFilter }: TallyBarProps) {
           </span>
         </span>
 
-        {(tally.matchedCount > 0 || tally.skippedCount > 0) && (
+        {(tally.matchedCount > 0 || tally.expectedCount > 0 || tally.skippedCount > 0) && (
           <span className="flex items-center gap-3 text-xs text-(--monarch-text-muted)">
             {tally.unmatchedCount > 0 && (
               <span className="flex items-center gap-1">
@@ -67,6 +67,15 @@ export function TallyBar({ tally, totalCount, onResetFilter }: TallyBarProps) {
               <span className="flex items-center gap-1">
                 <span className="inline-block w-1.5 h-1.5 rounded-full bg-(--monarch-success)" />
                 {tally.matchedCount} matched
+              </span>
+            )}
+            {tally.expectedCount > 0 && (
+              <span className="flex items-center gap-1">
+                <span
+                  className="inline-block w-1.5 h-1.5 rounded-full"
+                  style={{ backgroundColor: 'var(--monarch-accent)' }}
+                />
+                {tally.expectedCount} expected
               </span>
             )}
             {tally.skippedCount > 0 && (
@@ -83,13 +92,26 @@ export function TallyBar({ tally, totalCount, onResetFilter }: TallyBarProps) {
       </div>
 
       {/* Row 2: financial summary */}
-      <div className="flex items-center gap-4 mt-1.5 text-sm">
+      <div className="flex items-center gap-4 mt-1.5 text-sm flex-wrap">
         <span className="text-(--monarch-text-muted)">
           Refunded{' '}
           <span className="font-medium text-(--monarch-success)">
             {formatCurrency(tally.matchedAmount)}
           </span>
         </span>
+        {tally.expectedAmount > 0 && (
+          <>
+            <span className="text-(--monarch-text-muted) opacity-30" aria-hidden="true">
+              &middot;
+            </span>
+            <span className="text-(--monarch-text-muted)">
+              Expected{' '}
+              <span className="font-medium" style={{ color: 'var(--monarch-accent)' }}>
+                {formatCurrency(tally.expectedAmount)}
+              </span>
+            </span>
+          </>
+        )}
         <span className="text-(--monarch-text-muted) opacity-30" aria-hidden="true">
           &middot;
         </span>

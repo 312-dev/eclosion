@@ -1,7 +1,7 @@
 /**
- * RefundablesSettingsModal
+ * RefundsSettingsModal
  *
- * Tool settings modal for configuring the Refundables feature.
+ * Tool settings modal for configuring the Refunds feature.
  * Allows setting the replacement tag and default checkbox state.
  */
 
@@ -10,19 +10,19 @@ import { Modal } from '../ui/Modal';
 import { ModalFooter } from '../ui/ModalButtons';
 import { SearchableSelect } from '../SearchableSelect';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
-import type { TransactionTag, RefundablesConfig } from '../../types/refundables';
+import type { TransactionTag, RefundsConfig } from '../../types/refunds';
 
-interface RefundablesSettingsModalProps {
+interface RefundsSettingsModalProps {
   readonly isOpen: boolean;
   readonly onClose: () => void;
-  readonly config: RefundablesConfig | undefined;
+  readonly config: RefundsConfig | undefined;
   readonly tags: TransactionTag[];
   readonly tagsLoading: boolean;
-  readonly onSave: (updates: Partial<RefundablesConfig>) => void;
+  readonly onSave: (updates: Partial<RefundsConfig>) => void;
   readonly saving: boolean;
 }
 
-export function RefundablesSettingsModal({
+export function RefundsSettingsModal({
   isOpen,
   onClose,
   config,
@@ -30,7 +30,7 @@ export function RefundablesSettingsModal({
   tagsLoading,
   onSave,
   saving,
-}: RefundablesSettingsModalProps) {
+}: RefundsSettingsModalProps) {
   const [replacementTagId, setReplacementTagId] = useState(config?.replacementTagId ?? '');
   const [replaceByDefault, setReplaceByDefault] = useState(config?.replaceTagByDefault ?? true);
   const [agingWarningDays, setAgingWarningDays] = useState(config?.agingWarningDays ?? 30);
@@ -61,7 +61,7 @@ export function RefundablesSettingsModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Refundables Settings"
+      title="Refunds Settings"
       maxWidth="md"
       footer={
         <ModalFooter

@@ -1,19 +1,19 @@
 /**
  * DeleteViewConfirmModal
  *
- * Confirmation modal for deleting a saved refundables view.
+ * Confirmation modal for deleting a saved refunds view.
  */
 
 import { Modal } from '../ui/Modal';
 import { ModalFooter } from '../ui/ModalButtons';
 import { Icons } from '../icons';
-import type { RefundablesSavedView } from '../../types/refundables';
+import type { RefundsSavedView } from '../../types/refunds';
 
 interface DeleteViewConfirmModalProps {
   readonly isOpen: boolean;
   readonly onClose: () => void;
   readonly onConfirm: () => Promise<void>;
-  readonly view: RefundablesSavedView | null;
+  readonly view: RefundsSavedView | null;
   readonly isDeleting: boolean;
 }
 

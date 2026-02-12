@@ -1,30 +1,27 @@
 /**
- * RefundablesModals
+ * RefundsModals
  *
- * All modal dialogs for the Refundables tab, extracted to reduce main component size.
+ * All modal dialogs for the Refunds tab, extracted to reduce main component size.
  */
 
 import { ViewConfigModal } from './ViewConfigModal';
 import { DeleteViewConfirmModal } from './DeleteViewConfirmModal';
 import { RefundMatchModal } from './RefundMatchModal';
+import { ExpectedRefundModal } from './ExpectedRefundModal';
+import { ClearExpectedConfirmModal } from './ClearExpectedConfirmModal';
 import { ToolSettingsModal } from '../ui/ToolSettingsModal';
-import type { useRefundablesViewActions } from './useRefundablesViewActions';
-import type { MatchActionParams } from './useRefundablesMatchHandlers';
-import type {
-  Transaction,
-  TransactionTag,
-  RefundablesMatch,
-  RefundablesConfig,
-} from '../../types/refundables';
+import type { useRefundsViewActions } from './useRefundsViewActions';
+import type { MatchActionParams, ExpectedRefundParams } from './useRefundsMatchHandlers';
+import type { Transaction, TransactionTag, RefundsMatch, RefundsConfig } from '../../types/refunds';
 
-interface RefundablesModalsProps {
-  readonly viewActions: ReturnType<typeof useRefundablesViewActions>;
+interface RefundsModalsProps {
+  readonly viewActions: ReturnType<typeof useRefundsViewActions>;
   readonly tags: TransactionTag[];
   readonly tagsLoading: boolean;
   readonly matchingTransaction: Transaction | null;
   readonly onCloseMatch: () => void;
-  readonly config: RefundablesConfig | undefined;
-  readonly existingMatch: RefundablesMatch | undefined;
+  readonly config: RefundsConfig | undefined;
+  readonly existingMatch: RefundsMatch | undefined;
   readonly onMatch: (params: MatchActionParams) => Promise<void>;
   readonly onSkip: () => Promise<void>;
   readonly onUnmatch: () => Promise<void>;
@@ -32,11 +29,20 @@ interface RefundablesModalsProps {
   readonly batchCount: number;
   readonly batchAmount: number;
   readonly batchTransactions: Transaction[];
+  readonly expectedTransaction: Transaction | null;
+  readonly onCloseExpected: () => void;
+  readonly onExpectedRefund: (params: ExpectedRefundParams) => Promise<void>;
+  readonly expectedBatchCount: number;
+  readonly showClearExpectedConfirm: boolean;
+  readonly onCloseClearExpected: () => void;
+  readonly onConfirmClearExpected: () => Promise<void>;
+  readonly clearExpectedCount: number;
+  readonly clearExpectedPending: boolean;
   readonly showSettingsModal: boolean;
   readonly onCloseSettings: () => void;
 }
 
-export function RefundablesModals({
+export function RefundsModals({
   viewActions,
   tags,
   tagsLoading,
@@ -51,9 +57,18 @@ export function RefundablesModals({
   batchCount,
   batchAmount,
   batchTransactions,
+  expectedTransaction,
+  onCloseExpected,
+  onExpectedRefund,
+  expectedBatchCount,
+  showClearExpectedConfirm,
+  onCloseClearExpected,
+  onConfirmClearExpected,
+  clearExpectedCount,
+  clearExpectedPending,
   showSettingsModal,
   onCloseSettings,
-}: RefundablesModalsProps): React.JSX.Element {
+}: RefundsModalsProps): React.JSX.Element {
   return (
     <>
       {viewActions.showCreateModal && (
@@ -98,6 +113,25 @@ export function RefundablesModals({
           batchTransactions={batchTransactions}
         />
       )}
+      {expectedTransaction && (
+        <ExpectedRefundModal
+          isOpen={true}
+          onClose={onCloseExpected}
+          transaction={expectedTransaction}
+          onSubmit={onExpectedRefund}
+          submitting={matchPending}
+          batchCount={expectedBatchCount}
+          batchAmount={batchAmount}
+          batchTransactions={batchTransactions}
+        />
+      )}
+      <ClearExpectedConfirmModal
+        isOpen={showClearExpectedConfirm}
+        onClose={onCloseClearExpected}
+        onConfirm={onConfirmClearExpected}
+        count={clearExpectedCount}
+        isClearing={clearExpectedPending}
+      />
       <DeleteViewConfirmModal
         isOpen={viewActions.deletingView !== null}
         onClose={viewActions.cancelDeleteView}
@@ -106,7 +140,7 @@ export function RefundablesModals({
         isDeleting={viewActions.deletePending}
       />
       {showSettingsModal && (
-        <ToolSettingsModal isOpen={true} onClose={onCloseSettings} tool="refundables" />
+        <ToolSettingsModal isOpen={true} onClose={onCloseSettings} tool="refunds" />
       )}
     </>
   );

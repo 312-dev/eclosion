@@ -147,6 +147,9 @@ export {
   deleteHypothesis,
 } from './demoStash';
 
+// Accounts
+export { getAccounts } from './demoAccounts';
+
 // Stash History (Reports)
 export { getStashHistory } from './demoStashHistory';
 
@@ -159,20 +162,20 @@ export {
   generateAttribution as generateOpenverseAttribution,
 } from './demoOpenverse';
 
-// Refundables
+// Refunds
 export {
-  getRefundablesConfig,
-  updateRefundablesConfig,
-  getRefundablesTags,
-  getRefundablesViews,
-  createRefundablesView,
-  updateRefundablesView,
-  deleteRefundablesView,
-  reorderRefundablesViews,
-  getRefundablesTransactions,
-  searchRefundablesTransactions,
-  getRefundablesMatches,
-  createRefundablesMatch,
-  deleteRefundablesMatch,
-  getRefundablesPendingCount,
-} from './demoRefundables';
+  getRefundsConfig,
+  updateRefundsConfig,
+  getRefundsTags,
+  getRefundsViews,
+  createRefundsView,
+  updateRefundsView,
+  deleteRefundsView,
+  reorderRefundsViews,
+  getRefundsTransactions,
+  searchRefundsTransactions,
+  getRefundsMatches,
+  createRefundsMatch,
+  deleteRefundsMatch,
+  getRefundsPendingCount,
+} from './demoRefunds';

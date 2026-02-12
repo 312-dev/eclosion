@@ -1,15 +1,15 @@
 /**
- * Transaction filtering, merging, and splitting pipeline for the Refundables tab.
- * Extracted from RefundablesTab to keep component under 300-line limit.
+ * Transaction filtering, merging, and splitting pipeline for the Refunds tab.
+ * Extracted from RefundsTab to keep component under 300-line limit.
  */
 
 import { useMemo } from 'react';
-import type { Transaction, RefundablesMatch } from '../../types/refundables';
-import { useRefundablesTally } from './useRefundablesTally';
+import type { Transaction, RefundsMatch } from '../../types/refunds';
+import { useRefundsTally } from './useRefundsTally';
 
 interface TransactionPipelineInput {
   readonly transactions: Transaction[];
-  readonly matches: RefundablesMatch[];
+  readonly matches: RefundsMatch[];
   readonly tagIds: string[];
   readonly viewCategoryIds: string[] | null;
   readonly dateRange: { startDate: string | null; endDate: string | null };
@@ -23,7 +23,7 @@ export function useTransactionPipeline(input: TransactionPipelineInput): {
   skippedTransactions: Transaction[];
   expenseTransactions: Transaction[];
   filteredTransactions: Transaction[];
-  tally: ReturnType<typeof useRefundablesTally>;
+  tally: ReturnType<typeof useRefundsTally>;
   viewCategoryCount: number;
 } {
   const {
@@ -95,7 +95,7 @@ export function useTransactionPipeline(input: TransactionPipelineInput): {
     [searchedTransactions, skippedTransactionIds]
   );
 
-  const tally = useRefundablesTally(searchedTransactions, matches);
+  const tally = useRefundsTally(searchedTransactions, matches);
 
   const viewCategoryCount = useMemo(() => {
     const catIds = new Set<string>();
@@ -116,7 +116,7 @@ export function useTransactionPipeline(input: TransactionPipelineInput): {
 }
 
 function isOrphanInView(
-  match: RefundablesMatch,
+  match: RefundsMatch,
   viewTagIdSet: Set<string>,
   viewCatIdSet: Set<string> | null,
   dateRange: { startDate: string | null; endDate: string | null }

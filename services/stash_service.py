@@ -1747,6 +1747,39 @@ class StashService:
             updated_count = repo.update_bookmark_favicons(updates)
             return {"success": True, "updated": updated_count}
 
+    @staticmethod
+    def _process_accounts_raw(accounts_result: dict[str, Any]) -> list[dict[str, Any]]:
+        """Process raw Monarch accounts into frontend-friendly shape.
+
+        Returns all non-hidden accounts without any selection filtering.
+        """
+        accounts_list: list[dict[str, Any]] = []
+        for account in accounts_result.get("accounts", []):
+            if account.get("isHidden"):
+                continue
+            accounts_list.append(
+                {
+                    "id": account.get("id"),
+                    "name": account.get("displayName") or account.get("name"),
+                    "balance": account.get("currentBalance", 0),
+                    "accountType": account.get("type", {}).get("name", "unknown"),
+                    "isEnabled": not account.get("isHidden", False),
+                    "logoUrl": account.get("logoUrl"),
+                    "icon": account.get("icon"),
+                }
+            )
+        return accounts_list
+
+    async def get_accounts(self) -> list[dict[str, Any]]:
+        """Get all non-hidden Monarch accounts.
+
+        Returns the full unfiltered account list for the account store.
+        Used by the /stash/accounts endpoint.
+        """
+        mm = await get_mm()
+        accounts_result = await mm.get_accounts()
+        return self._process_accounts_raw(accounts_result)
+
     async def get_available_to_stash_data(self) -> dict[str, Any]:
         """
         Get data needed for Available Funds calculation.
@@ -1791,35 +1824,19 @@ class StashService:
             accounts_task, budgets_task, goals_task, stash_task
         )
 
-        # Process accounts - filter based on selection
+        # Process accounts and apply cash account selection filter
+        all_accounts = self._process_accounts_raw(accounts_result)
         accounts_list = []
-        for account in accounts_result.get("accounts", []):
-            # Only include accounts that are not hidden
-            if account.get("isHidden"):
-                continue
-
-            account_id = account.get("id")
-            account_type = account.get("type", {}).get("name", "unknown")
-
+        for account in all_accounts:
             # Apply filtering only to cash accounts
             # Credit cards are ALWAYS included (they're always debt to account for)
-            # If specific accounts are selected, filter out non-selected cash accounts
             if (
-                self._is_cash_account(account_type)
+                self._is_cash_account(account["accountType"])
                 and selected_account_ids is not None
-                and account_id not in selected_account_ids
+                and account["id"] not in selected_account_ids
             ):
                 continue
-
-            accounts_list.append(
-                {
-                    "id": account_id,
-                    "name": account.get("displayName") or account.get("name"),
-                    "balance": account.get("currentBalance", 0),
-                    "accountType": account_type,
-                    "isEnabled": not account.get("isHidden", False),
-                }
-            )
+            accounts_list.append(account)
 
         # Build lookups for category info from categoryGroups
         category_group_types: dict[str, str] = {}

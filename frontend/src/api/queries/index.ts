@@ -132,6 +132,19 @@ export {
   useInvalidateCategoryStore,
 } from './categoryStoreQueries';
 
+// Account store (normalized cache for cross-feature account data)
+export {
+  useAccountStore,
+  useAccount,
+  useAllAccounts,
+  useCashAccounts,
+  useCreditCardAccounts,
+  useDebtAccounts,
+  useGetAccountFromCache,
+  useRefreshAccountStore,
+  useInvalidateAccountStore,
+} from './accountStoreQueries';
+
 // Category group store (normalized cache for category groups and unmapped categories)
 export {
   useCategoryGroupsStore,
@@ -224,20 +237,20 @@ export { useOpenverseSearch, generateOpenverseAttribution } from './openverseQue
 // Reddit updates queries
 export { useUpdatesQuery, type UpdateEntry } from './updatesQueries';
 
-// Refundables queries
+// Refunds queries
 export {
-  useRefundablesConfigQuery,
-  useUpdateRefundablesConfigMutation,
-  useRefundablesTagsQuery,
-  useRefundablesViewsQuery,
-  useCreateRefundablesViewMutation,
-  useUpdateRefundablesViewMutation,
-  useDeleteRefundablesViewMutation,
-  useReorderRefundablesViewsMutation,
-  useRefundablesTransactionsQuery,
-  useSearchRefundablesTransactionsQuery,
-  useRefundablesMatchesQuery,
-  useCreateRefundablesMatchMutation,
-  useDeleteRefundablesMatchMutation,
-  useRefundablesPendingCountQuery,
-} from './refundablesQueries';
+  useRefundsConfigQuery,
+  useUpdateRefundsConfigMutation,
+  useRefundsTagsQuery,
+  useRefundsViewsQuery,
+  useCreateRefundsViewMutation,
+  useUpdateRefundsViewMutation,
+  useDeleteRefundsViewMutation,
+  useReorderRefundsViewsMutation,
+  useRefundsTransactionsQuery,
+  useSearchRefundsTransactionsQuery,
+  useRefundsMatchesQuery,
+  useCreateRefundsMatchMutation,
+  useDeleteRefundsMatchMutation,
+  useRefundsPendingCountQuery,
+} from './refundsQueries';

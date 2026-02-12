@@ -20,7 +20,7 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 # Current schema version - bump when adding migrations
-SCHEMA_VERSION = 20
+SCHEMA_VERSION = 22
 
 
 def column_exists(conn: sqlite3.Connection, table: str, column: str) -> bool:
@@ -552,6 +552,62 @@ def migrate_v19_refundables_aging_warning_days(conn: sqlite3.Connection) -> None
         conn.commit()
 
 
+def migrate_v21_refundables_expected_refund(conn: sqlite3.Connection) -> None:
+    """
+    Migration v21: Add expected refund columns to refundables_matches.
+
+    Supports the "Expected Refund" feature: users can mark transactions
+    with an expected refund date, account, amount, and note.
+    """
+    cursor = conn.cursor()
+
+    if not column_exists(conn, "refundables_matches", "expected_refund"):
+        cursor.execute(
+            "ALTER TABLE refundables_matches ADD COLUMN expected_refund BOOLEAN NOT NULL DEFAULT 0"
+        )
+    if not column_exists(conn, "refundables_matches", "expected_date"):
+        cursor.execute("ALTER TABLE refundables_matches ADD COLUMN expected_date VARCHAR(20)")
+    if not column_exists(conn, "refundables_matches", "expected_account"):
+        cursor.execute("ALTER TABLE refundables_matches ADD COLUMN expected_account VARCHAR(255)")
+    if not column_exists(conn, "refundables_matches", "expected_account_id"):
+        cursor.execute(
+            "ALTER TABLE refundables_matches ADD COLUMN expected_account_id VARCHAR(100)"
+        )
+    if not column_exists(conn, "refundables_matches", "expected_note"):
+        cursor.execute("ALTER TABLE refundables_matches ADD COLUMN expected_note TEXT")
+    if not column_exists(conn, "refundables_matches", "expected_amount"):
+        cursor.execute("ALTER TABLE refundables_matches ADD COLUMN expected_amount FLOAT")
+
+    conn.commit()
+
+
+def migrate_v22_rename_refundables_to_refunds(conn: sqlite3.Connection) -> None:
+    """
+    Migration v22: Rename refundables tables to refunds.
+
+    Renames refundables_config → refunds_config, refundables_saved_views →
+    refunds_saved_views, refundables_matches → refunds_matches.
+    """
+    cursor = conn.cursor()
+
+    table_renames = [
+        ("refundables_config", "refunds_config"),
+        ("refundables_saved_views", "refunds_saved_views"),
+        ("refundables_matches", "refunds_matches"),
+    ]
+
+    for old_name, new_name in table_renames:
+        # Check if old table exists (may already be renamed)
+        cursor.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+            (old_name,),
+        )
+        if cursor.fetchone():
+            cursor.execute(f"ALTER TABLE {old_name} RENAME TO {new_name}")
+
+    conn.commit()
+
+
 def migrate_v20_refundables_show_badge(conn: sqlite3.Connection) -> None:
     """
     Migration v20: Add show_badge column to refundables_config.
@@ -733,6 +789,20 @@ MIGRATIONS = [
         "version": 20,
         "description": "Add show_badge to refundables config",
         "sql": migrate_v20_refundables_show_badge,
+    },
+    # Version 21: Add expected refund columns to refundables_matches
+    # Supports marking transactions with expected refund date, account, amount, and note
+    {
+        "version": 21,
+        "description": "Add expected refund columns to refundables matches",
+        "sql": migrate_v21_refundables_expected_refund,
+    },
+    # Version 22: Rename refundables tables to refunds
+    # Renames refundables_config, refundables_saved_views, refundables_matches
+    {
+        "version": 22,
+        "description": "Rename refundables tables to refunds",
+        "sql": migrate_v22_rename_refundables_to_refunds,
     },
 ]
 

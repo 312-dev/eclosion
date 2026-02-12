@@ -1,6 +1,6 @@
 ---
 title: Overview
-description: Track purchases awaiting refunds or reimbursements with Eclosion's Refundables tool.
+description: Track purchases awaiting refunds or reimbursements with Eclosion's Refunds tool.
 sidebar_position: 1
 ---
 
@@ -8,7 +8,7 @@ import { FeatureCard, FeatureGrid } from '@site/src/components/FeatureCard';
 import { WorkflowSteps } from '@site/src/components/WorkflowSteps';
 import { Tag, Filter, CheckSquare, BarChart2 } from 'lucide-react';
 
-# Refundables
+# Refunds
 
 Track purchases awaiting refunds or reimbursements. Tag transactions in Monarch, organize them with saved views, and match refund transactions when they arrive.
 
@@ -21,7 +21,7 @@ Track purchases awaiting refunds or reimbursements. Tag transactions in Monarch,
   <FeatureCard
     icon={<Filter size={24} />}
     title="Saved Views"
-    description="Organize refundables by type with custom filtered tabs"
+    description="Organize refunds by type with custom filtered tabs"
   />
   <FeatureCard
     icon={<CheckSquare size={24} />}
@@ -37,14 +37,14 @@ Track purchases awaiting refunds or reimbursements. Tag transactions in Monarch,
 
 ## How It Works
 
-Refundables uses Monarch tags to identify transactions that need refunds. You create **saved views** that filter by tag (and optionally category) to organize different types of refundables—work expenses, insurance claims, product returns, etc.
+Refunds uses Monarch tags to identify transactions that need refunds. You create **saved views** that filter by tag (and optionally category) to organize different types of refunds—work expenses, insurance claims, product returns, etc.
 
 When a refund arrives, you match the refund transaction to the original purchase. Eclosion tracks which refunds have been received and which are still pending.
 
 ## Getting Started
 
 <WorkflowSteps
-  title="Setting Up Refundables"
+  title="Setting Up Refunds"
   steps={[
     {
       title: "Tag Transactions in Monarch",
@@ -96,7 +96,7 @@ Matched transactions display with a green highlight showing the refund amount, m
 
 ### Tag Replacement
 
-When matching, you can optionally replace the original tag with a different one (e.g., replace "Pending Refund" with "Refunded"). Configure a default replacement tag in Refundables settings.
+When matching, you can optionally replace the original tag with a different one (e.g., replace "Pending Refund" with "Refunded"). Configure a default replacement tag in Refunds settings.
 
 ### Skipping Transactions
 
@@ -133,5 +133,5 @@ Click the gear icon to configure:
 - **Replace by Default**: Whether tag replacement is enabled by default for new matches
 
 :::tip
-Create dedicated tags in Monarch before setting up views. Tags like "Pending Refund", "Work Expense", and "Refunded" make it easy to organize and track your refundables.
+Create dedicated tags in Monarch before setting up views. Tags like "Pending Refund", "Work Expense", and "Refunded" make it easy to organize and track your refunds.
 :::

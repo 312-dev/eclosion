@@ -65,17 +65,17 @@ function addMissingProperties(state: DemoState): boolean {
     state.stashHypotheses = [];
     added = true;
   }
-  if (state.refundablesConfig) {
-    if (state.refundablesConfig.agingWarningDays == null) {
-      state.refundablesConfig.agingWarningDays = 30;
+  if (state.refundsConfig) {
+    if (state.refundsConfig.agingWarningDays == null) {
+      state.refundsConfig.agingWarningDays = 30;
       added = true;
     }
-    if (state.refundablesConfig.showBadge == null) {
-      state.refundablesConfig.showBadge = true;
+    if (state.refundsConfig.showBadge == null) {
+      state.refundsConfig.showBadge = true;
       added = true;
     }
   } else {
-    state.refundablesConfig = {
+    state.refundsConfig = {
       replacementTagId: null,
       replaceTagByDefault: true,
       agingWarningDays: 30,
@@ -83,16 +83,16 @@ function addMissingProperties(state: DemoState): boolean {
     };
     added = true;
   }
-  if (!state.refundablesViews) {
-    state.refundablesViews = [];
+  if (!state.refundsViews) {
+    state.refundsViews = [];
     added = true;
   }
-  if (!state.refundablesMatches) {
-    state.refundablesMatches = [];
+  if (!state.refundsMatches) {
+    state.refundsMatches = [];
     added = true;
   }
-  if (!state.refundablesTransactionTagOverrides) {
-    state.refundablesTransactionTagOverrides = {};
+  if (!state.refundsTransactionTagOverrides) {
+    state.refundsTransactionTagOverrides = {};
     added = true;
   }
   return added;

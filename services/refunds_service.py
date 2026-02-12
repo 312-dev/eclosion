@@ -1,18 +1,21 @@
 """
-Refundables Service
+Refunds Service
 
-Manages the Refundables feature - tracking purchases awaiting refunds/reimbursements.
+Manages the Refunds feature - tracking purchases awaiting refunds/reimbursements.
 Handles saved views (tag-filtered tabs), transaction fetching, refund matching,
 and tag replacement.
 """
 
+import html
 import json
 import logging
+import re
 from datetime import datetime
 from typing import Any
 
 from monarch_utils import (
     get_mm,
+    get_transaction_notes,
     get_transaction_tags,
     get_transactions_with_icons,
     search_transactions_with_icons,
@@ -25,16 +28,16 @@ from state.db.repositories import TrackerRepository
 logger = logging.getLogger(__name__)
 
 
-class RefundablesService:
-    """Service for refundables feature operations."""
+class RefundsService:
+    """Service for refunds feature operations."""
 
     # === Config ===
 
     async def get_config(self) -> dict[str, Any]:
-        """Get refundables configuration."""
+        """Get refunds configuration."""
         with db_session() as session:
             repo = TrackerRepository(session)
-            config = repo.get_refundables_config()
+            config = repo.get_refunds_config()
             return {
                 "replacementTagId": config.replacement_tag_id,
                 "replaceTagByDefault": config.replace_tag_by_default,
@@ -43,7 +46,7 @@ class RefundablesService:
             }
 
     async def update_config(self, updates: dict[str, Any]) -> dict[str, Any]:
-        """Update refundables configuration."""
+        """Update refunds configuration."""
         with db_session() as session:
             repo = TrackerRepository(session)
             # Map camelCase to snake_case
@@ -56,7 +59,7 @@ class RefundablesService:
                 kwargs["aging_warning_days"] = updates["agingWarningDays"]
             if "showBadge" in updates:
                 kwargs["show_badge"] = updates["showBadge"]
-            repo.update_refundables_config(**kwargs)
+            repo.update_refunds_config(**kwargs)
             return {"success": True}
 
     # === Pending Count ===
@@ -69,7 +72,7 @@ class RefundablesService:
         """
         with db_session() as session:
             repo = TrackerRepository(session)
-            views = repo.get_refundables_views()
+            views = repo.get_refunds_views()
             if not views:
                 return {"count": 0, "viewCounts": {}}
 
@@ -82,7 +85,7 @@ class RefundablesService:
             if not all_tag_ids:
                 return {"count": 0, "viewCounts": {}}
 
-            matched_ids = {m.original_transaction_id for m in repo.get_refundables_matches()}
+            matched_ids = {m.original_transaction_id for m in repo.get_refunds_matches()}
 
         # Fetch all tagged transactions from Monarch in one call.
         # Only pass tag_ids (not category_ids) — category filtering is
@@ -116,7 +119,7 @@ class RefundablesService:
         """Get all saved views."""
         with db_session() as session:
             repo = TrackerRepository(session)
-            views = repo.get_refundables_views()
+            views = repo.get_refunds_views()
             return [
                 {
                     "id": v.id,
@@ -137,7 +140,7 @@ class RefundablesService:
         """Create a new saved view."""
         with db_session() as session:
             repo = TrackerRepository(session)
-            view = repo.create_refundables_view(
+            view = repo.create_refunds_view(
                 name=name,
                 tag_ids=json.dumps(tag_ids),
                 category_ids=json.dumps(category_ids) if category_ids else None,
@@ -165,7 +168,7 @@ class RefundablesService:
             if "sortOrder" in updates:
                 kwargs["sort_order"] = updates["sortOrder"]
 
-            view = repo.update_refundables_view(view_id, **kwargs)
+            view = repo.update_refunds_view(view_id, **kwargs)
             if not view:
                 return {"success": False, "error": "View not found"}
             return {"success": True}
@@ -174,14 +177,14 @@ class RefundablesService:
         """Delete a saved view."""
         with db_session() as session:
             repo = TrackerRepository(session)
-            deleted = repo.delete_refundables_view(view_id)
+            deleted = repo.delete_refunds_view(view_id)
             return {"success": deleted}
 
     async def reorder_views(self, view_ids: list[str]) -> dict[str, Any]:
         """Reorder saved views."""
         with db_session() as session:
             repo = TrackerRepository(session)
-            repo.reorder_refundables_views(view_ids)
+            repo.reorder_refunds_views(view_ids)
             return {"success": True}
 
     # === Transactions ===
@@ -239,7 +242,7 @@ class RefundablesService:
         """Get all refund matches."""
         with db_session() as session:
             repo = TrackerRepository(session)
-            matches = repo.get_refundables_matches()
+            matches = repo.get_refunds_matches()
             return [
                 {
                     "id": m.id,
@@ -250,6 +253,12 @@ class RefundablesService:
                     "refundDate": m.refund_date,
                     "refundAccount": m.refund_account,
                     "skipped": m.skipped,
+                    "expectedRefund": m.expected_refund,
+                    "expectedDate": m.expected_date,
+                    "expectedAccount": m.expected_account,
+                    "expectedAccountId": m.expected_account_id,
+                    "expectedNote": m.expected_note,
+                    "expectedAmount": m.expected_amount,
                     "transactionData": (
                         json.loads(m.transaction_data) if m.transaction_data else None
                     ),
@@ -266,6 +275,12 @@ class RefundablesService:
         refund_date: str | None = None,
         refund_account: str | None = None,
         skipped: bool = False,
+        expected_refund: bool = False,
+        expected_date: str | None = None,
+        expected_account: str | None = None,
+        expected_account_id: str | None = None,
+        expected_note: str | None = None,
+        expected_amount: float | None = None,
         replace_tag: bool = False,
         original_tag_ids: list[str] | None = None,
         original_notes: str | None = None,
@@ -273,21 +288,21 @@ class RefundablesService:
         transaction_data: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """
-        Create a refund match.
+        Create a refund match or expected refund.
 
         Stores match in local DB, updates Monarch transaction notes,
-        and optionally replaces tags.
+        and optionally replaces tags (not for expected refunds).
         """
         # Store match in local DB
         with db_session() as session:
             repo = TrackerRepository(session)
 
             # Check for existing match
-            existing = repo.get_refundables_match_by_original(original_transaction_id)
+            existing = repo.get_refunds_match_by_original(original_transaction_id)
             if existing:
                 return {"success": False, "error": "Transaction already matched"}
 
-            repo.create_refundables_match(
+            repo.create_refunds_match(
                 original_transaction_id=original_transaction_id,
                 refund_transaction_id=refund_transaction_id,
                 refund_amount=refund_amount,
@@ -295,24 +310,45 @@ class RefundablesService:
                 refund_date=refund_date,
                 refund_account=refund_account,
                 skipped=skipped,
+                expected_refund=expected_refund,
+                expected_date=expected_date,
+                expected_account=expected_account,
+                expected_account_id=expected_account_id,
+                expected_note=expected_note,
+                expected_amount=expected_amount,
                 transaction_data=json.dumps(transaction_data) if transaction_data else None,
             )
 
-        # Update Monarch transaction notes (if not skipped)
-        if not skipped and refund_amount is not None:
+        # Update Monarch transaction notes for expected refunds
+        if expected_refund and expected_amount is not None:
+            try:
+                mm = await get_mm()
+                note_line = _build_expected_refund_note(
+                    expected_amount, expected_date, expected_account, expected_note
+                )
+                # Strip any previous Eclosion blocks and decode HTML entities
+                base_notes = _prepare_original_notes(original_notes)
+                new_notes = f"{base_notes}\n\n{note_line}" if base_notes else note_line
+                await update_transaction_notes(mm, original_transaction_id, new_notes)
+            except Exception:
+                logger.exception("Failed to update transaction notes in Monarch")
+
+        # Update Monarch transaction notes (if not skipped and not expected)
+        elif not skipped and not expected_refund and refund_amount is not None:
             try:
                 mm = await get_mm()
                 note_line = _build_refund_note(
                     refund_amount, refund_merchant, refund_date, refund_account
                 )
-                # Append to existing notes
-                new_notes = f"{original_notes}\n{note_line}" if original_notes else note_line
+                # Strip any previous Eclosion blocks and decode HTML entities
+                base_notes = _prepare_original_notes(original_notes)
+                new_notes = f"{base_notes}\n\n{note_line}" if base_notes else note_line
                 await update_transaction_notes(mm, original_transaction_id, new_notes)
             except Exception:
                 logger.exception("Failed to update transaction notes in Monarch")
 
-        # Replace or remove tags if configured
-        if replace_tag and original_tag_ids is not None:
+        # Replace or remove tags if configured (not for expected refunds)
+        if replace_tag and not expected_refund and original_tag_ids is not None:
             try:
                 mm = await get_mm()
                 config = await self.get_config()
@@ -334,18 +370,21 @@ class RefundablesService:
         return {"success": True}
 
     async def delete_match(self, match_id: str) -> dict[str, Any]:
-        """Delete a refund match, restoring original tags in Monarch if available."""
+        """Delete a refund match or expected refund, restoring original tags/notes."""
         with db_session() as session:
             repo = TrackerRepository(session)
-            matches = repo.get_refundables_matches()
+            matches = repo.get_refunds_matches()
             match = next((m for m in matches if m.id == match_id), None)
             if not match:
                 return {"success": False, "error": "Match not found"}
 
-            # Restore original tags from snapshot before deleting
+            is_expected = match.expected_refund
+            is_skipped = match.skipped
+
+            # Restore original tags from snapshot before deleting (not for expected refunds)
             original_tag_ids: list[str] | None = None
             original_transaction_id = match.original_transaction_id
-            if match.transaction_data:
+            if not is_expected and match.transaction_data:
                 try:
                     snapshot = json.loads(match.transaction_data)
                     tags = snapshot.get("tags", [])
@@ -353,17 +392,34 @@ class RefundablesService:
                 except (json.JSONDecodeError, TypeError):
                     pass
 
-            deleted = repo.delete_refundables_match(match_id)
+            # Track whether we added notes (expected or matched, not skipped)
+            should_strip_notes = not is_skipped
+
+            deleted = repo.delete_refunds_match(match_id)
+
+        if not deleted:
+            return {"success": False}
+
+        mm = await get_mm()
+
+        # Strip Eclosion note blocks from Monarch transaction (best-effort)
+        if should_strip_notes:
+            try:
+                current_notes = await get_transaction_notes(mm, original_transaction_id)
+                if current_notes and _BLOCK_PATTERN.search(current_notes):
+                    cleaned = _strip_refund_notes(_decode_html(current_notes))
+                    await update_transaction_notes(mm, original_transaction_id, cleaned)
+            except Exception:
+                logger.exception("Failed to strip refund notes from Monarch transaction")
 
         # Restore tags in Monarch (best-effort, after DB commit)
-        if original_tag_ids is not None and deleted:
+        if original_tag_ids is not None:
             try:
-                mm = await get_mm()
                 await set_transaction_tags(mm, original_transaction_id, original_tag_ids)
             except Exception:
                 logger.exception("Failed to restore transaction tags in Monarch")
 
-        return {"success": deleted}
+        return {"success": True}
 
 
 def _parse_view_filters(
@@ -416,25 +472,88 @@ def _compute_view_counts(
     return {"count": len(global_unmatched_ids), "viewCounts": view_counts}
 
 
+# ── Note block markers ──
+# These wrap notes we append to Monarch transactions so they can be
+# cleanly identified and stripped later (e.g. on unmatch / clear expected).
+_MATCHED_MARKER = "── Refund Matched ──"
+_EXPECTED_MARKER = "── Expected Refund ──"
+_BLOCK_END = "──────────"
+
+# Regex that matches any Eclosion refund note block (matched or expected).
+# Handles blocks at start, middle, or end of notes, with optional
+# surrounding newlines.
+_BLOCK_PATTERN = re.compile(
+    r"\n?── (?:Refund Matched|Expected Refund) ──\n.*?──────────\n?",
+    re.DOTALL,
+)
+
+
+def _decode_html(text: str) -> str:
+    """Decode HTML entities in text from the Monarch API."""
+    return html.unescape(text)
+
+
+def _strip_refund_notes(notes: str) -> str:
+    """Strip all Eclosion refund note blocks from a notes string.
+
+    Removes matched/expected refund blocks and cleans up extra whitespace.
+    """
+    cleaned = _BLOCK_PATTERN.sub("", notes)
+    # Collapse multiple blank lines into one, strip leading/trailing whitespace
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+    return cleaned.strip()
+
+
 def _build_refund_note(
     amount: float | None,
     merchant: str | None,
     date: str | None,
     account: str | None,
 ) -> str:
-    """Build the note line for a matched refund."""
-    parts = ["[Refund matched]"]
+    """Build a wrapped note block for a matched refund."""
+    parts: list[str] = []
     if amount is not None:
         parts.append(f"${abs(amount):.2f}")
     if merchant:
-        parts.append(f'from "{merchant}"')
+        parts.append(f'from "{_decode_html(merchant)}"')
     if date:
-        # Format date nicely if possible
         try:
             dt = datetime.strptime(date, "%Y-%m-%d")
             parts.append(f"on {dt.strftime('%-m/%-d/%Y')}")
         except ValueError:
             parts.append(f"on {date}")
     if account:
-        parts.append(f"via {account}")
-    return " ".join(parts)
+        parts.append(f"via {_decode_html(account)}")
+    body = " ".join(parts)
+    return f"{_MATCHED_MARKER}\n{body}\n{_BLOCK_END}"
+
+
+def _build_expected_refund_note(
+    amount: float | None,
+    date: str | None,
+    account: str | None,
+    note: str | None,
+) -> str:
+    """Build a wrapped note block for an expected refund."""
+    parts: list[str] = []
+    if amount is not None:
+        parts.append(f"${abs(amount):.2f}")
+    if date:
+        try:
+            dt = datetime.strptime(date, "%Y-%m-%d")
+            parts.append(f"expected by {dt.strftime('%-m/%-d/%Y')}")
+        except ValueError:
+            parts.append(f"expected by {date}")
+    if account:
+        parts.append(f"to {_decode_html(account)}")
+    body = " ".join(parts)
+    if note:
+        body += f"\n{note}"
+    return f"{_EXPECTED_MARKER}\n{body}\n{_BLOCK_END}"
+
+
+def _prepare_original_notes(original_notes: str | None) -> str:
+    """Clean original notes: strip existing Eclosion blocks and decode HTML entities."""
+    if not original_notes:
+        return ""
+    return _strip_refund_notes(_decode_html(original_notes))

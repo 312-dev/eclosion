@@ -6,25 +6,29 @@
  * showing selection count + amount and contextual action buttons.
  *
  * Buttons shown depend on selection state:
- * - unmatched → Match, Skip
+ * - unmatched → Match (with Expected Refund dropdown), Skip
+ * - expected  → Match, Clear Expected
  * - matched   → Unmatch
  * - skipped   → Restore
  * - mixed     → (no actions, just Clear)
  */
 
+import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { SearchCheck, FlagOff, Undo2, X } from 'lucide-react';
+import { SearchCheck, FlagOff, Undo2, X, ChevronDown, Clock } from 'lucide-react';
 import { Z_INDEX } from '../../constants';
-import type { SelectionState } from './useRefundablesSelection';
+import type { SelectionState } from './useRefundsSelection';
 
 interface SelectionActionBarProps {
   readonly count: number;
   readonly selectedAmount: number;
   readonly selectionState: SelectionState;
   readonly onMatch: () => void;
+  readonly onExpectedRefund: () => void;
   readonly onSkip: () => void;
   readonly onUnmatch: () => void;
   readonly onRestore: () => void;
+  readonly onClearExpected: () => void;
   readonly onClear: () => void;
 }
 
@@ -32,17 +36,36 @@ function formatCurrency(amount: number): string {
   return `$${Math.abs(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+const BTN_BASE =
+  'inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors cursor-pointer';
+
 export function SelectionActionBar({
   count,
   selectedAmount,
   selectionState,
   onMatch,
+  onExpectedRefund,
   onSkip,
   onUnmatch,
   onRestore,
+  onClearExpected,
   onClear,
 }: SelectionActionBarProps): React.JSX.Element {
   const plural = count === 1 ? '' : 's';
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!dropdownOpen) return;
+    function handleClickOutside(e: MouseEvent): void {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [dropdownOpen]);
+
   return createPortal(
     <>
       {/* Vignette gradient behind the bar */}
@@ -80,9 +103,73 @@ export function SelectionActionBar({
           <div className="flex items-center gap-2">
             {selectionState === 'unmatched' && (
               <>
+                <div
+                  className="relative inline-flex items-center rounded-lg border border-(--monarch-success)/30 bg-(--monarch-success)/10"
+                  ref={dropdownRef}
+                >
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-s-lg text-(--monarch-success) hover:bg-(--monarch-success)/10 transition-colors cursor-pointer"
+                    onClick={onMatch}
+                    aria-label={`Match ${count} selected transaction${plural}`}
+                  >
+                    <SearchCheck size={14} />
+                    Match Refund
+                  </button>
+                  <div className="w-px self-stretch bg-(--monarch-success)/20" aria-hidden="true" />
+                  <button
+                    type="button"
+                    className="inline-flex items-center justify-center px-2 py-1.5 rounded-e-lg text-(--monarch-success) hover:bg-(--monarch-success)/10 transition-colors cursor-pointer self-stretch"
+                    onClick={() => setDropdownOpen((prev) => !prev)}
+                    aria-label="More match options"
+                    aria-expanded={dropdownOpen}
+                    aria-haspopup="menu"
+                  >
+                    <ChevronDown size={12} />
+                  </button>
+                  {dropdownOpen && (
+                    <div
+                      className="absolute bottom-full right-0 mb-1 rounded-lg py-1 whitespace-nowrap"
+                      style={{
+                        backgroundColor: 'var(--monarch-bg-card)',
+                        border: '1px solid var(--monarch-border)',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                        zIndex: Z_INDEX.DROPDOWN,
+                      }}
+                      role="menu"
+                    >
+                      <button
+                        type="button"
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-(--monarch-bg-hover) transition-colors cursor-pointer"
+                        style={{ color: 'var(--monarch-accent)' }}
+                        role="menuitem"
+                        onClick={() => {
+                          onExpectedRefund();
+                          setDropdownOpen(false);
+                        }}
+                      >
+                        <Clock size={14} />
+                        Expected Refund
+                      </button>
+                    </div>
+                  )}
+                </div>
                 <button
                   type="button"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors cursor-pointer bg-(--monarch-success)/10 text-(--monarch-success) hover:bg-(--monarch-success)/20"
+                  className={`${BTN_BASE} bg-(--monarch-text-muted)/10 text-(--monarch-text-muted) hover:bg-(--monarch-text-muted)/20`}
+                  onClick={onSkip}
+                  aria-label={`Skip ${count} selected transaction${plural}`}
+                >
+                  <FlagOff size={14} />
+                  Skip
+                </button>
+              </>
+            )}
+            {selectionState === 'expected' && (
+              <>
+                <button
+                  type="button"
+                  className={`${BTN_BASE} bg-(--monarch-success)/10 text-(--monarch-success) hover:bg-(--monarch-success)/20`}
                   onClick={onMatch}
                   aria-label={`Match ${count} selected transaction${plural}`}
                 >
@@ -91,19 +178,20 @@ export function SelectionActionBar({
                 </button>
                 <button
                   type="button"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors cursor-pointer bg-(--monarch-text-muted)/10 text-(--monarch-text-muted) hover:bg-(--monarch-text-muted)/20"
-                  onClick={onSkip}
-                  aria-label={`Skip ${count} selected transaction${plural}`}
+                  className={`${BTN_BASE} bg-(--monarch-accent)/10 hover:bg-(--monarch-accent)/20`}
+                  style={{ color: 'var(--monarch-accent)' }}
+                  onClick={onClearExpected}
+                  aria-label={`Clear expected refund from ${count} transaction${plural}`}
                 >
-                  <FlagOff size={14} />
-                  Skip{count > 1 ? ` ${count}` : ''}
+                  <X size={14} />
+                  Clear Expected{count > 1 ? ` (${count})` : ''}
                 </button>
               </>
             )}
             {selectionState === 'matched' && (
               <button
                 type="button"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors cursor-pointer bg-(--monarch-orange)/10 text-(--monarch-orange) hover:bg-(--monarch-orange)/20"
+                className={`${BTN_BASE} bg-(--monarch-orange)/10 text-(--monarch-orange) hover:bg-(--monarch-orange)/20`}
                 onClick={onUnmatch}
                 aria-label={`Unmatch ${count} selected transaction${plural}`}
               >
@@ -114,7 +202,7 @@ export function SelectionActionBar({
             {selectionState === 'skipped' && (
               <button
                 type="button"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors cursor-pointer bg-(--monarch-orange)/10 text-(--monarch-orange) hover:bg-(--monarch-orange)/20"
+                className={`${BTN_BASE} bg-(--monarch-orange)/10 text-(--monarch-orange) hover:bg-(--monarch-orange)/20`}
                 onClick={onRestore}
                 aria-label={`Restore ${count} selected transaction${plural}`}
               >
@@ -124,7 +212,7 @@ export function SelectionActionBar({
             )}
             <button
               type="button"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors cursor-pointer text-(--monarch-text-muted) hover:bg-(--monarch-bg-hover)"
+              className={`${BTN_BASE} text-(--monarch-text-muted) hover:bg-(--monarch-bg-hover)`}
               onClick={onClear}
               aria-label="Clear selection"
             >

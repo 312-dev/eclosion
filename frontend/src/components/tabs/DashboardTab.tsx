@@ -40,11 +40,11 @@ function getTools(isDemo: boolean) {
       path: `${prefix}/stashes`,
     },
     {
-      id: 'refundables',
-      name: 'Refundables',
+      id: 'refunds',
+      name: 'Refunds',
       description: 'Track purchases awaiting refunds and match them when they arrive',
       icon: <Undo2 size={28} />,
-      path: `${prefix}/refundables`,
+      path: `${prefix}/refunds`,
     },
   ];
 }

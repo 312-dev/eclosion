@@ -1,7 +1,7 @@
 /**
  * TransactionSearchBar
  *
- * Inline search input for filtering the refundables transaction list
+ * Inline search input for filtering the refunds transaction list
  * by merchant, category, account, notes, or tag name.
  */
 

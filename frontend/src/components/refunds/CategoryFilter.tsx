@@ -1,4 +1,4 @@
-/** Multi-select dropdown for filtering refundable transactions by category. */
+/** Multi-select dropdown for filtering refund transactions by category. */
 
 import { useState, useMemo, useRef, useCallback } from 'react';
 import { ChevronDown, Filter, Search, Check } from 'lucide-react';
@@ -6,7 +6,7 @@ import { Portal } from '../Portal';
 import { useDropdown } from '../../hooks';
 import { useCategoriesByGroup } from '../../api/queries/categoryStoreQueries';
 import { Z_INDEX, UI } from '../../constants';
-import type { Transaction } from '../../types/refundables';
+import type { Transaction } from '../../types/refunds';
 
 interface CategoryOption {
   id: string;
