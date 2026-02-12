@@ -7,7 +7,7 @@
 import { useMemo, useCallback } from 'react';
 import { buildRefundsExportHtml, printHtml } from '../../utils/refundsExport';
 import type { MatchActionParams } from './useRefundsMatchHandlers';
-import type { Transaction, RefundsMatch } from '../../types/refunds';
+import type { Transaction, RefundsMatch, CreditGroup } from '../../types/refunds';
 
 interface BatchActionsParams {
   readonly selectedIds: Set<string>;
@@ -15,6 +15,8 @@ interface BatchActionsParams {
   readonly activeTransactions: Transaction[];
   readonly skippedTransactions: Transaction[];
   readonly matches: RefundsMatch[];
+  readonly creditGroups: CreditGroup[];
+  readonly allTransactions: Transaction[];
   readonly handleBatchMatchAll: (
     transactions: Transaction[],
     params: MatchActionParams
@@ -38,6 +40,8 @@ export function useRefundsBatchActions({
   activeTransactions,
   skippedTransactions,
   matches,
+  creditGroups,
+  allTransactions,
   handleBatchMatchAll,
   setMatchingTransaction,
   setBatchCount,
@@ -54,8 +58,8 @@ export function useRefundsBatchActions({
   const handleExport = useCallback(() => {
     const allSelected = [...batchTransactions, ...selectedSkippedTransactions];
     if (allSelected.length === 0) return;
-    printHtml(buildRefundsExportHtml(allSelected, matches));
-  }, [batchTransactions, selectedSkippedTransactions, matches]);
+    printHtml(buildRefundsExportHtml(allSelected, matches, creditGroups, allTransactions));
+  }, [batchTransactions, selectedSkippedTransactions, matches, creditGroups, allTransactions]);
 
   const handleStartBatchMatch = useCallback(() => {
     const first = batchTransactions[0];

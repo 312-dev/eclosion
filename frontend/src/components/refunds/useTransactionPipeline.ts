@@ -4,8 +4,9 @@
  */
 
 import { useMemo } from 'react';
-import type { Transaction, RefundsMatch } from '../../types/refunds';
+import type { Transaction, RefundsMatch, CreditGroup } from '../../types/refunds';
 import { useRefundsTally } from './useRefundsTally';
+import { useCreditGroups } from './useCreditGroups';
 
 interface TransactionPipelineInput {
   readonly transactions: Transaction[];
@@ -25,6 +26,7 @@ export function useTransactionPipeline(input: TransactionPipelineInput): {
   filteredTransactions: Transaction[];
   tally: ReturnType<typeof useRefundsTally>;
   viewCategoryCount: number;
+  creditGroups: CreditGroup[];
 } {
   const {
     transactions,
@@ -105,6 +107,26 @@ export function useTransactionPipeline(input: TransactionPipelineInput): {
     return catIds.size;
   }, [expenseTransactions]);
 
+  // Build credit groups from matches + transactions, then filter by date range and search
+  const allCreditGroups = useCreditGroups(matches, expenseTransactions);
+  const creditGroups = useMemo(() => {
+    let groups = allCreditGroups;
+    // Filter by date range
+    if (dateRange.startDate || dateRange.endDate) {
+      groups = groups.filter((g) => {
+        if (dateRange.startDate && g.date < dateRange.startDate) return false;
+        if (dateRange.endDate && g.date > dateRange.endDate) return false;
+        return true;
+      });
+    }
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      groups = groups.filter((g) => matchesCreditSearch(g, q));
+    }
+    return groups;
+  }, [allCreditGroups, dateRange.startDate, dateRange.endDate, searchQuery]);
+
   return {
     activeTransactions,
     skippedTransactions,
@@ -112,6 +134,7 @@ export function useTransactionPipeline(input: TransactionPipelineInput): {
     filteredTransactions,
     tally,
     viewCategoryCount,
+    creditGroups,
   };
 }
 
@@ -150,5 +173,20 @@ function matchesSearch(txn: Transaction, q: string): boolean {
     tags.includes(q) ||
     amount.includes(q) ||
     date.includes(q)
+  );
+}
+
+function matchesCreditSearch(group: CreditGroup, q: string): boolean {
+  const merchant = (group.merchant ?? '').toLowerCase();
+  const account = (group.account ?? '').toLowerCase();
+  const note = (group.note ?? '').toLowerCase();
+  const amount = group.amount.toFixed(2);
+  const label = group.type === 'expected' ? 'expected refund' : 'refund';
+  return (
+    merchant.includes(q) ||
+    account.includes(q) ||
+    note.includes(q) ||
+    amount.includes(q) ||
+    label.includes(q)
   );
 }
