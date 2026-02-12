@@ -14,9 +14,9 @@ import { useRefundsViewActions } from './useRefundsViewActions';
 import { useTransactionPipeline } from './useTransactionPipeline';
 import { useRefundsMatchHandlers } from './useRefundsMatchHandlers';
 import { useRefundsSelection } from './useRefundsSelection';
+import { useRefundsBatchActions } from './useRefundsBatchActions';
 import { useExpectedRefundFlow } from './useExpectedRefundFlow';
 import { usePageTitle } from '../../hooks/usePageTitle';
-import { buildRefundsExportHtml, printHtml } from '../../utils/refundsExport';
 import {
   useRefundsViewsQuery,
   useRefundsTagsQuery,
@@ -26,7 +26,6 @@ import {
   useReorderRefundsViewsMutation,
   useRefundsPendingCountQuery,
 } from '../../api/queries/refundsQueries';
-import type { MatchActionParams } from './useRefundsMatchHandlers';
 import type { Transaction, DateRangeFilter as DateRangeFilterType } from '../../types/refunds';
 
 const DEFAULT_DATE_RANGE: DateRangeFilterType = {
@@ -132,43 +131,28 @@ export function RefundsTab() {
     handleRestore,
   });
 
-  const batchTransactions = useMemo(
-    () => activeTransactions.filter((txn) => selectedIds.has(txn.id)),
-    [activeTransactions, selectedIds]
-  );
-  const selectedSkippedTransactions = useMemo(
-    () => skippedTransactions.filter((txn) => selectedIds.has(txn.id)),
-    [skippedTransactions, selectedIds]
-  );
+  const {
+    batchTransactions,
+    handleExport,
+    handleStartBatchMatch,
+    handleModalBatchMatch,
+    handleCloseMatch,
+  } = useRefundsBatchActions({
+    selectedIds,
+    setSelectedIds,
+    activeTransactions,
+    skippedTransactions,
+    matches,
+    handleBatchMatchAll,
+    setMatchingTransaction,
+    setBatchCount,
+  });
   const expectedFlow = useExpectedRefundFlow({
     batchTransactions,
     handleBatchExpectedRefundAll,
     handleBatchClearExpected,
     setSelectedIds,
   });
-  const handleExport = useCallback(() => {
-    const allSelected = [...batchTransactions, ...selectedSkippedTransactions];
-    if (allSelected.length === 0) return;
-    printHtml(buildRefundsExportHtml(allSelected, matches));
-  }, [batchTransactions, selectedSkippedTransactions, matches]);
-  const handleStartBatchMatch = useCallback(() => {
-    const first = batchTransactions[0];
-    if (!first) return;
-    setBatchCount(batchTransactions.length);
-    setMatchingTransaction(first);
-  }, [batchTransactions]);
-  const handleModalBatchMatch = useCallback(
-    async (params: MatchActionParams) => {
-      await handleBatchMatchAll(batchTransactions, params);
-      setBatchCount(0);
-      setSelectedIds(new Set());
-    },
-    [batchTransactions, handleBatchMatchAll, setSelectedIds]
-  );
-  const handleCloseMatch = useCallback(() => {
-    setMatchingTransaction(null);
-    setBatchCount(0);
-  }, []);
   const resetFiltersAndSelection = useCallback(() => {
     setSelectedCategoryIds(null);
     setSearchQuery('');
