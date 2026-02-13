@@ -346,7 +346,7 @@ class TestRefundsExportImport:
             "app_settings": {},
         }
 
-        service = SettingsExportService(state_manager, db_session=state_manager._session)
+        service = SettingsExportService(state_manager)
         result = service.import_settings(export_data, tools=["refunds"])
 
         assert result.success
@@ -424,7 +424,7 @@ class TestExhaustiveToolCoverage:
 
     def test_import_handles_all_exported_tools(self, state_manager: StateManager) -> None:
         """Import should handle all tools that appear in a full export."""
-        service = SettingsExportService(state_manager, db_session=state_manager._session)
+        service = SettingsExportService(state_manager)
         result = service.export_settings(include_notes=False)
         assert result.success
         assert result.data is not None
