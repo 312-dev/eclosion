@@ -67,6 +67,7 @@ class EncryptedExportService:
         app_settings: dict[str, Any] | None = None,
         include_notes: bool = True,
         include_stash: bool = True,
+        include_refunds: bool = True,
     ) -> EncryptedExportResult:
         """
         Export settings as encrypted JSON.
@@ -76,6 +77,7 @@ class EncryptedExportService:
             app_settings: Optional frontend app settings
             include_notes: Include notes tool data (default True for encrypted exports)
             include_stash: Include stash tool data (default True)
+            include_refunds: Include refunds tool data (default True)
 
         Returns:
             EncryptedExportResult with salt and encrypted data
@@ -91,6 +93,7 @@ class EncryptedExportService:
             passphrase=passphrase,
             include_notes=include_notes,
             include_stash=include_stash,
+            include_refunds=include_refunds,
         )
         if not export_result.success or export_result.data is None:
             return EncryptedExportResult(

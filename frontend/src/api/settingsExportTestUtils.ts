@@ -3,7 +3,15 @@
  * Provides factory functions for creating verbose export data structures.
  */
 
-import type { StashExportItem, StashExportConfig, RecurringExport, EclosionExport } from '../types';
+import type {
+  StashExportItem,
+  StashExportConfig,
+  RecurringExport,
+  RefundsExportConfig,
+  RefundsExportView,
+  RefundsExportMatch,
+  EclosionExport,
+} from '../types';
 
 export const DEMO_STORAGE_KEY = 'eclosion-demo-data';
 
@@ -72,8 +80,56 @@ export function createRecurringExport(overrides: Partial<RecurringExport> = {}):
   };
 }
 
+/** Create a minimal refunds export config with sensible defaults. */
+export function createRefundsConfig(
+  overrides: Partial<RefundsExportConfig> = {}
+): RefundsExportConfig {
+  return {
+    replacement_tag_id: null,
+    replace_tag_by_default: true,
+    aging_warning_days: 30,
+    show_badge: true,
+    ...overrides,
+  };
+}
+
+/** Create a minimal refunds export view with sensible defaults. */
+export function createRefundsView(overrides: Partial<RefundsExportView> = {}): RefundsExportView {
+  return {
+    id: 'test-view',
+    name: 'Test View',
+    tag_ids: ['tag-1'],
+    category_ids: null,
+    sort_order: 0,
+    ...overrides,
+  };
+}
+
+/** Create a minimal refunds export match with sensible defaults. */
+export function createRefundsMatch(
+  overrides: Partial<RefundsExportMatch> = {}
+): RefundsExportMatch {
+  return {
+    original_transaction_id: 'txn-original-1',
+    refund_transaction_id: null,
+    refund_amount: null,
+    refund_merchant: null,
+    refund_date: null,
+    refund_account: null,
+    skipped: false,
+    expected_refund: false,
+    expected_date: null,
+    expected_account: null,
+    expected_account_id: null,
+    expected_note: null,
+    expected_amount: null,
+    transaction_data: null,
+    ...overrides,
+  };
+}
+
 /** Create a minimal EclosionExport wrapper. */
-export function createExport(tools: EclosionExport['tools'], version = '1.1'): EclosionExport {
+export function createExport(tools: EclosionExport['tools'], version = '1.2'): EclosionExport {
   return {
     eclosion_export: {
       version,

@@ -95,6 +95,7 @@ describe('Settings Export - App Settings & Selective Import (Demo Mode)', () => 
       expect(result.imported.recurring).toBe(true);
       expect(result.imported.notes).toBeUndefined();
       expect(result.imported.stash).toBeUndefined();
+      expect(result.imported.refunds).toBeUndefined();
     });
 
     it('should import only stash when options.tools = ["stash"]', async () => {
@@ -107,6 +108,7 @@ describe('Settings Export - App Settings & Selective Import (Demo Mode)', () => 
       expect(result.imported.recurring).toBeUndefined();
       expect(result.imported.notes).toBeUndefined();
       expect(result.imported.stash).toBe(true);
+      expect(result.imported.refunds).toBeUndefined();
     });
 
     it('should import only notes when options.tools = ["notes"]', async () => {
@@ -119,6 +121,7 @@ describe('Settings Export - App Settings & Selective Import (Demo Mode)', () => 
       expect(result.imported.recurring).toBeUndefined();
       expect(result.imported.notes).toBe(true);
       expect(result.imported.stash).toBeUndefined();
+      expect(result.imported.refunds).toBeUndefined();
     });
   });
 });

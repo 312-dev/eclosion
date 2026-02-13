@@ -125,6 +125,10 @@ export type {
   StashExportItem,
   StashExportBookmark,
   StashExport,
+  RefundsExportConfig,
+  RefundsExportView,
+  RefundsExportMatch,
+  RefundsExport,
   EclosionExport,
   ImportOptions,
   ImportResult,
@@ -188,6 +192,9 @@ export type {
   ImportBookmarksResponse,
   PendingBookmarkActionResponse,
 } from './pendingBookmark';
+
+// Refunds (transaction tracking and matching)
+export type { RefundsSavedView, RefundsMatch, RefundsConfig } from './refunds';
 
 // Account store (normalized cache for cross-feature account data)
 export type { AccountMetadata, AccountStore } from './accountStore';

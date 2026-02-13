@@ -69,8 +69,8 @@ class SettingsExportService:
     - Plaintext exports exclude notes tool - use encrypted export for full backup
     """
 
-    EXPORT_VERSION: ClassVar[str] = "1.1"
-    SUPPORTED_IMPORT_VERSIONS: ClassVar[list[str]] = ["1.0", "1.1"]
+    EXPORT_VERSION: ClassVar[str] = "1.2"
+    SUPPORTED_IMPORT_VERSIONS: ClassVar[list[str]] = ["1.0", "1.1", "1.2"]
 
     def __init__(
         self,
@@ -102,6 +102,7 @@ class SettingsExportService:
         passphrase: str | None = None,
         include_notes: bool = False,
         include_stash: bool = True,
+        include_refunds: bool = True,
     ) -> ExportResult:
         """
         Export current settings to a portable format.
@@ -134,6 +135,7 @@ class SettingsExportService:
                 passphrase=passphrase,
                 include_notes=include_notes,
                 include_stash=include_stash,
+                include_refunds=include_refunds,
             )
             return ExportResult(success=True, data=export_data)
         except Exception as e:
@@ -207,6 +209,14 @@ class SettingsExportService:
                     imported["stash"] = True
                 elif tools is not None and "stash" in tools:
                     warnings.append("Stash tool data not found in export")
+
+            # Import refunds tool if requested
+            if tools is None or "refunds" in tools:
+                if "refunds" in tools_data:
+                    self._import_refunds(tools_data["refunds"], warnings)
+                    imported["refunds"] = True
+                elif tools is not None and "refunds" in tools:
+                    warnings.append("Refunds tool data not found in export")
 
             # Save the updated state (for recurring tool)
             self.state_manager.save(state)
@@ -304,6 +314,17 @@ class SettingsExportService:
                 "hypotheses_count": len(stash.get("hypotheses", [])),
             }
 
+        if "refunds" in tools_data:
+            refunds = tools_data["refunds"]
+            matches = refunds.get("matches", [])
+            preview["tools"]["refunds"] = {
+                "has_config": bool(refunds.get("config")),
+                "views_count": len(refunds.get("views", [])),
+                "matches_count": len([m for m in matches if not m.get("skipped")]),
+                "skipped_count": len([m for m in matches if m.get("skipped")]),
+                "expected_count": len([m for m in matches if m.get("expected_refund")]),
+            }
+
         return preview
 
     def _build_export(
@@ -313,6 +334,7 @@ class SettingsExportService:
         passphrase: str | None = None,
         include_notes: bool = False,
         include_stash: bool = True,
+        include_refunds: bool = True,
     ) -> dict[str, Any]:
         """Build the export dictionary from state."""
         tools: dict[str, Any] = {
@@ -322,6 +344,10 @@ class SettingsExportService:
         # Add stash tool if requested
         if include_stash:
             tools["stash"] = self._export_stash()
+
+        # Add refunds tool if requested
+        if include_refunds:
+            tools["refunds"] = self._export_refunds()
 
         # Add notes tool if requested (requires passphrase)
         if include_notes and passphrase:
@@ -703,6 +729,135 @@ class SettingsExportService:
                                     updated_at=now,
                                 )
                             )
+
+    # ========== Refunds Export/Import ==========
+
+    def _export_refunds(self) -> dict[str, Any]:
+        """Export refunds config, saved views, and matches."""
+        repo = self._get_tracker_repo()
+
+        config = repo.get_refunds_config()
+        config_export = {
+            "replacement_tag_id": config.replacement_tag_id,
+            "replace_tag_by_default": config.replace_tag_by_default,
+            "aging_warning_days": config.aging_warning_days,
+            "show_badge": config.show_badge,
+            "hide_matched_transactions": config.hide_matched_transactions,
+            "hide_expected_transactions": config.hide_expected_transactions,
+        }
+
+        views = repo.get_refunds_views()
+        views_export = [
+            {
+                "id": view.id,
+                "name": view.name,
+                "tag_ids": json.loads(view.tag_ids),
+                "category_ids": json.loads(view.category_ids) if view.category_ids else None,
+                "sort_order": view.sort_order,
+            }
+            for view in views
+        ]
+
+        matches = repo.get_refunds_matches()
+        matches_export = [self._refunds_match_to_export(m) for m in matches]
+
+        return {
+            "config": config_export,
+            "views": views_export,
+            "matches": matches_export,
+        }
+
+    def _refunds_match_to_export(self, match: Any) -> dict[str, Any]:
+        """Convert a RefundsMatch to export format."""
+        return {
+            "original_transaction_id": match.original_transaction_id,
+            "refund_transaction_id": match.refund_transaction_id,
+            "refund_amount": match.refund_amount,
+            "refund_merchant": match.refund_merchant,
+            "refund_date": match.refund_date,
+            "refund_account": match.refund_account,
+            "skipped": match.skipped,
+            "expected_refund": match.expected_refund,
+            "expected_date": match.expected_date,
+            "expected_account": match.expected_account,
+            "expected_account_id": match.expected_account_id,
+            "expected_note": match.expected_note,
+            "expected_amount": match.expected_amount,
+            "transaction_data": json.loads(match.transaction_data)
+            if match.transaction_data
+            else None,
+        }
+
+    def _import_refunds(
+        self,
+        refunds_data: dict[str, Any],
+        warnings: list[str],
+    ) -> dict[str, int]:
+        """Import refunds config, views, and matches."""
+        repo = self._get_tracker_repo()
+        imported = {"views": 0, "matches": 0}
+
+        # Import config (update single-row)
+        config = refunds_data.get("config", {})
+        if config:
+            repo.update_refunds_config(
+                replacement_tag_id=config.get("replacement_tag_id"),
+                replace_tag_by_default=config.get("replace_tag_by_default", True),
+                aging_warning_days=config.get("aging_warning_days", 30),
+                show_badge=config.get("show_badge", True),
+                hide_matched_transactions=config.get("hide_matched_transactions", False),
+                hide_expected_transactions=config.get("hide_expected_transactions", False),
+            )
+
+        # Import views (new UUIDs assigned by repo)
+        for view in refunds_data.get("views", []):
+            try:
+                repo.create_refunds_view(
+                    name=view["name"],
+                    tag_ids=json.dumps(view.get("tag_ids", [])),
+                    category_ids=json.dumps(view["category_ids"])
+                    if view.get("category_ids")
+                    else None,
+                )
+                imported["views"] += 1
+            except Exception as e:
+                warnings.append(f"Failed to import refunds view '{view.get('name')}': {e}")
+
+        # Import matches (skip duplicates for same original_transaction_id)
+        for match in refunds_data.get("matches", []):
+            try:
+                existing = repo.get_refunds_match_by_original(match["original_transaction_id"])
+                if existing:
+                    warnings.append(
+                        f"Skipped match for transaction {match['original_transaction_id']}: "
+                        "already exists"
+                    )
+                    continue
+
+                repo.create_refunds_match(
+                    original_transaction_id=match["original_transaction_id"],
+                    refund_transaction_id=match.get("refund_transaction_id"),
+                    refund_amount=match.get("refund_amount"),
+                    refund_merchant=match.get("refund_merchant"),
+                    refund_date=match.get("refund_date"),
+                    refund_account=match.get("refund_account"),
+                    skipped=match.get("skipped", False),
+                    expected_refund=match.get("expected_refund", False),
+                    expected_date=match.get("expected_date"),
+                    expected_account=match.get("expected_account"),
+                    expected_account_id=match.get("expected_account_id"),
+                    expected_note=match.get("expected_note"),
+                    expected_amount=match.get("expected_amount"),
+                    transaction_data=json.dumps(match["transaction_data"])
+                    if match.get("transaction_data")
+                    else None,
+                )
+                imported["matches"] += 1
+            except Exception as e:
+                warnings.append(f"Failed to import refund match: {e}")
+
+        repo.session.commit()
+        return imported
 
     # ========== Stash Export/Import ==========
 

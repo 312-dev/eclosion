@@ -2,7 +2,7 @@
  * Demo Settings Import Functions
  *
  * Handles import and preview of settings in demo mode.
- * Supports recurring, notes, and stash tools.
+ * Supports recurring, notes, stash, and refunds tools.
  */
 
 import type {
@@ -10,23 +10,18 @@ import type {
   ImportOptions,
   ImportResult,
   ImportPreviewResponse,
-  Note,
-  GeneralMonthNote,
-  ArchivedNote,
-  BrowserType,
   ImportPreview,
-  StashEventsMap,
 } from '../../types';
-import { getDemoState, updateDemoState, simulateDelay } from './demoState';
-import { buildCategoryRef, buildStashItem } from './demoSettingsHelpers';
+import { updateDemoState, simulateDelay } from './demoState';
+import { importNotesTool, importStashTool, importRefundsTool } from './demoSettingsHelpers';
 
-/** Import settings from a backup file. Supports recurring, notes, and stash tools. */
+/** Import settings from a backup file. Supports recurring, notes, stash, and refunds tools. */
 export async function importSettings(
   data: EclosionExport,
   options?: ImportOptions
 ): Promise<ImportResult> {
   await simulateDelay(200);
-  const supportedVersions = ['1.0', '1.1'];
+  const supportedVersions = ['1.0', '1.1', '1.2'];
   if (!supportedVersions.includes(data.eclosion_export.version)) {
     return {
       success: false,
@@ -38,7 +33,7 @@ export async function importSettings(
 
   const imported: Record<string, boolean> = {};
   const warnings: string[] = [];
-  const toolsToImport = options?.tools ?? ['recurring', 'notes', 'stash'];
+  const toolsToImport = options?.tools ?? ['recurring', 'notes', 'stash', 'refunds'];
 
   // Import Recurring
   if (toolsToImport.includes('recurring') && data.tools.recurring) {
@@ -55,18 +50,17 @@ export async function importSettings(
     importStashTool(data, imported, warnings);
   }
 
-  // Import app_settings (theme and landing page stored in localStorage)
-  if (data.app_settings) {
-    if (data.app_settings.theme) {
-      localStorage.setItem('eclosion-theme-preference', data.app_settings.theme);
-    }
-    if (data.app_settings.landing_page) {
-      localStorage.setItem('eclosion-landing-page', data.app_settings.landing_page);
-    }
-    if (data.app_settings.theme || data.app_settings.landing_page) {
-      imported['app_settings'] = true;
-    }
+  // Import Refunds
+  if (toolsToImport.includes('refunds') && data.tools.refunds) {
+    importRefundsTool(data, imported);
   }
+
+  // Import app_settings (theme and landing page stored in localStorage)
+  const appSettings = data.app_settings;
+  if (appSettings?.theme) localStorage.setItem('eclosion-theme-preference', appSettings.theme);
+  if (appSettings?.landing_page)
+    localStorage.setItem('eclosion-landing-page', appSettings.landing_page);
+  if (appSettings?.theme || appSettings?.landing_page) imported['app_settings'] = true;
 
   return { success: true, imported, warnings };
 }
@@ -126,166 +120,10 @@ function importRecurringTool(data: EclosionExport, imported: Record<string, bool
   imported['recurring'] = true;
 }
 
-function importNotesTool(data: EclosionExport, imported: Record<string, boolean>): void {
-  const notesData = data.tools.notes!;
-  updateDemoState((state) => {
-    const newNotes: Record<string, Note> = {};
-    const newGeneralNotes: Record<string, GeneralMonthNote> = {};
-
-    notesData.category_notes.forEach((note) => {
-      const newId = `imported-${note.id}`;
-      newNotes[newId] = {
-        id: newId,
-        categoryRef: buildCategoryRef(
-          note.category_type,
-          note.category_id,
-          note.category_name,
-          note.group_id,
-          note.group_name
-        ),
-        monthKey: note.month_key,
-        content: note.content,
-        createdAt: note.created_at,
-        updatedAt: note.updated_at,
-      };
-    });
-
-    notesData.general_notes.forEach((note) => {
-      newGeneralNotes[note.month_key] = {
-        id: `imported-${note.id}`,
-        monthKey: note.month_key,
-        content: note.content,
-        createdAt: note.created_at,
-        updatedAt: note.updated_at,
-      };
-    });
-
-    const newArchivedNotes: ArchivedNote[] = notesData.archived_notes.map((note) => {
-      const archivedNote: ArchivedNote = {
-        id: `imported-${note.id}`,
-        categoryRef: buildCategoryRef(
-          note.category_type,
-          note.category_id,
-          note.category_name,
-          note.group_id,
-          note.group_name
-        ),
-        monthKey: note.month_key,
-        content: note.content,
-        createdAt: note.created_at,
-        updatedAt: note.updated_at,
-        archivedAt: note.archived_at,
-        originalCategoryName: note.original_category_name,
-      };
-      if (note.original_group_name) archivedNote.originalGroupName = note.original_group_name;
-      return archivedNote;
-    });
-
-    return {
-      ...state,
-      notes: {
-        ...state.notes,
-        notes: { ...state.notes.notes, ...newNotes },
-        generalNotes: { ...state.notes.generalNotes, ...newGeneralNotes },
-        archivedNotes: [...state.notes.archivedNotes, ...newArchivedNotes],
-        checkboxStates: { ...state.notes.checkboxStates, ...notesData.checkbox_states },
-      },
-    };
-  });
-  imported['notes'] = true;
-}
-
-function importStashTool(
-  data: EclosionExport,
-  imported: Record<string, boolean>,
-  warnings: string[]
-): void {
-  const stashData = data.tools.stash!;
-
-  // Build set of known category IDs for auto-linking (before state update)
-  const currentState = getDemoState();
-  const knownCategoryIds = new Set<string>();
-  for (const item of currentState.dashboard.items) {
-    if (item.category_id) knownCategoryIds.add(item.category_id);
-  }
-  for (const item of currentState.stash.items) {
-    if (item.category_id) knownCategoryIds.add(item.category_id);
-  }
-
-  updateDemoState((state) => {
-    const newItems = stashData.items
-      .filter((i) => !i.is_archived)
-      .map((item, index) =>
-        buildStashItem(item, index, state.stash.items.length, false, knownCategoryIds)
-      );
-    const newArchivedItems = stashData.items
-      .filter((i) => i.is_archived)
-      .map((item, index) =>
-        buildStashItem(item, index, state.stash.archived_items.length, true, knownCategoryIds)
-      );
-
-    // Import hypotheses
-    const existingHypotheses = state.stashHypotheses ?? [];
-    const newHypotheses = (stashData.hypotheses ?? []).map((h) => ({
-      id: `imported-${h.id}`,
-      name: h.name,
-      savingsAllocations: h.savings_allocations,
-      savingsTotal: h.savings_total,
-      monthlyAllocations: h.monthly_allocations,
-      monthlyTotal: h.monthly_total,
-      events: h.events as StashEventsMap,
-      customAvailableFunds: h.custom_available_funds ?? null,
-      customLeftToBudget: h.custom_left_to_budget ?? null,
-      itemApys: h.item_apys ?? {},
-      createdAt: h.created_at ?? new Date().toISOString(),
-      updatedAt: h.updated_at ?? new Date().toISOString(),
-    }));
-
-    return {
-      ...state,
-      stash: {
-        ...state.stash,
-        items: [...state.stash.items, ...newItems],
-        archived_items: [...state.stash.archived_items, ...newArchivedItems],
-      },
-      stashConfig: {
-        ...state.stashConfig,
-        isConfigured: stashData.config.is_configured,
-        defaultCategoryGroupId: stashData.config.default_category_group_id ?? null,
-        defaultCategoryGroupName: stashData.config.default_category_group_name ?? null,
-        selectedBrowser: (stashData.config.selected_browser ?? null) as BrowserType | null,
-        selectedFolderIds: stashData.config.selected_folder_ids ?? [],
-        selectedFolderNames: stashData.config.selected_folder_names,
-        autoArchiveOnBookmarkDelete: stashData.config.auto_archive_on_bookmark_delete,
-        autoArchiveOnGoalMet: stashData.config.auto_archive_on_goal_met,
-        includeExpectedIncome: stashData.config.include_expected_income ?? false,
-        showMonarchGoals: stashData.config.show_monarch_goals ?? true,
-      },
-      stashHypotheses: [...existingHypotheses, ...newHypotheses],
-    };
-  });
-  imported['stash'] = true;
-  if (stashData.items.length > 0) {
-    const allImported = [...stashData.items];
-    const linkedCount = allImported.filter(
-      (i) => i.monarch_category_id != null && knownCategoryIds.has(i.monarch_category_id)
-    ).length;
-    const unlinkedCount = allImported.length - linkedCount;
-    if (unlinkedCount > 0) {
-      warnings.push(
-        `${unlinkedCount} imported stash(es) are unlinked and need to be connected to Monarch categories.`
-      );
-    }
-    if (linkedCount > 0) {
-      warnings.push(`${linkedCount} imported stash(es) were auto-linked to existing categories.`);
-    }
-  }
-}
-
-/** Preview an import before applying. Supports v1.0 and v1.1 exports. */
+/** Preview an import before applying. Supports v1.0, v1.1, and v1.2 exports. */
 export async function previewImport(data: EclosionExport): Promise<ImportPreviewResponse> {
   await simulateDelay(100);
-  const supportedVersions = ['1.0', '1.1'];
+  const supportedVersions = ['1.0', '1.1', '1.2'];
   if (!data.eclosion_export?.version || !supportedVersions.includes(data.eclosion_export.version)) {
     return { success: false, valid: false, errors: ['Unsupported or invalid export format'] };
   }
@@ -323,6 +161,15 @@ export async function previewImport(data: EclosionExport): Promise<ImportPreview
       archived_items_count: archivedItems.length,
       pending_bookmarks_count: data.tools.stash.pending_bookmarks.length,
       hypotheses_count: data.tools.stash.hypotheses?.length ?? 0,
+    };
+  }
+  if (data.tools.refunds) {
+    preview.tools.refunds = {
+      has_config: !!data.tools.refunds.config,
+      views_count: data.tools.refunds.views.length,
+      matches_count: data.tools.refunds.matches.filter((m) => !m.skipped).length,
+      skipped_count: data.tools.refunds.matches.filter((m) => m.skipped).length,
+      expected_count: data.tools.refunds.matches.filter((m) => m.expected_refund).length,
     };
   }
 

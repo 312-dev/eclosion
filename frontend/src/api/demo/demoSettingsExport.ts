@@ -6,7 +6,13 @@
  */
 
 import type { DemoState } from '../demoData';
-import type { AppSettingsExport, EclosionExport, NotesExport, StashExport } from '../../types';
+import type {
+  AppSettingsExport,
+  EclosionExport,
+  NotesExport,
+  RefundsExport,
+  StashExport,
+} from '../../types';
 import { getDemoState, simulateDelay } from './demoState';
 
 // Re-export import functions for backward compatibility
@@ -49,8 +55,11 @@ export async function exportSettings(): Promise<EclosionExport> {
   // Stash export
   const stashExport = buildStashExport(state);
 
+  // Refunds export
+  const refundsExport = buildRefundsExport(state);
+
   return {
-    eclosion_export: { version: '1.1', exported_at: new Date().toISOString(), source_mode: 'demo' },
+    eclosion_export: { version: '1.2', exported_at: new Date().toISOString(), source_mode: 'demo' },
     tools: {
       recurring: {
         config: {
@@ -76,6 +85,7 @@ export async function exportSettings(): Promise<EclosionExport> {
       },
       notes: notesExport,
       stash: stashExport,
+      refunds: refundsExport,
     },
     app_settings: buildAppSettingsExport(),
   };
@@ -190,6 +200,42 @@ function buildStashExport(state: DemoState): StashExport {
       item_apys: h.itemApys ?? {},
       created_at: h.createdAt,
       updated_at: h.updatedAt,
+    })),
+  };
+}
+
+function buildRefundsExport(state: DemoState): RefundsExport {
+  return {
+    config: {
+      replacement_tag_id: state.refundsConfig.replacementTagId,
+      replace_tag_by_default: state.refundsConfig.replaceTagByDefault,
+      aging_warning_days: state.refundsConfig.agingWarningDays,
+      show_badge: state.refundsConfig.showBadge,
+      hide_matched_transactions: state.refundsConfig.hideMatchedTransactions,
+      hide_expected_transactions: state.refundsConfig.hideExpectedTransactions,
+    },
+    views: state.refundsViews.map((view) => ({
+      id: view.id,
+      name: view.name,
+      tag_ids: view.tagIds,
+      category_ids: view.categoryIds,
+      sort_order: view.sortOrder,
+    })),
+    matches: state.refundsMatches.map((match) => ({
+      original_transaction_id: match.originalTransactionId,
+      refund_transaction_id: match.refundTransactionId,
+      refund_amount: match.refundAmount,
+      refund_merchant: match.refundMerchant,
+      refund_date: match.refundDate,
+      refund_account: match.refundAccount,
+      skipped: match.skipped,
+      expected_refund: match.expectedRefund,
+      expected_date: match.expectedDate,
+      expected_account: match.expectedAccount,
+      expected_account_id: match.expectedAccountId,
+      expected_note: match.expectedNote,
+      expected_amount: match.expectedAmount,
+      transaction_data: match.transactionData as Record<string, unknown> | null,
     })),
   };
 }

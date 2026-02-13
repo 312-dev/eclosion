@@ -2128,6 +2128,8 @@ export function createInitialDemoState(): DemoState {
       replaceTagByDefault: true,
       agingWarningDays: 30,
       showBadge: true,
+      hideMatchedTransactions: false,
+      hideExpectedTransactions: false,
     },
     refundsViews: [
       { id: 'view-1', name: 'Pending Refund', tagIds: ['tag-1'], categoryIds: null, sortOrder: 0 },

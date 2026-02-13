@@ -147,7 +147,7 @@ function buildCreditGroupRows(group: CreditGroup, txnMap: Map<string, Transactio
         <td class="date-col">${formatDate(group.date)}</td>
         <td><span style="font-weight:600;color:${bgColor}">↻ ${label}</span>${group.note ? `<div class="bank-desc">${escapeHtml(group.note)}</div>` : ''}</td>
         <td></td>
-        <td>${group.account ? escapeHtml(group.account) : ''}</td>
+        <td>${group.account ? escapeHtml(group.account.displayName) : ''}</td>
         <td class="amount-col" style="color:${bgColor}">+${formatCurrency(group.amount)}</td>
         <td><span class="status-badge" style="background:${bgColor}20;color:${bgColor}">${statusLabel}</span></td>
         <td></td>

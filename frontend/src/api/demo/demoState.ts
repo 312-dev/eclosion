@@ -46,6 +46,34 @@ function migrateItemFrequencies(items: { frequency?: string }[]): boolean {
   return migrated;
 }
 
+const DEFAULT_REFUNDS_CONFIG = {
+  replacementTagId: null,
+  replaceTagByDefault: true,
+  agingWarningDays: 30,
+  showBadge: true,
+  hideMatchedTransactions: false,
+  hideExpectedTransactions: false,
+} as const;
+
+/** Backfill missing fields on an existing refundsConfig. Returns true if any added. */
+function backfillRefundsConfig(config: DemoState['refundsConfig']): boolean {
+  if (!config) return false;
+  let added = false;
+  const defaults: Partial<typeof config> = {
+    agingWarningDays: 30,
+    showBadge: true,
+    hideMatchedTransactions: false,
+    hideExpectedTransactions: false,
+  };
+  for (const [key, defaultValue] of Object.entries(defaults)) {
+    if (config[key as keyof typeof defaults] == null) {
+      Object.assign(config, { [key]: defaultValue });
+      added = true;
+    }
+  }
+  return added;
+}
+
 /** Add missing state properties for new features. Returns true if any added. */
 function addMissingProperties(state: DemoState): boolean {
   let added = false;
@@ -66,21 +94,9 @@ function addMissingProperties(state: DemoState): boolean {
     added = true;
   }
   if (state.refundsConfig) {
-    if (state.refundsConfig.agingWarningDays == null) {
-      state.refundsConfig.agingWarningDays = 30;
-      added = true;
-    }
-    if (state.refundsConfig.showBadge == null) {
-      state.refundsConfig.showBadge = true;
-      added = true;
-    }
+    if (backfillRefundsConfig(state.refundsConfig)) added = true;
   } else {
-    state.refundsConfig = {
-      replacementTagId: null,
-      replaceTagByDefault: true,
-      agingWarningDays: 30,
-      showBadge: true,
-    };
+    state.refundsConfig = { ...DEFAULT_REFUNDS_CONFIG };
     added = true;
   }
   if (!state.refundsViews) {

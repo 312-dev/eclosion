@@ -31,7 +31,7 @@ describe('Settings Export - Recurring (Demo Mode)', () => {
       const result = await demoApi.exportSettings();
 
       expect(result.eclosion_export).toBeDefined();
-      expect(result.eclosion_export.version).toBe('1.1');
+      expect(result.eclosion_export.version).toBe('1.2');
       expect(result.eclosion_export.source_mode).toBe('demo');
       expect(result.eclosion_export.exported_at).toBeDefined();
     });

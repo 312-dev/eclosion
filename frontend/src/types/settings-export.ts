@@ -217,6 +217,62 @@ export interface StashExport {
 }
 
 // ============================================================================
+// Refunds Export Types
+// ============================================================================
+
+/**
+ * Refunds configuration in export format.
+ */
+export interface RefundsExportConfig {
+  replacement_tag_id: string | null;
+  replace_tag_by_default: boolean;
+  aging_warning_days: number;
+  show_badge: boolean;
+  hide_matched_transactions?: boolean;
+  hide_expected_transactions?: boolean;
+}
+
+/**
+ * Refunds saved view in export format.
+ */
+export interface RefundsExportView {
+  id: string;
+  name: string;
+  tag_ids: string[];
+  category_ids: string[] | null;
+  sort_order: number;
+}
+
+/**
+ * Refunds match in export format.
+ */
+export interface RefundsExportMatch {
+  original_transaction_id: string;
+  refund_transaction_id: string | null;
+  refund_amount: number | null;
+  refund_merchant: string | null;
+  refund_date: string | null;
+  refund_account: string | null;
+  skipped: boolean;
+  expected_refund: boolean;
+  expected_date: string | null;
+  expected_account: string | null;
+  expected_account_id: string | null;
+  expected_note: string | null;
+  expected_amount: number | null;
+  transaction_data: Record<string, unknown> | null;
+}
+
+/**
+ * Complete refunds tool export data.
+ */
+export interface RefundsExport {
+  config: RefundsExportConfig;
+  views: RefundsExportView[];
+  matches: RefundsExportMatch[];
+}
+
+// ============================================================================
 // Complete Export Structure
 // ============================================================================
 
@@ -226,6 +282,7 @@ export interface StashExport {
  * Version history:
  * - 1.0: Initial version (recurring tool only)
  * - 1.1: Added notes and stash tools
+ * - 1.2: Added refunds tool
  */
 export interface EclosionExport {
   eclosion_export: EclosionExportMetadata;
@@ -235,6 +292,8 @@ export interface EclosionExport {
     notes?: NotesExport;
     /** Stash tool data. */
     stash?: StashExport;
+    /** Refunds tool data. */
+    refunds?: RefundsExport;
   };
   app_settings: AppSettingsExport;
 }
@@ -248,7 +307,7 @@ export interface EclosionExport {
  */
 export interface ImportOptions {
   /** Specific tools to import. If not provided, all tools are imported. */
-  tools?: ('recurring' | 'notes' | 'stash')[];
+  tools?: ('recurring' | 'notes' | 'stash' | 'refunds')[];
   /** Passphrase for notes re-encryption. Required if importing notes. */
   passphrase?: string;
 }
@@ -291,6 +350,13 @@ export interface ImportPreview {
       archived_items_count: number;
       pending_bookmarks_count: number;
       hypotheses_count: number;
+    };
+    refunds?: {
+      has_config: boolean;
+      views_count: number;
+      matches_count: number;
+      skipped_count: number;
+      expected_count: number;
     };
   };
 }

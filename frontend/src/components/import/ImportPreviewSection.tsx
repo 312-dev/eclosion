@@ -115,6 +115,42 @@ function StashPreviewDetails({ info }: { info: NonNullable<ImportPreview['tools'
   );
 }
 
+/** Render preview details for the refunds tool */
+function RefundsPreviewDetails({ info }: { info: NonNullable<ImportPreview['tools']['refunds']> }) {
+  return (
+    <>
+      {info.has_config && (
+        <div className="flex items-center gap-1">
+          <Check size={12} /> Configuration settings
+        </div>
+      )}
+      {info.views_count > 0 && (
+        <div className="flex items-center gap-1">
+          <Check size={12} /> {info.views_count} saved view{info.views_count === 1 ? '' : 's'}
+        </div>
+      )}
+      {info.matches_count > 0 && (
+        <div className="flex items-center gap-1">
+          <Check size={12} /> {info.matches_count} refund match
+          {info.matches_count === 1 ? '' : 'es'}
+        </div>
+      )}
+      {info.skipped_count > 0 && (
+        <div className="flex items-center gap-1">
+          <Check size={12} /> {info.skipped_count} skipped transaction
+          {info.skipped_count === 1 ? '' : 's'}
+        </div>
+      )}
+      {info.expected_count > 0 && (
+        <div className="flex items-center gap-1">
+          <Check size={12} /> {info.expected_count} expected refund
+          {info.expected_count === 1 ? '' : 's'}
+        </div>
+      )}
+    </>
+  );
+}
+
 /** Render preview details based on tool type */
 function ToolPreviewDetails({ tool, preview }: { tool: string; preview: ImportPreview }) {
   if (tool === 'recurring' && preview.tools.recurring) {
@@ -125,6 +161,9 @@ function ToolPreviewDetails({ tool, preview }: { tool: string; preview: ImportPr
   }
   if (tool === 'stash' && preview.tools.stash) {
     return <StashPreviewDetails info={preview.tools.stash} />;
+  }
+  if (tool === 'refunds' && preview.tools.refunds) {
+    return <RefundsPreviewDetails info={preview.tools.refunds} />;
   }
   return null;
 }

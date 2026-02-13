@@ -45,7 +45,7 @@ class TestExportSettings:
         assert result.error is None
 
         # Check metadata
-        assert result.data["eclosion_export"]["version"] == "1.1"
+        assert result.data["eclosion_export"]["version"] == "1.2"
         assert result.data["eclosion_export"]["source_mode"] == "production"
         assert "exported_at" in result.data["eclosion_export"]
 
@@ -265,7 +265,7 @@ class TestExportPreview:
         assert export_result.data is not None
         preview = service.get_export_preview(export_result.data)
 
-        assert preview["version"] == "1.1"
+        assert preview["version"] == "1.2"
         assert "recurring" in preview["tools"]
 
         recurring = preview["tools"]["recurring"]
@@ -274,3 +274,181 @@ class TestExportPreview:
         assert recurring["categories_count"] == 2
         assert recurring["has_rollup"] is True
         assert recurring["rollup_items_count"] == 3
+
+
+class TestRefundsExportImport:
+    """Tests for refunds tool export/import."""
+
+    def test_export_includes_refunds(self, state_manager: StateManager) -> None:
+        """Export should include refunds tool with empty defaults."""
+        service = SettingsExportService(state_manager)
+        result = service.export_settings()
+
+        assert result.success
+        assert result.data is not None
+        assert "refunds" in result.data["tools"]
+
+        refunds = result.data["tools"]["refunds"]
+        assert "config" in refunds
+        assert "views" in refunds
+        assert "matches" in refunds
+        assert refunds["config"]["replace_tag_by_default"] is True
+        assert refunds["config"]["aging_warning_days"] == 30
+        assert refunds["config"]["show_badge"] is True
+
+    def test_import_refunds_config(self, state_manager: StateManager) -> None:
+        """Import should restore refunds config."""
+        export_data = {
+            "eclosion_export": {
+                "version": "1.2",
+                "exported_at": "2026-01-03T12:00:00Z",
+                "source_mode": "production",
+            },
+            "tools": {
+                "refunds": {
+                    "config": {
+                        "replacement_tag_id": "tag-refunded",
+                        "replace_tag_by_default": False,
+                        "aging_warning_days": 45,
+                        "show_badge": False,
+                    },
+                    "views": [
+                        {
+                            "id": "v1",
+                            "name": "Pending",
+                            "tag_ids": ["tag-1"],
+                            "category_ids": None,
+                            "sort_order": 0,
+                        },
+                    ],
+                    "matches": [
+                        {
+                            "original_transaction_id": "txn-100",
+                            "refund_transaction_id": "txn-200",
+                            "refund_amount": 75.0,
+                            "refund_merchant": "Store",
+                            "refund_date": "2026-01-15",
+                            "refund_account": "Checking",
+                            "skipped": False,
+                            "expected_refund": False,
+                            "expected_date": None,
+                            "expected_account": None,
+                            "expected_account_id": None,
+                            "expected_note": None,
+                            "expected_amount": None,
+                            "transaction_data": {"id": "txn-100", "amount": -75.0},
+                        },
+                    ],
+                }
+            },
+            "app_settings": {},
+        }
+
+        service = SettingsExportService(state_manager, db_session=state_manager._session)
+        result = service.import_settings(export_data, tools=["refunds"])
+
+        assert result.success
+        assert result.imported["refunds"] is True
+
+    def test_import_v1_0_without_refunds(self, state_manager: StateManager) -> None:
+        """Importing v1.0 export (no refunds) should succeed."""
+        export_data = {
+            "eclosion_export": {
+                "version": "1.0",
+                "exported_at": "2026-01-03T12:00:00Z",
+                "source_mode": "production",
+            },
+            "tools": {
+                "recurring": {
+                    "config": {
+                        "target_group_id": None,
+                        "target_group_name": None,
+                        "auto_sync_new": False,
+                        "auto_track_threshold": None,
+                        "auto_update_targets": False,
+                    },
+                    "enabled_items": [],
+                    "categories": {},
+                    "rollup": {
+                        "enabled": False,
+                        "monarch_category_id": None,
+                        "category_name": "Rollup",
+                        "emoji": "🔄",
+                        "item_ids": [],
+                        "total_budgeted": 0,
+                        "is_linked": False,
+                    },
+                }
+            },
+            "app_settings": {},
+        }
+
+        service = SettingsExportService(state_manager)
+        result = service.import_settings(export_data)
+
+        assert result.success
+        assert "refunds" not in result.imported
+
+    def test_preview_includes_refunds(self, state_manager: StateManager) -> None:
+        """Preview should include refunds tool summary."""
+        service = SettingsExportService(state_manager)
+        result = service.export_settings()
+        assert result.data is not None
+
+        preview = service.get_export_preview(result.data)
+        assert "refunds" in preview["tools"]
+        refunds_preview = preview["tools"]["refunds"]
+        assert refunds_preview["has_config"] is True
+        assert refunds_preview["views_count"] == 0
+        assert refunds_preview["matches_count"] == 0
+
+
+class TestExhaustiveToolCoverage:
+    """Exhaustive tests ensuring all non-conditional tools are in export/import."""
+
+    # Notes excluded: requires passphrase (conditionally included)
+    EXPECTED_TOOLS = {"recurring", "stash", "refunds"}
+
+    def test_export_contains_all_expected_tools(self, state_manager: StateManager) -> None:
+        """Full export should contain all non-conditional tools."""
+        service = SettingsExportService(state_manager)
+        result = service.export_settings()
+        assert result.success
+        assert result.data is not None
+
+        exported_tools = set(result.data["tools"].keys())
+        for tool in self.EXPECTED_TOOLS:
+            assert tool in exported_tools, f"Tool '{tool}' missing from export"
+
+    def test_import_handles_all_exported_tools(self, state_manager: StateManager) -> None:
+        """Import should handle all tools that appear in a full export."""
+        service = SettingsExportService(state_manager, db_session=state_manager._session)
+        result = service.export_settings(include_notes=False)
+        assert result.success
+        assert result.data is not None
+
+        import_result = service.import_settings(result.data)
+        assert import_result.success
+
+        for tool in self.EXPECTED_TOOLS:
+            assert tool in import_result.imported, f"Tool '{tool}' not imported"
+
+    def test_preview_covers_all_exported_tools(self, state_manager: StateManager) -> None:
+        """Preview should handle all tools that appear in a full export."""
+        service = SettingsExportService(state_manager)
+        result = service.export_settings(include_notes=False)
+        assert result.success
+        assert result.data is not None
+
+        preview = service.get_export_preview(result.data)
+        preview_tools = set(preview["tools"].keys())
+
+        for tool in self.EXPECTED_TOOLS:
+            assert tool in preview_tools, f"Tool '{tool}' missing from preview"
+
+    def test_version_is_current(self, state_manager: StateManager) -> None:
+        """Export version should be current."""
+        service = SettingsExportService(state_manager)
+        result = service.export_settings()
+        assert result.data is not None
+        assert result.data["eclosion_export"]["version"] == "1.2"
