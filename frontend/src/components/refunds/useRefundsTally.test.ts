@@ -190,7 +190,7 @@ describe('useRefundsTally', () => {
     expect(result.current.matchedCount).toBe(2);
     expect(result.current.matchedAmount).toBe(200); // counted once, not 400
     expect(result.current.totalAmount).toBe(180); // 80 + 60 + 40
-    expect(result.current.remainingAmount).toBe(-20); // 180 - 200
+    expect(result.current.remainingAmount).toBe(0); // capped: refund exceeds originals
     expect(result.current.unmatchedCount).toBe(1);
   });
 

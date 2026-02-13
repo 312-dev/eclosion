@@ -33,6 +33,10 @@ interface TransactionContentProps {
   readonly creditGroups: CreditGroup[];
   readonly onScrollToTransaction: (id: string) => void;
   readonly onScrollToCredit: (id: string) => void;
+  /** Full transaction list for credit group nested lookups (includes hidden transactions). */
+  readonly creditGroupTransactions?: Transaction[] | undefined;
+  /** IDs of transactions that pass all filters (view + category + search). */
+  readonly filteredTransactionIds?: ReadonlySet<string> | undefined;
 }
 
 export function TransactionContent({
@@ -56,6 +60,8 @@ export function TransactionContent({
   creditGroups,
   onScrollToTransaction,
   onScrollToCredit,
+  creditGroupTransactions,
+  filteredTransactionIds,
 }: TransactionContentProps): React.ReactNode {
   if (transactionsLoading) {
     return (
@@ -106,6 +112,8 @@ export function TransactionContent({
             creditGroups={creditGroups}
             onScrollToTransaction={onScrollToTransaction}
             onScrollToCredit={onScrollToCredit}
+            creditGroupTransactions={creditGroupTransactions}
+            filteredTransactionIds={filteredTransactionIds}
           />
         ) : (
           <div className="px-4 py-8 text-center text-sm text-(--monarch-text-muted)">

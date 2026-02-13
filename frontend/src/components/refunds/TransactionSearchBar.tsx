@@ -48,8 +48,8 @@ export function TransactionSearchBar({
           }}
           placeholder={
             transactionCount === undefined
-              ? 'Search transactions...'
-              : `Search ${transactionCount} transactions...`
+              ? 'Search transactions'
+              : `Search ${transactionCount} transactions`
           }
           aria-label="Search transactions"
           className={`w-full pl-8 ${value ? 'pr-8' : 'pr-2'} py-1.5 text-sm rounded-lg border border-(--monarch-border) bg-(--monarch-bg-page) text-(--monarch-text-dark) placeholder:text-(--monarch-text-muted) focus:outline-none focus:border-(--monarch-orange) focus:ring-1 focus:ring-(--monarch-orange)/20`}

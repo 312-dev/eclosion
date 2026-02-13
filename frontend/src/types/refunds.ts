@@ -70,6 +70,8 @@ export interface RefundsConfig {
   replaceTagByDefault: boolean;
   agingWarningDays: number;
   showBadge: boolean;
+  hideMatchedTransactions: boolean;
+  hideExpectedTransactions: boolean;
 }
 
 /** Date range preset options. */
@@ -117,7 +119,7 @@ export interface CreditGroup {
   date: string;
   amount: number;
   merchant: string | null;
-  account: string | null;
+  account: { displayName: string; logoUrl: string | null; icon: string | null } | null;
   note: string | null;
   originalTransactionIds: string[];
   remaining: number;

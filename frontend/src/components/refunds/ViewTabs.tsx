@@ -26,12 +26,23 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { Plus, Pencil } from 'lucide-react';
 import { HorizontalTabsScroll } from '../ui/HorizontalTabsScroll';
+import { ALL_VIEW_ID } from './RefundsTab';
 import type { RefundsSavedView } from '../../types/refunds';
+
+function makeTabKeyHandler(onSelect: () => void) {
+  return (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      onSelect();
+    }
+  };
+}
 
 interface ViewTabsProps {
   readonly views: RefundsSavedView[];
   readonly activeViewId: string | null;
   readonly viewCounts?: Record<string, number> | undefined;
+  readonly totalPendingCount?: number | undefined;
   readonly onSelectView: (viewId: string) => void;
   readonly onAddView: () => void;
   readonly onEditView: (viewId: string) => void;
@@ -57,7 +68,7 @@ const SortableViewTab = React.memo(function SortableViewTab({
   });
 
   const style = {
-    transform: CSS.Transform.toString(transform),
+    transform: CSS.Translate.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
   };
@@ -75,20 +86,13 @@ const SortableViewTab = React.memo(function SortableViewTab({
     }
   };
 
-  const handleTabKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      onSelect();
-    }
-  };
-
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
       <div
         role="tab"
         tabIndex={0}
         onClick={onSelect}
-        onKeyDown={handleTabKeyDown}
+        onKeyDown={makeTabKeyHandler(onSelect)}
         aria-selected={isActive}
         className={`flex items-center gap-1.5 px-2.5 py-1.5 text-sm font-medium whitespace-nowrap rounded-lg transition-colors shrink-0 ${
           isDragging ? 'cursor-grabbing' : 'cursor-grab'
@@ -124,6 +128,45 @@ const SortableViewTab = React.memo(function SortableViewTab({
           </button>
         )}
       </div>
+    </div>
+  );
+});
+
+const AllViewTab = React.memo(function AllViewTab({
+  isActive,
+  badge,
+  onSelect,
+}: {
+  isActive: boolean;
+  badge?: number | undefined;
+  onSelect: () => void;
+}) {
+  return (
+    <div
+      role="tab"
+      tabIndex={0}
+      onClick={onSelect}
+      onKeyDown={makeTabKeyHandler(onSelect)}
+      aria-selected={isActive}
+      className={`flex items-center gap-1.5 px-2.5 py-1.5 text-sm font-medium whitespace-nowrap rounded-lg transition-colors shrink-0 cursor-pointer ${
+        isActive
+          ? 'bg-(--monarch-orange)/10 text-(--monarch-orange)'
+          : 'bg-(--monarch-bg-hover)/50 text-(--monarch-text-muted) hover:text-(--monarch-text-dark) hover:bg-(--monarch-bg-hover)'
+      }`}
+    >
+      <span>All</span>
+      {badge !== undefined && badge > 0 && (
+        <span
+          className="hidden sm:flex items-center justify-center min-w-5 h-5 px-1.5 text-[0.7rem] font-bold rounded-full whitespace-nowrap"
+          style={{
+            backgroundColor: isActive ? 'var(--monarch-orange)' : 'var(--monarch-text-muted)',
+            color: 'white',
+            opacity: isActive ? 1 : 0.7,
+          }}
+        >
+          {badge}
+        </span>
+      )}
     </div>
   );
 });
@@ -171,6 +214,7 @@ export function ViewTabs({
   views,
   activeViewId,
   viewCounts,
+  totalPendingCount,
   onSelectView,
   onAddView,
   onEditView,
@@ -220,6 +264,13 @@ export function ViewTabs({
         >
           <SortableContext items={viewIds} strategy={horizontalListSortingStrategy}>
             <div className="flex items-center gap-1" role="tablist" aria-label="Saved views">
+              {views.length > 1 && (
+                <AllViewTab
+                  isActive={activeViewId === ALL_VIEW_ID}
+                  badge={totalPendingCount}
+                  onSelect={() => onSelectView(ALL_VIEW_ID)}
+                />
+              )}
               {views.map((view) => (
                 <SortableViewTab
                   key={view.id}

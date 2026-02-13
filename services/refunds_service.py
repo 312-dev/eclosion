@@ -43,6 +43,8 @@ class RefundsService:
                 "replaceTagByDefault": config.replace_tag_by_default,
                 "agingWarningDays": config.aging_warning_days,
                 "showBadge": config.show_badge,
+                "hideMatchedTransactions": config.hide_matched_transactions,
+                "hideExpectedTransactions": config.hide_expected_transactions,
             }
 
     async def update_config(self, updates: dict[str, Any]) -> dict[str, Any]:
@@ -59,6 +61,10 @@ class RefundsService:
                 kwargs["aging_warning_days"] = updates["agingWarningDays"]
             if "showBadge" in updates:
                 kwargs["show_badge"] = updates["showBadge"]
+            if "hideMatchedTransactions" in updates:
+                kwargs["hide_matched_transactions"] = updates["hideMatchedTransactions"]
+            if "hideExpectedTransactions" in updates:
+                kwargs["hide_expected_transactions"] = updates["hideExpectedTransactions"]
             repo.update_refunds_config(**kwargs)
             return {"success": True}
 

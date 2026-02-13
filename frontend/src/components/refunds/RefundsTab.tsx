@@ -29,6 +29,8 @@ import {
 } from '../../api/queries/refundsQueries';
 import type { Transaction, DateRangeFilter as DateRangeFilterType } from '../../types/refunds';
 
+export const ALL_VIEW_ID = '__all__';
+
 const DEFAULT_DATE_RANGE: DateRangeFilterType = {
   preset: 'all_time',
   ...getDateRangeFromPreset('all_time'),
@@ -55,14 +57,36 @@ export function RefundsTab() {
   const { data: config } = useRefundsConfigQuery();
   const { data: matches = [] } = useRefundsMatchesQuery();
   const { data: pendingCountData } = useRefundsPendingCountQuery();
+  const isAllView = activeViewId === ALL_VIEW_ID;
   const activeView = useMemo(() => {
+    if (isAllView) return null;
     if (activeViewId) return views.find((v) => v.id === activeViewId) ?? null;
     return views.length > 0 ? views[0] : null;
-  }, [views, activeViewId]);
+  }, [views, activeViewId, isAllView]);
 
-  const effectiveViewId = activeView?.id ?? null;
-  const tagIds = useMemo(() => activeView?.tagIds ?? [], [activeView?.tagIds]);
-  const viewCategoryIds = activeView?.categoryIds ?? null;
+  const allTagIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const v of views) {
+      for (const id of v.tagIds) ids.add(id);
+    }
+    return [...ids];
+  }, [views]);
+
+  const allCategoryIds = useMemo((): string[] | null => {
+    if (views.some((v) => v.categoryIds === null)) return null;
+    const ids = new Set<string>();
+    for (const v of views) {
+      for (const id of v.categoryIds!) ids.add(id);
+    }
+    return [...ids];
+  }, [views]);
+
+  const effectiveViewId = isAllView ? ALL_VIEW_ID : (activeView?.id ?? null);
+  const tagIds = useMemo(
+    () => (isAllView ? allTagIds : (activeView?.tagIds ?? [])),
+    [isAllView, allTagIds, activeView?.tagIds]
+  );
+  const viewCategoryIds = isAllView ? allCategoryIds : (activeView?.categoryIds ?? null);
 
   const { data: transactions = [], isLoading: transactionsLoading } = useRefundsTransactionsQuery(
     tagIds,
@@ -96,6 +120,8 @@ export function RefundsTab() {
     selectedCategoryIds,
     searchQuery,
     selectedIds,
+    hideMatchedTransactions: config?.hideMatchedTransactions ?? false,
+    hideExpectedTransactions: config?.hideExpectedTransactions ?? false,
   });
   const selection = useRefundsSelection({
     selectedIds,
@@ -189,19 +215,11 @@ export function RefundsTab() {
                 views={views}
                 activeViewId={effectiveViewId}
                 viewCounts={pendingCountData?.viewCounts}
+                totalPendingCount={pendingCountData?.count}
                 onSelectView={handleSelectView}
                 onAddView={() => viewActions.setShowCreateModal(true)}
                 onEditView={viewActions.handleEditView}
                 onReorder={handleReorderViews}
-                trailing={
-                  pipeline.viewCategoryCount > 1 ? (
-                    <CategoryFilter
-                      transactions={pipeline.expenseTransactions}
-                      selectedCategoryIds={selectedCategoryIds}
-                      onChange={setSelectedCategoryIds}
-                    />
-                  ) : undefined
-                }
               />
             </div>
             <div className="mt-2 sm:mt-3">
@@ -216,7 +234,17 @@ export function RefundsTab() {
                 searchQuery={searchQuery}
                 onSearchChange={setSearchQuery}
                 searchTrailing={
-                  <DateRangeFilter value={dateRange} onChange={handleDateRangeChange} />
+                  <>
+                    {pipeline.viewCategoryCount > 1 && (
+                      <CategoryFilter
+                        compact
+                        transactions={pipeline.expenseTransactions}
+                        selectedCategoryIds={selectedCategoryIds}
+                        onChange={setSelectedCategoryIds}
+                      />
+                    )}
+                    <DateRangeFilter value={dateRange} onChange={handleDateRangeChange} />
+                  </>
                 }
                 selectedIds={selectedIds}
                 onToggleSelect={selection.handleToggleSelect}
@@ -228,6 +256,8 @@ export function RefundsTab() {
                 creditGroups={pipeline.creditGroups}
                 onScrollToTransaction={scroll.handleScrollToTransaction}
                 onScrollToCredit={scroll.handleScrollToCredit}
+                creditGroupTransactions={pipeline.creditGroupTransactions}
+                filteredTransactionIds={pipeline.filteredTransactionIds}
               />
             </div>
           </>

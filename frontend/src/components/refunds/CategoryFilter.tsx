@@ -25,12 +25,15 @@ interface CategoryFilterProps {
   readonly transactions: Transaction[];
   readonly selectedCategoryIds: string[] | null;
   readonly onChange: (ids: string[] | null) => void;
+  /** Icon-only mode matching DateRangeFilter's compact style. */
+  readonly compact?: boolean;
 }
 
 export function CategoryFilter({
   transactions,
   selectedCategoryIds,
   onChange,
+  compact,
 }: CategoryFilterProps) {
   const { isOpen, toggle, close, position, triggerRef, dropdownRef } = useDropdown<
     HTMLDivElement,
@@ -158,23 +161,49 @@ export function CategoryFilter({
   if (categories.length <= 1) return null;
 
   return (
-    <div className="relative">
+    <div className={compact ? 'relative self-stretch' : 'relative'}>
       <button
         ref={triggerRef}
         type="button"
         onClick={handleToggle}
-        className="flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg border border-(--monarch-border) bg-(--monarch-bg-card) hover:border-(--monarch-text-muted) transition-colors"
+        className={
+          compact
+            ? 'flex items-center gap-2 px-3 h-full text-sm rounded-lg border border-(--monarch-border) bg-(--monarch-bg-page) hover:border-(--monarch-text-muted) transition-colors'
+            : 'flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg border border-(--monarch-border) bg-(--monarch-bg-card) hover:border-(--monarch-text-muted) transition-colors'
+        }
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         aria-label="Filter by category"
       >
-        <Filter size={14} className="text-(--monarch-text-muted)" aria-hidden="true" />
-        <span className="text-(--monarch-text-dark)">{displayLabel}</span>
-        <ChevronDown
-          size={14}
-          className={`text-(--monarch-text-muted) transition-transform ${isOpen ? 'rotate-180' : ''}`}
-          aria-hidden="true"
-        />
+        {compact ? (
+          <>
+            <span className="relative shrink-0">
+              <Filter size={14} className="text-(--monarch-text-muted)" aria-hidden="true" />
+              {!isAllSelected && (
+                <span
+                  className="sm:hidden absolute -top-1 -right-1 w-2 h-2 rounded-full bg-(--monarch-orange)"
+                  aria-hidden="true"
+                />
+              )}
+            </span>
+            <span className="hidden sm:inline text-(--monarch-text-dark)">{displayLabel}</span>
+            <ChevronDown
+              size={14}
+              className={`hidden sm:block text-(--monarch-text-muted) transition-transform ${isOpen ? 'rotate-180' : ''}`}
+              aria-hidden="true"
+            />
+          </>
+        ) : (
+          <>
+            <Filter size={14} className="text-(--monarch-text-muted)" aria-hidden="true" />
+            <span className="text-(--monarch-text-dark)">{displayLabel}</span>
+            <ChevronDown
+              size={14}
+              className={`text-(--monarch-text-muted) transition-transform ${isOpen ? 'rotate-180' : ''}`}
+              aria-hidden="true"
+            />
+          </>
+        )}
       </button>
 
       {isOpen && (

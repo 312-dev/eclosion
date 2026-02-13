@@ -17,6 +17,8 @@ interface TransactionPipelineInput {
   readonly selectedCategoryIds: string[] | null;
   readonly searchQuery: string;
   readonly selectedIds: ReadonlySet<string>;
+  readonly hideMatchedTransactions: boolean;
+  readonly hideExpectedTransactions: boolean;
 }
 
 export function useTransactionPipeline(input: TransactionPipelineInput): {
@@ -27,6 +29,10 @@ export function useTransactionPipeline(input: TransactionPipelineInput): {
   tally: ReturnType<typeof useRefundsTally>;
   viewCategoryCount: number;
   creditGroups: CreditGroup[];
+  /** IDs of transactions that pass all filters (view + category + search). */
+  filteredTransactionIds: ReadonlySet<string>;
+  /** expenseTransactions supplemented with match transactionData for credit group nested lookups. */
+  creditGroupTransactions: Transaction[];
 } {
   const {
     transactions,
@@ -37,6 +43,8 @@ export function useTransactionPipeline(input: TransactionPipelineInput): {
     selectedCategoryIds,
     searchQuery,
     selectedIds,
+    hideMatchedTransactions,
+    hideExpectedTransactions,
   } = input;
 
   // Merge orphaned matched/skipped transactions whose tags were removed from Monarch
@@ -107,7 +115,7 @@ export function useTransactionPipeline(input: TransactionPipelineInput): {
     return catIds.size;
   }, [expenseTransactions]);
 
-  // Build credit groups from matches + transactions, then filter by date range and search
+  // Build credit groups from matches + transactions, then filter by date range and filters
   const allCreditGroups = useCreditGroups(matches, expenseTransactions);
   const creditGroups = useMemo(() => {
     let groups = allCreditGroups;
@@ -119,22 +127,66 @@ export function useTransactionPipeline(input: TransactionPipelineInput): {
         return true;
       });
     }
-    // Filter by search query
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      groups = groups.filter((g) => matchesCreditSearch(g, q));
-    }
+    // Hide groups where none of the nested transactions are visible
+    // (covers view-level category filter, ad-hoc category filter, and search)
+    const visibleIds = new Set(searchedTransactions.map((t) => t.id));
+    groups = groups.filter((g) => g.originalTransactionIds.some((id) => visibleIds.has(id)));
     return groups;
-  }, [allCreditGroups, dateRange.startDate, dateRange.endDate, searchQuery]);
+  }, [allCreditGroups, dateRange.startDate, dateRange.endDate, searchedTransactions]);
+
+  // Apply transaction visibility settings (after tally so counts stay accurate)
+  const hiddenTransactionIds = useMemo(() => {
+    if (!hideMatchedTransactions && !hideExpectedTransactions) return null;
+    const ids = new Set<string>();
+    for (const m of matches) {
+      if (m.skipped) continue;
+      if (hideMatchedTransactions && m.refundTransactionId) {
+        ids.add(m.originalTransactionId);
+      }
+      if (hideExpectedTransactions && m.expectedRefund) {
+        ids.add(m.originalTransactionId);
+      }
+    }
+    return ids;
+  }, [matches, hideMatchedTransactions, hideExpectedTransactions]);
+
+  const visibleActiveTransactions = useMemo(
+    () =>
+      hiddenTransactionIds
+        ? activeTransactions.filter((txn) => !hiddenTransactionIds.has(txn.id))
+        : activeTransactions,
+    [activeTransactions, hiddenTransactionIds]
+  );
+
+  const filteredTransactionIds = useMemo(
+    () => new Set(searchedTransactions.map((t) => t.id)) as ReadonlySet<string>,
+    [searchedTransactions]
+  );
+
+  // Supplement expenseTransactions with match transactionData for IDs not in this view
+  // so credit group nested rows can always reveal all originals regardless of filters.
+  const creditGroupTransactions = useMemo(() => {
+    const existingIds = new Set(expenseTransactions.map((t) => t.id));
+    const extras: Transaction[] = [];
+    for (const m of matches) {
+      if (m.transactionData && !existingIds.has(m.originalTransactionId)) {
+        existingIds.add(m.originalTransactionId);
+        extras.push(m.transactionData);
+      }
+    }
+    return extras.length > 0 ? [...expenseTransactions, ...extras] : expenseTransactions;
+  }, [expenseTransactions, matches]);
 
   return {
-    activeTransactions,
+    activeTransactions: visibleActiveTransactions,
     skippedTransactions,
     expenseTransactions,
     filteredTransactions,
     tally,
     viewCategoryCount,
     creditGroups,
+    filteredTransactionIds,
+    creditGroupTransactions,
   };
 }
 
@@ -173,20 +225,5 @@ function matchesSearch(txn: Transaction, q: string): boolean {
     tags.includes(q) ||
     amount.includes(q) ||
     date.includes(q)
-  );
-}
-
-function matchesCreditSearch(group: CreditGroup, q: string): boolean {
-  const merchant = (group.merchant ?? '').toLowerCase();
-  const account = (group.account ?? '').toLowerCase();
-  const note = (group.note ?? '').toLowerCase();
-  const amount = group.amount.toFixed(2);
-  const label = group.type === 'expected' ? 'expected refund' : 'refund';
-  return (
-    merchant.includes(q) ||
-    account.includes(q) ||
-    note.includes(q) ||
-    amount.includes(q) ||
-    label.includes(q)
   );
 }

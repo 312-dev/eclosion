@@ -37,6 +37,8 @@ export const RefundsToolSettings = forwardRef<HTMLDivElement, RefundsToolSetting
     const replacementTagId = config?.replacementTagId ?? '';
     const replaceByDefault = config?.replaceTagByDefault ?? true;
     const agingWarningDays = config?.agingWarningDays ?? 30;
+    const hideMatched = config?.hideMatchedTransactions ?? false;
+    const hideExpected = config?.hideExpectedTransactions ?? false;
 
     const handleToggleBadge = useCallback(() => {
       updateConfig.mutate({ showBadge: !showBadge });
@@ -60,6 +62,14 @@ export const RefundsToolSettings = forwardRef<HTMLDivElement, RefundsToolSetting
       },
       [updateConfig]
     );
+
+    const handleToggleHideMatched = useCallback(() => {
+      updateConfig.mutate({ hideMatchedTransactions: !hideMatched });
+    }, [hideMatched, updateConfig]);
+
+    const handleToggleHideExpected = useCallback(() => {
+      updateConfig.mutate({ hideExpectedTransactions: !hideExpected });
+    }, [hideExpected, updateConfig]);
 
     const tagOptions = useMemo(
       () => [
@@ -184,12 +194,34 @@ export const RefundsToolSettings = forwardRef<HTMLDivElement, RefundsToolSetting
             <SettingsRow
               label="Show pending badge"
               description="Display unmatched transaction count in the sidebar"
-              isLast
             >
               <ToggleSwitch
                 checked={showBadge}
                 onChange={handleToggleBadge}
                 ariaLabel="Toggle pending badge visibility"
+              />
+            </SettingsRow>
+
+            {/* Transaction visibility */}
+            <SettingsRow
+              label="Hide refunded transactions"
+              description="Hide transactions that have been matched with a refund"
+            >
+              <ToggleSwitch
+                checked={hideMatched}
+                onChange={handleToggleHideMatched}
+                ariaLabel="Toggle hide refunded transactions"
+              />
+            </SettingsRow>
+            <SettingsRow
+              label="Hide expected refund transactions"
+              description="Hide transactions that are awaiting an expected refund"
+              isLast
+            >
+              <ToggleSwitch
+                checked={hideExpected}
+                onChange={handleToggleHideExpected}
+                ariaLabel="Toggle hide expected refund transactions"
               />
             </SettingsRow>
           </div>

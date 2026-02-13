@@ -81,6 +81,7 @@ def export_settings():
     result = export_service.export_settings(
         include_notes=False,  # Notes require encrypted export
         include_stash=True,
+        include_refunds=True,
     )
 
     if result.success:

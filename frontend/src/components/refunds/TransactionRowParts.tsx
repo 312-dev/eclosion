@@ -1,6 +1,6 @@
 /** Sub-components shared by TransactionRow: MatchIcon, TagsNotesAmount, AccountIcon. */
 import React, { useState } from 'react';
-import { StickyNote, RotateCcw, ChevronRight } from 'lucide-react';
+import { StickyNote, Undo2, CalendarClock, ChevronRight } from 'lucide-react';
 import { Tooltip } from '../ui/Tooltip';
 import { getUserNotes, linkifyText } from '../../utils/refunds';
 import type { Transaction } from '../../types/refunds';
@@ -38,7 +38,7 @@ function formatMatchAmount(amount: number | null): string {
 export function AccountIcon({
   account,
 }: {
-  readonly account: Transaction['account'];
+  readonly account: { displayName: string; logoUrl: string | null; icon: string | null } | null;
 }): React.JSX.Element | null {
   const [hasError, setHasError] = useState(false);
   if (!account) return null;
@@ -119,7 +119,7 @@ function MatchIcon({
         aria-label={`${label} ${preposition} ${formatMatchDate(matchDate)}`}
         onClick={handleScrollClick}
       >
-        <RotateCcw size={12} />
+        {isRefund ? <Undo2 size={14} /> : <CalendarClock size={14} />}
       </button>
     </Tooltip>
   );

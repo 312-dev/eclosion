@@ -370,6 +370,10 @@ class RefundsConfig(Base):
     # Show pending count badge in sidebar navigation
     show_badge: Mapped[bool] = mapped_column(Boolean, default=True)
 
+    # Transaction visibility: hide matched/expected transactions from list
+    hide_matched_transactions: Mapped[bool] = mapped_column(Boolean, default=False)
+    hide_expected_transactions: Mapped[bool] = mapped_column(Boolean, default=False)
+
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(
         DateTime,

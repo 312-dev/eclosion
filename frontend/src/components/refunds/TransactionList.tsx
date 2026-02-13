@@ -23,6 +23,10 @@ interface TransactionListProps {
   readonly creditGroups?: CreditGroup[];
   readonly onScrollToTransaction?: (id: string) => void;
   readonly onScrollToCredit?: (id: string) => void;
+  /** Full transaction list for credit group nested lookups (includes hidden transactions). */
+  readonly creditGroupTransactions?: Transaction[] | undefined;
+  /** IDs of transactions that pass all filters (view + category + search). */
+  readonly filteredTransactionIds?: ReadonlySet<string> | undefined;
 }
 
 type DateItem =
@@ -163,6 +167,8 @@ export function TransactionList({
   creditGroups = [],
   onScrollToTransaction,
   onScrollToCredit,
+  creditGroupTransactions,
+  filteredTransactionIds,
 }: TransactionListProps): React.JSX.Element | null {
   const matchesByOriginalId = useMemo(() => {
     const map = new Map<string, RefundsMatch>();
@@ -259,7 +265,8 @@ export function TransactionList({
                 <div key={item.group.id} data-credit-id={item.group.id}>
                   <CreditGroupRow
                     group={item.group}
-                    transactions={transactions}
+                    transactions={creditGroupTransactions ?? transactions}
+                    filteredTransactionIds={filteredTransactionIds}
                     onScrollToTransaction={scrollToTransactionFn ?? (() => {})}
                     isSelected={selectedIds.has(item.group.id)}
                     onToggleSelect={onToggleCreditGroup ?? (() => {})}

@@ -9,6 +9,37 @@
 
 import { useMemo } from 'react';
 import type { Transaction, RefundsMatch, CreditGroup } from '../../types/refunds';
+import type { AccountStore } from '../../types/accountStore';
+import { useAccountStore } from '../../api/queries/accountStoreQueries';
+
+type CreditGroupAccount = CreditGroup['account'];
+
+/** Resolve account metadata by ID or display name. */
+function resolveAccount(
+  accountStore: AccountStore | undefined,
+  accountId: string | null,
+  accountName: string | null
+): CreditGroupAccount {
+  if (!accountStore) {
+    return accountName ? { displayName: accountName, logoUrl: null, icon: null } : null;
+  }
+  // Prefer ID lookup
+  if (accountId) {
+    const meta = accountStore.accounts[accountId];
+    if (meta) return { displayName: meta.name, logoUrl: meta.logoUrl, icon: meta.icon };
+  }
+  // Fall back to name lookup
+  if (accountName) {
+    for (const id of accountStore.accountOrder) {
+      const meta = accountStore.accounts[id];
+      if (meta?.name === accountName) {
+        return { displayName: meta.name, logoUrl: meta.logoUrl, icon: meta.icon };
+      }
+    }
+    return { displayName: accountName, logoUrl: null, icon: null };
+  }
+  return null;
+}
 
 function groupMatchesBy(
   matches: RefundsMatch[],
@@ -39,7 +70,8 @@ function sumOriginalAmounts(matchGroup: RefundsMatch[], txnMap: Map<string, Tran
 
 function buildRefundGroups(
   matches: RefundsMatch[],
-  txnMap: Map<string, Transaction>
+  txnMap: Map<string, Transaction>,
+  accountStore: AccountStore | undefined
 ): CreditGroup[] {
   const grouped = groupMatchesBy(
     matches,
@@ -57,7 +89,7 @@ function buildRefundGroups(
       date: first.refundDate ?? new Date().toISOString().slice(0, 10),
       amount: refundAmount,
       merchant: first.refundMerchant,
-      account: first.refundAccount,
+      account: resolveAccount(accountStore, null, first.refundAccount),
       note: null,
       originalTransactionIds: matchGroup.map((m) => m.originalTransactionId),
       remaining: Math.max(0, totalOriginal - refundAmount),
@@ -68,7 +100,8 @@ function buildRefundGroups(
 
 function buildExpectedGroups(
   matches: RefundsMatch[],
-  txnMap: Map<string, Transaction>
+  txnMap: Map<string, Transaction>,
+  accountStore: AccountStore | undefined
 ): CreditGroup[] {
   const grouped = groupMatchesBy(
     matches,
@@ -89,7 +122,7 @@ function buildExpectedGroups(
       date: first.expectedDate ?? new Date().toISOString().slice(0, 10),
       amount: totalExpected,
       merchant: null,
-      account: first.expectedAccount,
+      account: resolveAccount(accountStore, first.expectedAccountId, first.expectedAccount),
       note: first.expectedNote,
       originalTransactionIds: matchGroup.map((m) => m.originalTransactionId),
       remaining: Math.max(0, totalOriginal - totalExpected),
@@ -102,14 +135,19 @@ export function useCreditGroups(
   matches: RefundsMatch[],
   transactions: Transaction[]
 ): CreditGroup[] {
+  const { data: accountStore } = useAccountStore();
+
   return useMemo(() => {
     const txnMap = new Map<string, Transaction>();
     for (const txn of transactions) {
       txnMap.set(txn.id, txn);
     }
 
-    const groups = [...buildRefundGroups(matches, txnMap), ...buildExpectedGroups(matches, txnMap)];
+    const groups = [
+      ...buildRefundGroups(matches, txnMap, accountStore),
+      ...buildExpectedGroups(matches, txnMap, accountStore),
+    ];
     groups.sort((a, b) => b.date.localeCompare(a.date));
     return groups;
-  }, [matches, transactions]);
+  }, [matches, transactions, accountStore]);
 }

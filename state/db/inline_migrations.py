@@ -20,7 +20,7 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 # Current schema version - bump when adding migrations
-SCHEMA_VERSION = 22
+SCHEMA_VERSION = 23
 
 
 def column_exists(conn: sqlite3.Connection, table: str, column: str) -> bool:
@@ -623,6 +623,30 @@ def migrate_v20_refundables_show_badge(conn: sqlite3.Connection) -> None:
         conn.commit()
 
 
+def migrate_v23_refunds_hide_transactions(conn: sqlite3.Connection) -> None:
+    """
+    Migration v23: Add hide transaction columns to refunds_config.
+
+    Settings to hide matched/expected transactions from the transaction list.
+    Both default to false (show all transactions).
+    """
+    if not column_exists(conn, "refunds_config", "hide_matched_transactions"):
+        cursor = conn.cursor()
+        cursor.execute(
+            "ALTER TABLE refunds_config "
+            "ADD COLUMN hide_matched_transactions BOOLEAN NOT NULL DEFAULT 0"
+        )
+        conn.commit()
+
+    if not column_exists(conn, "refunds_config", "hide_expected_transactions"):
+        cursor = conn.cursor()
+        cursor.execute(
+            "ALTER TABLE refunds_config "
+            "ADD COLUMN hide_expected_transactions BOOLEAN NOT NULL DEFAULT 0"
+        )
+        conn.commit()
+
+
 # Migration definitions
 # Each migration runs only if current DB version < migration version
 # "sql" can be a string (executed as script) or a callable (called with conn)
@@ -803,6 +827,13 @@ MIGRATIONS = [
         "version": 22,
         "description": "Rename refundables tables to refunds",
         "sql": migrate_v22_rename_refundables_to_refunds,
+    },
+    # Version 23: Add hide transaction columns to refunds_config
+    # Settings to hide matched/expected transactions from the transaction list
+    {
+        "version": 23,
+        "description": "Add hide transaction columns to refunds config",
+        "sql": migrate_v23_refunds_hide_transactions,
     },
 ]
 

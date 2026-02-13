@@ -54,7 +54,7 @@ function computeTally(
     totalAmount,
     matchedAmount,
     expectedAmount,
-    remainingAmount: totalAmount - matchedAmount - expectedAmount,
+    remainingAmount: Math.max(0, totalAmount - matchedAmount - expectedAmount),
     matchedCount,
     expectedCount,
     skippedCount,
