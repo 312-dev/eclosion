@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { Undo2 } from 'lucide-react';
 import { ToolPageHeader } from '../ui/ToolPageHeader';
 import { EmptyState, EmptyStateIcon } from '../ui/EmptyState';
@@ -11,6 +11,7 @@ import { CategoryFilter } from './CategoryFilter';
 import { TransactionContent } from './TransactionContent';
 import { SelectionActionBar } from './SelectionActionBar';
 import { useRefundsViewActions } from './useRefundsViewActions';
+import { useRefundsViewData, ALL_VIEW_ID } from './useRefundsViewData';
 import { useTransactionPipeline } from './useTransactionPipeline';
 import { useRefundsMatchHandlers } from './useRefundsMatchHandlers';
 import { useRefundsSelection } from './useRefundsSelection';
@@ -20,18 +21,14 @@ import { useUnmatchFlow } from './useUnmatchFlow';
 import { useRefundsScroll } from './useRefundsScroll';
 import { usePageTitle } from '../../hooks/usePageTitle';
 import {
-  useRefundsViewsQuery,
   useRefundsTagsQuery,
   useRefundsConfigQuery,
-  useRefundsTransactionsQuery,
   useRefundsMatchesQuery,
   useReorderRefundsViewsMutation,
   useRefundsPendingCountQuery,
 } from '../../api/queries/refundsQueries';
-import { useRefundsAllViewsTransactionsQuery } from '../../api/queries/refundsAllViewsQuery';
 import type { Transaction, DateRangeFilter as DateRangeFilterType } from '../../types/refunds';
 
-export const ALL_VIEW_ID = '__all__';
 const DEFAULT_DATE_RANGE: DateRangeFilterType = {
   preset: 'all_time',
   ...getDateRangeFromPreset('all_time'),
@@ -49,51 +46,13 @@ export function RefundsTab() {
   const [searchQuery, setSearchQuery] = useState('');
   const [batchCount, setBatchCount] = useState(0);
 
-  const { data: unsortedViews = [], isLoading: viewsLoading } = useRefundsViewsQuery();
-  const views = useMemo(
-    () => [...unsortedViews].sort((a, b) => a.sortOrder - b.sortOrder),
-    [unsortedViews]
-  );
+  const vd = useRefundsViewData(activeViewId, dateRange);
+  const { views, viewsLoading, tagIds, viewCategoryIds, transactions, transactionsLoading } = vd;
+  const effectiveViewId = vd.isAllView ? ALL_VIEW_ID : (vd.activeView?.id ?? null);
   const { data: tags = [], isLoading: tagsLoading } = useRefundsTagsQuery();
   const { data: config } = useRefundsConfigQuery();
   const { data: matches = [] } = useRefundsMatchesQuery();
   const { data: pendingCountData } = useRefundsPendingCountQuery();
-  const isAllView = activeViewId === ALL_VIEW_ID;
-  const activeView = useMemo(() => {
-    if (isAllView) return null;
-    if (activeViewId) return views.find((v) => v.id === activeViewId) ?? null;
-    return views.length > 0 ? views[0] : null;
-  }, [views, activeViewId, isAllView]);
-
-  const includedViews = useMemo(() => views.filter((v) => !v.excludeFromAll), [views]);
-  const allTagIds = useMemo(
-    () => [...new Set(includedViews.flatMap((v) => v.tagIds))],
-    [includedViews]
-  );
-  const allCategoryIds = useMemo(() => {
-    const ids = includedViews.flatMap((v) => v.categoryIds ?? []);
-    return ids.length > 0 ? [...new Set(ids)] : null;
-  }, [includedViews]);
-  const effectiveViewId = isAllView ? ALL_VIEW_ID : (activeView?.id ?? null);
-  const tagIds = useMemo(
-    () => (isAllView ? allTagIds : (activeView?.tagIds ?? [])),
-    [isAllView, allTagIds, activeView?.tagIds]
-  );
-  const viewCategoryIds = isAllView ? allCategoryIds : (activeView?.categoryIds ?? null);
-  const singleViewQuery = useRefundsTransactionsQuery(
-    isAllView ? [] : (activeView?.tagIds ?? []),
-    dateRange.startDate,
-    dateRange.endDate,
-    isAllView ? null : (activeView?.categoryIds ?? null)
-  );
-  const allViewQuery = useRefundsAllViewsTransactionsQuery(
-    includedViews,
-    dateRange.startDate,
-    dateRange.endDate,
-    isAllView
-  );
-  const transactions = isAllView ? allViewQuery.data : (singleViewQuery.data ?? []);
-  const transactionsLoading = isAllView ? allViewQuery.isLoading : singleViewQuery.isLoading;
   const viewActions = useRefundsViewActions({
     views,
     effectiveViewId,
@@ -311,3 +270,5 @@ export function RefundsTab() {
     </div>
   );
 }
+
+export { ALL_VIEW_ID } from './useRefundsViewData';
