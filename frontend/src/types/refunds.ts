@@ -43,6 +43,7 @@ export interface RefundsSavedView {
   tagIds: string[];
   categoryIds: string[] | null;
   sortOrder: number;
+  excludeFromAll: boolean;
 }
 
 /** Refund match linking original transaction to its refund. */

@@ -241,6 +241,7 @@ export interface RefundsExportView {
   tag_ids: string[];
   category_ids: string[] | null;
   sort_order: number;
+  exclude_from_all?: boolean;
 }
 
 /**

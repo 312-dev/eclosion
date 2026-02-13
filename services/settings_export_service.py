@@ -761,6 +761,7 @@ class SettingsExportService:
                 "tag_ids": json.loads(view.tag_ids),
                 "category_ids": json.loads(view.category_ids) if view.category_ids else None,
                 "sort_order": view.sort_order,
+                "exclude_from_all": view.exclude_from_all,
             }
             for view in views
         ]
@@ -825,6 +826,7 @@ class SettingsExportService:
                     category_ids=json.dumps(view["category_ids"])
                     if view.get("category_ids")
                     else None,
+                    exclude_from_all=view.get("exclude_from_all", False),
                 )
                 imported["views"] += 1
             except Exception as e:

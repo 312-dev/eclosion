@@ -87,6 +87,7 @@ async def create_view():
     name = sanitize_name(data.get("name", ""))
     tag_ids = data.get("tagIds", [])
     category_ids = data.get("categoryIds")
+    exclude_from_all = bool(data.get("excludeFromAll", False))
 
     if not name:
         return {"success": False, "error": "Name is required"}, 400
@@ -98,7 +99,7 @@ async def create_view():
         return {"success": False, "error": "At least one tag or category is required"}, 400
 
     service = get_refunds_service()
-    return await service.create_view(name, tag_ids, category_ids)
+    return await service.create_view(name, tag_ids, category_ids, exclude_from_all)
 
 
 @refunds_bp.route("/views/<view_id>", methods=["PATCH"])

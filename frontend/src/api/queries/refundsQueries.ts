@@ -87,14 +87,16 @@ export function useCreateRefundsViewMutation() {
       name,
       tagIds,
       categoryIds,
+      excludeFromAll,
     }: {
       name: string;
       tagIds: string[];
       categoryIds: string[] | null;
+      excludeFromAll: boolean;
     }) =>
       isDemo
-        ? demoApi.createRefundsView(name, tagIds, categoryIds)
-        : api.createRefundsView(name, tagIds, categoryIds),
+        ? demoApi.createRefundsView(name, tagIds, categoryIds, excludeFromAll)
+        : api.createRefundsView(name, tagIds, categoryIds, excludeFromAll),
     onSuccess: () => {
       smartInvalidate('createRefundsView');
     },
@@ -110,7 +112,9 @@ export function useUpdateRefundsViewMutation() {
       updates,
     }: {
       viewId: string;
-      updates: Partial<Pick<RefundsSavedView, 'name' | 'tagIds' | 'categoryIds' | 'sortOrder'>>;
+      updates: Partial<
+        Pick<RefundsSavedView, 'name' | 'tagIds' | 'categoryIds' | 'sortOrder' | 'excludeFromAll'>
+      >;
     }) =>
       isDemo ? demoApi.updateRefundsView(viewId, updates) : api.updateRefundsView(viewId, updates),
     onSuccess: () => {

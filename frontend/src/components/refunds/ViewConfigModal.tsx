@@ -17,7 +17,12 @@ import type { TransactionTag, RefundsSavedView } from '../../types/refunds';
 interface ViewConfigModalProps {
   readonly isOpen: boolean;
   readonly onClose: () => void;
-  readonly onSave: (name: string, tagIds: string[], categoryIds: string[] | null) => void;
+  readonly onSave: (
+    name: string,
+    tagIds: string[],
+    categoryIds: string[] | null,
+    excludeFromAll: boolean
+  ) => void;
   readonly tags: TransactionTag[];
   readonly tagsLoading: boolean;
   readonly saving: boolean;
@@ -42,6 +47,7 @@ export function ViewConfigModal({
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<Set<string> | null>(
     existingView?.categoryIds ? new Set(existingView.categoryIds) : null
   );
+  const [excludeFromAll, setExcludeFromAll] = useState(existingView?.excludeFromAll ?? false);
   const [tagSearchQuery, setTagSearchQuery] = useState('');
   const [categorySearchQuery, setCategorySearchQuery] = useState('');
   const [tagsExpanded, setTagsExpanded] = useState(true);
@@ -116,9 +122,10 @@ export function ViewConfigModal({
     onSave(
       trimmedName,
       Array.from(selectedTagIds),
-      selectedCategoryIds ? Array.from(selectedCategoryIds) : null
+      selectedCategoryIds ? Array.from(selectedCategoryIds) : null,
+      excludeFromAll
     );
-  }, [name, selectedTagIds, selectedCategoryIds, hasTagsOrCategories, onSave]);
+  }, [name, selectedTagIds, selectedCategoryIds, excludeFromAll, hasTagsOrCategories, onSave]);
 
   const canSave = name.trim().length > 0 && hasTagsOrCategories && !saving;
   const tagSummary = selectedTagIds.size > 0 ? `${selectedTagIds.size} selected` : 'None';
@@ -206,6 +213,18 @@ export function ViewConfigModal({
             summary={categorySummary}
           />
         )}
+
+        <label className="flex items-center gap-2 py-1 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={excludeFromAll}
+            onChange={(e) => setExcludeFromAll(e.target.checked)}
+            className="rounded border-(--monarch-border) text-(--monarch-orange) focus:ring-(--monarch-orange)/20 cursor-pointer"
+          />
+          <span className="text-sm text-(--monarch-text-dark)">
+            Exclude transactions from the All tab
+          </span>
+        </label>
       </div>
     </Modal>
   );

@@ -54,7 +54,8 @@ export async function getRefundsViews(): Promise<RefundsSavedView[]> {
 export async function createRefundsView(
   name: string,
   tagIds: string[],
-  categoryIds: string[] | null
+  categoryIds: string[] | null,
+  excludeFromAll: boolean
 ): Promise<RefundsSavedView> {
   await simulateDelay();
   const views = getDemoState().refundsViews;
@@ -64,6 +65,7 @@ export async function createRefundsView(
     tagIds,
     categoryIds,
     sortOrder: views.length,
+    excludeFromAll,
   };
   updateDemoState((state) => ({
     ...state,
@@ -74,7 +76,9 @@ export async function createRefundsView(
 
 export async function updateRefundsView(
   viewId: string,
-  updates: Partial<Pick<RefundsSavedView, 'name' | 'tagIds' | 'categoryIds' | 'sortOrder'>>
+  updates: Partial<
+    Pick<RefundsSavedView, 'name' | 'tagIds' | 'categoryIds' | 'sortOrder' | 'excludeFromAll'>
+  >
 ): Promise<{ success: boolean }> {
   await simulateDelay();
   updateDemoState((state) => ({

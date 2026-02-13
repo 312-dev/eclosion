@@ -26,8 +26,18 @@ interface ViewActions {
   editingView: RefundsSavedView | null;
   setEditingView: (view: RefundsSavedView | null) => void;
   deletingView: RefundsSavedView | null;
-  handleCreateView: (name: string, tagIds: string[], categoryIds: string[] | null) => Promise<void>;
-  handleUpdateView: (name: string, tagIds: string[], categoryIds: string[] | null) => Promise<void>;
+  handleCreateView: (
+    name: string,
+    tagIds: string[],
+    categoryIds: string[] | null,
+    excludeFromAll: boolean
+  ) => Promise<void>;
+  handleUpdateView: (
+    name: string,
+    tagIds: string[],
+    categoryIds: string[] | null,
+    excludeFromAll: boolean
+  ) => Promise<void>;
   handleEditView: (viewId: string) => void;
   handleDeleteView: (viewId: string) => void;
   confirmDeleteView: () => Promise<void>;
@@ -52,9 +62,14 @@ export function useRefundsViewActions({
   const deleteViewMutation = useDeleteRefundsViewMutation();
 
   const handleCreateView = useCallback(
-    async (name: string, tagIds: string[], categoryIds: string[] | null) => {
+    async (
+      name: string,
+      tagIds: string[],
+      categoryIds: string[] | null,
+      excludeFromAll: boolean
+    ) => {
       try {
-        await createViewMutation.mutateAsync({ name, tagIds, categoryIds });
+        await createViewMutation.mutateAsync({ name, tagIds, categoryIds, excludeFromAll });
         setShowCreateModal(false);
         toast.success('View created');
       } catch (err) {
@@ -65,12 +80,17 @@ export function useRefundsViewActions({
   );
 
   const handleUpdateView = useCallback(
-    async (name: string, tagIds: string[], categoryIds: string[] | null) => {
+    async (
+      name: string,
+      tagIds: string[],
+      categoryIds: string[] | null,
+      excludeFromAll: boolean
+    ) => {
       if (!editingView) return;
       try {
         await updateViewMutation.mutateAsync({
           viewId: editingView.id,
-          updates: { name, tagIds, categoryIds },
+          updates: { name, tagIds, categoryIds, excludeFromAll },
         });
         setEditingView(null);
         toast.success('View updated');

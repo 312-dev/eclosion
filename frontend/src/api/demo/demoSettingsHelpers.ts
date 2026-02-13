@@ -258,6 +258,7 @@ export function importRefundsTool(data: EclosionExport, imported: Record<string,
       tagIds: view.tag_ids,
       categoryIds: view.category_ids,
       sortOrder: state.refundsViews.length + index,
+      excludeFromAll: view.exclude_from_all ?? false,
     }));
 
     const newMatches: RefundsMatch[] = refundsData.matches.map((match) => ({

@@ -65,23 +65,21 @@ export function RefundsTab() {
     return views.length > 0 ? views[0] : null;
   }, [views, activeViewId, isAllView]);
 
-  const allTagIds = useMemo(() => [...new Set(views.flatMap((v) => v.tagIds))], [views]);
-
-  const allCategoryIds = useMemo((): string[] | null => {
-    if (views.some((v) => v.categoryIds === null)) return null;
-    const ids = new Set<string>();
-    for (const v of views) {
-      for (const id of v.categoryIds!) ids.add(id);
-    }
-    return [...ids];
-  }, [views]);
+  // For the All view: gather unique tags from non-excluded views, skip category
+  // filtering (fetch by tags only) to ensure we get the full union of all views'
+  // transactions — matching the approach used by get_pending_count on the backend.
+  const includedViews = useMemo(() => views.filter((v) => !v.excludeFromAll), [views]);
+  const allTagIds = useMemo(
+    () => [...new Set(includedViews.flatMap((v) => v.tagIds))],
+    [includedViews]
+  );
 
   const effectiveViewId = isAllView ? ALL_VIEW_ID : (activeView?.id ?? null);
   const tagIds = useMemo(
     () => (isAllView ? allTagIds : (activeView?.tagIds ?? [])),
     [isAllView, allTagIds, activeView?.tagIds]
   );
-  const viewCategoryIds = isAllView ? allCategoryIds : (activeView?.categoryIds ?? null);
+  const viewCategoryIds = isAllView ? null : (activeView?.categoryIds ?? null);
 
   const { data: transactions = [], isLoading: transactionsLoading } = useRefundsTransactionsQuery(
     tagIds,

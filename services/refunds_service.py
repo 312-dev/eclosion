@@ -133,6 +133,7 @@ class RefundsService:
                     "tagIds": json.loads(v.tag_ids),
                     "categoryIds": json.loads(v.category_ids) if v.category_ids else None,
                     "sortOrder": v.sort_order,
+                    "excludeFromAll": v.exclude_from_all,
                 }
                 for v in views
             ]
@@ -142,6 +143,7 @@ class RefundsService:
         name: str,
         tag_ids: list[str],
         category_ids: list[str] | None = None,
+        exclude_from_all: bool = False,
     ) -> dict[str, Any]:
         """Create a new saved view."""
         with db_session() as session:
@@ -150,6 +152,7 @@ class RefundsService:
                 name=name,
                 tag_ids=json.dumps(tag_ids),
                 category_ids=json.dumps(category_ids) if category_ids else None,
+                exclude_from_all=exclude_from_all,
             )
             return {
                 "id": view.id,
@@ -157,6 +160,7 @@ class RefundsService:
                 "tagIds": tag_ids,
                 "categoryIds": category_ids,
                 "sortOrder": view.sort_order,
+                "excludeFromAll": view.exclude_from_all,
             }
 
     async def update_view(self, view_id: str, updates: dict[str, Any]) -> dict[str, Any]:
@@ -173,6 +177,8 @@ class RefundsService:
                 kwargs["category_ids"] = json.dumps(cat_ids) if cat_ids else None
             if "sortOrder" in updates:
                 kwargs["sort_order"] = updates["sortOrder"]
+            if "excludeFromAll" in updates:
+                kwargs["exclude_from_all"] = updates["excludeFromAll"]
 
             view = repo.update_refunds_view(view_id, **kwargs)
             if not view:

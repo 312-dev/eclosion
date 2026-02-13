@@ -48,17 +48,20 @@ export async function getRefundsViews(): Promise<RefundsSavedView[]> {
 export async function createRefundsView(
   name: string,
   tagIds: string[],
-  categoryIds: string[] | null
+  categoryIds: string[] | null,
+  excludeFromAll: boolean
 ): Promise<RefundsSavedView> {
   return fetchApi<RefundsSavedView>('/refunds/views', {
     method: 'POST',
-    body: JSON.stringify({ name, tagIds, categoryIds }),
+    body: JSON.stringify({ name, tagIds, categoryIds, excludeFromAll }),
   });
 }
 
 export async function updateRefundsView(
   viewId: string,
-  updates: Partial<Pick<RefundsSavedView, 'name' | 'tagIds' | 'categoryIds' | 'sortOrder'>>
+  updates: Partial<
+    Pick<RefundsSavedView, 'name' | 'tagIds' | 'categoryIds' | 'sortOrder' | 'excludeFromAll'>
+  >
 ): Promise<{ success: boolean }> {
   return fetchApi(`/refunds/views/${viewId}`, {
     method: 'PATCH',

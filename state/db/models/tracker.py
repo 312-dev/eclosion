@@ -401,6 +401,7 @@ class RefundsSavedView(Base):
         Text, nullable=True
     )  # JSON array or NULL (all)
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    exclude_from_all: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(
         DateTime,

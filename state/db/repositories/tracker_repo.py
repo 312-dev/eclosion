@@ -1006,6 +1006,7 @@ class TrackerRepository:
         name: str,
         tag_ids: str,
         category_ids: str | None = None,
+        exclude_from_all: bool = False,
     ) -> RefundsSavedView:
         """Create a new saved view. tag_ids/category_ids are JSON array strings."""
         # Get next sort order
@@ -1022,6 +1023,7 @@ class TrackerRepository:
             tag_ids=tag_ids,
             category_ids=category_ids,
             sort_order=next_order,
+            exclude_from_all=exclude_from_all,
             created_at=datetime.now(UTC),
             updated_at=datetime.now(UTC),
         )

@@ -20,7 +20,7 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 # Current schema version - bump when adding migrations
-SCHEMA_VERSION = 23
+SCHEMA_VERSION = 24
 
 
 def column_exists(conn: sqlite3.Connection, table: str, column: str) -> bool:
@@ -647,6 +647,21 @@ def migrate_v23_refunds_hide_transactions(conn: sqlite3.Connection) -> None:
         conn.commit()
 
 
+def migrate_v24_refunds_exclude_from_all(conn: sqlite3.Connection) -> None:
+    """
+    Migration v24: Add exclude_from_all column to refunds_saved_views.
+
+    Per-view toggle to exclude a view's transactions from the aggregated
+    All tab. Default false (included in All tab).
+    """
+    if not column_exists(conn, "refunds_saved_views", "exclude_from_all"):
+        cursor = conn.cursor()
+        cursor.execute(
+            "ALTER TABLE refunds_saved_views ADD COLUMN exclude_from_all BOOLEAN NOT NULL DEFAULT 0"
+        )
+        conn.commit()
+
+
 # Migration definitions
 # Each migration runs only if current DB version < migration version
 # "sql" can be a string (executed as script) or a callable (called with conn)
@@ -834,6 +849,13 @@ MIGRATIONS = [
         "version": 23,
         "description": "Add hide transaction columns to refunds config",
         "sql": migrate_v23_refunds_hide_transactions,
+    },
+    # Version 24: Add exclude_from_all to refunds_saved_views
+    # Per-view toggle to exclude a view's transactions from the aggregated All tab
+    {
+        "version": 24,
+        "description": "Add exclude_from_all to refunds saved views",
+        "sql": migrate_v24_refunds_exclude_from_all,
     },
 ]
 

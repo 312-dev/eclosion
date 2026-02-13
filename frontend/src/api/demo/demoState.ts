@@ -74,6 +74,18 @@ function backfillRefundsConfig(config: DemoState['refundsConfig']): boolean {
   return added;
 }
 
+/** Backfill missing fields on existing refundsViews. Returns true if any added. */
+function backfillRefundsViews(views: DemoState['refundsViews']): boolean {
+  let added = false;
+  for (const view of views) {
+    if (view.excludeFromAll == null) {
+      (view as { excludeFromAll: boolean }).excludeFromAll = false;
+      added = true;
+    }
+  }
+  return added;
+}
+
 /** Add missing state properties for new features. Returns true if any added. */
 function addMissingProperties(state: DemoState): boolean {
   let added = false;
@@ -101,6 +113,8 @@ function addMissingProperties(state: DemoState): boolean {
   }
   if (!state.refundsViews) {
     state.refundsViews = [];
+    added = true;
+  } else if (backfillRefundsViews(state.refundsViews)) {
     added = true;
   }
   if (!state.refundsMatches) {
