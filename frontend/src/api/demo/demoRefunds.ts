@@ -164,6 +164,20 @@ export async function searchRefundsTransactions(
 
 // ---- Pending Count ----
 
+/** Check whether a transaction belongs to a view's tag/category filters. */
+function txnMatchesView(
+  txn: Transaction,
+  tagSet: Set<string>,
+  catSet: Set<string> | null
+): boolean {
+  const tagsMatch = tagSet.size > 0 && txn.tags.some((t) => tagSet.has(t.id));
+  if (!tagsMatch && catSet === null) return false;
+  const catId = txn.category?.id ?? null;
+  const catsMatch = catSet !== null && catId !== null && catSet.has(catId);
+  if (!tagsMatch && !catsMatch) return false;
+  return !(catSet !== null && !catsMatch);
+}
+
 export async function getRefundsPendingCount(): Promise<{
   count: number;
   viewCounts: Record<string, number>;
@@ -188,16 +202,20 @@ export async function getRefundsPendingCount(): Promise<{
     (txn) => txn.amount < 0 && !matchedIds.has(txn.id)
   );
 
-  // Per-view counts
+  // Per-view counts using the same matching logic as the backend
   const viewCounts: Record<string, number> = {};
   const globalIds = new Set<string>();
   for (const view of views) {
     const tagSet = new Set(view.tagIds);
+    const catSet =
+      view.categoryIds != null && view.categoryIds.length > 0 ? new Set(view.categoryIds) : null;
     let count = 0;
     for (const txn of unmatchedExpenses) {
-      if (txn.tags.some((tag) => tagSet.has(tag.id))) {
+      if (txnMatchesView(txn, tagSet, catSet)) {
         count++;
-        globalIds.add(txn.id);
+        if (!view.excludeFromAll) {
+          globalIds.add(txn.id);
+        }
       }
     }
     viewCounts[view.id] = count;

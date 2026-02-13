@@ -75,6 +75,7 @@ class RefundsService:
 
         Returns total count and per-view counts. Only counts expense
         (negative amount) transactions to match the UI tally logic.
+        The global count only includes non-excluded views (excludeFromAll).
         """
         with db_session() as session:
             repo = TrackerRepository(session)
@@ -85,28 +86,39 @@ class RefundsService:
             # Parse view filters
             view_filters = _parse_view_filters(views)
             all_tag_ids: set[str] = set()
-            for _, tag_ids, _ in view_filters:
+            all_cat_ids: set[str] = set()
+            for _, tag_ids, cat_ids, _ in view_filters:
                 all_tag_ids.update(tag_ids)
+                if cat_ids:
+                    all_cat_ids.update(cat_ids)
 
-            if not all_tag_ids:
+            if not all_tag_ids and not all_cat_ids:
                 return {"count": 0, "viewCounts": {}}
 
             matched_ids = {m.original_transaction_id for m in repo.get_refunds_matches()}
 
-        # Fetch all tagged transactions from Monarch in one call.
-        # Only pass tag_ids (not category_ids) — category filtering is
-        # applied per-view by _txn_matches_view to avoid Monarch ANDing
-        # tags with categories and missing transactions from views
-        # that have no category restriction.
+        # Fetch transactions from Monarch. Tags and categories are ANDed
+        # by the API, so fetch separately and merge to get the full union.
         mm = await get_mm()
-        transactions = await get_transactions_with_icons(
-            mm,
-            tag_ids=list(all_tag_ids),
-        )
+        seen_ids: set[str] = set()
+        all_transactions: list[dict[str, Any]] = []
+
+        if all_tag_ids:
+            tagged = await get_transactions_with_icons(mm, tag_ids=list(all_tag_ids))
+            for t in tagged:
+                seen_ids.add(t["id"])
+            all_transactions.extend(tagged)
+
+        if all_cat_ids:
+            by_cat = await get_transactions_with_icons(mm, category_ids=list(all_cat_ids))
+            for t in by_cat:
+                if t["id"] not in seen_ids:
+                    seen_ids.add(t["id"])
+                    all_transactions.append(t)
 
         # Only count expenses (negative amount), matching the UI tally logic
         unmatched_expenses = [
-            t for t in transactions if t.get("amount", 0) < 0 and t["id"] not in matched_ids
+            t for t in all_transactions if t.get("amount", 0) < 0 and t["id"] not in matched_ids
         ]
 
         return _compute_view_counts(view_filters, unmatched_expenses)
@@ -436,13 +448,14 @@ class RefundsService:
 
 def _parse_view_filters(
     views: list[Any],
-) -> list[tuple[str, list[str], list[str] | None]]:
-    """Parse saved views into (view_id, tag_ids, category_ids) tuples."""
+) -> list[tuple[str, list[str], list[str] | None, bool]]:
+    """Parse saved views into (view_id, tag_ids, category_ids, exclude_from_all) tuples."""
     return [
         (
             v.id,
             json.loads(v.tag_ids),
             json.loads(v.category_ids) if v.category_ids else None,
+            v.exclude_from_all,
         )
         for v in views
     ]
@@ -466,20 +479,25 @@ def _txn_matches_view(
 
 
 def _compute_view_counts(
-    view_filters: list[tuple[str, list[str], list[str] | None]],
+    view_filters: list[tuple[str, list[str], list[str] | None, bool]],
     unmatched_expenses: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    """Compute per-view and global unmatched counts."""
+    """Compute per-view and global unmatched counts.
+
+    The global count only includes transactions from views where
+    excludeFromAll is False, matching the All tab behavior.
+    """
     view_counts: dict[str, int] = {}
     global_unmatched_ids: set[str] = set()
-    for view_id, tag_ids, cat_ids in view_filters:
+    for view_id, tag_ids, cat_ids, exclude_from_all in view_filters:
         tag_set = set(tag_ids)
         cat_set = set(cat_ids) if cat_ids else None
         count = 0
         for txn in unmatched_expenses:
             if _txn_matches_view(txn, tag_set, cat_set):
                 count += 1
-                global_unmatched_ids.add(txn["id"])
+                if not exclude_from_all:
+                    global_unmatched_ids.add(txn["id"])
         view_counts[view_id] = count
     return {"count": len(global_unmatched_ids), "viewCounts": view_counts}
 

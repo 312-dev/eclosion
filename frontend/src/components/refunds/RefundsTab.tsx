@@ -28,10 +28,10 @@ import {
   useReorderRefundsViewsMutation,
   useRefundsPendingCountQuery,
 } from '../../api/queries/refundsQueries';
+import { useRefundsAllViewsTransactionsQuery } from '../../api/queries/refundsAllViewsQuery';
 import type { Transaction, DateRangeFilter as DateRangeFilterType } from '../../types/refunds';
 
 export const ALL_VIEW_ID = '__all__';
-
 const DEFAULT_DATE_RANGE: DateRangeFilterType = {
   preset: 'all_time',
   ...getDateRangeFromPreset('all_time'),
@@ -65,28 +65,35 @@ export function RefundsTab() {
     return views.length > 0 ? views[0] : null;
   }, [views, activeViewId, isAllView]);
 
-  // For the All view: gather unique tags from non-excluded views, skip category
-  // filtering (fetch by tags only) to ensure we get the full union of all views'
-  // transactions — matching the approach used by get_pending_count on the backend.
   const includedViews = useMemo(() => views.filter((v) => !v.excludeFromAll), [views]);
   const allTagIds = useMemo(
     () => [...new Set(includedViews.flatMap((v) => v.tagIds))],
     [includedViews]
   );
-
+  const allCategoryIds = useMemo(() => {
+    const ids = includedViews.flatMap((v) => v.categoryIds ?? []);
+    return ids.length > 0 ? [...new Set(ids)] : null;
+  }, [includedViews]);
   const effectiveViewId = isAllView ? ALL_VIEW_ID : (activeView?.id ?? null);
   const tagIds = useMemo(
     () => (isAllView ? allTagIds : (activeView?.tagIds ?? [])),
     [isAllView, allTagIds, activeView?.tagIds]
   );
-  const viewCategoryIds = isAllView ? null : (activeView?.categoryIds ?? null);
-
-  const { data: transactions = [], isLoading: transactionsLoading } = useRefundsTransactionsQuery(
-    tagIds,
+  const viewCategoryIds = isAllView ? allCategoryIds : (activeView?.categoryIds ?? null);
+  const singleViewQuery = useRefundsTransactionsQuery(
+    isAllView ? [] : (activeView?.tagIds ?? []),
     dateRange.startDate,
     dateRange.endDate,
-    viewCategoryIds
+    isAllView ? null : (activeView?.categoryIds ?? null)
   );
+  const allViewQuery = useRefundsAllViewsTransactionsQuery(
+    includedViews,
+    dateRange.startDate,
+    dateRange.endDate,
+    isAllView
+  );
+  const transactions = isAllView ? allViewQuery.data : (singleViewQuery.data ?? []);
+  const transactionsLoading = isAllView ? allViewQuery.isLoading : singleViewQuery.isLoading;
   const viewActions = useRefundsViewActions({
     views,
     effectiveViewId,

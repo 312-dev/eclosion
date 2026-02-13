@@ -1,8 +1,4 @@
-/**
- * Refunds Queries
- *
- * React Query hooks for the Refunds feature.
- */
+/** React Query hooks for the Refunds feature. */
 
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useDemo } from '../../context/DemoContext';
