@@ -423,12 +423,9 @@ body {
 }
 
 /* Prevent page scrolling for app layout (app has internal scroll containers).
-   Marketing pages need normal page scrolling, so only apply when app is present.
-   Mobile uses natural page scrolling (header is static, scroll-area is visible). */
-@media (min-width: 641px) {
-  html:has(.app-layout) {
-    overflow: hidden;
-  }
+   Marketing pages need normal page scrolling, so only apply when app is present. */
+html:has(.app-layout) {
+  overflow: hidden;
 }
 
 body {
@@ -693,16 +690,7 @@ input[type='radio'] {
   -webkit-app-region: drag;
 }
 
-/* Mobile: non-fixed header scrolls with content */
-@media (max-width: 640px) {
-  .app-header {
-    position: static;
-  }
-
-  .app-scroll-area {
-    overflow-y: visible;
-  }
-}
+/* Header is position: fixed at all sizes */
 
 /* Disable drag on interactive elements within header */
 .app-header a,
@@ -864,14 +852,7 @@ input[type='radio'] {
   flex-direction: column;
 }
 
-/* Mobile: no padding-top needed since header is not fixed.
-   Use auto height so the whole page scrolls naturally. */
-@media (max-width: 640px) {
-  .app-layout {
-    padding-top: 0;
-    height: auto;
-  }
-}
+/* Mobile ≤640px: keep fixed header + contained scrolling (same as larger breakpoints) */
 
 /* Header banners - automatically adjust padding based on number of visible banners.
    Uses adjacent sibling selectors to count how many .header-banner elements are rendered.
@@ -904,12 +885,7 @@ input[type='radio'] {
   padding-top: calc(var(--header-height) + var(--banner-height) * 5);
 }
 
-/* Mobile: override banner padding-top rules since header is not fixed */
-@media (max-width: 640px) {
-  .app-layout:has(.app-header .header-banner) {
-    padding-top: 0;
-  }
-}
+/* Mobile ≤640px: header is now fixed, so banner padding-top rules apply naturally */
 
 /* Desktop only: Adjust sidebar max-height when banners are visible.
    Mobile nav is position:fixed at bottom, so it doesn't need max-height adjustments. */
@@ -1376,19 +1352,37 @@ input[type='radio'] {
 /* Mobile: Sidebar becomes bottom nav */
 @media (max-width: 767px) {
   :root {
-    /* Reduce modal height to not overlap bottom nav (4.5rem nav + buffer) */
-    --modal-max-height: calc(100vh - 7rem);
+    /* Reduce modal height to not overlap bottom nav */
+    --modal-max-height: calc(100vh - 8rem);
   }
 
   .app-layout {
     --footer-height: 0px; /* Footer hidden on mobile */
+    /* Extra 0.5rem buffer keeps scrollbar above the bottom nav's box-shadow */
+    --bottom-nav-height: calc(4.25rem + env(safe-area-inset-bottom, 0px));
+    padding-bottom: var(--bottom-nav-height);
   }
 
   .app-scroll-area {
-    scrollbar-gutter: auto;
-    padding-bottom: calc(
-      5.5rem + env(safe-area-inset-bottom, 0px)
-    ); /* Space for mobile bottom nav + gesture bar */
+    scrollbar-gutter: stable;
+    /* Fade gradient at bottom edge above the bottom nav */
+    position: relative;
+  }
+
+  .app-scroll-area::after {
+    content: '';
+    position: sticky;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 16px;
+    margin-top: -16px; /* Overlay content, don't add extra scroll space */
+    display: block;
+    pointer-events: none;
+    background: linear-gradient(to bottom, transparent, var(--monarch-bg-page));
+    /* Keep clear of scrollbar track */
+    margin-right: 8px;
+    z-index: 1;
   }
 
   .app-body {
@@ -1399,12 +1393,12 @@ input[type='radio'] {
     order: 1;
     width: 100%;
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
-    justify-items: center;
-    align-items: center;
+    grid-template-columns: repeat(6, 1fr);
+    justify-items: stretch;
+    align-items: stretch;
     height: auto;
-    padding: 0.375rem 0;
-    padding-bottom: calc(0.375rem + env(safe-area-inset-bottom, 0px));
+    padding: 0;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
     position: fixed;
     top: auto; /* Reset desktop sticky top positioning */
     bottom: 0;
@@ -1446,6 +1440,10 @@ input[type='radio'] {
     display: contents; /* Flatten items into parent nav for even distribution */
   }
 
+  .sidebar-nav-list li {
+    display: contents; /* Flatten li so <a> becomes the direct grid item */
+  }
+
   .sidebar-nav-mobile-separator {
     display: none;
   }
@@ -1456,11 +1454,12 @@ input[type='radio'] {
 
   .sidebar-nav-item {
     flex-direction: column;
-    gap: 0;
-    padding: 0.375rem 0.625rem;
-    border-radius: 0.5rem;
+    justify-content: center;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.625rem 0;
+    border-radius: 0;
     flex-shrink: 0;
-    scroll-margin-inline: 24px; /* Account for vignette fade on edges */
   }
 
   .sidebar-nav-item:hover {
@@ -1483,7 +1482,16 @@ input[type='radio'] {
   }
 
   .sidebar-nav-label {
-    display: none;
+    display: block;
+    font-size: 0.6875rem;
+    line-height: 1;
+    font-weight: 500;
+    color: var(--monarch-text-muted);
+    text-align: center;
+  }
+
+  .sidebar-nav-item-active .sidebar-nav-label {
+    color: var(--monarch-text-dark);
   }
 
   .sidebar-desktop-only {
@@ -1502,7 +1510,7 @@ input[type='radio'] {
     display: none !important;
   }
 
-  /* Mobile: badge on icon, not inline — smaller to fit compact nav */
+  /* Mobile: badge on icon, not inline — tucked into top-right corner */
   .sidebar-nav-badge-mobile {
     display: flex;
     min-width: 0.875rem;
@@ -1510,8 +1518,8 @@ input[type='radio'] {
     padding-inline: 0.2rem;
     font-size: 0.5rem;
     line-height: 1;
-    top: -10px;
-    right: -12px;
+    top: -4px;
+    right: -10px;
   }
 
   .sidebar-nav-badge-desktop {
@@ -1583,11 +1591,7 @@ input[type='radio'] {
   z-index: var(--z-index-popover);
 }
 
-@media (max-width: 640px) {
-  .stats-mobile-header {
-    top: 0;
-  }
-}
+/* Header is now fixed at all sizes, so stats-mobile-header uses --header-height everywhere */
 
 /* Mobile Responsive */
 @media (max-width: 1023px) {
