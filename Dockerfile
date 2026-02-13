@@ -27,7 +27,7 @@ RUN npm run build
 # Stage 2: Build Python dependencies
 # Use Chainguard's dev image which includes pip and build tools
 # Pin to digest for reproducible builds (Dependabot will update this)
-FROM cgr.dev/chainguard/python:latest-dev@sha256:acc653950174f718ca4f3fd65161cd4d8e963b708a351b5f32ff1e3b37ec6523 AS python-builder
+FROM cgr.dev/chainguard/python:latest-dev@sha256:16ef9480a72a9e1f422ade7c60c7d4d4a3ef258b676ecd223ae137972c3520fc AS python-builder
 
 WORKDIR /app
 
@@ -46,7 +46,7 @@ RUN python -m venv /app/venv && \
 # Stage 3: Runtime with minimal Chainguard image
 # This image has 0-5 CVEs typically vs 800+ in python:3.12-slim
 # Pin to digest for reproducible builds (Dependabot will update this)
-FROM cgr.dev/chainguard/python:latest@sha256:215e0f214dc7f761932129115eb7d0dc17a3045e4eab4ff4a562334df5d2b709
+FROM cgr.dev/chainguard/python:latest@sha256:90d81f1d75d9042571a6776b89763678f77fae44e399baf823466091bd494b02
 
 # Re-declare build args for this stage
 ARG BUILD_TIME=unknown
