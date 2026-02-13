@@ -23,6 +23,7 @@ function computeTally(
   let totalAmount = 0;
   let matchedAmount = 0;
   let expectedAmount = 0;
+  let unmatchedAmount = 0;
   let matchedCount = 0;
   let expectedCount = 0;
   let skippedCount = 0;
@@ -32,6 +33,7 @@ function computeTally(
     const match = matchMap.get(txn.id);
     if (!match) {
       totalAmount += Math.abs(txn.amount);
+      unmatchedAmount += Math.abs(txn.amount);
       unmatchedCount++;
       continue;
     }
@@ -54,7 +56,7 @@ function computeTally(
     totalAmount,
     matchedAmount,
     expectedAmount,
-    remainingAmount: Math.max(0, totalAmount - matchedAmount - expectedAmount),
+    remainingAmount: unmatchedAmount,
     matchedCount,
     expectedCount,
     skippedCount,

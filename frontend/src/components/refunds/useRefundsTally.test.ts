@@ -81,7 +81,7 @@ describe('useRefundsTally', () => {
 
     expect(result.current.matchedCount).toBe(1);
     expect(result.current.matchedAmount).toBe(80);
-    expect(result.current.remainingAmount).toBe(70); // 150 - 80
+    expect(result.current.remainingAmount).toBe(50); // only unmatched txn b
     expect(result.current.unmatchedCount).toBe(1);
   });
 
@@ -103,7 +103,7 @@ describe('useRefundsTally', () => {
     expect(result.current.unmatchedCount).toBe(1);
     expect(result.current.totalAmount).toBe(125); // excludes skipped $50
     expect(result.current.matchedAmount).toBe(100);
-    expect(result.current.remainingAmount).toBe(25); // 125 - 100
+    expect(result.current.remainingAmount).toBe(25); // only unmatched txn c
   });
 
   it('uses absolute values for negative transaction amounts', () => {
@@ -122,7 +122,7 @@ describe('useRefundsTally', () => {
 
     expect(result.current.matchedCount).toBe(1);
     expect(result.current.matchedAmount).toBe(0);
-    expect(result.current.remainingAmount).toBe(100);
+    expect(result.current.remainingAmount).toBe(0); // txn is matched (even with $0 refund)
   });
 
   it('ignores matches that do not correspond to any transaction', () => {
@@ -161,7 +161,7 @@ describe('useRefundsTally', () => {
     expect(result.current.matchedAmount).toBe(100);
     expect(result.current.expectedAmount).toBe(50);
     expect(result.current.totalAmount).toBe(175); // all 3 included (expected not excluded)
-    expect(result.current.remainingAmount).toBe(25); // 175 - 100 - 50
+    expect(result.current.remainingAmount).toBe(25); // only unmatched txn c
   });
 
   it('de-duplicates matched amount when multiple purchases share the same refund', () => {
@@ -190,7 +190,7 @@ describe('useRefundsTally', () => {
     expect(result.current.matchedCount).toBe(2);
     expect(result.current.matchedAmount).toBe(200); // counted once, not 400
     expect(result.current.totalAmount).toBe(180); // 80 + 60 + 40
-    expect(result.current.remainingAmount).toBe(0); // capped: refund exceeds originals
+    expect(result.current.remainingAmount).toBe(40); // only unmatched txn c
     expect(result.current.unmatchedCount).toBe(1);
   });
 
