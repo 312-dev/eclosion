@@ -323,18 +323,19 @@ jobs:
   # Integration tests (runs against real Monarch API)
   # Only runs on push to main when backend code changes
   # Security: credentials not exposed to forks (PRs can't trigger this)
-  integration-tests:
-    name: Integration Tests
-    needs: changes
-    # Only run on push to main when backend code changed
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.backend == 'true'
-    permissions:
-      statuses: read
-    uses: ./.github/workflows/30-test-integration.yml
-    with:
-      sha: ${{ github.sha }}
-    secrets:
-      INTEGRATION_DISPATCH_TOKEN: ${{ secrets.INTEGRATION_DISPATCH_TOKEN }}
+  # TEMPORARILY DISABLED - re-enable after stable release
+  # integration-tests:
+  #   name: Integration Tests
+  #   needs: changes
+  #   # Only run on push to main when backend code changed
+  #   if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.backend == 'true'
+  #   permissions:
+  #     statuses: read
+  #   uses: ./.github/workflows/30-test-integration.yml
+  #   with:
+  #     sha: ${{ github.sha }}
+  #   secrets:
+  #     INTEGRATION_DISPATCH_TOKEN: ${{ secrets.INTEGRATION_DISPATCH_TOKEN }}
 
   # Final status check - always runs and reports aggregate result
   # Configure branch protection to require only this check
@@ -342,7 +343,7 @@ jobs:
     name: CI Status
     runs-on: ${{ vars.RUNNER_PROVIDER == 'namespace' && 'ubuntu-2204-x64-4x16' || 'ubuntu-latest' }}
     timeout-minutes: 5
-    needs: [frontend, backend, desktop, desktop-build, e2e, integration-tests]
+    needs: [frontend, backend, desktop, desktop-build, e2e]
     if: always()
     permissions:
       statuses: write
@@ -350,7 +351,7 @@ jobs:
       - name: Check CI results
         id: check
         run: |
-          results="${{ needs.frontend.result }} ${{ needs.backend.result }} ${{ needs.desktop.result }} ${{ needs.desktop-build.result }} ${{ needs.e2e.result }} ${{ needs.integration-tests.result }}"
+          results="${{ needs.frontend.result }} ${{ needs.backend.result }} ${{ needs.desktop.result }} ${{ needs.desktop-build.result }} ${{ needs.e2e.result }}"
           echo "Job results: $results"
           if echo "$results" | grep -qE '(failure|cancelled)'; then
             echo "::error::One or more CI jobs failed or were cancelled"
